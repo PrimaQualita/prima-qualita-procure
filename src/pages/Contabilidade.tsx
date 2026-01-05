@@ -122,10 +122,14 @@ export default function Contabilidade() {
 
       console.log("📋 [Contabilidade] Encaminhamentos carregados:", encaminhamentosData?.length || 0);
 
+      // Separar encaminhamentos de cotações e seleções
+      const encaminhamentosCotacao = encaminhamentosData?.filter(e => e.cotacao_id) || [];
+      const encaminhamentosSelecao = encaminhamentosData?.filter(e => e.selecao_id) || [];
+
       // Buscar cotações para obter o contrato_gestao_id através do processo
-      const cotacaoIds = [...new Set(encaminhamentosData?.map(e => e.cotacao_id) || [])];
+      const cotacaoIds = [...new Set(encaminhamentosCotacao.map(e => e.cotacao_id))];
       
-      let processosMap: Record<string, string> = {};
+      let processosMapCotacao: Record<string, string> = {};
       
       if (cotacaoIds.length > 0) {
         const { data: cotacoesData, error: cotacoesError } = await supabase
@@ -140,7 +144,30 @@ export default function Contabilidade() {
 
         if (!cotacoesError && cotacoesData) {
           cotacoesData.forEach((c: any) => {
-            processosMap[c.id] = c.processos_compras?.contrato_gestao_id;
+            processosMapCotacao[c.id] = c.processos_compras?.contrato_gestao_id;
+          });
+        }
+      }
+
+      // Buscar seleções para obter o contrato_gestao_id através do processo
+      const selecaoIds = [...new Set(encaminhamentosSelecao.map(e => e.selecao_id))];
+      
+      let processosMapSelecao: Record<string, string> = {};
+      
+      if (selecaoIds.length > 0) {
+        const { data: selecoesData, error: selecoesError } = await supabase
+          .from("selecoes_fornecedores")
+          .select(`
+            id,
+            processos_compras!inner (
+              contrato_gestao_id
+            )
+          `)
+          .in("id", selecaoIds);
+
+        if (!selecoesError && selecoesData) {
+          selecoesData.forEach((s: any) => {
+            processosMapSelecao[s.id] = s.processos_compras?.contrato_gestao_id;
           });
         }
       }
@@ -148,8 +175,25 @@ export default function Contabilidade() {
       // Agrupar processos por contrato
       const processosAgrupados: Record<string, ProcessoContabilidade[]> = {};
       
-      encaminhamentosData?.forEach((encaminhamento: any) => {
-        const contratoId = processosMap[encaminhamento.cotacao_id];
+      // Adicionar encaminhamentos de cotação
+      encaminhamentosCotacao.forEach((encaminhamento: any) => {
+        const contratoId = processosMapCotacao[encaminhamento.cotacao_id];
+        
+        if (contratoId) {
+          if (!processosAgrupados[contratoId]) {
+            processosAgrupados[contratoId] = [];
+          }
+          
+          processosAgrupados[contratoId].push({
+            ...encaminhamento,
+            contrato_gestao_id: contratoId
+          });
+        }
+      });
+
+      // Adicionar encaminhamentos de seleção
+      encaminhamentosSelecao.forEach((encaminhamento: any) => {
+        const contratoId = processosMapSelecao[encaminhamento.selecao_id];
         
         if (contratoId) {
           if (!processosAgrupados[contratoId]) {

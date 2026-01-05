@@ -27,6 +27,7 @@ import { DialogEnviarAtaAssinatura } from "@/components/selecoes/DialogEnviarAta
 import { gerarAtaSelecaoPDF, atualizarAtaComAssinaturas } from "@/lib/gerarAtaSelecaoPDF";
 import { gerarHomologacaoSelecaoPDF } from "@/lib/gerarHomologacaoSelecaoPDF";
 import { gerarProcessoCompletoSelecaoPDF } from "@/lib/gerarProcessoCompletoSelecaoPDF";
+import { gerarEncaminhamentoContabilidadePDF, gerarProtocoloContabilidade } from "@/lib/gerarEncaminhamentoContabilidadePDF";
 
 interface Item {
   id: string;
@@ -97,6 +98,11 @@ const [itens, setItens] = useState<Item[]>([]);
   // Estado para Processo Completo
   const [gerandoProcessoCompleto, setGerandoProcessoCompleto] = useState(false);
   const [processoCompletoSalvo, setProcessoCompletoSalvo] = useState<any>(null);
+
+  // Estados para Encaminhamento Contabilidade
+  const [encaminhamentosContabilidade, setEncaminhamentosContabilidade] = useState<any[]>([]);
+  const [gerandoEncaminhamentoContab, setGerandoEncaminhamentoContab] = useState(false);
+  const [confirmDeleteEncContab, setConfirmDeleteEncContab] = useState<any>(null);
 
   useEffect(() => {
     if (selecaoId) {
@@ -233,6 +239,9 @@ const [itens, setItens] = useState<Item[]>([]);
       
       // Carregar processo completo salvo
       await loadProcessoCompleto(selecaoData.processo_compra_id);
+      
+      // Carregar encaminhamentos contabilidade
+      await loadEncaminhamentosContabilidade();
 
     } catch (error) {
       console.error("Erro ao carregar seleção:", error);
@@ -546,6 +555,160 @@ const [itens, setItens] = useState<Item[]>([]);
       setHomologacoesGeradas(data || []);
     } catch (error) {
       console.error("Erro ao carregar homologações:", error);
+    }
+  };
+
+  // ========== FUNÇÕES DE ENCAMINHAMENTO CONTABILIDADE ==========
+  const loadEncaminhamentosContabilidade = async () => {
+    if (!selecaoId) return;
+    try {
+      const { data, error } = await supabase
+        .from("encaminhamentos_contabilidade")
+        .select("*")
+        .eq("selecao_id", selecaoId)
+        .order("data_geracao", { ascending: false });
+
+      if (error) throw error;
+      setEncaminhamentosContabilidade(data || []);
+    } catch (error) {
+      console.error("Erro ao carregar encaminhamentos contabilidade:", error);
+    }
+  };
+
+  const buscarVencedoresSelecao = async (): Promise<{ razaoSocial: string; cnpj: string }[]> => {
+    if (!selecaoId) return [];
+    
+    // Buscar lances vencedores
+    const { data: lances, error } = await supabase
+      .from("lances_fornecedores")
+      .select("fornecedor_id, indicativo_lance_vencedor, fornecedores(razao_social, cnpj)")
+      .eq("selecao_id", selecaoId)
+      .eq("indicativo_lance_vencedor", true);
+
+    if (error || !lances) return [];
+
+    // Agrupar por fornecedor único
+    const fornecedoresMap = new Map<string, { razaoSocial: string; cnpj: string }>();
+    lances.forEach((lance: any) => {
+      if (lance.fornecedores) {
+        fornecedoresMap.set(lance.fornecedor_id, {
+          razaoSocial: lance.fornecedores.razao_social,
+          cnpj: lance.fornecedores.cnpj || ""
+        });
+      }
+    });
+
+    return Array.from(fornecedoresMap.values());
+  };
+
+  const gerarEncaminhamentoContabilidade = async () => {
+    if (!selecaoId || !processo) return;
+    
+    setGerandoEncaminhamentoContab(true);
+    try {
+      // Buscar dados do usuário
+      const { data: { user } } = await supabase.auth.getUser();
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("nome_completo")
+        .eq("id", user?.id)
+        .single();
+
+      // Buscar fornecedores vencedores
+      const fornecedoresVencedores = await buscarVencedoresSelecao();
+      
+      if (fornecedoresVencedores.length === 0) {
+        toast.error("Nenhum fornecedor vencedor encontrado");
+        return;
+      }
+
+      const protocolo = gerarProtocoloContabilidade();
+      const resultado = await gerarEncaminhamentoContabilidadePDF({
+        numeroProcesso: processo.numero_processo_interno,
+        objetoProcesso: processo.objeto_resumido,
+        fornecedoresVencedores,
+        usuarioNome: profile?.nome_completo || "Usuário",
+        protocolo
+      });
+
+      // Salvar no banco
+      const { error: insertError } = await supabase
+        .from("encaminhamentos_contabilidade")
+        .insert({
+          selecao_id: selecaoId,
+          processo_numero: processo.numero_processo_interno,
+          objeto_processo: processo.objeto_resumido,
+          fornecedores_vencedores: fornecedoresVencedores,
+          protocolo,
+          url_arquivo: resultado.url,
+          nome_arquivo: resultado.fileName,
+          storage_path: resultado.storagePath,
+          usuario_gerador_id: user?.id,
+          usuario_gerador_nome: profile?.nome_completo || "Usuário"
+        });
+
+      if (insertError) throw insertError;
+
+      toast.success("Encaminhamento para Contabilidade gerado!");
+      await loadEncaminhamentosContabilidade();
+    } catch (error: any) {
+      console.error("Erro ao gerar encaminhamento:", error);
+      toast.error("Erro ao gerar encaminhamento");
+    } finally {
+      setGerandoEncaminhamentoContab(false);
+    }
+  };
+
+  const enviarParaContabilidade = async (encaminhamentoId: string) => {
+    try {
+      const { error } = await supabase
+        .from("encaminhamentos_contabilidade")
+        .update({
+          enviado_contabilidade: true,
+          data_envio_contabilidade: new Date().toISOString()
+        })
+        .eq("id", encaminhamentoId);
+
+      if (error) throw error;
+
+      toast.success("Enviado à Contabilidade!");
+      await loadEncaminhamentosContabilidade();
+    } catch (error) {
+      console.error("Erro ao enviar:", error);
+      toast.error("Erro ao enviar");
+    }
+  };
+
+  const deletarEncaminhamentoContabilidade = async () => {
+    if (!confirmDeleteEncContab) return;
+    try {
+      // Deletar arquivo do storage
+      let filePath = confirmDeleteEncContab.storage_path || confirmDeleteEncContab.url_arquivo;
+      if (filePath.includes("https://")) {
+        const urlParts = filePath.split("/processo-anexos/");
+        filePath = urlParts[1] || filePath;
+      }
+      await supabase.storage.from("processo-anexos").remove([filePath]);
+
+      // Deletar resposta se existir
+      if (confirmDeleteEncContab.url_resposta_pdf || confirmDeleteEncContab.storage_path_resposta) {
+        let respostaPath = confirmDeleteEncContab.storage_path_resposta || confirmDeleteEncContab.url_resposta_pdf;
+        if (respostaPath.includes("https://")) {
+          const urlParts = respostaPath.split("/processo-anexos/");
+          respostaPath = urlParts[1] || respostaPath;
+        }
+        await supabase.storage.from("processo-anexos").remove([respostaPath]);
+      }
+
+      // Deletar registro do banco
+      await supabase.from("encaminhamentos_contabilidade").delete().eq("id", confirmDeleteEncContab.id);
+      
+      toast.success("Encaminhamento excluído");
+      setConfirmDeleteEncContab(null);
+      await loadEncaminhamentosContabilidade();
+    } catch (error) {
+      console.error("Erro ao excluir:", error);
+      toast.error("Erro ao excluir");
     }
   };
 
@@ -1116,6 +1279,214 @@ const [itens, setItens] = useState<Item[]>([]);
             Ver Propostas Realinhadas
           </Button>
 
+          {/* Encaminhamento para Contabilidade */}
+          {atasGeradas.some(ata => ata.enviada_fornecedores) && (
+            <Card className="mt-4">
+              <CardHeader className="py-3">
+                <CardTitle className="text-base flex items-center gap-2">
+                  <FileText className="h-5 w-5" />
+                  Encaminhamento para Contabilidade
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="py-2">
+                <div className="space-y-3">
+                  {/* Botão Gerar */}
+                  <Button
+                    onClick={gerarEncaminhamentoContabilidade}
+                    disabled={gerandoEncaminhamentoContab}
+                    className="w-full"
+                  >
+                    <FileText className="h-4 w-4 mr-2" />
+                    {gerandoEncaminhamentoContab ? "Gerando..." : "Gerar Encaminhamento para Contabilidade"}
+                  </Button>
+
+                  {/* Lista de Encaminhamentos */}
+                  {encaminhamentosContabilidade.length > 0 && (
+                    <div className="flex flex-col gap-2 mt-2">
+                      {encaminhamentosContabilidade.map((enc) => (
+                        <div key={enc.id} className="flex flex-col gap-2">
+                          <div className="flex items-center gap-2 p-3 bg-muted/50 rounded-lg">
+                            <div className="flex-1">
+                              <p className="font-medium text-sm">Protocolo: {enc.protocolo}</p>
+                              <p className="text-xs text-muted-foreground">
+                                {new Date(enc.data_geracao).toLocaleString("pt-BR")}
+                              </p>
+                              <div className="flex gap-1 mt-1 flex-wrap">
+                                {enc.enviado_contabilidade && (
+                                  <Badge variant="default">Enviado à Contabilidade</Badge>
+                                )}
+                                {enc.respondido_contabilidade && (
+                                  <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
+                                    Respondido
+                                  </Badge>
+                                )}
+                              </div>
+                            </div>
+                            <div className="flex items-center gap-1">
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                onClick={async () => {
+                                  try {
+                                    let filePath = enc.storage_path || enc.url_arquivo;
+                                    if (filePath.includes("https://")) {
+                                      const urlParts = filePath.split("/processo-anexos/");
+                                      filePath = urlParts[1] || filePath;
+                                    }
+                                    const { data, error } = await supabase.storage
+                                      .from("processo-anexos")
+                                      .createSignedUrl(filePath, 3600);
+                                    if (error) throw error;
+                                    if (data?.signedUrl) window.open(data.signedUrl, "_blank");
+                                  } catch (error) {
+                                    console.error("Erro:", error);
+                                    toast.error("Erro ao visualizar");
+                                  }
+                                }}
+                                title="Ver Encaminhamento"
+                              >
+                                <Eye className="h-4 w-4" />
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                onClick={async () => {
+                                  try {
+                                    let filePath = enc.storage_path || enc.url_arquivo;
+                                    if (filePath.includes("https://")) {
+                                      const urlParts = filePath.split("/processo-anexos/");
+                                      filePath = urlParts[1] || filePath;
+                                    }
+                                    const { data, error } = await supabase.storage
+                                      .from("processo-anexos")
+                                      .download(filePath);
+                                    if (error) throw error;
+                                    if (data) {
+                                      const url = URL.createObjectURL(data);
+                                      const a = document.createElement("a");
+                                      a.href = url;
+                                      a.download = enc.nome_arquivo;
+                                      document.body.appendChild(a);
+                                      a.click();
+                                      document.body.removeChild(a);
+                                      URL.revokeObjectURL(url);
+                                    }
+                                  } catch (error) {
+                                    console.error("Erro:", error);
+                                    toast.error("Erro ao baixar");
+                                  }
+                                }}
+                                title="Baixar"
+                              >
+                                <Download className="h-4 w-4" />
+                              </Button>
+                              {!enc.enviado_contabilidade && (
+                                <Button
+                                  size="sm"
+                                  variant="default"
+                                  onClick={() => enviarParaContabilidade(enc.id)}
+                                  title="Enviar à Contabilidade"
+                                >
+                                  <Send className="h-4 w-4 mr-1" />
+                                  Enviar
+                                </Button>
+                              )}
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                className="text-destructive hover:text-destructive hover:bg-destructive/10"
+                                onClick={() => setConfirmDeleteEncContab(enc)}
+                                title="Excluir"
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            </div>
+                          </div>
+
+                          {/* Resposta da Contabilidade */}
+                          {enc.respondido_contabilidade && enc.url_resposta_pdf && (
+                            <div className="flex items-center gap-2 p-2 bg-green-50 border border-green-200 rounded-md ml-4">
+                              <div className="flex-1 text-sm">
+                                <div className="font-medium text-green-700">📄 Resposta da Contabilidade</div>
+                                <div className="text-green-600 text-xs">
+                                  Protocolo: {enc.protocolo_resposta}
+                                </div>
+                                {enc.data_resposta_contabilidade && (
+                                  <div className="text-green-600 text-xs">
+                                    {new Date(enc.data_resposta_contabilidade).toLocaleString("pt-BR")}
+                                  </div>
+                                )}
+                              </div>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={async () => {
+                                  try {
+                                    let filePath = enc.storage_path_resposta || enc.url_resposta_pdf;
+                                    if (filePath.includes("https://")) {
+                                      const urlParts = filePath.split("/processo-anexos/");
+                                      filePath = urlParts[1] || filePath;
+                                    }
+                                    const { data, error } = await supabase.storage
+                                      .from("processo-anexos")
+                                      .createSignedUrl(filePath, 3600);
+                                    if (error) throw error;
+                                    if (data?.signedUrl) window.open(data.signedUrl, "_blank");
+                                  } catch (error) {
+                                    console.error("Erro:", error);
+                                    toast.error("Erro ao visualizar resposta");
+                                  }
+                                }}
+                                className="border-green-300 hover:bg-green-100"
+                                title="Ver Resposta"
+                              >
+                                <Eye className="h-4 w-4 text-green-700" />
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={async () => {
+                                  try {
+                                    let filePath = enc.storage_path_resposta || enc.url_resposta_pdf;
+                                    if (filePath.includes("https://")) {
+                                      const urlParts = filePath.split("/processo-anexos/");
+                                      filePath = urlParts[1] || filePath;
+                                    }
+                                    const { data, error } = await supabase.storage
+                                      .from("processo-anexos")
+                                      .download(filePath);
+                                    if (error) throw error;
+                                    if (data) {
+                                      const url = URL.createObjectURL(data);
+                                      const a = document.createElement("a");
+                                      a.href = url;
+                                      a.download = `resposta_contabilidade_${enc.protocolo_resposta}.pdf`;
+                                      document.body.appendChild(a);
+                                      a.click();
+                                      document.body.removeChild(a);
+                                      URL.revokeObjectURL(url);
+                                    }
+                                  } catch (error) {
+                                    console.error("Erro:", error);
+                                    toast.error("Erro ao baixar resposta");
+                                  }
+                                }}
+                                className="border-green-300 hover:bg-green-100"
+                                title="Baixar Resposta"
+                              >
+                                <Download className="h-4 w-4 text-green-700" />
+                              </Button>
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
           {/* Gerar Homologação - APENAS para Responsável Legal */}
           {(() => {
             console.log("🎨 RENDER - isResponsavelLegal:", isResponsavelLegal);
@@ -1629,6 +2000,30 @@ const [itens, setItens] = useState<Item[]>([]);
               }}
             >
               Sim
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Confirmação de exclusão de Encaminhamento Contabilidade */}
+      <AlertDialog open={!!confirmDeleteEncContab} onOpenChange={(open) => !open && setConfirmDeleteEncContab(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Confirmar Exclusão</AlertDialogTitle>
+            <AlertDialogDescription>
+              Tem certeza que deseja excluir este encaminhamento para contabilidade?
+              {confirmDeleteEncContab?.protocolo && (
+                <span className="block mt-2 font-medium">Protocolo: {confirmDeleteEncContab.protocolo}</span>
+              )}
+              {confirmDeleteEncContab?.respondido_contabilidade && (
+                <span className="block mt-2 text-amber-600">⚠️ A resposta da contabilidade também será excluída.</span>
+              )}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => setConfirmDeleteEncContab(null)}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={deletarEncaminhamentoContabilidade} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              Excluir
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
