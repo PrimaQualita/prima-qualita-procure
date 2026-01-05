@@ -2245,20 +2245,30 @@ export function DialogSessaoLances({
           ? elemento.descricao.replace(/^Lote\s*\d+\s*[-–:]\s*/i, '')
           : elemento.descricao;
         
+        // Para critério global, retornar colunas diferentes (sem vencedor, valor unit, valor total)
+        if (isGlobalLocal) {
+          return [
+            identificador,
+            descricaoLimpaResumo,
+            elemento.unidade || "UN",
+            quantidade.toString(),
+          ];
+        }
+        
         return [
           identificador,
           descricaoLimpaResumo, // Descrição sem duplicação
           vencedor?.fornecedores?.razao_social || "Sem lances",
           marca,
-          (elemento.isLote || isGlobalItem) ? "-" : quantidade.toString(),
-          (elemento.isLote || isGlobalItem) ? (isGlobalItem ? "GLOBAL" : "LOTE") : (elemento.unidade || "UN"),
+          (elemento.isLote) ? "-" : quantidade.toString(),
+          (elemento.isLote) ? "LOTE" : (elemento.unidade || "UN"),
           isNegociacao ? `${valorUnitarioFormatado} *` : valorUnitarioFormatado,
           isNegociacao ? `${valorTotalFormatado} *` : valorTotalFormatado,
         ];
       });
 
-      // Adicionar linha de valor total (apenas se não for desconto)
-      if (criterioJulgamento !== "desconto") {
+      // Adicionar linha de valor total (apenas se não for desconto e não for global)
+      if (criterioJulgamento !== "desconto" && !isGlobalLocal) {
         resumoData.push([
           "",
           "",
@@ -2286,20 +2296,42 @@ export function DialogSessaoLances({
         colunaIdentificador = "Item";
       }
       
-      const ocultarColunasMarcaQtdUn = isPorLoteLocal || isGlobalLocal;
+      const ocultarColunasMarcaQtdUn = isPorLoteLocal;
+
+      // Cabeçalho e colunas específicos para critério global
+      const headGlobal = [["Item", "Descrição", "Unidade", "Quantidade"]];
+      const headPadrao = [[
+        colunaIdentificador, 
+        "Descrição", 
+        "Vencedor", 
+        ocultarColunasMarcaQtdUn ? "-" : "Marca", 
+        ocultarColunasMarcaQtdUn ? "-" : "Qtd.", 
+        ocultarColunasMarcaQtdUn ? "-" : "Un.", 
+        criterioJulgamento === "desconto" ? "% Desconto" : "Valor Unit.", 
+        criterioJulgamento === "desconto" ? "-" : "Valor Total"
+      ]];
+
+      const columnStylesGlobal = {
+        0: { cellWidth: 20, halign: "center" as const, fontStyle: "bold" as const },
+        1: { cellWidth: 180 },
+        2: { cellWidth: 40, halign: "center" as const },
+        3: { cellWidth: 40, halign: "center" as const },
+      };
+
+      const columnStylesPadrao = {
+        0: { cellWidth: 15, halign: "center" as const, fontStyle: "bold" as const },
+        1: { cellWidth: 80 },
+        2: { cellWidth: 55 },
+        3: { cellWidth: 30, halign: "center" as const },
+        4: { cellWidth: 18, halign: "center" as const },
+        5: { cellWidth: 15, halign: "center" as const },
+        6: { cellWidth: 30, halign: "right" as const, fontStyle: "bold" as const },
+        7: { cellWidth: 30, halign: "right" as const, fontStyle: "bold" as const },
+      };
 
       autoTable(doc, {
         startY: resumoStartY,
-        head: [[
-          colunaIdentificador, 
-          "Descrição", 
-          "Vencedor", 
-          ocultarColunasMarcaQtdUn ? "-" : "Marca", 
-          ocultarColunasMarcaQtdUn ? "-" : "Qtd.", 
-          ocultarColunasMarcaQtdUn ? "-" : "Un.", 
-          criterioJulgamento === "desconto" ? "% Desconto" : "Valor Unit.", 
-          criterioJulgamento === "desconto" ? "-" : "Valor Total"
-        ]],
+        head: isGlobalLocal ? headGlobal : headPadrao,
         body: resumoData,
         theme: "striped",
         styles: { 
@@ -2315,16 +2347,7 @@ export function DialogSessaoLances({
           halign: "center",
           valign: "middle"
         },
-        columnStyles: {
-          0: { cellWidth: isGlobalLocal ? 10 : 15, halign: "center", fontStyle: "bold" },
-          1: { cellWidth: isGlobalLocal ? 120 : 80 }, // Descrição mais larga para global
-          2: { cellWidth: isGlobalLocal ? 70 : 55 },
-          3: { cellWidth: isGlobalLocal ? 15 : 30, halign: "center" }, // Marca comprimida para global
-          4: { cellWidth: isGlobalLocal ? 10 : 18, halign: "center" },
-          5: { cellWidth: isGlobalLocal ? 10 : 15, halign: "center" },
-          6: { cellWidth: isGlobalLocal ? 20 : 30, halign: "right", fontStyle: "bold" },
-          7: { cellWidth: 30, halign: "right", fontStyle: "bold" },
-        },
+        columnStyles: isGlobalLocal ? columnStylesGlobal : columnStylesPadrao,
         alternateRowStyles: {
           fillColor: [224, 242, 241] // Verde claro do logo
         },
@@ -2341,15 +2364,15 @@ export function DialogSessaoLances({
           }
         },
         didParseCell: (data) => {
-          // Destacar valores de negociação
-          if ((data.column.index === 6 || data.column.index === 7) && data.section === "body") {
+          // Destacar valores de negociação (apenas para critérios não-global)
+          if (!isGlobalLocal && (data.column.index === 6 || data.column.index === 7) && data.section === "body") {
             const cellText = String(data.cell.raw);
             if (cellText.includes("*")) {
               data.cell.styles.textColor = [0, 128, 128]; // Verde do logo
             }
           }
-          // Estilizar linha de total
-          if (data.section === "body" && data.row.index === resumoData.length - 1) {
+          // Estilizar linha de total (apenas para critérios não-global e não-desconto)
+          if (!isGlobalLocal && criterioJulgamento !== "desconto" && data.section === "body" && data.row.index === resumoData.length - 1) {
             data.cell.styles.fillColor = [0, 128, 128]; // Verde do logo
             data.cell.styles.textColor = [255, 255, 255];
             data.cell.styles.fontStyle = "bold";
@@ -2357,13 +2380,15 @@ export function DialogSessaoLances({
         },
       });
 
-      // Legenda no resumo
+      // Legenda no resumo (apenas se não for global)
       let finalY = (doc as any).lastAutoTable.finalY + 10;
-      doc.setFontSize(8);
-      doc.setFont("helvetica", "italic");
-      doc.setTextColor(0, 128, 128); // Verde do logo
-      doc.text("* Valor obtido por negociação", margin, finalY);
-      doc.setTextColor(0, 0, 0);
+      if (!isGlobalLocal) {
+        doc.setFontSize(8);
+        doc.setFont("helvetica", "italic");
+        doc.setTextColor(0, 128, 128); // Verde do logo
+        doc.text("* Valor obtido por negociação", margin, finalY);
+        doc.setTextColor(0, 0, 0);
+      }
 
       // Calcular totais por fornecedor (apenas se não for desconto)
       if (criterioJulgamento !== "desconto") {
