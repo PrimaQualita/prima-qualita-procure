@@ -390,8 +390,14 @@ serve(async (req) => {
 
     // Link em azul
     certY -= 12;
-    const siteUrl = Deno.env.get("SITE_URL") || "https://primaqualita.lovable.app";
-    const linkUrl = `${siteUrl}/verificar-documento?protocolo=${protocolo}`;
+    const siteUrlFromClient =
+      (typeof body?.site_url === "string" && body.site_url.trim()) ||
+      (typeof body?.siteUrl === "string" && body.siteUrl.trim()) ||
+      "";
+    const baseUrl = (siteUrlFromClient || Deno.env.get("SITE_URL") || "https://primaqualita.lovable.app")
+      .trim()
+      .replace(/\/+$/, "");
+    const linkUrl = `${baseUrl}/verificar-documento?protocolo=${encodeURIComponent(protocolo)}`;
     currentPage.drawText(linkUrl, {
       x: certX + 8,
       y: certY,
