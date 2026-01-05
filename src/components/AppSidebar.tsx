@@ -196,8 +196,8 @@ export function AppSidebar({
       ? [...menuContabilidade] 
       : [...menuCompleto];
 
-  // Adicionar menu Compliance se for Responsável Legal, Compliance ou Superintendente Executivo (e não for apenas gerente de contratos)
-  if (!apenasGerenteContratos && (isResponsavelLegal || isCompliance || isSuperintendenteExecutivo)) {
+  // Adicionar menu Compliance APENAS se for Compliance ou Superintendente Executivo (e não for apenas gerente de contratos)
+  if (!apenasGerenteContratos && (isCompliance || isSuperintendenteExecutivo)) {
     menuItems.push({
       title: "Compliance",
       icon: FileCheck,
