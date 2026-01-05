@@ -834,7 +834,55 @@ const SistemaLancesFornecedor = () => {
       if (error) throw error;
       
       const result = data as { success: boolean; error?: string } | null;
-      if (result && !result.success) throw new Error(result.error || 'Erro desconhecido');
+
+      if (result && !result.success) {
+        const msg = result.error || "Erro desconhecido";
+
+        // Caso idempotente: já existe intenção registrada (evitar travar a UX)
+        if (msg.toLowerCase().includes("já registrada")) {
+          toast.info("Intenção já estava registrada.");
+
+          // Atualizar estado local (SELECT pode falhar por RLS quando acesso é por código)
+          setMinhaIntencaoRecurso((prev) =>
+            prev ?? {
+              deseja_recorrer: desejaRecorrer,
+              motivo_intencao: motivo || null,
+            },
+          );
+
+          if (desejaRecorrer) {
+            setDialogIntencaoRecurso(false);
+            setMotivoIntencao("");
+
+            // Se fornecedor foi inabilitado, garantir recurso criado
+            if (minhaInabilitacao) {
+              const dataLimite = calcularProximoDiaUtil(new Date(), 1);
+              const { error: recursoError } = await supabase.rpc("criar_recurso_inabilitacao_por_codigo", {
+                p_selecao_id: selecao.id,
+                p_codigo_acesso: proposta.codigo_acesso,
+                p_inabilitacao_id: minhaInabilitacao.id,
+                p_data_limite: dataLimite.toISOString(),
+              });
+
+              if (recursoError) {
+                console.error("Erro ao criar recurso (idempotente):", recursoError);
+              }
+
+              loadMinhaInabilitacao();
+            }
+          }
+
+          return;
+        }
+
+        throw new Error(msg);
+      }
+
+      // Atualizar estado local imediatamente (evita depender de SELECT bloqueado por RLS)
+      setMinhaIntencaoRecurso({
+        deseja_recorrer: desejaRecorrer,
+        motivo_intencao: motivo || null,
+      });
 
       if (desejaRecorrer) {
         toast.success("Intenção de recorrer registrada com sucesso!");
@@ -859,7 +907,8 @@ const SistemaLancesFornecedor = () => {
       loadMinhaIntencaoRecurso();
     } catch (error) {
       console.error("Erro ao registrar intenção de recurso:", error);
-      toast.error("Erro ao registrar intenção");
+      const message = error instanceof Error ? error.message : "Erro ao registrar intenção";
+      toast.error(message);
     } finally {
       setEnviandoIntencao(false);
     }
