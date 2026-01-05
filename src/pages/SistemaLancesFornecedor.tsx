@@ -17,6 +17,16 @@ import {
   DialogDescription,
   DialogFooter,
 } from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { ChatNegociacao } from "@/components/selecoes/ChatNegociacao";
 import { toast } from "sonner";
 import { format } from "date-fns";
@@ -77,6 +87,7 @@ const SistemaLancesFornecedor = () => {
   const [enviandoRecurso, setEnviandoRecurso] = useState(false);
   const [tempoRestanteRecurso, setTempoRestanteRecurso] = useState<number | null>(null);
   const [excluindoRecurso, setExcluindoRecurso] = useState(false);
+  const [confirmExcluirRecurso, setConfirmExcluirRecurso] = useState(false);
   
   // Estados para intenção de recurso (janela de 5 minutos)
   const [habilitacaoEncerrada, setHabilitacaoEncerrada] = useState(false);
@@ -1037,6 +1048,7 @@ const SistemaLancesFornecedor = () => {
     
     try {
       setExcluindoRecurso(true);
+      setConfirmExcluirRecurso(false);
       
       // Extrair path do storage
       const urlParts = meuRecurso.url_pdf_recurso.split("/storage/v1/object/public/");
@@ -1049,7 +1061,7 @@ const SistemaLancesFornecedor = () => {
         await supabase.storage.from(bucket).remove([filePath]);
       }
       
-      // Atualizar registro removendo o PDF
+      // Atualizar registro removendo o PDF (motivo_recurso volta para string vazia, não null)
       const { error } = await supabase
         .from("recursos_inabilitacao_selecao")
         .update({
@@ -1058,7 +1070,7 @@ const SistemaLancesFornecedor = () => {
           protocolo_recurso: null,
           status_recurso: "aguardando_envio",
           data_envio_recurso: null,
-          motivo_recurso: null,
+          motivo_recurso: "",
         })
         .eq("id", meuRecurso.id);
       
@@ -1072,7 +1084,7 @@ const SistemaLancesFornecedor = () => {
         protocolo_recurso: null,
         status_recurso: "aguardando_envio",
         data_envio_recurso: null,
-        motivo_recurso: null,
+        motivo_recurso: "",
       } : null);
       
       toast.success("Recurso excluído com sucesso!");
@@ -2745,7 +2757,7 @@ const SistemaLancesFornecedor = () => {
                       <Button
                         variant="destructive"
                         size="sm"
-                        onClick={handleExcluirRecurso}
+                        onClick={() => setConfirmExcluirRecurso(true)}
                         disabled={excluindoRecurso}
                       >
                         <Trash2 className="mr-2 h-4 w-4" />
@@ -3516,6 +3528,27 @@ const SistemaLancesFornecedor = () => {
           </CardContent>
         </Card>
       </div>
+      
+      {/* Dialog de confirmação de exclusão de recurso */}
+      <AlertDialog open={confirmExcluirRecurso} onOpenChange={setConfirmExcluirRecurso}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Excluir Recurso</AlertDialogTitle>
+            <AlertDialogDescription>
+              Tem certeza que deseja excluir este recurso? Esta ação não pode ser desfeita e você poderá enviar um novo recurso dentro do prazo disponível.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={handleExcluirRecurso}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Excluir Recurso
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };
