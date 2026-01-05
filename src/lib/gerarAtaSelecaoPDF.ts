@@ -304,19 +304,53 @@ export async function gerarAtaSelecaoPDF(selecaoId: string): Promise<{ url: stri
   // Buscar itens da cotação relacionada para descrições E quantidades
   let itensDescricoes: Record<number, string> = {};
   let itensQuantidades: Record<number, number> = {};
+  let todosItensProcesso: number[] = [];
+  let lotesPorItem: Record<number, number> = {}; // Mapa item -> lote
+  
   if (selecao.cotacao_relacionada_id) {
     const { data: itensCotacao } = await supabase
       .from('itens_cotacao')
-      .select('numero_item, descricao, quantidade')
+      .select('numero_item, descricao, quantidade, lote_id')
       .eq('cotacao_id', selecao.cotacao_relacionada_id);
     
     if (itensCotacao) {
       itensCotacao.forEach(item => {
         itensDescricoes[item.numero_item] = item.descricao;
         itensQuantidades[item.numero_item] = Number(item.quantidade) || 1;
+        todosItensProcesso.push(item.numero_item);
       });
     }
+    
+    // Buscar lotes para mapeamento item -> lote
+    if (criterioJulgamento === 'por_lote') {
+      const { data: lotesCotacao } = await supabase
+        .from('lotes_cotacao')
+        .select('id, numero_lote')
+        .eq('cotacao_id', selecao.cotacao_relacionada_id);
+      
+      if (lotesCotacao && itensCotacao) {
+        const loteIdToNumero = new Map(lotesCotacao.map(l => [l.id, l.numero_lote]));
+        itensCotacao.forEach(item => {
+          if (item.lote_id) {
+            lotesPorItem[item.numero_item] = loteIdToNumero.get(item.lote_id) || 0;
+          }
+        });
+      }
+    }
   }
+  
+  // Buscar propostas por item para identificar ofertas (quem ofertou em cada item)
+  const { data: propostasItens } = await supabase
+    .from('selecao_respostas_itens_fornecedor')
+    .select(`
+      numero_item,
+      proposta_id,
+      selecao_propostas_fornecedor!inner (
+        fornecedor_id,
+        selecao_id
+      )
+    `)
+    .eq('selecao_propostas_fornecedor.selecao_id', selecaoId);
 
   // Calcular valor final baseado no critério
   const itensVencedores: ItemVencedor[] = (lancesVencedores || []).map(lance => {
@@ -1020,6 +1054,173 @@ export async function gerarAtaSelecaoPDF(selecaoId: string): Promise<{ url: stri
   } else {
     doc.text("Nenhum vencedor foi declarado até o momento.", marginLeft, currentY);
     currentY += lineHeight + espacoEntreSecoes;
+  }
+
+  // ============= DESERTOS E FRACASSADOS =============
+  // Identificar itens desertos (nenhuma proposta) e fracassados (todos inabilitados)
+  const ehGlobalCriterio = criterioJulgamento === 'global';
+  const ehLoteCriterio = criterioJulgamento === 'por_lote';
+  
+  // Agrupar propostas por item
+  const propostasPorItem = new Map<number, Set<string>>();
+  (propostasItens || []).forEach((pi: any) => {
+    const item = pi.numero_item;
+    const fornecedorId = pi.selecao_propostas_fornecedor?.fornecedor_id;
+    if (item && fornecedorId) {
+      if (!propostasPorItem.has(item)) {
+        propostasPorItem.set(item, new Set());
+      }
+      propostasPorItem.get(item)!.add(fornecedorId);
+    }
+  });
+  
+  // Agrupar lances por item (fornecedores que deram lances)
+  const lancesPorItemMap = new Map<number, Set<string>>();
+  (todosLancesData || []).forEach(lance => {
+    const item = lance.numero_item || 0;
+    if (!lancesPorItemMap.has(item)) {
+      lancesPorItemMap.set(item, new Set());
+    }
+    lancesPorItemMap.get(item)!.add(lance.fornecedor_id);
+  });
+  
+  // Identificar itens desertos e fracassados
+  let itensDesertos: number[] = [];
+  let itensFracassados: number[] = [];
+  
+  if (ehGlobalCriterio) {
+    // Para critério global: verificar se houve qualquer proposta/lance
+    const teveProposta = propostasPorItem.size > 0 || lancesPorItemMap.size > 0;
+    const todosInabilitados = empresasParticipantes.every(emp => 
+      fornecedoresInabilitados.some(f => f.cnpj === emp.cnpj)
+    );
+    
+    // Não há deserto nem fracassado se houver lances vencedores habilitados
+    // Usamos lancesFiltrados (já exclui inabilitados) para verificar se há vencedores
+    const temVencedoresHabilitados = lancesFiltrados.length > 0;
+    
+    if (!temVencedoresHabilitados) {
+      if (!teveProposta || lancesPorItemMap.size === 0) {
+        itensDesertos = [0]; // Marcador para indicar seleção deserta
+      } else if (todosInabilitados || (lancesPorItemMap.size > 0 && lancesFiltrados.length === 0)) {
+        itensFracassados = [0]; // Marcador para indicar seleção fracassada
+      }
+    }
+  } else if (ehLoteCriterio) {
+    // Para critério por lote: agrupar por lote
+    const todosLotes = [...new Set(Object.values(lotesPorItem))].filter(l => l > 0).sort((a, b) => a - b);
+    
+    todosLotes.forEach(lote => {
+      // Se já tem vencedor habilitado para este lote, pular
+      if (vencedoresPorItem.has(lote)) {
+        const vencedorLote = vencedoresPorItem.get(lote);
+        const vencedorInabilitado = fornecedoresInabilitados.some(f => 
+          (vencedorLote?.fornecedores as any)?.cnpj === f.cnpj && f.itens_afetados.includes(lote)
+        );
+        if (!vencedorInabilitado) return; // Tem vencedor habilitado, pular
+      }
+      
+      // Verificar se houve lance para este lote
+      const teveLanceLote = lancesPorItemMap.has(lote);
+      
+      if (!teveLanceLote) {
+        // Deserto: nenhum fornecedor deu lance
+        itensDesertos.push(lote);
+      } else {
+        // Verificar se todos os fornecedores que deram lance foram inabilitados
+        const fornecedoresQueLancaramLote = lancesPorItemMap.get(lote) || new Set();
+        const todosInabilitadosLote = [...fornecedoresQueLancaramLote].every(fornId => {
+          const inab = inabilitacoesData?.find(i => i.fornecedor_id === fornId && !i.revertido);
+          return inab && (inab.itens_afetados || []).includes(lote);
+        });
+        
+        if (todosInabilitadosLote && fornecedoresQueLancaramLote.size > 0) {
+          itensFracassados.push(lote);
+        }
+      }
+    });
+  } else {
+    // Para critério por item
+    todosItensProcesso.forEach(item => {
+      // Se já tem vencedor habilitado para este item, pular
+      if (vencedoresPorItem.has(item)) {
+        const vencedorItem = vencedoresPorItem.get(item);
+        const vencedorInabilitado = fornecedoresInabilitados.some(f => 
+          (vencedorItem?.fornecedores as any)?.cnpj === f.cnpj && f.itens_afetados.includes(item)
+        );
+        if (!vencedorInabilitado) return; // Tem vencedor habilitado, pular
+      }
+      
+      // Verificar se houve lance para este item
+      const teveLanceItem = lancesPorItemMap.has(item);
+      
+      if (!teveLanceItem) {
+        // Deserto: nenhum fornecedor deu lance
+        itensDesertos.push(item);
+      } else {
+        // Verificar se todos os fornecedores que deram lance foram inabilitados
+        const fornecedoresQueLancaramItem = lancesPorItemMap.get(item) || new Set();
+        const todosInabilitadosItem = [...fornecedoresQueLancaramItem].every(fornId => {
+          const inab = inabilitacoesData?.find(i => i.fornecedor_id === fornId && !i.revertido);
+          return inab && (inab.itens_afetados || []).includes(item);
+        });
+        
+        if (todosInabilitadosItem && fornecedoresQueLancaramItem.size > 0) {
+          itensFracassados.push(item);
+        }
+      }
+    });
+  }
+  
+  // Só exibir seção se houver itens desertos ou fracassados
+  if (itensDesertos.length > 0 || itensFracassados.length > 0) {
+    checkNewPage(15);
+    doc.setFontSize(11);
+    doc.setFont("helvetica", "bold");
+    doc.text(`${secaoNumero}. DESERTOS E FRACASSADOS`, marginLeft, currentY);
+    secaoNumero++;
+    currentY += espacoAposTitulo;
+    
+    doc.setFontSize(10);
+    doc.setFont("helvetica", "normal");
+    
+    if (ehGlobalCriterio) {
+      // Texto específico para critério global
+      if (itensDesertos.length > 0) {
+        const textoDeserto = `Seleção nº ${selecao.numero_selecao} declarada DESERTA, visto que nenhuma empresa ofertou valores.`;
+        doc.setTextColor(128, 0, 0); // Vermelho escuro
+        currentY = drawJustifiedText(doc, textoDeserto, marginLeft, currentY, contentWidth, lineHeight);
+        doc.setTextColor(0, 0, 0);
+      }
+      
+      if (itensFracassados.length > 0) {
+        const textoFracassado = `Seleção nº ${selecao.numero_selecao} declarada FRACASSADA, visto que todos os fornecedores foram inabilitados e/ou desclassificados.`;
+        doc.setTextColor(128, 0, 0); // Vermelho escuro
+        currentY = drawJustifiedText(doc, textoFracassado, marginLeft, currentY, contentWidth, lineHeight);
+        doc.setTextColor(0, 0, 0);
+      }
+    } else {
+      const termoItem = ehLoteCriterio ? 'Lote' : 'Item';
+      const termoItens = ehLoteCriterio ? 'Lotes' : 'Itens';
+      
+      if (itensDesertos.length > 0) {
+        const itensStr = itensDesertos.sort((a, b) => a - b).join(', ');
+        const textoDeserto = `${termoItens} declarado(s) DESERTO(S) por ausência de propostas: ${itensStr}.`;
+        doc.setTextColor(128, 0, 0); // Vermelho escuro
+        currentY = drawJustifiedText(doc, textoDeserto, marginLeft, currentY, contentWidth, lineHeight);
+        doc.setTextColor(0, 0, 0);
+      }
+      
+      if (itensFracassados.length > 0) {
+        const itensStr = itensFracassados.sort((a, b) => a - b).join(', ');
+        const textoFracassado = `${termoItens} declarado(s) FRACASSADO(S) - teve proposta, porém todos os fornecedores foram inabilitados: ${itensStr}.`;
+        doc.setTextColor(128, 0, 0); // Vermelho escuro
+        currentY = drawJustifiedText(doc, textoFracassado, marginLeft, currentY, contentWidth, lineHeight);
+        doc.setTextColor(0, 0, 0);
+      }
+    }
+    
+    currentY += espacoEntreSecoes;
   }
 
   // ============= 8 - NEGOCIAÇÕES =============
