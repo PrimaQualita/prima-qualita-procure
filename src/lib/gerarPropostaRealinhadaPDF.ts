@@ -425,11 +425,10 @@ export const gerarPropostaRealinhadaPDF = async (
     const lineHeight = 4;
     const alturaTexto = obsLines.length * lineHeight;
     const alturaBox = alturaTexto + 18; // Título + padding
-    const alturaCertificacao = 55;
-    
     // Verificar se cabe na página atual
-    const espacoDisponivel = pageHeight - finalY - 20;
-    if (alturaBox + alturaCertificacao > espacoDisponivel) {
+    // Observação deve aproveitar o espaço disponível; a certificação pode ir para a próxima página se necessário.
+    const espacoDisponivel = pageHeight - finalY - 20; // 20mm de área segura (rodapé em y=pageHeight-10)
+    if (alturaBox > espacoDisponivel) {
       doc.addPage();
       finalY = margin;
     } else {
