@@ -215,7 +215,7 @@ const PropostaRealinhada = () => {
     if (propostaFornecedor) {
       const { data } = await (supabase as any)
         .from("selecao_respostas_itens_fornecedor")
-        .select("numero_item, marca, descricao, valor_unitario")
+        .select("numero_item, marca, descricao, valor_unitario_ofertado")
         .eq("proposta_id", propostaFornecedor.id);
       
       if (data) {
@@ -246,7 +246,7 @@ const PropostaRealinhada = () => {
       if (matchDirecto) {
         return { 
           marca: matchDirecto.marca || "", 
-          valorUnitario: matchDirecto.valor_unitario || 0 
+          valorUnitario: matchDirecto.valor_unitario_ofertado || 0 
         };
       }
 
@@ -272,7 +272,7 @@ const PropostaRealinhada = () => {
         if (score > melhorMatch.score && score >= 2) {
           melhorMatch = { 
             marca: resposta.marca || "", 
-            valorUnitario: resposta.valor_unitario || 0,
+            valorUnitario: resposta.valor_unitario_ofertado || 0,
             score 
           };
         }
