@@ -2260,7 +2260,7 @@ export function DialogSessaoLances({
           return [
             identificador,
             descricaoLimpaResumo,
-            vencedor?.fornecedores?.razao_social || "Sem lances",
+            vencedor?.fornecedores?.razao_social || "DESERTO",
             elemento.unidade && elemento.unidade.trim() !== "" ? elemento.unidade : "-",
             elemento.quantidade && elemento.quantidade > 0 ? quantidade.toString() : "-",
           ];
@@ -2269,7 +2269,7 @@ export function DialogSessaoLances({
         return [
           identificador,
           descricaoLimpaResumo, // Descrição sem duplicação
-          vencedor?.fornecedores?.razao_social || "Sem lances",
+          vencedor?.fornecedores?.razao_social || "DESERTO",
           marca,
           (elemento.isLote) ? "-" : quantidade.toString(),
           (elemento.isLote) ? "LOTE" : (elemento.unidade || "UN"),
@@ -2334,15 +2334,27 @@ export function DialogSessaoLances({
         4: { cellWidth: 35, halign: "center" as const },
       };
 
+      // Calcular larguras proporcionais para tabela superior ter mesma largura que inferior
+      // Total: larguraTotalTabela = landscapeWidth - 28
+      const colItemWidth = 15;
+      const colMarcaWidth = 30;
+      const colQtdWidth = 18;
+      const colUnWidth = 15;
+      const colValorUnitWidth = 30;
+      const colValorTotalWidth = 30;
+      const colVencedorWidth = 55;
+      // Descrição pega o restante
+      const colDescricaoWidth = larguraTotalTabela - colItemWidth - colVencedorWidth - colMarcaWidth - colQtdWidth - colUnWidth - colValorUnitWidth - colValorTotalWidth;
+
       const columnStylesPadrao = {
-        0: { cellWidth: 15, halign: "center" as const, fontStyle: "bold" as const },
-        1: { cellWidth: 80 },
-        2: { cellWidth: 55 },
-        3: { cellWidth: 30, halign: "center" as const },
-        4: { cellWidth: 18, halign: "center" as const },
-        5: { cellWidth: 15, halign: "center" as const },
-        6: { cellWidth: 30, halign: "right" as const, fontStyle: "bold" as const },
-        7: { cellWidth: 30, halign: "right" as const, fontStyle: "bold" as const },
+        0: { cellWidth: colItemWidth, halign: "center" as const, fontStyle: "bold" as const },
+        1: { cellWidth: colDescricaoWidth },
+        2: { cellWidth: colVencedorWidth },
+        3: { cellWidth: colMarcaWidth, halign: "center" as const },
+        4: { cellWidth: colQtdWidth, halign: "center" as const },
+        5: { cellWidth: colUnWidth, halign: "center" as const },
+        6: { cellWidth: colValorUnitWidth, halign: "right" as const, fontStyle: "bold" as const },
+        7: { cellWidth: colValorTotalWidth, halign: "right" as const, fontStyle: "bold" as const },
       };
 
       autoTable(doc, {
@@ -2367,6 +2379,7 @@ export function DialogSessaoLances({
         alternateRowStyles: {
           fillColor: [224, 242, 241] // Verde claro do logo
         },
+        tableWidth: larguraTotalTabela, // Mesma largura que tabela inferior
         margin: { left: 14, right: 14, top: logoResumoHeight + 20 },
         didDrawPage: () => {
           // Adicionar logo em todas as páginas do resumo
