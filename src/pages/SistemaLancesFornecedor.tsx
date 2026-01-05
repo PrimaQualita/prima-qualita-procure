@@ -317,22 +317,27 @@ const SistemaLancesFornecedor = () => {
   }, [selecao?.data_sessao_disputa, selecao?.hora_sessao_disputa]);
 
   // CRÍTICO: Filtrar lances excluindo fornecedores inabilitados de forma reativa
-  // Isso garante que sempre que lances ou fornecedoresInabilitados mudam, os lances são refiltrados
+  // APENAS para cálculos de vencedor - os lances continuam visíveis na UI
   const lancesFiltrados = useMemo(() => {
-    // SEMPRE filtrar, mesmo que fornecedoresInabilitados esteja vazio inicialmente
-    // porque os lances podem já ter sido carregados antes dos inabilitados
     const resultado = lances.filter(lance => {
       const fornecedorIdStr = String(lance.fornecedor_id);
       const isInabilitado = fornecedoresInabilitados.has(fornecedorIdStr);
       return !isInabilitado;
     });
     
-    // Log apenas quando há diferença
     if (resultado.length !== lances.length) {
-      console.log(`[useMemo lancesFiltrados] Filtrou ${lances.length - resultado.length} lances de fornecedores inabilitados`);
+      console.log(`[useMemo lancesFiltrados] Filtrou ${lances.length - resultado.length} lances de fornecedores inabilitados (apenas para cálculos)`);
     }
     
     return resultado;
+  }, [lances, fornecedoresInabilitados]);
+
+  // Lances para exibição na UI - inclui TODOS os lances (inabilitados aparecem marcados)
+  const lancesParaExibicao = useMemo(() => {
+    return lances.map(lance => ({
+      ...lance,
+      _inabilitado: fornecedoresInabilitados.has(String(lance.fornecedor_id))
+    }));
   }, [lances, fornecedoresInabilitados]);
 
   useEffect(() => {
@@ -1550,25 +1555,23 @@ const SistemaLancesFornecedor = () => {
 
       if (error) throw error;
 
-      // Filtrar lances de fornecedores inabilitados - comparar como string
-      const lancesFiltrados = (data || []).filter((lance: any) => {
-        const isInabilitado = inabilitadosIds.has(String(lance.fornecedor_id));
-        if (isInabilitado) {
-          console.log('Excluindo lance de fornecedor inabilitado:', lance.fornecedor_id, 'item:', lance.numero_item, 'valor:', lance.valor_lance);
-        }
-        return !isInabilitado;
-      });
-      
-      console.log('Total lances originais:', data?.length, 'Total após filtro:', lancesFiltrados.length);
+      // NÃO filtrar lances aqui - manter todos para exibição
+      // O filtro de fornecedores inabilitados é aplicado apenas nos cálculos via useMemo
+      console.log('Total lances carregados:', data?.length, 'Fornecedores inabilitados:', inabilitadosIds.size);
 
-      setLances(lancesFiltrados);
+      setLances(data || []);
     } catch (error) {
       console.error("Erro ao carregar lances:", error);
     }
   };
 
-  // Filtrar lances do item - usa lancesFiltrados que já exclui fornecedores inabilitados
+  // Filtrar lances do item - para EXIBIÇÃO inclui todos (com marcação de inabilitado)
   const getLancesDoItem = (numeroItem: number) => {
+    return lancesParaExibicao.filter(l => l.numero_item === numeroItem);
+  };
+
+  // Filtrar lances do item apenas para CÁLCULOS (exclui inabilitados)
+  const getLancesDoItemParaCalculo = (numeroItem: number) => {
     return lancesFiltrados.filter(l => l.numero_item === numeroItem);
   };
 
@@ -1682,8 +1685,8 @@ const SistemaLancesFornecedor = () => {
     const valorMenorProposta = menorValorPropostas.get(numeroItem) || 0;
     const isDesconto = selecao?.processos_compras?.criterio_julgamento === "desconto";
     
-    // Usar lancesFiltrados (já filtrado pelo useMemo acima)
-    const lancesDoItem = lancesFiltrados.filter(l => l.numero_item === numeroItem);
+    // Usar lancesFiltrados (exclui inabilitados) para cálculos de melhor valor
+    const lancesDoItem = getLancesDoItemParaCalculo(numeroItem);
     
     if (isDesconto) {
       // Para desconto: pegar o MAIOR lance (maior desconto = melhor)
@@ -1749,7 +1752,8 @@ const SistemaLancesFornecedor = () => {
     }
 
     // Verificar se fornecedor já enviou lance com mesmo valor para este item
-    const lancesDoFornecedorNoItem = lancesFiltrados.filter(
+    // Usar lances (não filtrados) para verificar duplicação do próprio fornecedor
+    const lancesDoFornecedorNoItem = lances.filter(
       l => l.numero_item === numeroItem && l.fornecedor_id === proposta.fornecedor_id
     );
     const jaEnviouMesmoValor = lancesDoFornecedorNoItem.some(
