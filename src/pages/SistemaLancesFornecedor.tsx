@@ -971,53 +971,61 @@ const SistemaLancesFornecedor = () => {
       return;
     }
 
+    if (!selecao?.id || !proposta?.codigo_acesso) {
+      toast.error("Dados incompletos. Recarregue a página.");
+      return;
+    }
+
     setEnviandoRecurso(true);
     try {
-      const dataEnvio = new Date();
-      const dataLimiteGestor = calcularProximoDiaUtil(dataEnvio, 1);
+      const payload = {
+        recurso_id: meuRecurso.id,
+        selecao_id: selecao.id,
+        codigo_acesso: proposta.codigo_acesso,
+        motivo_recurso: motivoRecurso,
+        fornecedor_nome: proposta?.fornecedores?.razao_social || "Fornecedor",
+        fornecedor_cnpj: proposta?.fornecedores?.cnpj || "",
+        numero_processo: numeroProcesso || "",
+        motivo_inabilitacao: minhaInabilitacao?.motivo_inabilitacao || "",
+        numero_selecao: selecao?.numero_selecao || "",
+      };
 
-      // Gerar PDF do recurso
-      let pdfUrl = null;
-      let pdfFileName = null;
-      let pdfProtocolo = null;
-      try {
-        const pdfResult = await gerarRecursoPDF(
-          motivoRecurso,
-          proposta?.fornecedores?.razao_social || "Fornecedor",
-          proposta?.fornecedores?.cnpj || "",
-          numeroProcesso || "",
-          minhaInabilitacao?.motivo_inabilitacao || "",
-          selecao?.numero_selecao || ""
-        );
-        pdfUrl = pdfResult.url;
-        pdfFileName = pdfResult.fileName;
-        pdfProtocolo = pdfResult.protocolo;
-      } catch (pdfError) {
-        console.error("Erro ao gerar PDF do recurso:", pdfError);
-        // Não bloqueia o envio se o PDF falhar
-      }
-
-      const { error } = await supabase
-        .from("recursos_inabilitacao_selecao")
-        .update({
-          motivo_recurso: motivoRecurso,
-          data_envio_recurso: dataEnvio.toISOString(),
-          status_recurso: "enviado",
-          data_limite_gestor: dataLimiteGestor.toISOString(),
-          url_pdf_recurso: pdfUrl,
-          nome_arquivo_recurso: pdfFileName,
-          protocolo_recurso: pdfProtocolo
-        })
-        .eq("id", meuRecurso.id);
+      const { data, error } = await supabase.functions.invoke("enviar-recurso-inabilitacao", {
+        body: payload,
+      });
 
       if (error) throw error;
+      if (!data?.success) throw new Error(data?.error || "Erro ao enviar recurso");
+
+      // Atualizar estado local imediatamente (evita depender de SELECT após envio)
+      setMeuRecurso((prev) =>
+        prev
+          ? {
+              ...prev,
+              motivo_recurso: motivoRecurso,
+              data_envio_recurso: data.data_envio_recurso,
+              status_recurso: "enviado",
+              data_limite_gestor: data.data_limite_gestor,
+              url_pdf_recurso: data.url,
+              nome_arquivo_recurso: data.fileName,
+              protocolo_recurso: data.protocolo,
+            }
+          : prev,
+      );
 
       toast.success("Recurso enviado com sucesso!");
+
+      // Abrir PDF para o fornecedor
+      if (data?.url) {
+        window.open(data.url, "_blank");
+      }
+
       setMotivoRecurso("");
       loadMinhaInabilitacao();
-    } catch (error) {
-      console.error("Erro ao enviar recurso:", error);
-      toast.error("Erro ao enviar recurso");
+    } catch (err) {
+      console.error("Erro ao enviar recurso:", err);
+      const msg = err instanceof Error ? err.message : "Erro ao enviar recurso";
+      toast.error(msg);
     } finally {
       setEnviandoRecurso(false);
     }
