@@ -773,12 +773,12 @@ export async function gerarAtaSelecaoPDF(selecaoId: string): Promise<{ url: stri
       }
     });
 
-    currentY = (doc as any).lastAutoTable.finalY + 6;
+    currentY = (doc as any).lastAutoTable.finalY + 8;
   } else {
     doc.setFontSize(10);
     doc.setFont("helvetica", "normal");
     doc.text("Nenhum lance vencedor foi registrado até o momento.", marginLeft, currentY);
-    currentY += lineHeight + 6;
+    currentY += lineHeight + 8;
   }
 
   // ============= 6 - HABILITAÇÃO =============
