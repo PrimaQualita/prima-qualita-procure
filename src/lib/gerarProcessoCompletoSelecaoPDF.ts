@@ -522,7 +522,7 @@ export const gerarProcessoCompletoSelecaoPDF = async (
     const fornecedoresParaDocumentos = new Set<string>();
     
     // 12a. Identificar VENCEDORES dinamicamente a partir dos lances
-    // Buscar critério de julgamento e lances para calcular vencedores
+    // Buscar critério de julgamento
     const { data: selecaoInfo } = await supabase
       .from("selecoes_fornecedores")
       .select("criterio_julgamento")
@@ -532,7 +532,7 @@ export const gerarProcessoCompletoSelecaoPDF = async (
     const criterioJulgamento = selecaoInfo?.criterio_julgamento || "por_item";
     console.log(`  📊 Critério de julgamento: ${criterioJulgamento}`);
     
-    // Buscar todos os lances com indicativo de vencedor ou calcular dinamicamente
+    // Buscar todos os lances
     const { data: todosLances, error: lancesError } = await supabase
       .from("lances_fornecedores")
       .select("fornecedor_id, numero_item, valor_lance, indicativo_lance_vencedor")
@@ -542,45 +542,78 @@ export const gerarProcessoCompletoSelecaoPDF = async (
       console.error("Erro ao buscar lances:", lancesError);
     }
 
-    // Identificar vencedores por item/lote/global conforme critério
-    const vencedoresPorItem = new Map<number, { fornecedor_id: string; valor: number }>();
+    const isDesconto = criterioJulgamento === "desconto" || criterioJulgamento === "maior_percentual_desconto";
     
-    if (todosLances && todosLances.length > 0) {
-      // Agrupar lances por item e identificar melhor valor
-      todosLances.forEach(lance => {
-        if (!lance.numero_item) return;
-        
-        const itemAtual = vencedoresPorItem.get(lance.numero_item);
-        const isDesconto = criterioJulgamento === "desconto" || criterioJulgamento === "maior_percentual_desconto";
-        
-        // Para desconto, maior valor vence; para outros, menor valor vence
-        if (!itemAtual) {
-          vencedoresPorItem.set(lance.numero_item, { 
-            fornecedor_id: lance.fornecedor_id, 
-            valor: lance.valor_lance 
-          });
+    // Identificar vencedores conforme critério
+    if (criterioJulgamento === "global") {
+      // Critério GLOBAL: um único vencedor para toda a seleção
+      // Agrupar por fornecedor e somar todos os valores
+      const totaisPorFornecedor = new Map<string, number>();
+      
+      todosLances?.forEach(lance => {
+        const totalAtual = totaisPorFornecedor.get(lance.fornecedor_id) || 0;
+        totaisPorFornecedor.set(lance.fornecedor_id, totalAtual + lance.valor_lance);
+      });
+      
+      // Encontrar o melhor (menor valor para preço, maior para desconto)
+      let melhorFornecedor: string | null = null;
+      let melhorValor: number | null = null;
+      
+      totaisPorFornecedor.forEach((total, fornecedorId) => {
+        if (melhorValor === null) {
+          melhorFornecedor = fornecedorId;
+          melhorValor = total;
         } else {
-          const melhorValor = isDesconto 
-            ? lance.valor_lance > itemAtual.valor
-            : lance.valor_lance < itemAtual.valor;
-          
-          if (melhorValor) {
-            vencedoresPorItem.set(lance.numero_item, { 
-              fornecedor_id: lance.fornecedor_id, 
-              valor: lance.valor_lance 
-            });
+          const isMelhor = isDesconto ? total > melhorValor : total < melhorValor;
+          if (isMelhor) {
+            melhorFornecedor = fornecedorId;
+            melhorValor = total;
           }
         }
       });
       
-      // Adicionar vencedores ao set
-      vencedoresPorItem.forEach(({ fornecedor_id }) => {
-        fornecedoresParaDocumentos.add(fornecedor_id);
-      });
-      console.log(`  🏆 Fornecedores vencedores identificados: ${fornecedoresParaDocumentos.size}`);
+      if (melhorFornecedor) {
+        fornecedoresParaDocumentos.add(melhorFornecedor);
+        console.log(`  🏆 Vencedor global identificado: ${melhorFornecedor}`);
+      }
+    } else {
+      // Critério POR ITEM ou POR LOTE
+      const vencedoresPorItem = new Map<number, { fornecedor_id: string; valor: number }>();
+      
+      if (todosLances && todosLances.length > 0) {
+        todosLances.forEach(lance => {
+          if (lance.numero_item === null || lance.numero_item === undefined) return;
+          
+          const itemAtual = vencedoresPorItem.get(lance.numero_item);
+          
+          if (!itemAtual) {
+            vencedoresPorItem.set(lance.numero_item, { 
+              fornecedor_id: lance.fornecedor_id, 
+              valor: lance.valor_lance 
+            });
+          } else {
+            const melhorValor = isDesconto 
+              ? lance.valor_lance > itemAtual.valor
+              : lance.valor_lance < itemAtual.valor;
+            
+            if (melhorValor) {
+              vencedoresPorItem.set(lance.numero_item, { 
+                fornecedor_id: lance.fornecedor_id, 
+                valor: lance.valor_lance 
+              });
+            }
+          }
+        });
+        
+        vencedoresPorItem.forEach(({ fornecedor_id }) => {
+          fornecedoresParaDocumentos.add(fornecedor_id);
+        });
+      }
     }
+    
+    console.log(`  🏆 Fornecedores vencedores identificados: ${fornecedoresParaDocumentos.size}`);
 
-    // 12b. Buscar fornecedores INABILITADOS (mesmo sem documentos solicitados)
+    // 12b. Buscar fornecedores INABILITADOS
     const { data: fornecedoresInabilitados, error: inabilitadosError } = await supabase
       .from("fornecedores_inabilitados_selecao")
       .select("fornecedor_id")
@@ -895,44 +928,7 @@ export const gerarProcessoCompletoSelecaoPDF = async (
       });
     }
 
-    // 15. Buscar homologações geradas
-    console.log("\n✅ === BUSCANDO HOMOLOGAÇÕES ===");
-    const { data: homologacoes, error: homologacoesError } = await supabase
-      .from("homologacoes_selecao")
-      .select("*")
-      .eq("selecao_id", selecaoId)
-      .order("data_geracao", { ascending: true });
-
-    if (homologacoesError) {
-      console.error("Erro ao buscar homologações:", homologacoesError);
-    }
-
-    console.log(`Homologações encontradas: ${homologacoes?.length || 0}`);
-    
-    if (homologacoes && homologacoes.length > 0) {
-      // Calcular data para homologações (após propostas realinhadas)
-      const ultimaDataRealinhada = propostasRealinhadas && propostasRealinhadas.length > 0
-        ? new Date(atas && atas.length > 0 
-            ? new Date(atas[atas.length - 1].data_geracao).getTime() + 1000 + (propostasRealinhadas.length * 100)
-            : new Date().getTime() + (propostasRealinhadas.length * 100)
-          ).getTime() + 1000
-        : (atas && atas.length > 0 
-            ? new Date(atas[atas.length - 1].data_geracao).getTime() + 2000
-            : new Date().getTime() + 2000);
-      
-      homologacoes.forEach((homologacao, idx) => {
-        const dataHomologacao = new Date(ultimaDataRealinhada + (idx * 100)).toISOString();
-        documentosOrdenados.push({
-          tipo: "Homologação",
-          data: dataHomologacao,
-          nome: homologacao.nome_arquivo,
-          url: homologacao.url_arquivo,
-          bucket: "processo-anexos"
-        });
-      });
-    }
-
-    // 16. Buscar ENCAMINHAMENTOS À CONTABILIDADE
+    // 15. Buscar ENCAMINHAMENTOS À CONTABILIDADE (ANTES da homologação)
     console.log("\n📤 === BUSCANDO ENCAMINHAMENTOS À CONTABILIDADE ===");
     const { data: encaminhamentosContabilidade, error: encContabError } = await supabase
       .from("encaminhamentos_contabilidade")
@@ -946,14 +942,22 @@ export const gerarProcessoCompletoSelecaoPDF = async (
 
     console.log(`Encaminhamentos à contabilidade encontrados: ${encaminhamentosContabilidade?.length || 0}`);
 
+    // Calcular data base para encaminhamentos (após propostas realinhadas)
+    const ultimaDataRealinhada = propostasRealinhadas && propostasRealinhadas.length > 0
+      ? new Date(atas && atas.length > 0 
+          ? new Date(atas[atas.length - 1].data_geracao).getTime() + 1000 + (propostasRealinhadas.length * 100)
+          : new Date().getTime() + (propostasRealinhadas.length * 100)
+        ).getTime() + 1000
+      : (atas && atas.length > 0 
+          ? new Date(atas[atas.length - 1].data_geracao).getTime() + 2000
+          : new Date().getTime() + 2000);
+
+    let ultimaDataContabilidade = ultimaDataRealinhada;
+
     if (encaminhamentosContabilidade && encaminhamentosContabilidade.length > 0) {
-      // Calcular data para encaminhamentos (após homologações)
-      const ultimaDataHomologacao = homologacoes && homologacoes.length > 0
-        ? new Date(homologacoes[homologacoes.length - 1].data_geracao).getTime() + 1000
-        : new Date().getTime() + 3000;
-      
       encaminhamentosContabilidade.forEach((enc, idx) => {
-        const dataEnc = new Date(ultimaDataHomologacao + (idx * 200)).toISOString();
+        const dataEnc = new Date(ultimaDataRealinhada + (idx * 200)).toISOString();
+        ultimaDataContabilidade = new Date(dataEnc).getTime();
         
         // Adicionar o encaminhamento
         documentosOrdenados.push({
@@ -968,6 +972,7 @@ export const gerarProcessoCompletoSelecaoPDF = async (
         // Adicionar a resposta da contabilidade (se houver)
         if (enc.url_resposta_pdf) {
           const dataResposta = new Date(new Date(dataEnc).getTime() + 100).toISOString();
+          ultimaDataContabilidade = new Date(dataResposta).getTime();
           documentosOrdenados.push({
             tipo: "Resposta Contabilidade",
             data: dataResposta,
@@ -977,6 +982,33 @@ export const gerarProcessoCompletoSelecaoPDF = async (
           });
           console.log(`  📥 Resposta Contabilidade: ${enc.processo_numero}`);
         }
+      });
+    }
+
+    // 16. Buscar homologações geradas (APÓS encaminhamento/resposta contabilidade)
+    console.log("\n✅ === BUSCANDO HOMOLOGAÇÕES ===");
+    const { data: homologacoes, error: homologacoesError } = await supabase
+      .from("homologacoes_selecao")
+      .select("*")
+      .eq("selecao_id", selecaoId)
+      .order("data_geracao", { ascending: true });
+
+    if (homologacoesError) {
+      console.error("Erro ao buscar homologações:", homologacoesError);
+    }
+
+    console.log(`Homologações encontradas: ${homologacoes?.length || 0}`);
+    
+    if (homologacoes && homologacoes.length > 0) {
+      homologacoes.forEach((homologacao, idx) => {
+        const dataHomologacao = new Date(ultimaDataContabilidade + 1000 + (idx * 100)).toISOString();
+        documentosOrdenados.push({
+          tipo: "Homologação",
+          data: dataHomologacao,
+          nome: homologacao.nome_arquivo,
+          url: homologacao.url_arquivo,
+          bucket: "processo-anexos"
+        });
       });
     }
 
