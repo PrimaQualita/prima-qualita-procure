@@ -316,67 +316,101 @@ serve(async (req) => {
     drawSection("MOTIVO DA INABILITAÇÃO", motivoInabilitacao || "-");
     drawSection("RAZÕES DO RECURSO", motivoRecurso);
 
-    // ===== CERTIFICAÇÃO SIMPLIFICADA =====
-    const certHeight = 50;
-    ensureSpace(certHeight);
-    y -= 8; // pequeno respiro antes da certificação
+    // ===== CERTIFICAÇÃO DIGITAL (igual ao frontend) =====
+    const certHeight = 55;
+    ensureSpace(certHeight + 10);
+    y -= 15; // espaço antes da certificação
 
     const certX = marginX;
     const certWidth = maxWidth;
-    const certBoxY = y - certHeight + 14; // ajustar para caixa ficar abaixo do cursor
+    const certBoxY = y - certHeight;
 
-    // Fundo cinza claro
+    // Fundo cinza claro (245/255 = 0.96)
     currentPage.drawRectangle({
       x: certX,
       y: certBoxY,
       width: certWidth,
       height: certHeight,
-      color: rgb(0.95, 0.95, 0.95),
-      borderColor: rgb(0.8, 0.8, 0.8),
+      color: rgb(0.96, 0.96, 0.96),
+    });
+
+    // Borda preta
+    currentPage.drawRectangle({
+      x: certX,
+      y: certBoxY,
+      width: certWidth,
+      height: certHeight,
+      borderColor: rgb(0, 0, 0),
       borderWidth: 0.5,
     });
 
-    // Título da certificação
-    const certTitleSize = 9;
-    const certBodySize = 8;
-    let certY = certBoxY + certHeight - 12;
-    currentPage.drawText("CERTIFICAÇÃO DIGITAL SIMPLIFICADA", {
-      x: certX + 8,
+    // Título "CERTIFICAÇÃO DIGITAL" centralizado em azul escuro
+    const certTitleSize = 12;
+    const certBodySize = 10;
+    const certSmallSize = 8;
+    let certY = certBoxY + certHeight - 14;
+    
+    const titleText = "CERTIFICAÇÃO DIGITAL";
+    const titleWidth = fontBold.widthOfTextAtSize(titleText, certTitleSize);
+    currentPage.drawText(titleText, {
+      x: certX + (certWidth - titleWidth) / 2,
       y: certY,
       size: certTitleSize,
       font: fontBold,
-      color: rgb(0.2, 0.2, 0.2),
+      color: rgb(0, 0, 0.545), // azul escuro (0, 0, 139) / 255
     });
 
-    certY -= 12;
+    certY -= 14;
     currentPage.drawText(`Protocolo: ${protocolo}`, {
       x: certX + 8,
       y: certY,
       size: certBodySize,
       font,
-      color: rgb(0.3, 0.3, 0.3),
+      color: rgb(0, 0, 0),
     });
 
-    certY -= 10;
+    certY -= 12;
     currentPage.drawText(`Responsável: ${fornecedorNome}`, {
       x: certX + 8,
       y: certY,
       size: certBodySize,
       font,
-      color: rgb(0.3, 0.3, 0.3),
+      color: rgb(0, 0, 0),
     });
 
+    // "Verificar autenticidade em:" em negrito
     certY -= 10;
-    const linkVerificacao = `Verifique em: ${Deno.env.get("SITE_URL") || "https://primaqualita.lovable.app"}/verificar-documento?protocolo=${protocolo}`;
-    currentPage.drawText(linkVerificacao, {
+    currentPage.drawText("Verificar autenticidade em:", {
       x: certX + 8,
       y: certY,
       size: certBodySize,
-      font,
-      color: rgb(0.3, 0.3, 0.3),
+      font: fontBold,
+      color: rgb(0, 0, 0),
     });
 
-    y = certBoxY - 8; // atualizar cursor para depois da certificação
+    // Link em azul
+    certY -= 10;
+    const siteUrl = Deno.env.get("SITE_URL") || "https://primaqualita.lovable.app";
+    const linkUrl = `${siteUrl}/verificar-documento?protocolo=${protocolo}`;
+    currentPage.drawText(linkUrl, {
+      x: certX + 8,
+      y: certY,
+      size: certSmallSize,
+      font,
+      color: rgb(0, 0, 1), // azul
+    });
+
+    // Texto legal
+    certY -= 10;
+    currentPage.drawText("Este documento possui certificação digital conforme Lei 14.063/2020", {
+      x: certX + 8,
+      y: certY,
+      size: 7,
+      font,
+      color: rgb(0.31, 0.31, 0.31), // cinza (80/255)
+    });
+
+    y = certBoxY - 8;
 
     // Upload
     const fileName = `recurso_${sanitizeFilePart(numeroProcesso || "processo")}_${Date.now()}.pdf`;
