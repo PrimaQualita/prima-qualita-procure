@@ -714,21 +714,39 @@ export async function gerarAtaSelecaoPDF(selecaoId: string): Promise<{ url: stri
     
     const tabelaVencedoresLances = Object.values(vencedoresPorFornecedor).map(f => {
       const valor = ehDesconto ? (f.valorTotal / f.quantidadeItens) : f.valorTotal;
-      // Para critério global, mostrar "-" ao invés do número do item
-      const itensStr = ehGlobal ? '-' : f.itens.sort((a, b) => a - b).join(', ');
-      return [
-        f.nome,
-        itensStr,
-        ehDesconto ? `${valor.toFixed(2)}%` : formatarMoeda(valor)
-      ];
+      const valorStr = ehDesconto ? `${valor.toFixed(2)}%` : formatarMoeda(valor);
+      
+      // Para critério global, não incluir coluna de itens
+      if (ehGlobal) {
+        return [f.nome, valorStr];
+      }
+      
+      const itensStr = f.itens.sort((a, b) => a - b).join(', ');
+      return [f.nome, itensStr, valorStr];
     });
 
     const colunaValorHeader = ehDesconto ? 'DESCONTO VENCEDOR' : 'VALOR TOTAL';
     const colunaItensHeader = criterioJulgamento === 'por_lote' ? 'LOTES' : 'ITENS';
+    
+    // Cabeçalho e estilos conforme critério global ou não
+    const headersLances = ehGlobal 
+      ? [['FORNECEDOR', colunaValorHeader]]
+      : [['FORNECEDOR', colunaItensHeader, colunaValorHeader]];
+    
+    const columnStylesLances = ehGlobal
+      ? {
+          0: { halign: 'left' as const, cellWidth: 'auto' as const },
+          1: { halign: 'right' as const, cellWidth: 50 }
+        }
+      : {
+          0: { halign: 'left' as const, cellWidth: 'auto' as const },
+          1: { halign: 'center' as const, cellWidth: 50 },
+          2: { halign: 'right' as const, cellWidth: 40 }
+        };
 
     autoTable(doc, {
       startY: currentY,
-      head: [['FORNECEDOR', colunaItensHeader, colunaValorHeader]],
+      head: headersLances,
       body: tabelaVencedoresLances,
       theme: 'grid',
       headStyles: { 
@@ -748,11 +766,7 @@ export async function gerarAtaSelecaoPDF(selecaoId: string): Promise<{ url: stri
       },
       margin: { left: marginLeft, right: marginRight },
       tableWidth: contentWidth,
-      columnStyles: {
-        0: { halign: 'left', cellWidth: 'auto' },
-        1: { halign: 'center', cellWidth: 50 },
-        2: { halign: 'right', cellWidth: 40 }
-      },
+      columnStyles: columnStylesLances,
       didDrawPage: () => {
         addLogo();
         addRodape();
@@ -939,21 +953,39 @@ export async function gerarAtaSelecaoPDF(selecaoId: string): Promise<{ url: stri
       
       const tabelaVencedores = Object.values(vencedoresFinal).map(f => {
         const valor = ehDesconto ? (f.valorTotal / f.quantidadeItens) : f.valorTotal;
-        // Para critério global, mostrar "-" ao invés do número do item
-        const itensStr = ehGlobal ? '-' : f.itens.sort((a, b) => a - b).join(', ');
-        return [
-          f.nome,
-          itensStr,
-          ehDesconto ? `${valor.toFixed(2)}%` : formatarMoeda(valor)
-        ];
+        const valorStr = ehDesconto ? `${valor.toFixed(2)}%` : formatarMoeda(valor);
+        
+        // Para critério global, não incluir coluna de itens
+        if (ehGlobal) {
+          return [f.nome, valorStr];
+        }
+        
+        const itensStr = f.itens.sort((a, b) => a - b).join(', ');
+        return [f.nome, itensStr, valorStr];
       });
 
       const colunaValorHeader = ehDesconto ? 'DESCONTO VENCEDOR' : 'VALOR TOTAL';
       const colunaItensHeader = criterioJulgamento === 'por_lote' ? 'LOTES' : 'ITENS';
+      
+      // Cabeçalho e estilos conforme critério global ou não
+      const headersVencedores = ehGlobal 
+        ? [['FORNECEDOR', colunaValorHeader]]
+        : [['FORNECEDOR', colunaItensHeader, colunaValorHeader]];
+      
+      const columnStylesVencedores = ehGlobal
+        ? {
+            0: { halign: 'left' as const, cellWidth: 'auto' as const },
+            1: { halign: 'right' as const, cellWidth: 50 }
+          }
+        : {
+            0: { halign: 'left' as const, cellWidth: 'auto' as const },
+            1: { halign: 'center' as const, cellWidth: 50 },
+            2: { halign: 'right' as const, cellWidth: 40 }
+          };
 
       autoTable(doc, {
         startY: currentY,
-        head: [['FORNECEDOR', colunaItensHeader, colunaValorHeader]],
+        head: headersVencedores,
         body: tabelaVencedores,
         theme: 'grid',
         headStyles: { 
@@ -973,11 +1005,7 @@ export async function gerarAtaSelecaoPDF(selecaoId: string): Promise<{ url: stri
         },
         margin: { left: marginLeft, right: marginRight },
         tableWidth: contentWidth,
-        columnStyles: {
-          0: { halign: 'left', cellWidth: 'auto' },
-          1: { halign: 'center', cellWidth: 50 },
-          2: { halign: 'right', cellWidth: 40 }
-        },
+        columnStyles: columnStylesVencedores,
         didDrawPage: () => {
           addLogo();
           addRodape();
