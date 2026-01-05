@@ -298,13 +298,13 @@ export const gerarPropostaRealinhadaPDF = async (
       valign: 'middle',
     },
     columnStyles: {
-      0: { cellWidth: 12, halign: 'center' },  // Item
-      1: { cellWidth: 65, halign: 'left' },    // Descrição
-      2: { cellWidth: 15, halign: 'center' },  // Qtd
-      3: { cellWidth: 15, halign: 'center' },  // Un
-      4: { cellWidth: 25, halign: 'center' },  // Marca
-      5: { cellWidth: 25, halign: 'right' },   // Vlr Unit
-      6: { cellWidth: 23, halign: 'right' },   // Vlr Total
+      0: { cellWidth: 12, halign: 'center', valign: 'middle' },  // Item
+      1: { cellWidth: 65, halign: 'left', valign: 'middle' },    // Descrição
+      2: { cellWidth: 15, halign: 'center', valign: 'middle' },  // Qtd
+      3: { cellWidth: 15, halign: 'center', valign: 'middle' },  // Un
+      4: { cellWidth: 25, halign: 'center', valign: 'middle' },  // Marca
+      5: { cellWidth: 25, halign: 'right', valign: 'middle' },   // Vlr Unit
+      6: { cellWidth: 23, halign: 'right', valign: 'middle' },   // Vlr Total
     },
     rowPageBreak: 'auto',
     didParseCell: (data) => {
