@@ -1128,7 +1128,7 @@ export type Database = {
       }
       encaminhamentos_contabilidade: {
         Row: {
-          cotacao_id: string
+          cotacao_id: string | null
           created_at: string | null
           data_envio_contabilidade: string | null
           data_geracao: string
@@ -1143,6 +1143,7 @@ export type Database = {
           protocolo_resposta: string | null
           respondido_contabilidade: boolean | null
           resposta_contabilidade: string | null
+          selecao_id: string | null
           storage_path: string | null
           storage_path_resposta: string | null
           tipos_operacao_fornecedores: Json | null
@@ -1153,7 +1154,7 @@ export type Database = {
           usuario_resposta_id: string | null
         }
         Insert: {
-          cotacao_id: string
+          cotacao_id?: string | null
           created_at?: string | null
           data_envio_contabilidade?: string | null
           data_geracao?: string
@@ -1168,6 +1169,7 @@ export type Database = {
           protocolo_resposta?: string | null
           respondido_contabilidade?: boolean | null
           resposta_contabilidade?: string | null
+          selecao_id?: string | null
           storage_path?: string | null
           storage_path_resposta?: string | null
           tipos_operacao_fornecedores?: Json | null
@@ -1178,7 +1180,7 @@ export type Database = {
           usuario_resposta_id?: string | null
         }
         Update: {
-          cotacao_id?: string
+          cotacao_id?: string | null
           created_at?: string | null
           data_envio_contabilidade?: string | null
           data_geracao?: string
@@ -1193,6 +1195,7 @@ export type Database = {
           protocolo_resposta?: string | null
           respondido_contabilidade?: boolean | null
           resposta_contabilidade?: string | null
+          selecao_id?: string | null
           storage_path?: string | null
           storage_path_resposta?: string | null
           tipos_operacao_fornecedores?: Json | null
@@ -1208,6 +1211,13 @@ export type Database = {
             columns: ["cotacao_id"]
             isOneToOne: false
             referencedRelation: "cotacoes_precos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "encaminhamentos_contabilidade_selecao_id_fkey"
+            columns: ["selecao_id"]
+            isOneToOne: false
+            referencedRelation: "selecoes_fornecedores"
             referencedColumns: ["id"]
           },
         ]
