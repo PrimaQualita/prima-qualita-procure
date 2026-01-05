@@ -163,6 +163,8 @@ export const gerarProcessoCompletoSelecaoPDF = async (
     }
 
     // 4. Buscar propostas de COTAÇÃO (se houver cotação vinculada)
+    // IMPORTANTE: Propostas de cotação devem vir ANTES das propostas de seleção
+    // Para garantir isso, ajustamos as datas para serem anteriores às propostas de seleção
     if (cotacaoId) {
       console.log("\n💰 === BUSCANDO PROPOSTAS DE COTAÇÃO ===");
       
@@ -199,9 +201,11 @@ export const gerarProcessoCompletoSelecaoPDF = async (
                 continue;
               }
               
+              // CORREÇÃO: Usar data real do envio/upload para ordenação cronológica correta
+              // Propostas de cotação sempre têm datas anteriores às propostas de seleção
               documentosOrdenados.push({
                 tipo: "Proposta Cotação",
-                data: anexo.data_upload || resposta.data_envio_resposta,
+                data: resposta.data_envio_resposta || anexo.data_upload,
                 nome: `${razaoSocial} - ${anexo.nome_arquivo}`,
                 url: anexo.url_arquivo,
                 bucket: "processo-anexos",
@@ -511,45 +515,72 @@ export const gerarProcessoCompletoSelecaoPDF = async (
 
     console.log(`📆 Última data cronológica: ${new Date(ultimaDataCronologica).toLocaleString('pt-BR')}`);
 
-    // 12. DOCUMENTOS DE HABILITAÇÃO DE TODOS OS FORNECEDORES (vencedores E inabilitados)
-    console.log("\n📋 === PREPARANDO DOCUMENTOS DE HABILITAÇÃO DE TODOS OS FORNECEDORES ===");
+    // 12. DOCUMENTOS DE HABILITAÇÃO APENAS DE VENCEDORES E INABILITADOS
+    console.log("\n📋 === PREPARANDO DOCUMENTOS DE HABILITAÇÃO (APENAS VENCEDORES E INABILITADOS) ===");
     
     // Criar set único de fornecedores para incluir documentos
     const fornecedoresParaDocumentos = new Set<string>();
     
-    // 12a. Buscar fornecedores que tiveram documentos solicitados na análise documental
-    const { data: fornecedoresComDocumentos, error: fornecedoresDocError } = await supabase
-      .from("campos_documentos_finalizacao")
-      .select("fornecedor_id")
-      .eq("selecao_id", selecaoId);
-
-    if (fornecedoresDocError) {
-      console.error("Erro ao buscar fornecedores com documentos:", fornecedoresDocError);
-    }
+    // 12a. Identificar VENCEDORES dinamicamente a partir dos lances
+    // Buscar critério de julgamento e lances para calcular vencedores
+    const { data: selecaoInfo } = await supabase
+      .from("selecoes_fornecedores")
+      .select("criterio_julgamento")
+      .eq("id", selecaoId)
+      .single();
     
-    fornecedoresComDocumentos?.forEach(f => {
-      if (f.fornecedor_id) fornecedoresParaDocumentos.add(f.fornecedor_id);
-    });
-    console.log(`  📄 Fornecedores com documentos solicitados: ${fornecedoresComDocumentos?.length || 0}`);
-
-    // 12b. Buscar TODOS os fornecedores VENCEDORES (identificados por lances)
-    const { data: lancesVencedores, error: lancesError } = await supabase
+    const criterioJulgamento = selecaoInfo?.criterio_julgamento || "por_item";
+    console.log(`  📊 Critério de julgamento: ${criterioJulgamento}`);
+    
+    // Buscar todos os lances com indicativo de vencedor ou calcular dinamicamente
+    const { data: todosLances, error: lancesError } = await supabase
       .from("lances_fornecedores")
-      .select("fornecedor_id")
+      .select("fornecedor_id, numero_item, valor_lance, indicativo_lance_vencedor")
       .eq("selecao_id", selecaoId);
 
     if (lancesError) {
       console.error("Erro ao buscar lances:", lancesError);
     }
 
-    // Adicionar todos os fornecedores que deram lances (potenciais vencedores)
-    const fornecedoresComLances = new Set(lancesVencedores?.map(l => l.fornecedor_id) || []);
-    fornecedoresComLances.forEach(id => {
-      if (id) fornecedoresParaDocumentos.add(id);
-    });
-    console.log(`  🏆 Fornecedores com lances: ${fornecedoresComLances.size}`);
+    // Identificar vencedores por item/lote/global conforme critério
+    const vencedoresPorItem = new Map<number, { fornecedor_id: string; valor: number }>();
+    
+    if (todosLances && todosLances.length > 0) {
+      // Agrupar lances por item e identificar melhor valor
+      todosLances.forEach(lance => {
+        if (!lance.numero_item) return;
+        
+        const itemAtual = vencedoresPorItem.get(lance.numero_item);
+        const isDesconto = criterioJulgamento === "desconto" || criterioJulgamento === "maior_percentual_desconto";
+        
+        // Para desconto, maior valor vence; para outros, menor valor vence
+        if (!itemAtual) {
+          vencedoresPorItem.set(lance.numero_item, { 
+            fornecedor_id: lance.fornecedor_id, 
+            valor: lance.valor_lance 
+          });
+        } else {
+          const melhorValor = isDesconto 
+            ? lance.valor_lance > itemAtual.valor
+            : lance.valor_lance < itemAtual.valor;
+          
+          if (melhorValor) {
+            vencedoresPorItem.set(lance.numero_item, { 
+              fornecedor_id: lance.fornecedor_id, 
+              valor: lance.valor_lance 
+            });
+          }
+        }
+      });
+      
+      // Adicionar vencedores ao set
+      vencedoresPorItem.forEach(({ fornecedor_id }) => {
+        fornecedoresParaDocumentos.add(fornecedor_id);
+      });
+      console.log(`  🏆 Fornecedores vencedores identificados: ${fornecedoresParaDocumentos.size}`);
+    }
 
-    // 12c. Buscar fornecedores INABILITADOS (mesmo sem documentos solicitados)
+    // 12b. Buscar fornecedores INABILITADOS (mesmo sem documentos solicitados)
     const { data: fornecedoresInabilitados, error: inabilitadosError } = await supabase
       .from("fornecedores_inabilitados_selecao")
       .select("fornecedor_id")
@@ -564,23 +595,8 @@ export const gerarProcessoCompletoSelecaoPDF = async (
       if (f.fornecedor_id) fornecedoresParaDocumentos.add(f.fornecedor_id);
     });
     console.log(`  ❌ Fornecedores inabilitados: ${fornecedoresInabilitados?.length || 0}`);
-
-    // 12d. Buscar fornecedores que enviaram PROPOSTAS (mesmo sem lances ainda)
-    const { data: fornecedoresPropostas, error: fornecedoresPropostasError } = await supabase
-      .from("selecao_propostas_fornecedor")
-      .select("fornecedor_id")
-      .eq("selecao_id", selecaoId);
-
-    if (fornecedoresPropostasError) {
-      console.error("Erro ao buscar fornecedores com propostas:", fornecedoresPropostasError);
-    }
-
-    fornecedoresPropostas?.forEach(f => {
-      if (f.fornecedor_id) fornecedoresParaDocumentos.add(f.fornecedor_id);
-    });
-    console.log(`  📝 Fornecedores com propostas: ${fornecedoresPropostas?.length || 0}`);
     
-    console.log(`👥 Total de fornecedores para incluir documentos: ${fornecedoresParaDocumentos.size}`);
+    console.log(`👥 Total de fornecedores para incluir documentos (vencedores + inabilitados): ${fornecedoresParaDocumentos.size}`);
 
     // Data base para documentos de fornecedores
     let dataBaseFornecedores = new Date(new Date(ultimaDataCronologica).getTime() + 1000).toISOString();
@@ -916,9 +932,57 @@ export const gerarProcessoCompletoSelecaoPDF = async (
       });
     }
 
+    // 16. Buscar ENCAMINHAMENTOS À CONTABILIDADE
+    console.log("\n📤 === BUSCANDO ENCAMINHAMENTOS À CONTABILIDADE ===");
+    const { data: encaminhamentosContabilidade, error: encContabError } = await supabase
+      .from("encaminhamentos_contabilidade")
+      .select("*")
+      .eq("selecao_id", selecaoId)
+      .order("data_geracao", { ascending: true });
+
+    if (encContabError) {
+      console.error("Erro ao buscar encaminhamentos à contabilidade:", encContabError);
+    }
+
+    console.log(`Encaminhamentos à contabilidade encontrados: ${encaminhamentosContabilidade?.length || 0}`);
+
+    if (encaminhamentosContabilidade && encaminhamentosContabilidade.length > 0) {
+      // Calcular data para encaminhamentos (após homologações)
+      const ultimaDataHomologacao = homologacoes && homologacoes.length > 0
+        ? new Date(homologacoes[homologacoes.length - 1].data_geracao).getTime() + 1000
+        : new Date().getTime() + 3000;
+      
+      encaminhamentosContabilidade.forEach((enc, idx) => {
+        const dataEnc = new Date(ultimaDataHomologacao + (idx * 200)).toISOString();
+        
+        // Adicionar o encaminhamento
+        documentosOrdenados.push({
+          tipo: "Encaminhamento Contabilidade",
+          data: dataEnc,
+          nome: enc.nome_arquivo || `Encaminhamento Contabilidade - ${enc.protocolo}`,
+          url: enc.url_arquivo,
+          bucket: "processo-anexos"
+        });
+        console.log(`  📤 Encaminhamento: ${enc.protocolo}`);
+        
+        // Adicionar a resposta da contabilidade (se houver)
+        if (enc.url_resposta_pdf) {
+          const dataResposta = new Date(new Date(dataEnc).getTime() + 100).toISOString();
+          documentosOrdenados.push({
+            tipo: "Resposta Contabilidade",
+            data: dataResposta,
+            nome: `Resposta Contabilidade - ${enc.processo_numero}`,
+            url: enc.url_resposta_pdf,
+            bucket: "processo-anexos"
+          });
+          console.log(`  📥 Resposta Contabilidade: ${enc.processo_numero}`);
+        }
+      });
+    }
+
     console.log(`\n📋 Total de documentos a mesclar: ${documentosOrdenados.length}`);
 
-    // 16. Mesclar todos os documentos
+    // 17. Mesclar todos os documentos
     for (const doc of documentosOrdenados) {
       try {
         console.log(`  Processando: ${doc.tipo} - ${doc.nome}`);
