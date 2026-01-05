@@ -388,19 +388,25 @@ export const gerarPropostaRealinhadaPDF = async (
           }
         });
       }
-      // Outras colunas: centralizar verticalmente
+      // Outras colunas: centralizar verticalmente com quebra de linha
       else if (data.cell.text && Array.isArray(data.cell.text) && data.cell.text.length > 0) {
-        const texto = data.cell.text.join(' ').trim();
-        const yCenter = cellY + (cellHeight / 2) + 1;
+        const textLines = data.cell.text as string[];
+        const lineHeight = 3.5;
+        const totalTextHeight = textLines.length * lineHeight;
+        const startY = cellY + (cellHeight - totalTextHeight) / 2 + lineHeight - 0.5;
         
-        // Colunas com alinhamento à direita (valores)
-        if (data.column.index === 5 || data.column.index === 6) {
-          doc.text(texto, cellX + cellWidth - 2, yCenter, { align: 'right' });
-        }
-        // Colunas com alinhamento central
-        else {
-          doc.text(texto, cellX + (cellWidth / 2), yCenter, { align: 'center' });
-        }
+        textLines.forEach((linha, index) => {
+          const yLinha = startY + (index * lineHeight);
+          
+          // Colunas com alinhamento à direita (valores)
+          if (data.column.index === 5 || data.column.index === 6) {
+            doc.text(linha.trim(), cellX + cellWidth - 2, yLinha, { align: 'right' });
+          }
+          // Colunas com alinhamento central
+          else {
+            doc.text(linha.trim(), cellX + (cellWidth / 2), yLinha, { align: 'center' });
+          }
+        });
       }
     }
   });
