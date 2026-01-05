@@ -643,6 +643,17 @@ export async function gerarPropostaSelecaoPDF(
       doc.text('Vlr Total', colValorTotalCenter!, headerYCenter, { align: 'center' });
     }
     
+    // Desenhar linhas verticais no cabeçalho
+    doc.setDrawColor(200, 200, 200);
+    doc.setLineWidth(0.3);
+    colPositions.forEach(xPos => {
+      doc.line(xPos, tabelaY, xPos, tabelaY + alturaHeader);
+    });
+    // Borda esquerda do cabeçalho
+    doc.line(margemEsquerda, tabelaY, margemEsquerda, tabelaY + alturaHeader);
+    // Borda direita do cabeçalho
+    doc.line(margemEsquerda + larguraUtil, tabelaY, margemEsquerda + larguraUtil, tabelaY + alturaHeader);
+    
     y += 5;
     doc.setTextColor(0, 0, 0);
     doc.setFont('helvetica', 'normal');
@@ -712,10 +723,14 @@ export async function gerarPropostaSelecaoPDF(
       doc.setLineWidth(0.3);
       doc.line(margemEsquerda, y + alturaLinha, margemEsquerda + larguraUtil, y + alturaLinha);
       
-      // Linhas verticais para cada coluna
+      // Linhas verticais para cada coluna (divisores internos)
       colPositions.forEach(xPos => {
         doc.line(xPos, y, xPos, y + alturaLinha);
       });
+      // Borda esquerda
+      doc.line(margemEsquerda, y, margemEsquerda, y + alturaLinha);
+      // Borda direita
+      doc.line(margemEsquerda + larguraUtil, y, margemEsquerda + larguraUtil, y + alturaLinha);
       
       // Centralização vertical para colunas fixas (não descrição)
       const yVerticalCenter = y + (alturaLinha / 2) + 1;
