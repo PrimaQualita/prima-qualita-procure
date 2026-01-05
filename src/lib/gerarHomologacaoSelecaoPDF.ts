@@ -268,29 +268,55 @@ export async function gerarHomologacaoSelecaoPDF(selecaoId: string, isRegistroPr
 
     // Largura total da tabela = contentWidth
     const tableWidth = contentWidth;
-    const colWidths = [tableWidth * 0.47, tableWidth * 0.29, tableWidth * 0.24]; // 47%, 29%, 24%
     const tableX = marginLeft;
+    
+    // Critério global: apenas 2 colunas (Empresa e Valor)
+    const isGlobal = criterioJulgamento === "global";
+    
+    // Definir larguras das colunas baseado no critério
+    let colWidths: number[];
+    if (isGlobal) {
+      colWidths = [tableWidth * 0.65, tableWidth * 0.35]; // 65%, 35% (sem coluna de itens)
+    } else {
+      colWidths = [tableWidth * 0.47, tableWidth * 0.29, tableWidth * 0.24]; // 47%, 29%, 24%
+    }
     
     // Desenhar retângulos do cabeçalho com bordas cinzas
     doc.setDrawColor(128, 128, 128); // Cinza
     doc.setLineWidth(0.2);
     
-    doc.rect(tableX, yPosition, colWidths[0], 8, "FD");
-    doc.rect(tableX + colWidths[0], yPosition, colWidths[1], 8, "FD");
-    doc.rect(tableX + colWidths[0] + colWidths[1], yPosition, colWidths[2], 8, "FD");
-    
-    // Texto do cabeçalho (todos centralizados)
-    const headerEmpresa = "Empresa";
-    const headerEmpresaWidth = doc.getTextWidth(headerEmpresa);
-    doc.text(headerEmpresa, tableX + (colWidths[0] - headerEmpresaWidth) / 2, yPosition + 5.5);
-    
-    const headerItens = criterioJulgamento === "por_lote" ? "Lotes Vencedores" : "Itens Vencedores";
-    const headerItensWidth = doc.getTextWidth(headerItens);
-    doc.text(headerItens, tableX + colWidths[0] + (colWidths[1] - headerItensWidth) / 2, yPosition + 5.5);
-    
-    const labelColuna3 = isDesconto ? "Desconto Vencedor" : "Valor (R$)";
-    const headerValorWidth = doc.getTextWidth(labelColuna3);
-    doc.text(labelColuna3, tableX + colWidths[0] + colWidths[1] + (colWidths[2] - headerValorWidth) / 2, yPosition + 5.5);
+    if (isGlobal) {
+      // Apenas 2 colunas para critério global
+      doc.rect(tableX, yPosition, colWidths[0], 8, "FD");
+      doc.rect(tableX + colWidths[0], yPosition, colWidths[1], 8, "FD");
+      
+      // Texto do cabeçalho
+      const headerEmpresa = "Empresa";
+      const headerEmpresaWidth = doc.getTextWidth(headerEmpresa);
+      doc.text(headerEmpresa, tableX + (colWidths[0] - headerEmpresaWidth) / 2, yPosition + 5.5);
+      
+      const labelColuna2 = isDesconto ? "Desconto Vencedor" : "Valor (R$)";
+      const headerValorWidth = doc.getTextWidth(labelColuna2);
+      doc.text(labelColuna2, tableX + colWidths[0] + (colWidths[1] - headerValorWidth) / 2, yPosition + 5.5);
+    } else {
+      // 3 colunas para outros critérios
+      doc.rect(tableX, yPosition, colWidths[0], 8, "FD");
+      doc.rect(tableX + colWidths[0], yPosition, colWidths[1], 8, "FD");
+      doc.rect(tableX + colWidths[0] + colWidths[1], yPosition, colWidths[2], 8, "FD");
+      
+      // Texto do cabeçalho (todos centralizados)
+      const headerEmpresa = "Empresa";
+      const headerEmpresaWidth = doc.getTextWidth(headerEmpresa);
+      doc.text(headerEmpresa, tableX + (colWidths[0] - headerEmpresaWidth) / 2, yPosition + 5.5);
+      
+      const headerItens = criterioJulgamento === "por_lote" ? "Lotes Vencedores" : "Itens Vencedores";
+      const headerItensWidth = doc.getTextWidth(headerItens);
+      doc.text(headerItens, tableX + colWidths[0] + (colWidths[1] - headerItensWidth) / 2, yPosition + 5.5);
+      
+      const labelColuna3 = isDesconto ? "Desconto Vencedor" : "Valor (R$)";
+      const headerValorWidth = doc.getTextWidth(labelColuna3);
+      doc.text(labelColuna3, tableX + colWidths[0] + colWidths[1] + (colWidths[2] - headerValorWidth) / 2, yPosition + 5.5);
+    }
     
     yPosition += 8;
 
@@ -306,39 +332,56 @@ export async function gerarHomologacaoSelecaoPDF(selecaoId: string, isRegistroPr
       doc.setFillColor(bgColor, bgColor, bgColor);
       
       const linhasEmpresa = doc.splitTextToSize(linha[0], colWidths[0] - 4);
-      const linhasItens = linha[1];
-      const linhasValor = linha[2];
       const maxLinhas = Math.max(linhasEmpresa.length, 1);
       const altura = maxLinhas * 5 + 2;
-
-      // Desenhar células com bordas cinzas
-      doc.rect(tableX, yPosition, colWidths[0], altura, "FD");
-      doc.rect(tableX + colWidths[0], yPosition, colWidths[1], altura, "FD");
-      doc.rect(tableX + colWidths[0] + colWidths[1], yPosition, colWidths[2], altura, "FD");
 
       // Calcular posição vertical centralizada
       const verticalCenter = yPosition + (altura / 2) + 1.5;
 
-      // Texto empresa (alinhado à esquerda, centralizado verticalmente)
-      if (linhasEmpresa.length > 1) {
-        // Múltiplas linhas - centralizar o bloco verticalmente
-        const blocoAltura = linhasEmpresa.length * 4;
-        const startY = yPosition + (altura - blocoAltura) / 2 + 3;
-        linhasEmpresa.forEach((linhaTexto, idx) => {
-          doc.text(linhaTexto, tableX + 2, startY + (idx * 4));
-        });
+      if (isGlobal) {
+        // 2 colunas para critério global
+        doc.rect(tableX, yPosition, colWidths[0], altura, "FD");
+        doc.rect(tableX + colWidths[0], yPosition, colWidths[1], altura, "FD");
+
+        // Texto empresa (alinhado à esquerda, centralizado verticalmente)
+        if (linhasEmpresa.length > 1) {
+          const blocoAltura = linhasEmpresa.length * 4;
+          const startY = yPosition + (altura - blocoAltura) / 2 + 3;
+          linhasEmpresa.forEach((linhaTexto, i) => {
+            doc.text(linhaTexto, tableX + 2, startY + (i * 4));
+          });
+        } else {
+          doc.text(linhasEmpresa[0], tableX + 2, verticalCenter);
+        }
+        
+        // Centralizar valor/desconto (usando linha[2] que contém o valor)
+        const valorWidth = doc.getTextWidth(linha[2]);
+        doc.text(linha[2], tableX + colWidths[0] + (colWidths[1] - valorWidth) / 2, verticalCenter);
       } else {
-        // Linha única - centralizar verticalmente
-        doc.text(linhasEmpresa[0], tableX + 2, verticalCenter);
+        // 3 colunas para outros critérios
+        doc.rect(tableX, yPosition, colWidths[0], altura, "FD");
+        doc.rect(tableX + colWidths[0], yPosition, colWidths[1], altura, "FD");
+        doc.rect(tableX + colWidths[0] + colWidths[1], yPosition, colWidths[2], altura, "FD");
+
+        // Texto empresa (alinhado à esquerda, centralizado verticalmente)
+        if (linhasEmpresa.length > 1) {
+          const blocoAltura = linhasEmpresa.length * 4;
+          const startY = yPosition + (altura - blocoAltura) / 2 + 3;
+          linhasEmpresa.forEach((linhaTexto, i) => {
+            doc.text(linhaTexto, tableX + 2, startY + (i * 4));
+          });
+        } else {
+          doc.text(linhasEmpresa[0], tableX + 2, verticalCenter);
+        }
+        
+        // Centralizar itens (horizontal e verticalmente)
+        const itensWidth = doc.getTextWidth(linha[1]);
+        doc.text(linha[1], tableX + colWidths[0] + (colWidths[1] - itensWidth) / 2, verticalCenter);
+        
+        // Centralizar valor/desconto (horizontal e verticalmente)
+        const valorWidth = doc.getTextWidth(linha[2]);
+        doc.text(linha[2], tableX + colWidths[0] + colWidths[1] + (colWidths[2] - valorWidth) / 2, verticalCenter);
       }
-      
-      // Centralizar itens (horizontal e verticalmente)
-      const itensWidth = doc.getTextWidth(linha[1]);
-      doc.text(linha[1], tableX + colWidths[0] + (colWidths[1] - itensWidth) / 2, verticalCenter);
-      
-      // Centralizar valor/desconto (horizontal e verticalmente)
-      const valorWidth = doc.getTextWidth(linha[2]);
-      doc.text(linha[2], tableX + colWidths[0] + colWidths[1] + (colWidths[2] - valorWidth) / 2, verticalCenter);
 
       yPosition += altura;
     });
