@@ -2714,7 +2714,7 @@ const SistemaLancesFornecedor = () => {
                                     ? 'bg-green-50 border border-green-200' 
                                     : 'bg-blue-50'
                                 }`}>
-                                  <div className="flex items-center justify-between gap-1">
+                                  <div className="flex items-start justify-between gap-1">
                                     <div className="min-w-0">
                                       <div
                                         className={`flex items-center gap-1 text-[10px] mb-0.5 ${
