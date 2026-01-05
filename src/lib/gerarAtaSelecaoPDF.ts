@@ -491,14 +491,23 @@ export async function gerarAtaSelecaoPDF(selecaoId: string): Promise<{ url: stri
     .eq('selecao_id', selecaoId)
     .order('created_at', { ascending: true });
 
-  const recursosInabilitacao: RecursoInabilitacao[] = (recursos || []).map((r: any) => ({
-    razao_social: r.fornecedores?.razao_social || '',
-    cnpj: r.fornecedores?.cnpj || '',
-    motivo_recurso: r.motivo_recurso,
-    status_recurso: r.status_recurso,
-    resposta_gestor: r.resposta_gestor,
-    tipo_provimento: r.tipo_provimento
-  }));
+  // Agrupar recursos por CNPJ para evitar duplicações - usar o mais recente de cada fornecedor
+  const recursosMap = new Map<string, RecursoInabilitacao>();
+  (recursos || []).forEach((r: any) => {
+    const cnpj = r.fornecedores?.cnpj || '';
+    if (cnpj) {
+      // Substitui sempre (ordem é ascending, então o último é o mais recente)
+      recursosMap.set(cnpj, {
+        razao_social: r.fornecedores?.razao_social || '',
+        cnpj: cnpj,
+        motivo_recurso: r.motivo_recurso,
+        status_recurso: r.status_recurso,
+        resposta_gestor: r.resposta_gestor,
+        tipo_provimento: r.tipo_provimento
+      });
+    }
+  });
+  const recursosInabilitacao: RecursoInabilitacao[] = Array.from(recursosMap.values());
 
   // Buscar mensagens do chat da seleção
   const { data: chatMensagens } = await supabase
