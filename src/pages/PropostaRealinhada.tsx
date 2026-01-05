@@ -21,6 +21,7 @@ interface ItemVencedor {
   valor_total_ganho: number; // Valor total que ganhou (para dividir entre itens se for lote/global)
   marca?: string;
   valor_unitario_lance?: number; // Valor unitário do lance (para critério por_item e desconto)
+  valor_unitario_proposta_original?: number; // Valor unitário da proposta de seleção original
 }
 
 interface RespostaItem {
@@ -208,13 +209,13 @@ const PropostaRealinhada = () => {
       .eq("fornecedor_id", fornecedorData.id)
       .maybeSingle();
 
-    // Buscar marcas da proposta original do fornecedor via proposta_id
+    // Buscar marcas e valores da proposta original do fornecedor via proposta_id
     // Usar palavras-chave da descrição para matching
     const respostasOriginais: any[] = [];
     if (propostaFornecedor) {
       const { data } = await (supabase as any)
         .from("selecao_respostas_itens_fornecedor")
-        .select("numero_item, marca, descricao")
+        .select("numero_item, marca, descricao, valor_unitario")
         .eq("proposta_id", propostaFornecedor.id);
       
       if (data) {
@@ -238,14 +239,24 @@ const PropostaRealinhada = () => {
         .filter(p => p.length > 2 && !palavrasIgnorar.has(p));
     };
 
-    // Função helper para buscar marca pela descrição do item usando palavras-chave
-    const buscarMarcaPorDescricao = (descricaoItem: string): string => {
+    // Função helper para buscar marca e valor original pela descrição do item usando palavras-chave
+    const buscarDadosOriginaisPorDescricao = (descricaoItem: string, numeroItem: number): { marca: string; valorUnitario: number } => {
+      // Primeiro, tentar match por numero_item direto
+      const matchDirecto = respostasOriginais.find(r => r.numero_item === numeroItem);
+      if (matchDirecto) {
+        return { 
+          marca: matchDirecto.marca || "", 
+          valorUnitario: matchDirecto.valor_unitario || 0 
+        };
+      }
+
+      // Se não encontrar, usar matching por palavras-chave
       const palavrasItem = extrairPalavrasChave(descricaoItem);
       
-      let melhorMatch = { marca: "", score: 0 };
+      let melhorMatch = { marca: "", valorUnitario: 0, score: 0 };
       
       for (const resposta of respostasOriginais) {
-        if (!resposta.marca || !resposta.descricao) continue;
+        if (!resposta.descricao) continue;
         
         const palavrasResposta = extrairPalavrasChave(resposta.descricao);
         
@@ -259,11 +270,15 @@ const PropostaRealinhada = () => {
         
         // Preferir matches com mais palavras em comum
         if (score > melhorMatch.score && score >= 2) {
-          melhorMatch = { marca: resposta.marca, score };
+          melhorMatch = { 
+            marca: resposta.marca || "", 
+            valorUnitario: resposta.valor_unitario || 0,
+            score 
+          };
         }
       }
       
-      return melhorMatch.marca;
+      return { marca: melhorMatch.marca, valorUnitario: melhorMatch.valorUnitario };
     };
 
     const itensProcessados: ItemVencedor[] = [];
@@ -290,6 +305,7 @@ const PropostaRealinhada = () => {
         );
         
         itensDoLote.forEach((item: any) => {
+          const dadosOriginais = buscarDadosOriginaisPorDescricao(item.descricao, item.numero_item);
           itensProcessados.push({
             numero_item: item.numero_item,
             numero_lote: numeroLote,
@@ -297,7 +313,8 @@ const PropostaRealinhada = () => {
             quantidade: item.quantidade,
             unidade: item.unidade,
             valor_total_ganho: loteInfo.valorTotal,
-            marca: buscarMarcaPorDescricao(item.descricao) || item.marca || "",
+            marca: dadosOriginais.marca || item.marca || "",
+            valor_unitario_proposta_original: dadosOriginais.valorUnitario,
           });
         });
       });
@@ -309,13 +326,15 @@ const PropostaRealinhada = () => {
       totalGanho = valorTotalGlobal;
 
       itensCotacao.forEach((item: any) => {
+        const dadosOriginais = buscarDadosOriginaisPorDescricao(item.descricao, item.numero_item);
         itensProcessados.push({
           numero_item: item.numero_item,
           descricao: item.descricao,
           quantidade: item.quantidade,
           unidade: item.unidade,
           valor_total_ganho: valorTotalGlobal,
-          marca: buscarMarcaPorDescricao(item.descricao) || item.marca || "",
+          marca: dadosOriginais.marca || item.marca || "",
+          valor_unitario_proposta_original: dadosOriginais.valorUnitario,
         });
       });
     } else {
@@ -328,6 +347,7 @@ const PropostaRealinhada = () => {
           const valorTotal = valorUnitario * itemOriginal.quantidade;
           totalGanho += valorTotal;
           
+          const dadosOriginais = buscarDadosOriginaisPorDescricao(itemOriginal.descricao, lance.numero_item);
           itensProcessados.push({
             numero_item: lance.numero_item,
             numero_lote: itemOriginal.lotes_cotacao?.numero_lote,
@@ -335,8 +355,9 @@ const PropostaRealinhada = () => {
             quantidade: itemOriginal.quantidade,
             unidade: itemOriginal.unidade,
             valor_total_ganho: valorTotal,
-            marca: buscarMarcaPorDescricao(itemOriginal.descricao) || itemOriginal.marca || "",
+            marca: dadosOriginais.marca || itemOriginal.marca || "",
             valor_unitario_lance: valorUnitario, // Guardar valor unitário do lance
+            valor_unitario_proposta_original: dadosOriginais.valorUnitario,
           });
         }
       });
@@ -374,6 +395,14 @@ const PropostaRealinhada = () => {
 
   const handleValorChange = (numeroItem: number, valor: string) => {
     const valorNumerico = parseFloat(valor.replace(",", ".")) || 0;
+    
+    // Validar se o valor não excede o valor da proposta original
+    const item = itensVencedores.find(i => i.numero_item === numeroItem);
+    if (item?.valor_unitario_proposta_original && valorNumerico > item.valor_unitario_proposta_original + 0.001) {
+      toast.error(`O valor unitário não pode ser maior que o valor da proposta original (${formatCurrency(item.valor_unitario_proposta_original)})`);
+      return;
+    }
+    
     setRespostas((prev) => ({
       ...prev,
       [numeroItem]: {
@@ -471,6 +500,15 @@ const PropostaRealinhada = () => {
     if (itensNaoPreenchidos.length > 0) {
       toast.error("Preencha o valor unitário de todos os itens");
       return;
+    }
+
+    // Validar se algum item excede o valor da proposta original
+    for (const item of itensVencedores) {
+      const resposta = respostas[item.numero_item];
+      if (item.valor_unitario_proposta_original && resposta?.valor_unitario > item.valor_unitario_proposta_original + 0.001) {
+        toast.error(`Item ${item.numero_item}: O valor unitário (${formatCurrency(resposta.valor_unitario)}) não pode ser maior que o valor da proposta original (${formatCurrency(item.valor_unitario_proposta_original)})`);
+        return;
+      }
     }
 
     // Validar totais por lote/global
