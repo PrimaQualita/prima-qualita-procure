@@ -511,8 +511,11 @@ export default function PortalFornecedor() {
       );
 
       // Filtrar apenas os que ainda podem recorrer:
-      // - Sem intenção declarada (ainda pode decidir)
+      // - Sem intenção declarada E dentro do prazo de 5 minutos
       // - OU com intenção de recorrer mas sem recurso enviado ainda (aguardando_recurso)
+      const agora = new Date();
+      const PRAZO_MANIFESTACAO_MS = 5 * 60 * 1000; // 5 minutos em milissegundos
+      
       const pendentes = inabilitacoesComRecurso.filter(inab => {
         // Se declinou (deseja_recorrer = false), não mostrar
         if (inab.intencao_declarada && inab.deseja_recorrer === false) {
@@ -521,6 +524,15 @@ export default function PortalFornecedor() {
         // Se já tem recurso enviado/respondido, não mostrar
         if (inab.status_recurso && inab.status_recurso !== 'aguardando_recurso') {
           return false;
+        }
+        // Se não manifestou intenção, verificar se ainda está dentro do prazo de 5 minutos
+        if (!inab.intencao_declarada) {
+          const dataInabilitacao = new Date(inab.data_inabilitacao);
+          const tempoDecorrido = agora.getTime() - dataInabilitacao.getTime();
+          // Se passou mais de 5 minutos sem manifestação, não mostrar mais
+          if (tempoDecorrido > PRAZO_MANIFESTACAO_MS) {
+            return false;
+          }
         }
         return true;
       });
