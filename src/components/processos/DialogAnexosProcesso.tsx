@@ -814,8 +814,8 @@ export function DialogAnexosProcesso({
                         {gerandoCapa ? "Gerando Capa..." : "Gerar Capa do Processo"}
                       </Button>
                     )}
-                    {/* Botão Gerar Requisição - para gerente de contratos, responsável legal OU gestor/colaborador */}
-                    {isRequisicao && (isGerenteContratos || isResponsavelLegal || isGestorOuColaborador) && (
+                    {/* Botão Gerar Requisição - apenas para gerentes de contratos vinculados ao contrato */}
+                    {isRequisicao && isGerenteContratos && (
                       <Button
                         size="sm"
                         variant="default"
@@ -841,9 +841,9 @@ export function DialogAnexosProcesso({
                       </Button>
                     )}
                     {/* Botão Anexar PDF - gestor/colaborador pode anexar capa e termo */}
-                    {/* Gerente de contratos e responsável legal só podem anexar requisição */}
+                    {/* Gerente de contratos vinculado só pode anexar requisição */}
                     {/* Autorização de despesa NÃO pode ser anexada manualmente - apenas gerada */}
-                    {!isAutorizacaoDespesa && (isGestorOuColaborador || ((isGerenteContratos || isResponsavelLegal) && isRequisicao)) && (
+                    {!isAutorizacaoDespesa && (isGestorOuColaborador || (isGerenteContratos && isRequisicao)) && (
                       <>
                         <input
                           type="file"
