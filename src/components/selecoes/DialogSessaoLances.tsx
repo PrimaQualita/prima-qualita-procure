@@ -2312,10 +2312,13 @@ export function DialogSessaoLances({
         criterioJulgamento === "desconto" ? "-" : "Valor Total"
       ]];
 
-      // Larguras ajustadas para caber na página paisagem A4 (largura útil ~267mm com margens de 15mm)
+      // Largura total da tabela (paisagem A4 = ~297mm, com margens de 14mm cada lado = 269mm úteis)
+      const larguraTotalTabela = landscapeWidth - 28; // 28 = 14 + 14 de margem
+      
+      // Larguras ajustadas para critério global (soma = 262mm, ajustado proporcionalmente)
       const columnStylesGlobal = {
         0: { cellWidth: 15, halign: "center" as const, fontStyle: "bold" as const },
-        1: { cellWidth: 177 }, // Descrição mais compacta
+        1: { cellWidth: larguraTotalTabela - 15 - 35 - 35, halign: "left" as const }, // Descrição ocupa o restante
         2: { cellWidth: 35, halign: "center" as const },
         3: { cellWidth: 35, halign: "center" as const },
       };
@@ -2353,7 +2356,7 @@ export function DialogSessaoLances({
         alternateRowStyles: {
           fillColor: [224, 242, 241] // Verde claro do logo
         },
-        margin: { top: logoResumoHeight + 20 },
+        margin: { left: 14, right: 14, top: logoResumoHeight + 20 },
         didDrawPage: () => {
           // Adicionar logo em todas as páginas do resumo
           const paginaAtual = doc.internal.pages.length - 1;
@@ -2456,13 +2459,13 @@ export function DialogSessaoLances({
               cellPadding: 2,
             },
             columnStyles: {
-              0: { halign: "left", valign: "middle" },
+              0: { halign: "left", valign: "middle", cellWidth: landscapeWidth - 28 - 80 }, // Mesma largura total que tabela de cima
               1: { halign: "right", fontStyle: "bold", valign: "middle", cellWidth: 80 },
             },
             alternateRowStyles: {
               fillColor: [224, 242, 241]
             },
-            tableWidth: "auto",
+            tableWidth: landscapeWidth - 28, // Mesma largura que a tabela de resumo
             margin: { left: 14, right: 14, top: logoResumoHeight + 20 }, // Mesmas margens da planilha resumo
             didDrawPage: () => {
               const paginaAtual = doc.internal.pages.length - 1;
