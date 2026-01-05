@@ -419,27 +419,78 @@ export const gerarPropostaRealinhadaPDF = async (
   let finalY = (doc as any).lastAutoTable?.finalY || yPos + 50;
   
   if (observacoes && observacoes.trim()) {
-    // Verificar se cabe na página atual (observações + certificação)
-    const obsLines = doc.splitTextToSize(sanitizarTexto(observacoes), pageWidth - margin * 2);
-    const alturaObservacoes = 10 + obsLines.length * 4;
-    const alturaCertificacao = 50;
+    const textoObservacoes = sanitizarTexto(observacoes);
+    const larguraTextoObs = pageWidth - margin * 2 - 10; // Padding interno do box
+    const obsLines = doc.splitTextToSize(textoObservacoes, larguraTextoObs);
+    const lineHeight = 4;
+    const alturaTexto = obsLines.length * lineHeight;
+    const alturaBox = alturaTexto + 18; // Título + padding
+    const alturaCertificacao = 55;
     
-    if (finalY + alturaObservacoes + alturaCertificacao > pageHeight - 15) {
+    // Verificar se cabe na página atual
+    const espacoDisponivel = pageHeight - finalY - 20;
+    if (alturaBox + alturaCertificacao > espacoDisponivel) {
       doc.addPage();
       finalY = margin;
     } else {
-      finalY += 5; // Espaçamento reduzido após tabela
+      finalY += 8; // Espaçamento após tabela
     }
 
+    // Box cinza para observações (igual ao box de dados do fornecedor)
+    doc.setFillColor(245, 245, 245);
+    doc.setDrawColor(200, 200, 200);
+    doc.setLineWidth(0.3);
+    doc.rect(margin, finalY, pageWidth - margin * 2, alturaBox, 'FD');
+    
+    // Título "OBSERVAÇÕES" em vermelho e negrito
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(10);
-    doc.text('OBSERVAÇÕES:', margin, finalY);
-    finalY += 5;
+    doc.setTextColor(180, 0, 0);
+    doc.text('OBSERVAÇÕES:', margin + 5, finalY + 6);
     
+    // Texto justificado em vermelho
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(9);
-    doc.text(obsLines, margin, finalY);
-    finalY += obsLines.length * 4 + 3;
+    doc.setTextColor(180, 0, 0);
+    
+    const xTexto = margin + 5;
+    let yTexto = finalY + 12;
+    
+    obsLines.forEach((linha: string, index: number) => {
+      const isUltimaLinha = index === obsLines.length - 1;
+      
+      if (isUltimaLinha || obsLines.length === 1) {
+        // Última linha: alinhamento à esquerda
+        doc.text(linha.trim(), xTexto, yTexto);
+      } else {
+        // Linhas intermediárias: justificar
+        const palavras = linha.trim().split(/\s+/).filter((p: string) => p.length > 0);
+        if (palavras.length > 1) {
+          let larguraPalavras = 0;
+          palavras.forEach((palavra: string) => {
+            larguraPalavras += doc.getTextWidth(palavra);
+          });
+          const espacoDisponivel = larguraTextoObs - larguraPalavras;
+          const espacoEntrePalavras = espacoDisponivel / (palavras.length - 1);
+          
+          let xAtual = xTexto;
+          palavras.forEach((palavra: string, idx: number) => {
+            doc.text(palavra, xAtual, yTexto);
+            if (idx < palavras.length - 1) {
+              xAtual += doc.getTextWidth(palavra) + espacoEntrePalavras;
+            }
+          });
+        } else {
+          doc.text(linha.trim(), xTexto, yTexto);
+        }
+      }
+      yTexto += lineHeight;
+    });
+    
+    // Restaurar cor do texto
+    doc.setTextColor(0, 0, 0);
+    
+    finalY += alturaBox + 3;
   }
 
   // Certificação Digital Simplificada
