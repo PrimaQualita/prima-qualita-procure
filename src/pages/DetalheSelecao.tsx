@@ -579,6 +579,7 @@ const [itens, setItens] = useState<Item[]>([]);
     if (!selecaoId || !processo) return [];
     
     const criterioJulgamento = processo.criterio_julgamento || 'por_item';
+    const isDesconto = criterioJulgamento === 'desconto' || criterioJulgamento === 'maior_percentual_desconto';
     
     // Buscar todos os lances da seleção
     const { data: lances, error } = await supabase
@@ -586,34 +587,48 @@ const [itens, setItens] = useState<Item[]>([]);
       .select("fornecedor_id, numero_item, valor_lance, fornecedores(razao_social, cnpj)")
       .eq("selecao_id", selecaoId)
       .order("numero_item", { ascending: true })
-      .order("valor_lance", { ascending: criterioJulgamento !== 'desconto' && criterioJulgamento !== 'maior_percentual_desconto' });
+      .order("valor_lance", { ascending: !isDesconto });
 
     if (error || !lances || lances.length === 0) return [];
 
-    // Buscar fornecedores inabilitados
+    // Buscar fornecedores inabilitados COM itens afetados
     const { data: inabilitados } = await supabase
       .from("fornecedores_inabilitados_selecao")
-      .select("fornecedor_id")
+      .select("fornecedor_id, itens_afetados")
       .eq("selecao_id", selecaoId)
       .eq("revertido", false);
 
-    const inabilitadosIds = new Set((inabilitados || []).map(i => i.fornecedor_id));
+    // Criar mapa de fornecedor -> itens inabilitados
+    const inabilitadosPorItem = new Map<string, Set<number>>();
+    (inabilitados || []).forEach((inab: any) => {
+      if (!inabilitadosPorItem.has(inab.fornecedor_id)) {
+        inabilitadosPorItem.set(inab.fornecedor_id, new Set());
+      }
+      if (Array.isArray(inab.itens_afetados)) {
+        inab.itens_afetados.forEach((item: number) => {
+          inabilitadosPorItem.get(inab.fornecedor_id)!.add(item);
+        });
+      }
+    });
 
-    // Filtrar lances de fornecedores inabilitados
-    const lancesValidos = lances.filter((l: any) => !inabilitadosIds.has(l.fornecedor_id));
+    // Função para verificar se fornecedor está inabilitado para um item/lote específico
+    const estaInabilitadoPara = (fornecedorId: string, numeroItem: number): boolean => {
+      const itensInab = inabilitadosPorItem.get(fornecedorId);
+      return itensInab ? itensInab.has(numeroItem) : false;
+    };
 
     // Identificar vencedores dinamicamente
     const fornecedoresMap = new Map<string, { razaoSocial: string; cnpj: string }>();
     
     if (criterioJulgamento === 'global') {
       // Global: item 0 representa total, menor valor global vence
-      const lancesGlobal = lancesValidos.filter((l: any) => l.numero_item === 0);
+      const lancesGlobal = lances
+        .filter((l: any) => l.numero_item === 0)
+        .filter((l: any) => !estaInabilitadoPara(l.fornecedor_id, 0));
+      
       if (lancesGlobal.length > 0) {
-        // Ordenar por valor (menor primeiro para preço, maior primeiro para desconto)
         const sorted = lancesGlobal.sort((a: any, b: any) => {
-          return criterioJulgamento === 'desconto' || criterioJulgamento === 'maior_percentual_desconto' 
-            ? b.valor_lance - a.valor_lance 
-            : a.valor_lance - b.valor_lance;
+          return isDesconto ? b.valor_lance - a.valor_lance : a.valor_lance - b.valor_lance;
         });
         const vencedor = sorted[0];
         if (vencedor.fornecedores) {
@@ -626,14 +641,18 @@ const [itens, setItens] = useState<Item[]>([]);
     } else if (criterioJulgamento === 'por_lote') {
       // Por lote: agrupar por numero_item (que representa o lote)
       const loteMap = new Map<number, any[]>();
-      lancesValidos.forEach((l: any) => {
+      lances.forEach((l: any) => {
+        // Filtrar inabilitados para este lote específico
+        if (estaInabilitadoPara(l.fornecedor_id, l.numero_item)) return;
         if (!loteMap.has(l.numero_item)) loteMap.set(l.numero_item, []);
         loteMap.get(l.numero_item)!.push(l);
       });
       
-      // Para cada lote, encontrar vencedor
+      // Para cada lote, encontrar vencedor (considerando critério de desconto)
       loteMap.forEach((lancesLote: any[]) => {
-        const sorted = lancesLote.sort((a, b) => a.valor_lance - b.valor_lance);
+        const sorted = lancesLote.sort((a, b) => {
+          return isDesconto ? b.valor_lance - a.valor_lance : a.valor_lance - b.valor_lance;
+        });
         const vencedor = sorted[0];
         if (vencedor?.fornecedores) {
           fornecedoresMap.set(vencedor.fornecedor_id, {
@@ -645,7 +664,9 @@ const [itens, setItens] = useState<Item[]>([]);
     } else {
       // Por item: agrupar por numero_item
       const itemMap = new Map<number, any[]>();
-      lancesValidos.forEach((l: any) => {
+      lances.forEach((l: any) => {
+        // Filtrar inabilitados para este item específico
+        if (estaInabilitadoPara(l.fornecedor_id, l.numero_item)) return;
         if (!itemMap.has(l.numero_item)) itemMap.set(l.numero_item, []);
         itemMap.get(l.numero_item)!.push(l);
       });
@@ -653,9 +674,7 @@ const [itens, setItens] = useState<Item[]>([]);
       // Para cada item, encontrar vencedor
       itemMap.forEach((lancesItem: any[]) => {
         const sorted = lancesItem.sort((a, b) => {
-          return criterioJulgamento === 'desconto' || criterioJulgamento === 'maior_percentual_desconto'
-            ? b.valor_lance - a.valor_lance
-            : a.valor_lance - b.valor_lance;
+          return isDesconto ? b.valor_lance - a.valor_lance : a.valor_lance - b.valor_lance;
         });
         const vencedor = sorted[0];
         if (vencedor?.fornecedores) {
