@@ -421,6 +421,11 @@ export const gerarPropostaRealinhadaPDF = async (
   if (observacoes && observacoes.trim()) {
     const textoObservacoes = sanitizarTexto(observacoes);
     const larguraTextoObs = pageWidth - margin * 2 - 10; // Padding interno do box
+    
+    // IMPORTANTE: definir fonte ANTES de splitTextToSize para calcular quebra correta
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(9);
+    
     const obsLines = doc.splitTextToSize(textoObservacoes, larguraTextoObs);
     const lineHeight = 4;
     const alturaTexto = obsLines.length * lineHeight;
