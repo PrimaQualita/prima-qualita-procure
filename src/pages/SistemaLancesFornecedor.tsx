@@ -536,10 +536,10 @@ const SistemaLancesFornecedor = () => {
 
   const loadMinhaInabilitacao = async () => {
     if (!selecao?.id || !proposta?.fornecedor_id) return;
-    
+
     try {
-      // Verificar se eu fui inabilitado
-      const { data: inabilitacao, error: inabError } = await supabase
+      // Inabilitação ATIVA (não revertida) - usada para fluxo de prazos/UX
+      const { data: inabilitacaoAtiva, error: inabError } = await supabase
         .from("fornecedores_inabilitados_selecao")
         .select("*")
         .eq("selecao_id", selecao.id)
@@ -548,61 +548,61 @@ const SistemaLancesFornecedor = () => {
         .maybeSingle();
 
       if (inabError) throw inabError;
-      
-      setMinhaInabilitacao(inabilitacao);
-      
-      if (inabilitacao) {
-        // Buscar o recurso mais recente (ordenado por created_at DESC)
-        const { data: recursos, error: recursoError } = await supabase
-          .from("recursos_inabilitacao_selecao")
+
+      setMinhaInabilitacao(inabilitacaoAtiva);
+
+      // Sempre buscar o recurso mais recente do fornecedor nesta seleção,
+      // mesmo que a inabilitação já tenha sido revertida (provimento).
+      const { data: recursos, error: recursoError } = await supabase
+        .from("recursos_inabilitacao_selecao")
+        .select("*")
+        .eq("selecao_id", selecao.id)
+        .eq("fornecedor_id", proposta.fornecedor_id)
+        .order("created_at", { ascending: false })
+        .limit(1);
+
+      if (recursoError) throw recursoError;
+
+      const recurso = recursos?.[0] || null;
+
+      if (recurso) {
+        setMeuRecurso(recurso);
+        return;
+      }
+
+      // Se ainda está inabilitado e manifestou intenção, garantir que exista um recurso aberto
+      if (inabilitacaoAtiva) {
+        const { data: intencao } = await supabase
+          .from("intencoes_recurso_selecao")
           .select("*")
-          .eq("inabilitacao_id", inabilitacao.id)
-          .order("created_at", { ascending: false })
-          .limit(1);
-          
-        if (recursoError) throw recursoError;
-        
-        const recurso = recursos?.[0] || null;
-        
-        if (recurso) {
-          setMeuRecurso(recurso);
-        } else {
-          // Só criar recurso se fornecedor já manifestou intenção de recorrer
-          // Buscar intenção de recurso primeiro
-          const { data: intencao } = await supabase
-            .from("intencoes_recurso_selecao")
-            .select("*")
-            .eq("selecao_id", selecao.id)
-            .eq("fornecedor_id", proposta.fornecedor_id)
-            .maybeSingle();
-          
-          if (intencao?.deseja_recorrer) {
-            // Data limite: 1 dia útil a partir de agora
-            const dataLimite = calcularProximoDiaUtil(new Date(), 1);
-            
-            const { data: novoRecurso, error: criarError } = await supabase
-              .from("recursos_inabilitacao_selecao")
-              .insert({
-                inabilitacao_id: inabilitacao.id,
-                selecao_id: selecao.id,
-                fornecedor_id: proposta.fornecedor_id,
-                motivo_recurso: "",
-                data_limite_fornecedor: dataLimite.toISOString(),
-                status_recurso: "aguardando_envio"
-              })
-              .select()
-              .single();
-              
-            if (!criarError && novoRecurso) {
-              setMeuRecurso(novoRecurso);
-            }
-          } else {
-            setMeuRecurso(null);
+          .eq("selecao_id", selecao.id)
+          .eq("fornecedor_id", proposta.fornecedor_id)
+          .maybeSingle();
+
+        if (intencao?.deseja_recorrer) {
+          const dataLimite = calcularProximoDiaUtil(new Date(), 1);
+
+          const { data: novoRecurso, error: criarError } = await supabase
+            .from("recursos_inabilitacao_selecao")
+            .insert({
+              inabilitacao_id: inabilitacaoAtiva.id,
+              selecao_id: selecao.id,
+              fornecedor_id: proposta.fornecedor_id,
+              motivo_recurso: "",
+              data_limite_fornecedor: dataLimite.toISOString(),
+              status_recurso: "aguardando_envio",
+            })
+            .select()
+            .single();
+
+          if (!criarError && novoRecurso) {
+            setMeuRecurso(novoRecurso);
+            return;
           }
         }
-      } else {
-        setMeuRecurso(null);
       }
+
+      setMeuRecurso(null);
     } catch (error) {
       console.error("Erro ao carregar inabilitação:", error);
     }
@@ -2675,17 +2675,19 @@ const SistemaLancesFornecedor = () => {
           </Card>
         )}
 
-        {/* Alerta de Inabilitação com Recurso - Apenas para inabilitados que manifestaram intenção */}
-        {minhaInabilitacao && minhaIntencaoRecurso?.deseja_recorrer && meuRecurso && (
+        {/* Recurso de Inabilitação (visível mesmo após provimento/reversão) */}
+        {meuRecurso && minhaIntencaoRecurso?.deseja_recorrer !== false && (
           <Card className="border-red-500/50 bg-red-500/10">
             <CardHeader className="pb-3">
               <CardTitle className="flex items-center gap-2 text-red-700">
                 <AlertCircle className="h-5 w-5" />
-                Você foi inabilitado nesta seleção
+                {minhaInabilitacao ? "Você foi inabilitado nesta seleção" : "Recurso de Inabilitação"}
               </CardTitle>
-              <CardDescription className="text-red-600">
-                Motivo: {minhaInabilitacao.motivo_inabilitacao}
-              </CardDescription>
+              {minhaInabilitacao && (
+                <CardDescription className="text-red-600">
+                  Motivo: {minhaInabilitacao.motivo_inabilitacao}
+                </CardDescription>
+              )}
             </CardHeader>
             <CardContent className="space-y-4">
               {meuRecurso.status_recurso === "aguardando_envio" && tempoRestanteRecurso !== null && tempoRestanteRecurso > 0 ? (
@@ -2767,12 +2769,18 @@ const SistemaLancesFornecedor = () => {
                     </div>
                   )}
                 </div>
-              ) : meuRecurso.status_recurso === "deferido" ? (
+              ) : (meuRecurso.status_recurso === "deferido" || meuRecurso.status_recurso === "deferido_parcial") ? (
                 <div className="space-y-3">
                   <div className="bg-green-50 p-3 rounded-lg">
-                    <p className="text-sm font-medium text-green-700 mb-1">✅ Recurso Deferido</p>
+                    <p className="text-sm font-medium text-green-700 mb-1">
+                      {meuRecurso.status_recurso === "deferido_parcial"
+                        ? "⚠️ Recurso Deferido Parcialmente"
+                        : "✅ Recurso Deferido"}
+                    </p>
                     <p className="text-sm text-green-600">
-                      Seu recurso foi aceito pelo gestor.
+                      {meuRecurso.status_recurso === "deferido_parcial"
+                        ? "Seu recurso foi aceito parcialmente pelo gestor."
+                        : "Seu recurso foi aceito pelo gestor."}
                     </p>
                     {meuRecurso.resposta_gestor && (
                       <div className="mt-2 pt-2 border-t border-green-200">
