@@ -406,7 +406,7 @@ const PropostaRealinhada = () => {
 
   const validarTotaisPorLote = (): { valido: boolean; mensagem?: string } => {
     if (criterioJulgamento === "por_lote") {
-      // Verificar se cada lote tem total igual ao valor ganho
+      // Verificar se cada lote tem total igual ou menor ao valor ganho
       const totaisPorLote = new Map<number, number>();
       
       itensVencedores.forEach((item) => {
@@ -422,21 +422,39 @@ const PropostaRealinhada = () => {
 
       for (const [numeroLote, totalPreenchido] of totaisPorLote.entries()) {
         const valorGanho = lotesGanhos.get(numeroLote) || 0;
-        const diferenca = Math.abs(totalPreenchido - valorGanho);
-        if (diferenca > 0.01) { // Tolerância de 1 centavo
+        
+        // Não permitir valor MAIOR que o ganho
+        if (totalPreenchido > valorGanho + 0.01) {
           return {
             valido: false,
-            mensagem: `O total do Lote ${numeroLote} (${formatCurrency(totalPreenchido)}) deve ser igual ao valor ganho (${formatCurrency(valorGanho)})`
+            mensagem: `O total do Lote ${numeroLote} (${formatCurrency(totalPreenchido)}) não pode ser maior que o valor ganho (${formatCurrency(valorGanho)})`
+          };
+        }
+        
+        // Valor MENOR é permitido se observações estiverem preenchidas
+        if (totalPreenchido < valorGanho - 0.01 && !observacoes.trim()) {
+          return {
+            valido: false,
+            mensagem: `O total do Lote ${numeroLote} (${formatCurrency(totalPreenchido)}) é menor que o valor ganho (${formatCurrency(valorGanho)}). Preencha as observações para justificar o desconto adicional.`
           };
         }
       }
     } else if (criterioJulgamento === "global") {
       const totalPreenchido = calcularValorTotal();
-      const diferenca = Math.abs(totalPreenchido - valorTotalGanho);
-      if (diferenca > 0.01) {
+      
+      // Não permitir valor MAIOR que o ganho
+      if (totalPreenchido > valorTotalGanho + 0.01) {
         return {
           valido: false,
-          mensagem: `O total da proposta (${formatCurrency(totalPreenchido)}) deve ser igual ao valor ganho (${formatCurrency(valorTotalGanho)})`
+          mensagem: `O total da proposta (${formatCurrency(totalPreenchido)}) não pode ser maior que o valor ganho (${formatCurrency(valorTotalGanho)})`
+        };
+      }
+      
+      // Valor MENOR é permitido se observações estiverem preenchidas
+      if (totalPreenchido < valorTotalGanho - 0.01 && !observacoes.trim()) {
+        return {
+          valido: false,
+          mensagem: `O total da proposta (${formatCurrency(totalPreenchido)}) é menor que o valor ganho (${formatCurrency(valorTotalGanho)}). Preencha as observações para justificar o desconto adicional.`
         };
       }
     }
