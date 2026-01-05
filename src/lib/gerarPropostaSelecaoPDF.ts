@@ -411,7 +411,8 @@ export async function gerarPropostaSelecaoPDF(
         
         // Itens do lote
         lote.itens.forEach(item => {
-          const valorTotalItem = item.quantidade * item.valor_unitario_ofertado;
+          const itemCotado = item.valor_unitario_ofertado && item.valor_unitario_ofertado > 0;
+          const valorTotalItem = itemCotado ? item.quantidade * item.valor_unitario_ofertado : 0;
           subtotalLote += valorTotalItem;
           
           tableData.push({
@@ -422,8 +423,8 @@ export async function gerarPropostaSelecaoPDF(
             quantidade: item.quantidade.toString(),
             unidade: sanitizarTexto(item.unidade),
             marca: sanitizarTexto(item.marca || ''),
-            valorUnitario: `R$ ${formatarMoeda(item.valor_unitario_ofertado)}`,
-            valorTotal: `R$ ${formatarMoeda(valorTotalItem)}`
+            valorUnitario: itemCotado ? `R$ ${formatarMoeda(item.valor_unitario_ofertado)}` : '-',
+            valorTotal: itemCotado ? `R$ ${formatarMoeda(valorTotalItem)}` : '-'
           });
         });
 
@@ -707,7 +708,8 @@ export async function gerarPropostaSelecaoPDF(
         yInicio = y;
       }
 
-      const valorTotalItem = item.quantidade * item.valor_unitario_ofertado;
+      const itemCotadoCalculo = item.valor_unitario_ofertado && item.valor_unitario_ofertado > 0;
+      const valorTotalItem = itemCotadoCalculo ? item.quantidade * item.valor_unitario_ofertado : 0;
       
       // Usar alturaLinhaItem já calculado acima
       const alturaLinha = alturaLinhaItem;
@@ -781,9 +783,10 @@ export async function gerarPropostaSelecaoPDF(
       }
       
       // Valores conforme critério
+      const itemCotado = item.valor_unitario_ofertado && item.valor_unitario_ofertado > 0;
       if (isDesconto) {
         // Exibir apenas % de desconto alinhado à direita próximo da margem direita
-        const descontoTexto = item.valor_unitario_ofertado && item.valor_unitario_ofertado > 0
+        const descontoTexto = itemCotado
           ? `${item.valor_unitario_ofertado.toFixed(2).replace('.', ',')}%`
           : '-';
         const valorDescontoRight = margemEsquerda + larguraUtil - 2;
@@ -792,8 +795,10 @@ export async function gerarPropostaSelecaoPDF(
         // Valores em moeda - alinhados à direita dentro de suas colunas
         const valorUnitRight = colPositions[5] - 2;
         const valorTotalRight = margemEsquerda + larguraUtil - 2;
-        doc.text(`R$ ${formatarMoeda(item.valor_unitario_ofertado)}`, valorUnitRight, yVerticalCenter, { align: 'right' });
-        doc.text(`R$ ${formatarMoeda(valorTotalItem)}`, valorTotalRight, yVerticalCenter, { align: 'right' });
+        const valorUnitTexto = itemCotado ? `R$ ${formatarMoeda(item.valor_unitario_ofertado)}` : '-';
+        const valorTotalTexto = itemCotado ? `R$ ${formatarMoeda(valorTotalItem)}` : '-';
+        doc.text(valorUnitTexto, valorUnitRight, yVerticalCenter, { align: 'right' });
+        doc.text(valorTotalTexto, valorTotalRight, yVerticalCenter, { align: 'right' });
       }
       
       y += alturaLinha;
