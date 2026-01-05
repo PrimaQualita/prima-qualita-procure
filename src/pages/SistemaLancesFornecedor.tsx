@@ -1286,13 +1286,32 @@ const SistemaLancesFornecedor = () => {
       console.log('⚠️ loadItensAbertos: selecao.id não disponível');
       return;
     }
-    
+
     try {
-      // Buscar TODOS os registros de itens para esta seleção
-      const { data, error } = await supabase
-        .from("itens_abertos_lances")
-        .select("*")
-        .eq("selecao_id", selecao.id);
+      // Para fornecedor, o SELECT direto pode vir vazio por regra de acesso.
+      // Quando temos `codigo_acesso`, usamos a função segura do backend (valida participação na seleção).
+      const codigoAcesso = (proposta?.codigo_acesso as string | null) || null;
+
+      let data: any[] | null = null;
+      let error: any = null;
+
+      if (codigoAcesso) {
+        const res = await supabase.rpc("get_itens_abertos_lances_por_codigo", {
+          p_selecao_id: selecao.id,
+          p_codigo_acesso: codigoAcesso,
+        });
+
+        data = res.data as any;
+        error = res.error;
+      } else {
+        const res = await supabase
+          .from("itens_abertos_lances")
+          .select("*")
+          .eq("selecao_id", selecao.id);
+
+        data = res.data as any;
+        error = res.error;
+      }
 
       console.log('📦 Dados retornados de itens_abertos_lances:', data);
       if (error) throw error;
@@ -1300,11 +1319,11 @@ const SistemaLancesFornecedor = () => {
       // Filtrar APENAS itens com aberto === true (booleano estrito)
       const itensAbertosFiltrados = data?.filter((item: any) => item.aberto === true) || [];
       const abertos = new Set(itensAbertosFiltrados.map((item: any) => item.numero_item));
-      
+
       // Filtrar itens fechados (aberto === false)
       const itensFechadosFiltrados = data?.filter((item: any) => item.aberto === false) || [];
       const fechados = new Set(itensFechadosFiltrados.map((item: any) => item.numero_item));
-      
+
       console.log("Itens abertos carregados:", Array.from(abertos));
       console.log("Itens fechados carregados:", Array.from(fechados));
       setItensAbertos(abertos);
@@ -1314,28 +1333,38 @@ const SistemaLancesFornecedor = () => {
       const emFechamento = new Map<number, number>();
       const emNegociacao = new Map<number, string>();
       const now = Date.now();
-      
+
       // Apenas processar itens que estão REALMENTE abertos
       itensAbertosFiltrados.forEach((item: any) => {
         // Itens em processo de fechamento
         if (item.iniciando_fechamento && item.data_inicio_fechamento && item.segundos_para_fechar !== null) {
           const inicioFechamento = new Date(item.data_inicio_fechamento).getTime();
           const tempoExpiracao = inicioFechamento + (item.segundos_para_fechar * 1000);
-          
+
           if (tempoExpiracao > now) {
             emFechamento.set(item.numero_item, tempoExpiracao);
           }
         }
-        
+
         // Itens em negociação
-        if (item.em_negociacao && item.fornecedor_negociacao_id) {
-          emNegociacao.set(item.numero_item, item.fornecedor_negociacao_id);
+        if (item.em_negociacao) {
+          // Quando vem via SELECT direto (interno), teremos o fornecedor_negociacao_id
+          if (item.fornecedor_negociacao_id) {
+            emNegociacao.set(item.numero_item, item.fornecedor_negociacao_id);
+          }
+
+          // Quando vem via RPC (fornecedor), temos apenas o flag `negociacao_para_mim`
+          if (typeof item.negociacao_para_mim === "boolean") {
+            emNegociacao.set(
+              item.numero_item,
+              item.negociacao_para_mim ? String(proposta?.fornecedor_id) : "__OUTRO__"
+            );
+          }
         }
       });
-      
+
       setItensEmFechamento(emFechamento);
       setItensEmNegociacao(emNegociacao);
-
     } catch (error) {
       console.error("Erro ao carregar itens abertos:", error);
     }

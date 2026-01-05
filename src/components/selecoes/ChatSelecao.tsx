@@ -41,15 +41,17 @@ export function ChatSelecao({ selecaoId, codigoAcesso }: ChatSelecaoProps) {
   }, []);
 
   const loadCurrentUser = async () => {
-    const { data: { user } } = await supabase.auth.getUser();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
     if (user) {
       // Verificar se é usuário interno
       const { data: profile } = await supabase
         .from("profiles")
         .select("*")
         .eq("id", user.id)
-        .single();
-      
+        .maybeSingle();
+
       if (profile) {
         setCurrentUser(profile);
       } else {
@@ -58,8 +60,8 @@ export function ChatSelecao({ selecaoId, codigoAcesso }: ChatSelecaoProps) {
           .from("fornecedores")
           .select("*")
           .eq("user_id", user.id)
-          .single();
-        
+          .maybeSingle();
+
         if (fornecedor) {
           setCurrentFornecedor(fornecedor);
         }
@@ -119,7 +121,7 @@ export function ChatSelecao({ selecaoId, codigoAcesso }: ChatSelecaoProps) {
           .single();
 
         console.log('Proposta encontrada:', proposta);
-        
+
         if (error) {
           console.error('Erro ao buscar proposta:', error);
           return;
@@ -132,7 +134,9 @@ export function ChatSelecao({ selecaoId, codigoAcesso }: ChatSelecaoProps) {
         return;
       }
 
-      const { data: { user } } = await supabase.auth.getUser();
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
       if (!user) return;
 
       // Verificar se é usuário interno
@@ -140,7 +144,7 @@ export function ChatSelecao({ selecaoId, codigoAcesso }: ChatSelecaoProps) {
         .from("profiles")
         .select("*")
         .eq("id", user.id)
-        .single();
+        .maybeSingle();
 
       if (profile) {
         setUserProfile({ type: "interno", data: profile });
@@ -152,7 +156,7 @@ export function ChatSelecao({ selecaoId, codigoAcesso }: ChatSelecaoProps) {
         .from("fornecedores")
         .select("*")
         .eq("user_id", user.id)
-        .single();
+        .maybeSingle();
 
       if (fornecedor) {
         setUserProfile({ type: "fornecedor", data: fornecedor });
@@ -183,9 +187,9 @@ export function ChatSelecao({ selecaoId, codigoAcesso }: ChatSelecaoProps) {
               .from("profiles")
               .select("nome_completo")
               .eq("id", msg.usuario_id)
-              .single();
-            
-            return { ...msg, profiles: profile };
+              .maybeSingle();
+
+            return { ...msg, profiles: profile || null };
           }
           return msg;
         })
