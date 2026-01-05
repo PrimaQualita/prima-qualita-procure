@@ -710,12 +710,15 @@ export async function gerarAtaSelecaoPDF(selecaoId: string): Promise<{ url: stri
     });
 
     const ehDesconto = criterioJulgamento === 'desconto';
+    const ehGlobal = criterioJulgamento === 'global';
     
     const tabelaVencedoresLances = Object.values(vencedoresPorFornecedor).map(f => {
       const valor = ehDesconto ? (f.valorTotal / f.quantidadeItens) : f.valorTotal;
+      // Para critério global, mostrar "-" ao invés do número do item
+      const itensStr = ehGlobal ? '-' : f.itens.sort((a, b) => a - b).join(', ');
       return [
         f.nome,
-        f.itens.sort((a, b) => a - b).join(', '),
+        itensStr,
         ehDesconto ? `${valor.toFixed(2)}%` : formatarMoeda(valor)
       ];
     });
@@ -772,10 +775,38 @@ export async function gerarAtaSelecaoPDF(selecaoId: string): Promise<{ url: stri
   secaoNumero++;
   currentY += espacoAposTitulo;
 
-  // 6.1 - HABILITADOS
+  // 6.1 - HABILITADOS - Apenas empresas vencedoras de itens/lotes/global
   const fornecedoresInabilitadosIds = fornecedoresInabilitados.map(f => f.cnpj);
+  
+  // Identificar apenas as empresas vencedoras (não todos que participaram)
+  const vencedoresIds = new Set<string>();
+  itensVencedores.forEach(item => {
+    // Verificar se o fornecedor está inabilitado neste item
+    const fornecedorInab = fornecedoresInabilitados.find(f => 
+      f.cnpj === item.fornecedor_cnpj && f.itens_afetados.includes(item.numero_item)
+    );
+    
+    if (!fornecedorInab) {
+      // Fornecedor habilitado neste item - adicionar como vencedor
+      vencedoresIds.add(item.fornecedor_id);
+    } else {
+      // Fornecedor inabilitado - verificar segundo colocado
+      const lancesDoItem = lancesPorItem[item.numero_item] || [];
+      const segundoColocado = lancesDoItem.find(lance => {
+        const estaInabilitado = fornecedoresInabilitados.some(f => 
+          f.cnpj === lance.fornecedor_cnpj && f.itens_afetados.includes(item.numero_item)
+        );
+        return !estaInabilitado && lance.fornecedor_id !== item.fornecedor_id;
+      });
+      if (segundoColocado) {
+        vencedoresIds.add(segundoColocado.fornecedor_id);
+      }
+    }
+  });
+  
+  // Filtrar apenas as empresas vencedoras
   const fornecedoresHabilitados = empresasParticipantes.filter(e => 
-    !fornecedoresInabilitadosIds.includes(e.cnpj)
+    vencedoresIds.has(e.fornecedor_id)
   );
 
   doc.setFontSize(10);
@@ -904,12 +935,15 @@ export async function gerarAtaSelecaoPDF(selecaoId: string): Promise<{ url: stri
 
     if (Object.keys(vencedoresFinal).length > 0) {
       const ehDesconto = criterioJulgamento === 'desconto';
+      const ehGlobal = criterioJulgamento === 'global';
       
       const tabelaVencedores = Object.values(vencedoresFinal).map(f => {
         const valor = ehDesconto ? (f.valorTotal / f.quantidadeItens) : f.valorTotal;
+        // Para critério global, mostrar "-" ao invés do número do item
+        const itensStr = ehGlobal ? '-' : f.itens.sort((a, b) => a - b).join(', ');
         return [
           f.nome,
-          f.itens.sort((a, b) => a - b).join(', '),
+          itensStr,
           ehDesconto ? `${valor.toFixed(2)}%` : formatarMoeda(valor)
         ];
       });
