@@ -140,8 +140,10 @@ export const gerarRecursoPDF = async (
   doc.setFont('helvetica', 'normal');
   doc.setTextColor(0, 0, 0);
   
-  // Divide por quebras duplas OU simples para formar parágrafos
-  const paragraphs = motivoRecurso.split(/\n\s*\n|\n/).filter(p => p.trim() !== '');
+  // Divide APENAS por quebras duplas para formar parágrafos
+  // Quebras simples são substituídas por espaço para manter texto fluindo
+  const textoNormalizado = motivoRecurso.replace(/(?<!\n)\n(?!\n)/g, ' ');
+  const paragraphs = textoNormalizado.split(/\n\s*\n/).filter(p => p.trim() !== '');
   const espacoNormal = doc.getTextWidth(' ');
   const espacoMaximo = espacoNormal * 3; // Máximo 3x o espaço normal
   
