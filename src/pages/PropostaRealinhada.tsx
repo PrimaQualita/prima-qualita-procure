@@ -123,6 +123,24 @@ const PropostaRealinhada = () => {
 
   const loadItensVencedores = async (selecaoId: string, fornecedorId: string, criterio: string, fornecedorData: any) => {
     try {
+      // Buscar inabilitações ativas do fornecedor nesta seleção
+      const { data: inabilitacoes } = await supabase
+        .from("fornecedores_inabilitados_selecao")
+        .select("itens_afetados")
+        .eq("selecao_id", selecaoId)
+        .eq("fornecedor_id", fornecedorId)
+        .eq("revertido", false);
+      
+      // Itens/lotes inabilitados (afetados pela desqualificação)
+      const itensInabilitados = new Set<number>();
+      inabilitacoes?.forEach((inab: any) => {
+        if (Array.isArray(inab.itens_afetados)) {
+          inab.itens_afetados.forEach((item: number) => itensInabilitados.add(item));
+        }
+      });
+      
+      console.log("🚫 Itens/lotes inabilitados:", Array.from(itensInabilitados));
+
       // Buscar todos os lances do fornecedor que são vencedores
       const { data: lancesVencedores, error: lancesError } = await supabase
         .from("lances_fornecedores")
@@ -132,6 +150,11 @@ const PropostaRealinhada = () => {
         .eq("indicativo_lance_vencedor", true);
 
       if (lancesError) throw lancesError;
+
+      // Filtrar lances removendo itens/lotes inabilitados
+      const filtrarInabilitados = (lances: any[]) => {
+        return lances.filter((lance: any) => !itensInabilitados.has(lance.numero_item));
+      };
 
       if (!lancesVencedores || lancesVencedores.length === 0) {
         // Verificar lances mais recentes como fallback
@@ -169,14 +192,25 @@ const PropostaRealinhada = () => {
           }
         });
 
-        if (meusLancesVencedores.length === 0) {
+        // Remover itens/lotes inabilitados
+        const lancesValidos = filtrarInabilitados(meusLancesVencedores);
+
+        if (lancesValidos.length === 0) {
           toast.error("Você não tem itens vencedores nesta seleção");
           return;
         }
 
-        await processarItensVencedores(selecaoId, meusLancesVencedores, criterio, fornecedorData);
+        await processarItensVencedores(selecaoId, lancesValidos, criterio, fornecedorData);
       } else {
-        await processarItensVencedores(selecaoId, lancesVencedores, criterio, fornecedorData);
+        // Remover itens/lotes inabilitados
+        const lancesValidos = filtrarInabilitados(lancesVencedores);
+        
+        if (lancesValidos.length === 0) {
+          toast.error("Você não tem itens vencedores nesta seleção (todos foram inabilitados)");
+          return;
+        }
+        
+        await processarItensVencedores(selecaoId, lancesValidos, criterio, fornecedorData);
       }
     } catch (error) {
       console.error("Erro ao carregar itens vencedores:", error);
