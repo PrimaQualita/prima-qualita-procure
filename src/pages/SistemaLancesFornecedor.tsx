@@ -1732,17 +1732,36 @@ const SistemaLancesFornecedor = () => {
       const tipoLance = isNegociacao ? 'negociacao' : 'lance';
       console.log("💾 INSERINDO LANCE - tipo_lance:", tipoLance, "| isNegociacao:", isNegociacao, "| numeroItem:", numeroItem);
 
-      const { error } = await supabase
-        .from("lances_fornecedores")
-        .insert({
-          selecao_id: selecao.id,
-          fornecedor_id: proposta.fornecedor_id,
-          numero_item: numeroItem,
-          valor_lance: valorNumerico,
-          tipo_lance: tipoLance
+      // IMPORTANTE: inserir lance via função "por código" para evitar 401/RLS
+      // (funciona tanto com usuário logado quanto no modo por código de acesso)
+      if (proposta?.codigo_acesso) {
+        const { data, error } = await supabase.rpc('inserir_lance_por_codigo', {
+          p_selecao_id: selecao.id,
+          p_codigo_acesso: proposta.codigo_acesso,
+          p_numero_item: numeroItem,
+          p_valor_lance: valorNumerico,
+          p_tipo_lance: tipoLance,
         });
 
-      if (error) throw error;
+        if (error) throw error;
+
+        const result = data as { success?: boolean; error?: string } | null;
+        if (result?.success === false) {
+          throw new Error(result?.error || 'Erro ao inserir lance');
+        }
+      } else {
+        const { error } = await supabase
+          .from("lances_fornecedores")
+          .insert({
+            selecao_id: selecao.id,
+            fornecedor_id: proposta.fornecedor_id,
+            numero_item: numeroItem,
+            valor_lance: valorNumerico,
+            tipo_lance: tipoLance,
+          });
+
+        if (error) throw error;
+      }
 
       console.log("🔥 Lance inserido com sucesso. tipo_lance:", tipoLance);
 
