@@ -353,8 +353,12 @@ export const gerarPropostaRealinhadaPDF = async (
         const textLines = data.cell.text as string[];
         const lineHeight = 3.5;
         
+        // Centralização vertical
+        const totalTextHeight = textLines.length * lineHeight;
+        const startY = cellY + (cellHeight - totalTextHeight) / 2 + lineHeight - 0.5;
+        
         textLines.forEach((linha, index) => {
-          const yLinha = cellY + padding + 2 + (index * lineHeight);
+          const yLinha = startY + (index * lineHeight);
           
           // Verificar se a linha está dentro dos limites da célula
           if (yLinha < cellY + cellHeight - 1) {
