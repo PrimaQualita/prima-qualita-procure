@@ -76,6 +76,7 @@ const SistemaLancesFornecedor = () => {
   const [itensEmNegociacao, setItensEmNegociacao] = useState<Map<number, string>>(new Map());
   const [mensagensNaoLidas, setMensagensNaoLidas] = useState<Map<number, number>>(new Map());
   const [fornecedoresInabilitados, setFornecedoresInabilitados] = useState<Set<string>>(new Set());
+  const [inabilitacoesPorFornecedor, setInabilitacoesPorFornecedor] = useState<Map<string, number[]>>(new Map());
   const [observacao, setObservacao] = useState("");
   const [enviandoLance, setEnviandoLance] = useState(false);
   const [valoresDescontoTemp, setValoresDescontoTemp] = useState<Map<string, string>>(new Map()); // Map<itemId, valorTemp>
@@ -328,29 +329,36 @@ const SistemaLancesFornecedor = () => {
     return () => clearInterval(interval);
   }, [selecao?.data_sessao_disputa, selecao?.hora_sessao_disputa]);
 
-  // CRÍTICO: Filtrar lances excluindo fornecedores inabilitados de forma reativa
+  // CRÍTICO: Filtrar lances excluindo APENAS os lances afetados pela inabilitação (por item/lote)
   // APENAS para cálculos de vencedor - os lances continuam visíveis na UI
   const lancesFiltrados = useMemo(() => {
-    const resultado = lances.filter(lance => {
+    const resultado = lances.filter((lance) => {
       const fornecedorIdStr = String(lance.fornecedor_id);
-      const isInabilitado = fornecedoresInabilitados.has(fornecedorIdStr);
-      return !isInabilitado;
+      const itensAfetados = inabilitacoesPorFornecedor.get(fornecedorIdStr) || [];
+      return !itensAfetados.includes(Number(lance.numero_item));
     });
-    
+
     if (resultado.length !== lances.length) {
-      console.log(`[useMemo lancesFiltrados] Filtrou ${lances.length - resultado.length} lances de fornecedores inabilitados (apenas para cálculos)`);
+      console.log(
+        `[useMemo lancesFiltrados] Filtrou ${lances.length - resultado.length} lances inabilitados (apenas para cálculos)`
+      );
     }
-    
+
     return resultado;
-  }, [lances, fornecedoresInabilitados]);
+  }, [lances, inabilitacoesPorFornecedor]);
 
   // Lances para exibição na UI - inclui TODOS os lances (inabilitados aparecem marcados)
   const lancesParaExibicao = useMemo(() => {
-    return lances.map(lance => ({
-      ...lance,
-      _inabilitado: fornecedoresInabilitados.has(String(lance.fornecedor_id))
-    }));
-  }, [lances, fornecedoresInabilitados]);
+    return lances.map((lance) => {
+      const fornecedorIdStr = String(lance.fornecedor_id);
+      const itensAfetados = inabilitacoesPorFornecedor.get(fornecedorIdStr) || [];
+
+      return {
+        ...lance,
+        _inabilitado: itensAfetados.includes(Number(lance.numero_item)),
+      };
+    });
+  }, [lances, inabilitacoesPorFornecedor]);
 
   useEffect(() => {
     console.log('🔄 [useEffect loadProposta] propostaId:', propostaId);
@@ -456,11 +464,11 @@ const SistemaLancesFornecedor = () => {
         )
         .subscribe();
 
-      // Polling como fallback a cada 3 segundos para garantir sincronização de itens e lances
+      // Polling como fallback a cada 1 segundo para garantir sincronização de itens e lances
       const pollingInterval = setInterval(() => {
         loadItensAbertos();
         loadLances();
-      }, 3000);
+      }, 1000);
 
       // Canal de presença para rastrear fornecedores online
       const presenceChannel = supabase.channel(`presence_selecao_${selecao.id}`);
@@ -1340,6 +1348,7 @@ const SistemaLancesFornecedor = () => {
       (inabilitados || []).forEach((f: any) => {
         inabilitacoesPorFornecedor.set(String(f.fornecedor_id), f.itens_afetados || []);
       });
+      setInabilitacoesPorFornecedor(new Map(inabilitacoesPorFornecedor));
       
       // CRÍTICO: Converter SEMPRE para String para garantir comparações corretas
       const fornecedoresInabilitadosIds = new Set<string>(
@@ -1540,6 +1549,7 @@ const SistemaLancesFornecedor = () => {
       (inabilitados || []).forEach((f: any) => {
         inabilitacoesPorFornecedor.set(String(f.fornecedor_id), f.itens_afetados || []);
       });
+      setInabilitacoesPorFornecedor(new Map(inabilitacoesPorFornecedor));
       
       // Manter set de IDs para compatibilidade
       const inabilitadosIds = new Set<string>(
@@ -2108,9 +2118,12 @@ const SistemaLancesFornecedor = () => {
 
     const valorEstimado = itensEstimados.get(numeroItem) || 0;
 
-    const lancesDoItem = lances.filter(
-      (l) => l.numero_item === numeroItem && !fornecedoresInabilitados.has(l.fornecedor_id)
-    );
+    const lancesDoItem = lances.filter((l) => {
+      if (l.numero_item !== numeroItem) return false;
+      const fornecedorIdStr = String(l.fornecedor_id);
+      const itensAfetados = inabilitacoesPorFornecedor.get(fornecedorIdStr) || [];
+      return !itensAfetados.includes(Number(numeroItem));
+    });
 
     // Se há lances, verificar pelos lances
     if (lancesDoItem.length > 0) {
