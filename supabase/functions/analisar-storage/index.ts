@@ -172,14 +172,20 @@ Deno.serve(async (req) => {
         storage_path,
         nome_arquivo,
         processo_numero,
+        objeto_processo,
         url_resposta_pdf,
         storage_path_resposta,
         protocolo_resposta,
         respondido_contabilidade,
         cotacao_id,
-        cotacoes_precos!inner(
+        selecao_id,
+        cotacoes_precos(
           processo_compra_id,
-          processos_compras!inner(numero_processo_interno, objeto_resumido, credenciamento)
+          processos_compras(numero_processo_interno, objeto_resumido, credenciamento)
+        ),
+        selecoes_fornecedores(
+          processo_compra_id,
+          processos_compras(numero_processo_interno, objeto_resumido, credenciamento)
         )
       `)
     ]);
@@ -421,20 +427,32 @@ Deno.serve(async (req) => {
     }>();
     if (encaminhamentosContabilidadeDB) {
       for (const enc of encaminhamentosContabilidadeDB) {
+        // Tentar obter dados de cotação OU seleção
         const cotacao = (enc as any).cotacoes_precos;
-        const processo = cotacao?.processos_compras;
+        const selecao = (enc as any).selecoes_fornecedores;
+        const processo = cotacao?.processos_compras || selecao?.processos_compras;
         
-        let objetoLimpo = processo?.objeto_resumido || '';
+        // Usar objeto_processo do encaminhamento ou do processo vinculado
+        let objetoLimpo = (enc as any).objeto_processo || processo?.objeto_resumido || '';
         objetoLimpo = objetoLimpo.replace(/<[^>]+>/g, '').trim();
+        
+        const processoId = cotacao?.processo_compra_id || selecao?.processo_compra_id || '';
         
         // Mapear o encaminhamento
         if (enc.storage_path || enc.url_arquivo) {
           let path = enc.storage_path || enc.url_arquivo;
+          // Normalizar path removendo prefixo de bucket e query strings
           if (path.includes('processo-anexos/')) {
             path = path.split('processo-anexos/')[1]?.split('?')[0] || path;
           }
+          if (path.includes('documents/')) {
+            path = path.split('documents/')[1]?.split('?')[0] || path;
+          }
+          // Remover query strings se ainda existirem
+          path = path.split('?')[0];
+          
           encContabilidadeMap.set(path, {
-            processoId: cotacao?.processo_compra_id || '',
+            processoId,
             processoNumero: enc.processo_numero || processo?.numero_processo_interno || '',
             processoObjeto: objetoLimpo,
             credenciamento: processo?.credenciamento || false,
@@ -442,17 +460,25 @@ Deno.serve(async (req) => {
             tipo: 'encaminhamento'
           });
           nomesBonitos.set(path, `Encaminhamento para Contabilidade`);
+          console.log(`📌 Encaminhamento contabilidade mapeado: ${path}`);
         }
         
         // Mapear a resposta se existir
         if (enc.respondido_contabilidade && (enc.storage_path_resposta || enc.url_resposta_pdf)) {
           let respostaPath = enc.storage_path_resposta || enc.url_resposta_pdf;
+          // Normalizar path removendo prefixo de bucket e query strings
           if (respostaPath.includes('processo-anexos/')) {
             respostaPath = respostaPath.split('processo-anexos/')[1]?.split('?')[0] || respostaPath;
           }
+          if (respostaPath.includes('documents/')) {
+            respostaPath = respostaPath.split('documents/')[1]?.split('?')[0] || respostaPath;
+          }
+          // Remover query strings se ainda existirem
+          respostaPath = respostaPath.split('?')[0];
+          
           const numeroProcesso = enc.processo_numero || processo?.numero_processo_interno || '';
           encContabilidadeMap.set(respostaPath, {
-            processoId: cotacao?.processo_compra_id || '',
+            processoId,
             processoNumero: numeroProcesso,
             processoObjeto: objetoLimpo,
             credenciamento: processo?.credenciamento || false,
@@ -460,6 +486,7 @@ Deno.serve(async (req) => {
             tipo: 'resposta'
           });
           nomesBonitos.set(respostaPath, `Resposta Contabilidade ${numeroProcesso}`);
+          console.log(`📌 Resposta contabilidade mapeada: ${respostaPath}`);
         }
       }
     }
