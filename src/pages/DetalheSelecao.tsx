@@ -1283,11 +1283,15 @@ const [itens, setItens] = useState<Item[]>([]);
               </CardHeader>
               <CardContent className="py-2">
                 <div className="space-y-2">
-                {atasGeradas.map((ata, index) => (
+                {atasGeradas.map((ata, index) => {
+                  // Ordem cronológica: primeiro criado = I, segundo = II, etc.
+                  // Como atasGeradas está ordenado DESC (mais recente primeiro), invertemos o cálculo
+                  const numeroOrdem = atasGeradas.length - index; // 1 para o mais antigo, N para o mais recente
+                  return (
                     <div key={ata.id} className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
                       <div className="flex-1">
                         <p className="font-medium text-sm">
-                          Ata de Seleção - {selecao?.numero_selecao || "N/A"}{index > 0 ? ` ${toRoman(index + 1)}` : ''}
+                          Ata de Seleção - {selecao?.numero_selecao || "N/A"}{numeroOrdem > 1 ? ` ${toRoman(numeroOrdem)}` : ''}
                         </p>
                         <p className="text-xs text-muted-foreground">
                           Gerada em: {new Date(ata.data_geracao).toLocaleString("pt-BR")}
@@ -1350,7 +1354,8 @@ const [itens, setItens] = useState<Item[]>([]);
                         )}
                       </div>
                     </div>
-                  ))}
+                  );
+                })}
                 </div>
               </CardContent>
             </Card>
