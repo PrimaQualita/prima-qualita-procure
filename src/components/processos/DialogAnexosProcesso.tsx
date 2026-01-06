@@ -878,6 +878,12 @@ export function DialogAnexosProcesso({
                         Documento não disponível para seu perfil
                       </p>
                     )}
+                    {/* Mensagem para quem não é gerente de contratos na requisição */}
+                    {isRequisicao && !isGerenteContratos && (
+                      <p className="text-sm text-muted-foreground italic">
+                        Apenas Gerente de Contratos vinculado pode gerar a Requisição
+                      </p>
+                    )}
                     {/* Mensagem para quem não é superintendente executivo na autorização */}
                     {isAutorizacaoDespesa && !isSuperintendenteExecutivo && (
                       <p className="text-sm text-muted-foreground italic">
