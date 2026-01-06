@@ -25,7 +25,7 @@ interface SelecaoInfo {
   processo_compra_id: string;
   data_encerramento_habilitacao?: string;
   habilitacao_encerrada?: boolean;
-  criterio_julgamento?: string;
+  criterios_julgamento?: string;
 }
 
 const isPdfUrl = (url?: string | null) => {
@@ -69,7 +69,7 @@ export const gerarProcessoCompletoSelecaoSucessivaPDF = async (
     // 1. Buscar informações da seleção atual
     const { data: selecaoAtual, error: selecaoError } = await supabase
       .from("selecoes_fornecedores")
-      .select("id, numero_selecao, created_at, processo_compra_id, data_encerramento_habilitacao, habilitacao_encerrada, criterio_julgamento")
+      .select("id, numero_selecao, created_at, processo_compra_id, data_encerramento_habilitacao, habilitacao_encerrada, criterios_julgamento")
       .eq("id", selecaoId)
       .single();
 
@@ -83,7 +83,7 @@ export const gerarProcessoCompletoSelecaoSucessivaPDF = async (
     // 2. Buscar TODAS as seleções do mesmo processo de compra (ordem cronológica)
     const { data: todasSelecoes, error: selecoesError } = await supabase
       .from("selecoes_fornecedores")
-      .select("id, numero_selecao, created_at, processo_compra_id, data_encerramento_habilitacao, habilitacao_encerrada, criterio_julgamento")
+      .select("id, numero_selecao, created_at, processo_compra_id, data_encerramento_habilitacao, habilitacao_encerrada, criterios_julgamento")
       .eq("processo_compra_id", selecaoAtual.processo_compra_id)
       .order("created_at", { ascending: true });
 
@@ -719,7 +719,7 @@ export const gerarProcessoCompletoSelecaoSucessivaPDF = async (
 // Função auxiliar para processar documentos de habilitação
 async function processarDocumentosHabilitacao(selecao: SelecaoInfo, documentosSelecao: DocumentoOrdenado[]) {
   const fornecedoresParaDocumentos = new Set<string>();
-  const criterioJulgamento = selecao.criterio_julgamento || "por_item";
+  const criterioJulgamento = selecao.criterios_julgamento || "por_item";
   
   // Buscar todos os lances
   const { data: todosLances } = await supabase
