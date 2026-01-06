@@ -1761,7 +1761,6 @@ const SistemaLancesFornecedor = () => {
   };
 
   const getValorMinimoAtual = (numeroItem: number) => {
-    const valorEstimado = itensEstimados.get(numeroItem) || 0;
     const valorMenorProposta = menorValorPropostas.get(numeroItem) || 0;
     const isDesconto = selecao?.processos_compras?.criterio_julgamento === "desconto";
     
@@ -1770,12 +1769,9 @@ const SistemaLancesFornecedor = () => {
     
     if (isDesconto) {
       // Para desconto: pegar o MAIOR lance (maior desconto = melhor)
-      // Filtrar lances >= estimado (classificados)
-      const lancesClassificados = lancesDoItem.filter(l => l.valor_lance >= valorEstimado);
-      
-      if (lancesClassificados.length > 0) {
+      if (lancesDoItem.length > 0) {
         // Retornar o MAIOR lance (maior desconto)
-        const valoresOrdenados = lancesClassificados
+        const valoresOrdenados = lancesDoItem
           .map(l => l.valor_lance)
           .sort((a, b) => b - a); // Descendente
         
@@ -1788,12 +1784,9 @@ const SistemaLancesFornecedor = () => {
       }
     } else {
       // Para valor: pegar o MENOR lance (menor valor = melhor)
-      // Filtrar lances <= estimado (classificados)
-      const lancesClassificados = lancesDoItem.filter(l => l.valor_lance <= valorEstimado);
-      
-      if (lancesClassificados.length > 0) {
+      if (lancesDoItem.length > 0) {
         // Retornar o MENOR lance
-        const valoresOrdenados = lancesClassificados
+        const valoresOrdenados = lancesDoItem
           .map(l => l.valor_lance)
           .sort((a, b) => a - b); // Ascendente
         
@@ -1807,6 +1800,7 @@ const SistemaLancesFornecedor = () => {
     }
     
     // Fallback para o valor estimado se não houver propostas nem lances
+    const valorEstimado = itensEstimados.get(numeroItem) || 0;
     return valorEstimado;
   };
 
