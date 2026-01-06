@@ -8,6 +8,34 @@ interface ProcessoCompletoResult {
   blob?: Blob;
 }
 
+interface DocumentoOrdenado {
+  tipo: string;
+  data: string;
+  nome: string;
+  storagePath?: string;
+  url?: string;
+  bucket: string;
+  fornecedor?: string;
+  ordemSelecao?: number;
+}
+
+const isPdfUrl = (url?: string | null) => {
+  if (!url) return false;
+  return url.split("?")[0].toLowerCase().endsWith(".pdf");
+};
+
+const getFileNameFromUrl = (url?: string | null) => {
+  if (!url) return "";
+  const clean = url.split("?")[0];
+  const parts = clean.split("/");
+  const last = parts[parts.length - 1] || "";
+  try {
+    return decodeURIComponent(last);
+  } catch {
+    return last;
+  }
+};
+
 export const gerarProcessoCompletoSelecaoPDF = async (
   selecaoId: string,
   numeroSelecao: string,
@@ -19,10 +47,10 @@ export const gerarProcessoCompletoSelecaoPDF = async (
   const pdfFinal = await PDFDocument.create();
 
   try {
-    // 1. Buscar o processo de compras vinculado à seleção e data de encerramento da habilitação
-    const { data: selecao, error: selecaoError } = await supabase
+    // 1. Buscar a seleção atual e o processo de compras vinculado
+    const { data: selecaoAtual, error: selecaoError } = await supabase
       .from("selecoes_fornecedores")
-      .select("processo_compra_id, data_encerramento_habilitacao, habilitacao_encerrada")
+      .select("processo_compra_id, data_encerramento_habilitacao, habilitacao_encerrada, created_at")
       .eq("id", selecaoId)
       .single();
 
@@ -31,41 +59,55 @@ export const gerarProcessoCompletoSelecaoPDF = async (
       throw selecaoError;
     }
 
-    console.log(`Seleção encontrada. Processo ID: ${selecao?.processo_compra_id}`);
+    const processoCompraId = selecaoAtual?.processo_compra_id;
+    console.log(`Seleção encontrada. Processo ID: ${processoCompraId}`);
     
     // 1b. Buscar a cotação vinculada ao processo (se houver)
     let cotacaoId: string | null = null;
-    if (selecao?.processo_compra_id) {
+    if (processoCompraId) {
       const { data: cotacao } = await supabase
         .from("cotacoes_precos")
         .select("id")
-        .eq("processo_compra_id", selecao.processo_compra_id)
+        .eq("processo_compra_id", processoCompraId)
         .maybeSingle();
       
       cotacaoId = cotacao?.id || null;
       console.log(`Cotação encontrada: ${cotacaoId}`);
     }
 
-    // 2. Buscar anexos do processo de compras (CAPA, REQUISIÇÃO, etc.)
-    if (selecao?.processo_compra_id) {
+    // 1c. Buscar TODAS as seleções do mesmo processo de compra (ordenadas por data de criação)
+    const { data: todasSelecoes, error: selecoesError } = await supabase
+      .from("selecoes_fornecedores")
+      .select("id, numero_selecao, created_at, data_encerramento_habilitacao, habilitacao_encerrada, criterio_julgamento")
+      .eq("processo_compra_id", processoCompraId)
+      .order("created_at", { ascending: true });
+
+    if (selecoesError) {
+      console.error("Erro ao buscar todas as seleções:", selecoesError);
+    }
+
+    console.log(`Total de seleções encontradas no processo: ${todasSelecoes?.length || 1}`);
+
+    // ========== ETAPA 1: ANEXOS DO PROCESSO (CAPA, REQUISIÇÃO, TERMO, AUTORIZAÇÃO DESPESA) ==========
+    if (processoCompraId) {
       const { data: anexosProcesso, error: anexosProcessoError } = await supabase
         .from("anexos_processo_compra")
         .select("*")
-        .eq("processo_compra_id", selecao.processo_compra_id)
+        .eq("processo_compra_id", processoCompraId)
         .order("data_upload", { ascending: true });
 
       if (anexosProcessoError) {
         console.error("Erro ao buscar anexos do processo:", anexosProcessoError);
       }
 
+      console.log(`\n📁 === ETAPA 1: ANEXOS DO PROCESSO ===`);
       console.log(`Anexos do processo encontrados: ${anexosProcesso?.length || 0}`);
 
       if (anexosProcesso && anexosProcesso.length > 0) {
-        console.log(`📄 Mesclando ${anexosProcesso.length} documentos iniciais do processo...`);
         for (const anexo of anexosProcesso) {
           try {
             if (!anexo.nome_arquivo.toLowerCase().endsWith('.pdf')) {
-              console.log(`  ⚠️ AVISO: ${anexo.nome_arquivo} não é PDF. Apenas PDFs podem ser mesclados.`);
+              console.log(`  ⚠️ AVISO: ${anexo.nome_arquivo} não é PDF.`);
               continue;
             }
             
@@ -99,39 +141,12 @@ export const gerarProcessoCompletoSelecaoPDF = async (
       }
     }
 
-    // Preparar array para ordenação cronológica
-    interface DocumentoOrdenado {
-      tipo: string;
-      data: string;
-      nome: string;
-      storagePath?: string;
-      url?: string;
-      bucket: string;
-      fornecedor?: string;
-    }
-    
-    const documentosOrdenados: DocumentoOrdenado[] = [];
+    // Array para documentos cronológicos do processo geral (antes das seleções)
+    const documentosProcessoGeral: DocumentoOrdenado[] = [];
 
-    const isPdfUrl = (url?: string | null) => {
-      if (!url) return false;
-      return url.split("?")[0].toLowerCase().endsWith(".pdf");
-    };
-
-    const getFileNameFromUrl = (url?: string | null) => {
-      if (!url) return "";
-      const clean = url.split("?")[0];
-      const parts = clean.split("/");
-      const last = parts[parts.length - 1] || "";
-      try {
-        return decodeURIComponent(last);
-      } catch {
-        return last;
-      }
-    };
-
-    // 3. E-mails enviados na cotação (se houver)
+    // ========== ETAPA 2: E-MAILS (ORDEM CRONOLÓGICA DO PROCESSO GERAL) ==========
     if (cotacaoId) {
-      console.log("\n📧 === BUSCANDO E-MAILS DE COTAÇÃO ===");
+      console.log("\n📧 === ETAPA 2: E-MAILS ===");
       
       const { data: emailsCotacao, error: emailsError } = await supabase
         .from("emails_cotacao_anexados")
@@ -143,30 +158,26 @@ export const gerarProcessoCompletoSelecaoPDF = async (
         console.error("Erro ao buscar e-mails de cotação:", emailsError);
       }
 
-      console.log(`E-mails de cotação encontrados: ${emailsCotacao?.length || 0}`);
+      console.log(`E-mails encontrados: ${emailsCotacao?.length || 0}`);
 
       if (emailsCotacao && emailsCotacao.length > 0) {
-        console.log(`✓ Adicionando ${emailsCotacao.length} e-mails ao processo`);
         emailsCotacao.forEach(email => {
           if (email.nome_arquivo.toLowerCase().endsWith('.pdf')) {
-            documentosOrdenados.push({
-              tipo: "E-mail Cotação",
+            documentosProcessoGeral.push({
+              tipo: "E-mail",
               data: email.data_upload,
               nome: email.nome_arquivo,
               url: email.url_arquivo,
               bucket: "processo-anexos"
             });
-            console.log(`  ✓ E-mail: ${email.nome_arquivo}`);
           }
         });
       }
     }
 
-    // 4. Buscar propostas de COTAÇÃO (se houver cotação vinculada)
-    // IMPORTANTE: Propostas de cotação devem vir ANTES das propostas de seleção
-    // Para garantir isso, ajustamos as datas para serem anteriores às propostas de seleção
+    // ========== ETAPA 3: PROPOSTAS DE COTAÇÃO (ORDEM CRONOLÓGICA DO PROCESSO GERAL) ==========
     if (cotacaoId) {
-      console.log("\n💰 === BUSCANDO PROPOSTAS DE COTAÇÃO ===");
+      console.log("\n💰 === ETAPA 3: PROPOSTAS DE COTAÇÃO ===");
       
       const { data: respostasCotacao, error: respostasCotacaoError } = await supabase
         .from("cotacao_respostas_fornecedor")
@@ -178,32 +189,23 @@ export const gerarProcessoCompletoSelecaoPDF = async (
         console.error("Erro ao buscar respostas de cotação:", respostasCotacaoError);
       }
 
-      console.log(`Respostas de cotação encontradas: ${respostasCotacao?.length || 0}`);
+      console.log(`Propostas de cotação encontradas: ${respostasCotacao?.length || 0}`);
 
       if (respostasCotacao && respostasCotacao.length > 0) {
         for (const resposta of respostasCotacao) {
-          const { data: anexosCotacao, error: anexosCotacaoError } = await supabase
+          const { data: anexosCotacao } = await supabase
             .from("anexos_cotacao_fornecedor")
             .select("*")
             .eq("cotacao_resposta_fornecedor_id", resposta.id)
             .order("data_upload", { ascending: true });
 
-          if (anexosCotacaoError) {
-            console.error(`  Erro ao buscar anexos de cotação:`, anexosCotacaoError);
-          }
-
           const razaoSocial = (resposta.fornecedores as any)?.razao_social || 'Fornecedor';
 
           if (anexosCotacao && anexosCotacao.length > 0) {
             for (const anexo of anexosCotacao) {
-              if (!anexo.nome_arquivo.toLowerCase().endsWith('.pdf')) {
-                console.log(`    ⚠️ AVISO: ${anexo.nome_arquivo} não é PDF.`);
-                continue;
-              }
+              if (!anexo.nome_arquivo.toLowerCase().endsWith('.pdf')) continue;
               
-              // CORREÇÃO: Usar data real do envio/upload para ordenação cronológica correta
-              // Propostas de cotação sempre têm datas anteriores às propostas de seleção
-              documentosOrdenados.push({
+              documentosProcessoGeral.push({
                 tipo: "Proposta Cotação",
                 data: resposta.data_envio_resposta || anexo.data_upload,
                 nome: `${razaoSocial} - ${anexo.nome_arquivo}`,
@@ -217,15 +219,15 @@ export const gerarProcessoCompletoSelecaoPDF = async (
       }
     }
 
-    // 5. Planilhas consolidadas da cotação (TODAS, não apenas a última)
+    // ========== ETAPA 4: PLANILHAS CONSOLIDADAS (ORDEM CRONOLÓGICA DO PROCESSO GERAL) ==========
     if (cotacaoId) {
-      console.log("\n📊 === BUSCANDO PLANILHAS CONSOLIDADAS DE COTAÇÃO ===");
+      console.log("\n📊 === ETAPA 4: PLANILHAS CONSOLIDADAS ===");
       
       const { data: planilhasConsolidadas, error: planilhaError } = await supabase
         .from("planilhas_consolidadas")
         .select("*")
         .eq("cotacao_id", cotacaoId)
-        .order("data_geracao", { ascending: true }); // Ordem cronológica
+        .order("data_geracao", { ascending: true });
 
       if (planilhaError) {
         console.error("Erro ao buscar planilhas consolidadas:", planilhaError);
@@ -234,860 +236,390 @@ export const gerarProcessoCompletoSelecaoPDF = async (
       console.log(`Planilhas consolidadas encontradas: ${planilhasConsolidadas?.length || 0}`);
 
       if (planilhasConsolidadas && planilhasConsolidadas.length > 0) {
-        planilhasConsolidadas.forEach((planilha, idx) => {
-          console.log(`✓ Planilha consolidada ${idx + 1}: ${planilha.nome_arquivo}`);
-          documentosOrdenados.push({
-            tipo: "Planilha Consolidada Cotação",
+        planilhasConsolidadas.forEach(planilha => {
+          documentosProcessoGeral.push({
+            tipo: "Planilha Consolidada",
             data: planilha.data_geracao,
             nome: planilha.nome_arquivo,
             url: planilha.url_arquivo,
             bucket: "processo-anexos"
           });
         });
-      } else {
-        console.log("⚠️ Nenhuma planilha consolidada encontrada");
       }
     }
 
-    // 6. Encaminhamento ao compliance (se houver)
+    // ========== ETAPA 5: ENCAMINHAMENTO AO COMPLIANCE (ORDEM CRONOLÓGICA DO PROCESSO GERAL) ==========
     if (cotacaoId) {
-      console.log("\n📤 === BUSCANDO ENCAMINHAMENTO AO COMPLIANCE ===");
+      console.log("\n📤 === ETAPA 5: ENCAMINHAMENTOS AO COMPLIANCE ===");
       
-      const { data: encaminhamento, error: encaminhamentoError } = await supabase
+      const { data: encaminhamentos, error: encaminhamentoError } = await supabase
         .from("encaminhamentos_processo")
         .select("*")
         .eq("cotacao_id", cotacaoId)
-        .order("created_at", { ascending: false })
-        .limit(1)
-        .maybeSingle();
+        .order("created_at", { ascending: true });
 
       if (encaminhamentoError) {
-        console.error("Erro ao buscar encaminhamento:", encaminhamentoError);
+        console.error("Erro ao buscar encaminhamentos:", encaminhamentoError);
       }
 
-      console.log(`Encaminhamento encontrado: ${encaminhamento ? 'SIM' : 'NÃO'}`);
+      console.log(`Encaminhamentos encontrados: ${encaminhamentos?.length || 0}`);
 
-      if (encaminhamento) {
-        documentosOrdenados.push({
-          tipo: "Encaminhamento Compliance",
-          data: encaminhamento.created_at,
-          nome: `Encaminhamento - ${encaminhamento.protocolo}`,
-          url: encaminhamento.url,
-          bucket: "processo-anexos"
+      if (encaminhamentos && encaminhamentos.length > 0) {
+        encaminhamentos.forEach(encaminhamento => {
+          documentosProcessoGeral.push({
+            tipo: "Encaminhamento Compliance",
+            data: encaminhamento.created_at,
+            nome: `Encaminhamento - ${encaminhamento.protocolo}`,
+            url: encaminhamento.url,
+            bucket: "processo-anexos"
+          });
         });
       }
     }
 
-    // 7. Análise de compliance (se houver)
+    // ========== ETAPA 6: RESPOSTA DO COMPLIANCE (ORDEM CRONOLÓGICA DO PROCESSO GERAL) ==========
     if (cotacaoId) {
-      console.log("\n✅ === BUSCANDO ANÁLISE DE COMPLIANCE ===");
+      console.log("\n✅ === ETAPA 6: RESPOSTAS DO COMPLIANCE ===");
       
-      const { data: analiseCompliance, error: analiseError } = await supabase
+      const { data: analisesCompliance, error: analiseError } = await supabase
         .from("analises_compliance")
         .select("*")
         .eq("cotacao_id", cotacaoId)
-        .order("data_analise", { ascending: false })
-        .limit(1)
-        .maybeSingle();
+        .order("data_analise", { ascending: true });
 
       if (analiseError) {
-        console.error("Erro ao buscar análise de compliance:", analiseError);
+        console.error("Erro ao buscar análises de compliance:", analiseError);
       }
 
-      console.log(`Análise de compliance encontrada: ${analiseCompliance ? 'SIM' : 'NÃO'}`);
+      console.log(`Análises de compliance encontradas: ${analisesCompliance?.length || 0}`);
 
-      if (analiseCompliance && analiseCompliance.url_documento) {
-        // Extrair storage path corretamente - pode ser URL completa ou path relativo
-        let storagePath = analiseCompliance.url_documento;
-        
-        // Se for URL completa, extrair apenas o path relativo
-        if (storagePath.includes('/storage/v1/object/')) {
-          const match = storagePath.match(/\/processo-anexos\/(.+?)(\?|$)/);
-          if (match) {
-            storagePath = match[1].split('?')[0];
+      if (analisesCompliance && analisesCompliance.length > 0) {
+        analisesCompliance.forEach(analise => {
+          if (analise.url_documento) {
+            let storagePath = analise.url_documento;
+            
+            if (storagePath.includes('/storage/v1/object/')) {
+              const match = storagePath.match(/\/processo-anexos\/(.+?)(\?|$)/);
+              if (match) {
+                storagePath = match[1].split('?')[0];
+              }
+            } else if (storagePath.startsWith('processo-anexos/')) {
+              storagePath = storagePath.replace('processo-anexos/', '');
+            }
+            
+            const useDirectUrl = storagePath.startsWith('documents/');
+            
+            documentosProcessoGeral.push({
+              tipo: "Resposta Compliance",
+              data: analise.data_analise || analise.created_at,
+              nome: analise.nome_arquivo || `Análise Compliance - ${analise.protocolo}`,
+              url: useDirectUrl ? analise.url_documento : undefined,
+              storagePath: useDirectUrl ? undefined : storagePath,
+              bucket: useDirectUrl ? "documents" : "processo-anexos"
+            });
           }
-        } else if (storagePath.startsWith('processo-anexos/')) {
-          storagePath = storagePath.replace('processo-anexos/', '');
-        }
-        // Se começar com documents/, é um path relativo do bucket documents - usar URL direta
-        const useDirectUrl = storagePath.startsWith('documents/');
-        
-        documentosOrdenados.push({
-          tipo: "Análise Compliance",
-          data: analiseCompliance.data_analise || analiseCompliance.created_at,
-          nome: analiseCompliance.nome_arquivo || `Análise Compliance - ${analiseCompliance.protocolo}`,
-          url: useDirectUrl ? analiseCompliance.url_documento : undefined,
-          storagePath: useDirectUrl ? undefined : storagePath,
-          bucket: useDirectUrl ? "documents" : "processo-anexos"
         });
       }
     }
 
-    // 8. Buscar documentos anexados da seleção (Aviso, Edital, etc.)
-    console.log("\n📋 === BUSCANDO ANEXOS DA SELEÇÃO ===");
-    const { data: anexosSelecao, error: anexosError } = await supabase
-      .from("anexos_selecao")
-      .select("*")
-      .eq("selecao_id", selecaoId)
-      .order("data_upload", { ascending: true });
-
-    if (anexosError) {
-      console.error("Erro ao buscar anexos da seleção:", anexosError);
-    }
-
-    console.log(`Anexos da seleção encontrados: ${anexosSelecao?.length || 0}`);
-
-    if (anexosSelecao && anexosSelecao.length > 0) {
-      anexosSelecao.forEach(anexo => {
-        if (anexo.nome_arquivo.toLowerCase().endsWith('.pdf')) {
-          documentosOrdenados.push({
-            tipo: `Anexo Seleção (${anexo.tipo_documento})`,
-            data: anexo.data_upload,
-            nome: anexo.nome_arquivo,
-            url: anexo.url_arquivo,
-            bucket: "processo-anexos"
-          });
-        }
-      });
-    }
-
-    // 9. Buscar propostas de SELEÇÃO de fornecedores (PDFs gerados)
-    console.log("\n📝 === BUSCANDO PROPOSTAS DE SELEÇÃO ===");
-    const { data: propostasSelecao, error: propostasError } = await supabase
-      .from("selecao_propostas_fornecedor")
-      .select(`
-        id, 
-        data_envio_proposta,
-        url_pdf_proposta,
-        fornecedores(razao_social)
-      `)
-      .eq("selecao_id", selecaoId)
-      .order("data_envio_proposta", { ascending: true });
-
-    if (propostasError) {
-      console.error("Erro ao buscar propostas de seleção:", propostasError);
-    }
-
-    console.log(`Propostas de seleção encontradas: ${propostasSelecao?.length || 0}`);
-
-    if (propostasSelecao && propostasSelecao.length > 0) {
-      for (const proposta of propostasSelecao) {
-        const razaoSocial = (proposta.fornecedores as any)?.razao_social || 'Fornecedor';
-        
-        if (proposta.url_pdf_proposta) {
-          // Extrair nome do arquivo da URL
-          const urlParts = proposta.url_pdf_proposta.split('/');
-          const nomeArquivo = decodeURIComponent(urlParts[urlParts.length - 1]);
-          
-          documentosOrdenados.push({
-            tipo: "Proposta Seleção",
-            data: proposta.data_envio_proposta,
-            nome: `${razaoSocial} - ${nomeArquivo}`,
-            url: proposta.url_pdf_proposta,
-            bucket: "processo-anexos",
-            fornecedor: razaoSocial
-          });
-        }
-      }
-    }
-
-    // 10. Buscar planilhas de lances - separar antes e depois do encerramento da habilitação
-    console.log("\n📊 === BUSCANDO PLANILHAS DE LANCES ===");
-    const { data: planilhasLances, error: planilhasError } = await supabase
-      .from("planilhas_lances_selecao")
-      .select("*")
-      .eq("selecao_id", selecaoId)
-      .order("data_geracao", { ascending: true });
-
-    if (planilhasError) {
-      console.error("Erro ao buscar planilhas de lances:", planilhasError);
-    }
-
-    console.log(`Planilhas de lances encontradas: ${planilhasLances?.length || 0}`);
+    // Ordenar e mesclar documentos do processo geral
+    documentosProcessoGeral.sort((a, b) => new Date(a.data).getTime() - new Date(b.data).getTime());
     
-    // Separar planilhas: antes e depois do encerramento da habilitação
-    const dataEncerramentoHabilitacao = selecao?.data_encerramento_habilitacao 
-      ? new Date(selecao.data_encerramento_habilitacao).getTime() 
-      : null;
-    
-    const planilhasAntesHabilitacao: any[] = [];
-    const planilhasAposHabilitacao: any[] = [];
-    
-    if (planilhasLances && planilhasLances.length > 0) {
-      planilhasLances.forEach(planilha => {
-        const dataPlanilha = new Date(planilha.data_geracao).getTime();
-        
-        // Se não há data de encerramento ou planilha foi gerada ANTES do encerramento
-        if (!dataEncerramentoHabilitacao || dataPlanilha < dataEncerramentoHabilitacao) {
-          planilhasAntesHabilitacao.push(planilha);
-        } else {
-          // Planilha gerada APÓS o encerramento da habilitação
-          planilhasAposHabilitacao.push(planilha);
-        }
-      });
-    }
-    
-    console.log(`  📊 Planilhas antes da habilitação: ${planilhasAntesHabilitacao.length}`);
-    console.log(`  📊 Planilhas após habilitação: ${planilhasAposHabilitacao.length}`);
-    
-    // Adicionar planilhas ANTES do encerramento da habilitação (ordem cronológica normal)
-    planilhasAntesHabilitacao.forEach(planilha => {
-      documentosOrdenados.push({
-        tipo: "Planilha de Lances",
-        data: planilha.data_geracao,
-        nome: planilha.nome_arquivo,
-        url: planilha.url_arquivo,
-        bucket: "processo-anexos"
-      });
-    });
+    console.log(`\n📋 Mesclando ${documentosProcessoGeral.length} documentos do processo geral...`);
+    await mesclarDocumentos(pdfFinal, documentosProcessoGeral);
 
-    // 11. Autorização de Seleção de Fornecedores (se houver) - ANTES DA ORDENAÇÃO
-    console.log("\n✅ === BUSCANDO AUTORIZAÇÃO DE SELEÇÃO ===");
+    // ========== ETAPAS 7-30+: PROCESSAR CADA SELEÇÃO EM SEQUÊNCIA ==========
+    const selecoesParaProcessar = todasSelecoes || [{ id: selecaoId, numero_selecao: numeroSelecao }];
     
-    let autorizacao = null;
-    
-    // Primeiro tenta buscar pela cotação (se houver)
-    if (cotacaoId) {
-      const { data, error: autorizacaoError } = await supabase
-        .from("autorizacoes_processo")
-        .select("*")
-        .eq("cotacao_id", cotacaoId)
-        .eq("tipo_autorizacao", "selecao_fornecedores")
-        .order("data_geracao", { ascending: false })
-        .limit(1)
-        .maybeSingle();
-
-      if (autorizacaoError) {
-        console.error("Erro ao buscar autorização por cotação:", autorizacaoError);
-      } else {
-        autorizacao = data;
-      }
-    }
-    
-    // Se não encontrou e há processo_compra_id, tenta buscar pelo processo
-    if (!autorizacao && selecao?.processo_compra_id) {
-      const { data: cotacaoProcesso } = await supabase
-        .from("cotacoes_precos")
-        .select("id")
-        .eq("processo_compra_id", selecao.processo_compra_id)
-        .maybeSingle();
+    for (let selecaoIndex = 0; selecaoIndex < selecoesParaProcessar.length; selecaoIndex++) {
+      const selecaoAtualLoop = selecoesParaProcessar[selecaoIndex];
+      const selecaoIdLoop = selecaoAtualLoop.id;
+      const numeroSelecaoLoop = selecaoAtualLoop.numero_selecao || `Seleção ${selecaoIndex + 1}`;
+      const ordemRomana = ["I", "II", "III", "IV", "V", "VI", "VII", "VIII", "IX", "X"][selecaoIndex] || `${selecaoIndex + 1}`;
       
-      if (cotacaoProcesso?.id) {
-        const { data, error } = await supabase
+      console.log(`\n\n🏁 ========== PROCESSANDO SELEÇÃO ${ordemRomana}: ${numeroSelecaoLoop} ==========`);
+      
+      const documentosSelecao: DocumentoOrdenado[] = [];
+      
+      // 7/19. Autorização da seleção
+      console.log(`\n✅ === AUTORIZAÇÃO DA SELEÇÃO ${ordemRomana} ===`);
+      let autorizacao = null;
+      
+      if (cotacaoId) {
+        const { data } = await supabase
           .from("autorizacoes_processo")
           .select("*")
-          .eq("cotacao_id", cotacaoProcesso.id)
+          .eq("cotacao_id", cotacaoId)
           .eq("tipo_autorizacao", "selecao_fornecedores")
-          .order("data_geracao", { ascending: false })
-          .limit(1)
-          .maybeSingle();
+          .order("data_geracao", { ascending: true });
         
-        if (!error) {
-          autorizacao = data;
+        // Pegar a autorização correspondente à seleção (por índice)
+        if (data && data.length > selecaoIndex) {
+          autorizacao = data[selecaoIndex];
+        } else if (data && data.length > 0 && selecaoIndex === 0) {
+          autorizacao = data[0];
         }
       }
-    }
-
-    console.log(`Autorização de seleção encontrada: ${autorizacao ? 'SIM' : 'NÃO'}`);
-
-    if (autorizacao) {
-      documentosOrdenados.push({
-        tipo: "Autorização Seleção",
-        data: autorizacao.data_geracao,
-        nome: autorizacao.nome_arquivo,
-        url: autorizacao.url_arquivo,
-        bucket: "processo-anexos"
-      });
-      console.log(`✓ Autorização adicionada: ${autorizacao.nome_arquivo}`);
-    } else {
-      console.log("⚠️ Nenhuma autorização de seleção encontrada");
-    }
-
-    // Ordenar documentos cronológicos até aqui
-    documentosOrdenados.sort((a, b) => {
-      return new Date(a.data).getTime() - new Date(b.data).getTime();
-    });
-
-    // Encontrar última data cronológica
-    const ultimaDataCronologica = documentosOrdenados.length > 0
-      ? documentosOrdenados[documentosOrdenados.length - 1].data
-      : new Date().toISOString();
-
-    console.log(`📆 Última data cronológica: ${new Date(ultimaDataCronologica).toLocaleString('pt-BR')}`);
-
-    // 12. DOCUMENTOS DE HABILITAÇÃO APENAS DE VENCEDORES E INABILITADOS
-    console.log("\n📋 === PREPARANDO DOCUMENTOS DE HABILITAÇÃO (APENAS VENCEDORES E INABILITADOS) ===");
-    
-    // Criar set único de fornecedores para incluir documentos
-    const fornecedoresParaDocumentos = new Set<string>();
-    
-    // 12a. Identificar VENCEDORES dinamicamente a partir dos lances
-    // Buscar critério de julgamento
-    const { data: selecaoInfo } = await supabase
-      .from("selecoes_fornecedores")
-      .select("criterio_julgamento")
-      .eq("id", selecaoId)
-      .single();
-    
-    const criterioJulgamento = selecaoInfo?.criterio_julgamento || "por_item";
-    console.log(`  📊 Critério de julgamento: ${criterioJulgamento}`);
-    
-    // Buscar todos os lances
-    const { data: todosLances, error: lancesError } = await supabase
-      .from("lances_fornecedores")
-      .select("fornecedor_id, numero_item, valor_lance, indicativo_lance_vencedor")
-      .eq("selecao_id", selecaoId);
-
-    if (lancesError) {
-      console.error("Erro ao buscar lances:", lancesError);
-    }
-
-    const isDesconto = criterioJulgamento === "desconto" || criterioJulgamento === "maior_percentual_desconto";
-    
-    // Identificar vencedores conforme critério
-    if (criterioJulgamento === "global") {
-      // Critério GLOBAL: um único vencedor para toda a seleção
-      // Agrupar por fornecedor e somar todos os valores
-      const totaisPorFornecedor = new Map<string, number>();
       
-      todosLances?.forEach(lance => {
-        const totalAtual = totaisPorFornecedor.get(lance.fornecedor_id) || 0;
-        totaisPorFornecedor.set(lance.fornecedor_id, totalAtual + lance.valor_lance);
-      });
-      
-      // Encontrar o melhor (menor valor para preço, maior para desconto)
-      let melhorFornecedor: string | null = null;
-      let melhorValor: number | null = null;
-      
-      totaisPorFornecedor.forEach((total, fornecedorId) => {
-        if (melhorValor === null) {
-          melhorFornecedor = fornecedorId;
-          melhorValor = total;
-        } else {
-          const isMelhor = isDesconto ? total > melhorValor : total < melhorValor;
-          if (isMelhor) {
-            melhorFornecedor = fornecedorId;
-            melhorValor = total;
-          }
-        }
-      });
-      
-      if (melhorFornecedor) {
-        fornecedoresParaDocumentos.add(melhorFornecedor);
-        console.log(`  🏆 Vencedor global identificado: ${melhorFornecedor}`);
+      if (autorizacao) {
+        documentosSelecao.push({
+          tipo: "Autorização Seleção",
+          data: autorizacao.data_geracao,
+          nome: autorizacao.nome_arquivo,
+          url: autorizacao.url_arquivo,
+          bucket: "processo-anexos"
+        });
+        console.log(`  ✓ Autorização: ${autorizacao.nome_arquivo}`);
       }
-    } else {
-      // Critério POR ITEM ou POR LOTE
-      const vencedoresPorItem = new Map<number, { fornecedor_id: string; valor: number }>();
-      
-      if (todosLances && todosLances.length > 0) {
-        todosLances.forEach(lance => {
-          if (lance.numero_item === null || lance.numero_item === undefined) return;
-          
-          const itemAtual = vencedoresPorItem.get(lance.numero_item);
-          
-          if (!itemAtual) {
-            vencedoresPorItem.set(lance.numero_item, { 
-              fornecedor_id: lance.fornecedor_id, 
-              valor: lance.valor_lance 
+
+      // 8/20. Aviso da seleção
+      // 9/21. Edital da seleção
+      console.log(`\n📋 === ANEXOS DA SELEÇÃO ${ordemRomana} (AVISO, EDITAL) ===`);
+      const { data: anexosSelecao } = await supabase
+        .from("anexos_selecao")
+        .select("*")
+        .eq("selecao_id", selecaoIdLoop)
+        .order("data_upload", { ascending: true });
+
+      if (anexosSelecao && anexosSelecao.length > 0) {
+        // Ordenar: Aviso primeiro, depois Edital, depois outros
+        const ordemAnexos = ["aviso", "edital"];
+        const anexosOrdenados = [...anexosSelecao].sort((a, b) => {
+          const tipoA = a.tipo_documento?.toLowerCase() || "";
+          const tipoB = b.tipo_documento?.toLowerCase() || "";
+          const indexA = ordemAnexos.findIndex(t => tipoA.includes(t));
+          const indexB = ordemAnexos.findIndex(t => tipoB.includes(t));
+          if (indexA === -1 && indexB === -1) return 0;
+          if (indexA === -1) return 1;
+          if (indexB === -1) return -1;
+          return indexA - indexB;
+        });
+        
+        anexosOrdenados.forEach(anexo => {
+          if (anexo.nome_arquivo.toLowerCase().endsWith('.pdf')) {
+            documentosSelecao.push({
+              tipo: `Anexo Seleção (${anexo.tipo_documento})`,
+              data: anexo.data_upload,
+              nome: anexo.nome_arquivo,
+              url: anexo.url_arquivo,
+              bucket: "processo-anexos"
             });
-          } else {
-            const melhorValor = isDesconto 
-              ? lance.valor_lance > itemAtual.valor
-              : lance.valor_lance < itemAtual.valor;
+            console.log(`  ✓ ${anexo.tipo_documento}: ${anexo.nome_arquivo}`);
+          }
+        });
+      }
+
+      // 10/22. Propostas de seleção
+      console.log(`\n📝 === PROPOSTAS DE SELEÇÃO ${ordemRomana} ===`);
+      const { data: propostasSelecao } = await supabase
+        .from("selecao_propostas_fornecedor")
+        .select("id, data_envio_proposta, url_pdf_proposta, fornecedores(razao_social)")
+        .eq("selecao_id", selecaoIdLoop)
+        .order("data_envio_proposta", { ascending: true });
+
+      if (propostasSelecao && propostasSelecao.length > 0) {
+        for (const proposta of propostasSelecao) {
+          if (proposta.url_pdf_proposta) {
+            const razaoSocial = (proposta.fornecedores as any)?.razao_social || 'Fornecedor';
+            const nomeArquivo = getFileNameFromUrl(proposta.url_pdf_proposta);
             
-            if (melhorValor) {
-              vencedoresPorItem.set(lance.numero_item, { 
-                fornecedor_id: lance.fornecedor_id, 
-                valor: lance.valor_lance 
-              });
-            }
-          }
-        });
-        
-        vencedoresPorItem.forEach(({ fornecedor_id }) => {
-          fornecedoresParaDocumentos.add(fornecedor_id);
-        });
-      }
-    }
-    
-    console.log(`  🏆 Fornecedores vencedores identificados: ${fornecedoresParaDocumentos.size}`);
-
-    // 12b. Buscar fornecedores INABILITADOS
-    const { data: fornecedoresInabilitados, error: inabilitadosError } = await supabase
-      .from("fornecedores_inabilitados_selecao")
-      .select("fornecedor_id")
-      .eq("selecao_id", selecaoId)
-      .eq("revertido", false);
-
-    if (inabilitadosError) {
-      console.error("Erro ao buscar fornecedores inabilitados:", inabilitadosError);
-    }
-
-    fornecedoresInabilitados?.forEach(f => {
-      if (f.fornecedor_id) fornecedoresParaDocumentos.add(f.fornecedor_id);
-    });
-    console.log(`  ❌ Fornecedores inabilitados: ${fornecedoresInabilitados?.length || 0}`);
-    
-    console.log(`👥 Total de fornecedores para incluir documentos (vencedores + inabilitados): ${fornecedoresParaDocumentos.size}`);
-
-    // Data base para documentos de fornecedores
-    let dataBaseFornecedores = new Date(new Date(ultimaDataCronologica).getTime() + 1000).toISOString();
-
-    // Processar cada fornecedor
-    const fornecedoresArray = Array.from(fornecedoresParaDocumentos);
-    for (let index = 0; index < fornecedoresArray.length; index++) {
-      const fornecedorId = fornecedoresArray[index];
-      console.log(`\n📋 Processando fornecedor ${index + 1}/${fornecedoresArray.length}: ${fornecedorId}`);
-      
-      const dataFornecedor = new Date(new Date(dataBaseFornecedores).getTime() + (index * 100)).toISOString();
-      
-      // Buscar campos solicitados na análise documental para este fornecedor
-      console.log(`  📄 Buscando documentos solicitados na análise documental...`);
-      const { data: camposDocumentos, error: camposError } = await supabase
-        .from("campos_documentos_finalizacao")
-        .select("*")
-        .eq("selecao_id", selecaoId)
-        .eq("fornecedor_id", fornecedorId)
-        .order("ordem", { ascending: true });
-
-      if (camposError) {
-        console.error(`  ❌ Erro ao buscar campos de documentos:`, camposError);
-        continue;
-      }
-
-      console.log(`  📄 Campos solicitados: ${camposDocumentos?.length || 0}`);
-
-      // 1. PRIMEIRO: Incluir TODOS os documentos do cadastro do fornecedor (exceto KPMG)
-      const { data: documentosCadastro, error: docsCadastroError } = await supabase
-        .from("documentos_fornecedor")
-        .select("*")
-        .eq("fornecedor_id", fornecedorId)
-        .neq("tipo_documento", "Relatório KPMG")
-        .neq("tipo_documento", "relatorio_kpmg")
-        .eq("em_vigor", true)
-        .order("created_at", { ascending: true });
-
-      if (docsCadastroError) {
-        console.error(`  ❌ Erro ao buscar documentos do cadastro:`, docsCadastroError);
-      } else {
-        console.log(`  📄 Documentos do cadastro encontrados: ${documentosCadastro?.length || 0}`);
-
-        if (documentosCadastro && documentosCadastro.length > 0) {
-          // Ordem específica para documentos do cadastro
-          const ordemDocumentos = [
-            "contrato_social",
-            "cartao_cnpj",
-            "inscricao_estadual_municipal",
-            "cnd_federal",
-            "cnd_tributos_estaduais",
-            "cnd_divida_ativa_estadual",
-            "cnd_tributos_municipais",
-            "cnd_divida_ativa_municipal",
-            "crf_fgts",
-            "cndt",
-          ];
-
-          const docsOrdenados = documentosCadastro.sort((a, b) => {
-            const indexA = ordemDocumentos.indexOf(a.tipo_documento);
-            const indexB = ordemDocumentos.indexOf(b.tipo_documento);
-
-            if (indexA === -1 && indexB === -1) return 0;
-            if (indexA === -1) return 1;
-            if (indexB === -1) return -1;
-
-            return indexA - indexB;
-          });
-
-          for (const doc of docsOrdenados) {
-            const url = doc.url_arquivo;
-            if (!url) continue;
-
-            // Validar pelo URL (mais robusto do que nome_arquivo)
-            if (!isPdfUrl(url)) continue;
-
-            const nomeArquivo = getFileNameFromUrl(url) || doc.nome_arquivo || "documento.pdf";
-
-            console.log(
-              `  ✅ INCLUINDO documento do cadastro: ${doc.tipo_documento} - ${nomeArquivo}`
-            );
-
-            documentosOrdenados.push({
-              tipo: "Documento Habilitação (Cadastro)",
-              data: dataFornecedor,
-              nome: `${doc.tipo_documento} - ${nomeArquivo}`,
-              url,
+            documentosSelecao.push({
+              tipo: "Proposta Seleção",
+              data: proposta.data_envio_proposta,
+              nome: `${razaoSocial} - ${nomeArquivo}`,
+              url: proposta.url_pdf_proposta,
               bucket: "processo-anexos",
-              fornecedor: fornecedorId,
+              fornecedor: razaoSocial
             });
+            console.log(`  ✓ Proposta: ${razaoSocial}`);
           }
         }
       }
 
-      // 2. SEGUNDO: Incluir documentos ADICIONAIS solicitados (se houver campos)
-      if (camposDocumentos && camposDocumentos.length > 0) {
-        for (const campo of camposDocumentos) {
-          console.log(`  🔍 Buscando documentos adicionais para campo: "${campo.nome_campo}"`);
+      // 11/23. Planilhas de lances
+      console.log(`\n📊 === PLANILHAS DE LANCES DA SELEÇÃO ${ordemRomana} ===`);
+      const { data: planilhasLances } = await supabase
+        .from("planilhas_lances_selecao")
+        .select("*")
+        .eq("selecao_id", selecaoIdLoop)
+        .order("data_geracao", { ascending: true });
 
-          const { data: docsEnviados, error: docsError } = await supabase
-            .from("documentos_finalizacao_fornecedor")
-            .select("*")
-            .eq("campo_documento_id", campo.id)
-            .eq("fornecedor_id", fornecedorId)
-            .order("data_upload", { ascending: true });
-
-          if (docsError) {
-            console.error(`  ❌ Erro ao buscar documentos adicionais:`, docsError);
-            continue;
-          }
-
-          if (docsEnviados && docsEnviados.length > 0) {
-            console.log(
-              `  ✅ INCLUINDO ${docsEnviados.length} documento(s) adicional(is): ${campo.nome_campo}`
-            );
-            for (const doc of docsEnviados) {
-              const url = doc.url_arquivo;
-              if (!url) continue;
-
-              // IMPORTANTE: documentos_finalizacao_fornecedor.nome_arquivo é nome de exibição (sem extensão)
-              // então validamos pelo URL.
-              if (!isPdfUrl(url)) {
-                console.log(`    ⚠️ AVISO: documento não é PDF (url: ${url})`);
-                continue;
-              }
-
-              const nomeArquivo =
-                getFileNameFromUrl(url) || doc.nome_arquivo || "documento.pdf";
-
-              documentosOrdenados.push({
-                tipo: "Documento Habilitação (Adicional)",
-                data: dataFornecedor,
-                nome: `${campo.nome_campo} - ${nomeArquivo}`,
-                url,
-                bucket: "processo-anexos",
-                fornecedor: fornecedorId,
-              });
-              console.log(`    - ${nomeArquivo}`);
-            }
+      if (planilhasLances && planilhasLances.length > 0) {
+        // Separar planilhas antes e depois da habilitação
+        const dataEncerramentoHabilitacao = selecaoAtualLoop.data_encerramento_habilitacao
+          ? new Date(selecaoAtualLoop.data_encerramento_habilitacao).getTime()
+          : null;
+        
+        const planilhasAntes: any[] = [];
+        const planilhasDepois: any[] = [];
+        
+        planilhasLances.forEach(planilha => {
+          const dataPlanilha = new Date(planilha.data_geracao).getTime();
+          if (!dataEncerramentoHabilitacao || dataPlanilha < dataEncerramentoHabilitacao) {
+            planilhasAntes.push(planilha);
           } else {
-            console.log(
-              `  ⚠️ NENHUM documento adicional encontrado para: ${campo.nome_campo}`
-            );
+            planilhasDepois.push(planilha);
           }
-        }
-      }
-      
-      // 3. TERCEIRO: Buscar RECURSOS deste fornecedor específico (recurso + resposta após seus documentos)
-      console.log(`  📝 Buscando recursos do fornecedor...`);
-      const { data: recursosFornecedor, error: recursosFornError } = await supabase
-        .from("recursos_inabilitacao_selecao")
-        .select("*, fornecedores(razao_social)")
-        .eq("selecao_id", selecaoId)
-        .eq("fornecedor_id", fornecedorId)
-        .order("created_at", { ascending: true });
-      
-      if (recursosFornError) {
-        console.error(`  ❌ Erro ao buscar recursos do fornecedor:`, recursosFornError);
-      }
-      
-      if (recursosFornecedor && recursosFornecedor.length > 0) {
-        console.log(`  📝 Recursos do fornecedor: ${recursosFornecedor.length}`);
-        
-        // Adicionar recursos em ordem cronológica: recurso seguido de sua resposta
-        for (let i = 0; i < recursosFornecedor.length; i++) {
-          const recurso = recursosFornecedor[i];
-          const razaoSocial = (recurso.fornecedores as any)?.razao_social || 'Fornecedor';
-          
-          // Data do recurso (logo após documentos do fornecedor)
-          const dataRecurso = new Date(new Date(dataFornecedor).getTime() + 50 + (i * 2)).toISOString();
-          
-          // Adicionar o recurso
-          if (recurso.url_pdf_recurso) {
-            documentosOrdenados.push({
-              tipo: "Recurso de Inabilitação",
-              data: dataRecurso,
-              nome: `Recurso - ${razaoSocial}`,
-              url: recurso.url_pdf_recurso,
-              bucket: "processo-anexos",
-              fornecedor: fornecedorId
-            });
-            console.log(`    📝 Recurso: ${razaoSocial}`);
-          }
-          
-          // Adicionar a resposta do recurso (imediatamente após o recurso)
-          if (recurso.url_pdf_resposta) {
-            const dataResposta = new Date(new Date(dataRecurso).getTime() + 1).toISOString();
-            documentosOrdenados.push({
-              tipo: "Resposta de Recurso",
-              data: dataResposta,
-              nome: `Resposta Recurso - ${razaoSocial}`,
-              url: recurso.url_pdf_resposta,
-              bucket: "processo-anexos",
-              fornecedor: fornecedorId
-            });
-            console.log(`    📝 Resposta Recurso: ${razaoSocial}`);
-          }
-        }
-      }
-    }
-
-    // 13. Adicionar planilhas de lances geradas APÓS o encerramento da habilitação
-    if (planilhasAposHabilitacao.length > 0) {
-      console.log("\n📊 === ADICIONANDO PLANILHAS DE LANCES APÓS HABILITAÇÃO ===");
-      
-      // Data base para planilhas após habilitação (após todos os documentos dos fornecedores)
-      const dataBasePlanilhasPos = new Date(new Date(dataBaseFornecedores).getTime() + (fornecedoresArray.length * 200) + 500).toISOString();
-      
-      planilhasAposHabilitacao.forEach((planilha, idx) => {
-        const dataPlanilha = new Date(new Date(dataBasePlanilhasPos).getTime() + (idx * 100)).toISOString();
-        documentosOrdenados.push({
-          tipo: "Planilha de Lances (Pós-Habilitação)",
-          data: dataPlanilha,
-          nome: planilha.nome_arquivo,
-          url: planilha.url_arquivo,
-          bucket: "processo-anexos"
         });
-        console.log(`  📊 Planilha pós-habilitação: ${planilha.nome_arquivo}`);
-      });
-    }
-
-    // 14. Buscar atas geradas
-    console.log("\n📜 === BUSCANDO ATAS ===");
-    const { data: atas, error: atasError } = await supabase
-      .from("atas_selecao")
-      .select("*")
-      .eq("selecao_id", selecaoId)
-      .order("data_geracao", { ascending: true });
-
-    if (atasError) {
-      console.error("Erro ao buscar atas:", atasError);
-    }
-
-    console.log(`Atas encontradas: ${atas?.length || 0}`);
-    
-    if (atas && atas.length > 0) {
-      atas.forEach(ata => {
-        documentosOrdenados.push({
-          tipo: "Ata de Seleção",
-          data: ata.data_geracao,
-          nome: ata.nome_arquivo,
-          url: ata.url_arquivo,
-          bucket: "processo-anexos"
-        });
-      });
-    }
-
-    // 14b. Buscar PROPOSTAS REALINHADAS (devem vir APÓS a ata e ANTES da homologação)
-    console.log("\n📝 === BUSCANDO PROPOSTAS REALINHADAS ===");
-    const { data: propostasRealinhadas, error: propostasRealinhadasError } = await supabase
-      .from("propostas_realinhadas")
-      .select(
-        `
-        id,
-        data_envio,
-        url_pdf_proposta,
-        protocolo,
-        fornecedores(razao_social)
-      `
-      )
-      .eq("selecao_id", selecaoId)
-      .order("data_envio", { ascending: true });
-
-    if (propostasRealinhadasError) {
-      console.error("Erro ao buscar propostas realinhadas:", propostasRealinhadasError);
-    }
-
-    console.log(`Propostas realinhadas encontradas: ${propostasRealinhadas?.length || 0}`);
-
-    if (propostasRealinhadas && propostasRealinhadas.length > 0) {
-      // Calcular data para propostas realinhadas (após a última ata)
-      const ultimaDataAta =
-        atas && atas.length > 0
-          ? new Date(atas[atas.length - 1].data_geracao).getTime() + 1000
-          : new Date().getTime();
-
-      propostasRealinhadas.forEach((proposta, idx) => {
-        if (proposta.url_pdf_proposta) {
-          const razaoSocial =
-            (proposta.fornecedores as any)?.razao_social || "Fornecedor";
-          const dataProposta = new Date(ultimaDataAta + idx * 100).toISOString();
-          const nomeArquivo =
-            getFileNameFromUrl(proposta.url_pdf_proposta) ||
-            "proposta_realinhada.pdf";
-
-          documentosOrdenados.push({
-            tipo: "Proposta Realinhada",
-            data: dataProposta,
-            nome: `Proposta Realinhada - ${razaoSocial} - ${nomeArquivo}`,
-            url: proposta.url_pdf_proposta,
-            bucket: "processo-anexos",
-            fornecedor: razaoSocial,
-          });
-          console.log(`  ✓ Proposta Realinhada: ${razaoSocial}`);
-        }
-      });
-    }
-
-    // 15. Buscar ENCAMINHAMENTOS À CONTABILIDADE (ANTES da homologação)
-    console.log("\n📤 === BUSCANDO ENCAMINHAMENTOS À CONTABILIDADE ===");
-    const { data: encaminhamentosContabilidade, error: encContabError } = await supabase
-      .from("encaminhamentos_contabilidade")
-      .select("*")
-      .eq("selecao_id", selecaoId)
-      .order("data_geracao", { ascending: true });
-
-    if (encContabError) {
-      console.error("Erro ao buscar encaminhamentos à contabilidade:", encContabError);
-    }
-
-    console.log(`Encaminhamentos à contabilidade encontrados: ${encaminhamentosContabilidade?.length || 0}`);
-
-    // Calcular data base para encaminhamentos (após propostas realinhadas)
-    const ultimaDataRealinhada = propostasRealinhadas && propostasRealinhadas.length > 0
-      ? new Date(atas && atas.length > 0 
-          ? new Date(atas[atas.length - 1].data_geracao).getTime() + 1000 + (propostasRealinhadas.length * 100)
-          : new Date().getTime() + (propostasRealinhadas.length * 100)
-        ).getTime() + 1000
-      : (atas && atas.length > 0 
-          ? new Date(atas[atas.length - 1].data_geracao).getTime() + 2000
-          : new Date().getTime() + 2000);
-
-    let ultimaDataContabilidade = ultimaDataRealinhada;
-
-    if (encaminhamentosContabilidade && encaminhamentosContabilidade.length > 0) {
-      encaminhamentosContabilidade.forEach((enc, idx) => {
-        const dataEnc = new Date(ultimaDataRealinhada + (idx * 200)).toISOString();
-        ultimaDataContabilidade = new Date(dataEnc).getTime();
         
-        // Adicionar o encaminhamento
-        documentosOrdenados.push({
-          tipo: "Encaminhamento Contabilidade",
-          data: dataEnc,
-          nome: enc.nome_arquivo || `Encaminhamento Contabilidade - ${enc.protocolo}`,
-          url: enc.url_arquivo,
-          bucket: "processo-anexos"
-        });
-        console.log(`  📤 Encaminhamento: ${enc.protocolo}`);
-        
-        // Adicionar a resposta da contabilidade (se houver)
-        if (enc.url_resposta_pdf) {
-          const dataResposta = new Date(new Date(dataEnc).getTime() + 100).toISOString();
-          ultimaDataContabilidade = new Date(dataResposta).getTime();
-          documentosOrdenados.push({
-            tipo: "Resposta Contabilidade",
-            data: dataResposta,
-            nome: `Resposta Contabilidade - ${enc.processo_numero}`,
-            url: enc.url_resposta_pdf,
+        // Adicionar planilhas antes da habilitação
+        planilhasAntes.forEach(planilha => {
+          documentosSelecao.push({
+            tipo: "Planilha de Lances",
+            data: planilha.data_geracao,
+            nome: planilha.nome_arquivo,
+            url: planilha.url_arquivo,
             bucket: "processo-anexos"
           });
-          console.log(`  📥 Resposta Contabilidade: ${enc.processo_numero}`);
-        }
-      });
-    }
-
-    // 16. Buscar homologações geradas (APÓS encaminhamento/resposta contabilidade)
-    console.log("\n✅ === BUSCANDO HOMOLOGAÇÕES ===");
-    const { data: homologacoes, error: homologacoesError } = await supabase
-      .from("homologacoes_selecao")
-      .select("*")
-      .eq("selecao_id", selecaoId)
-      .order("data_geracao", { ascending: true });
-
-    if (homologacoesError) {
-      console.error("Erro ao buscar homologações:", homologacoesError);
-    }
-
-    console.log(`Homologações encontradas: ${homologacoes?.length || 0}`);
-    
-    if (homologacoes && homologacoes.length > 0) {
-      homologacoes.forEach((homologacao, idx) => {
-        const dataHomologacao = new Date(ultimaDataContabilidade + 1000 + (idx * 100)).toISOString();
-        documentosOrdenados.push({
-          tipo: "Homologação",
-          data: dataHomologacao,
-          nome: homologacao.nome_arquivo,
-          url: homologacao.url_arquivo,
-          bucket: "processo-anexos"
+          console.log(`  ✓ Planilha (antes hab.): ${planilha.nome_arquivo}`);
         });
-      });
-    }
 
-    console.log(`\n📋 Total de documentos a mesclar: ${documentosOrdenados.length}`);
-
-    // 17. Mesclar todos os documentos
-    for (const doc of documentosOrdenados) {
-      try {
-        console.log(`  Processando: ${doc.tipo} - ${doc.nome}`);
+        // 12/24. Documentos de habilitação de vencedores e inabilitados
+        console.log(`\n📋 === DOCUMENTOS DE HABILITAÇÃO DA SELEÇÃO ${ordemRomana} ===`);
+        await processarDocumentosHabilitacao(pdfFinal, selecaoIdLoop, selecaoAtualLoop.criterio_julgamento, documentosSelecao);
         
-        let pdfUrl: string;
-        
-        // Verificar se é storage path (precisa de signed URL) ou URL completa
-        const isStoragePath = doc.url && !doc.url.startsWith('http');
-        
-        if (doc.storagePath || isStoragePath) {
-          // Usar signed URL para storage paths
-          let path = doc.storagePath || doc.url;
-          
-          // Limpar path se necessário
-          if (path?.includes('/storage/v1/object/')) {
-            const bucketMatch = doc.bucket === 'documents' ? 'documents' : 'processo-anexos';
-            const regex = new RegExp(`/${bucketMatch}/(.+?)(\\?|$)`);
-            const match = path.match(regex);
-            if (match) {
-              path = match[1].split('?')[0];
-            }
-          } else if (path?.startsWith(`${doc.bucket}/`)) {
-            path = path.replace(`${doc.bucket}/`, '');
-          }
-          
-          console.log(`    Gerando signed URL para storage path: ${path} (bucket: ${doc.bucket})`);
-          
-          const { data: signedUrlData, error: signedError } = await supabase.storage
-            .from(doc.bucket)
-            .createSignedUrl(path, 60);
-          
-          if (signedError || !signedUrlData) {
-            console.error(`  ✗ Erro ao gerar URL assinada para ${doc.nome}:`, signedError?.message);
-            continue;
-          }
-          
-          pdfUrl = signedUrlData.signedUrl;
-          console.log(`    ✓ Signed URL gerada com sucesso`);
-        } else if (doc.url) {
-          // Usar URL completa diretamente (já é HTTP/HTTPS)
-          console.log(`    Usando URL completa: ${doc.url.substring(0, 50)}...`);
-          pdfUrl = doc.url;
-        } else {
-          console.error(`  ✗ Nenhuma URL encontrada para ${doc.nome}`);
-          continue;
+        // Adicionar planilhas depois da habilitação
+        if (planilhasDepois.length > 0) {
+          console.log(`\n📊 === PLANILHAS PÓS-HABILITAÇÃO DA SELEÇÃO ${ordemRomana} ===`);
+          planilhasDepois.forEach(planilha => {
+            documentosSelecao.push({
+              tipo: "Planilha de Lances (Pós-Habilitação)",
+              data: planilha.data_geracao,
+              nome: planilha.nome_arquivo,
+              url: planilha.url_arquivo,
+              bucket: "processo-anexos"
+            });
+            console.log(`  ✓ Planilha (pós hab.): ${planilha.nome_arquivo}`);
+          });
         }
-
-        const response = await fetch(pdfUrl);
-        
-        if (!response.ok) {
-          console.error(`  ✗ Erro HTTP ${response.status} ao buscar ${doc.nome}`);
-          continue;
-        }
-        
-        const arrayBuffer = await response.arrayBuffer();
-        const pdfDoc = await PDFDocument.load(arrayBuffer);
-        const copiedPages = await pdfFinal.copyPages(pdfDoc, pdfDoc.getPageIndices());
-        copiedPages.forEach((page) => pdfFinal.addPage(page));
-        console.log(`  ✓ Mesclado: ${doc.tipo} - ${doc.nome} (${copiedPages.length} páginas)`);
-      } catch (error) {
-        console.error(`  ✗ Erro ao mesclar ${doc.nome}:`, error);
+      } else {
+        // Se não há planilhas, ainda precisa processar documentos de habilitação
+        await processarDocumentosHabilitacao(pdfFinal, selecaoIdLoop, selecaoAtualLoop.criterio_julgamento, documentosSelecao);
       }
+
+      // Ordenar e mesclar documentos da seleção até aqui
+      documentosSelecao.sort((a, b) => new Date(a.data).getTime() - new Date(b.data).getTime());
+      console.log(`\n📋 Mesclando ${documentosSelecao.length} documentos da seleção ${ordemRomana}...`);
+      await mesclarDocumentos(pdfFinal, documentosSelecao);
+
+      // Documentos pós-habilitação (em ordem específica, não cronológica global)
+      const documentosPosHabilitacao: DocumentoOrdenado[] = [];
+
+      // 14/26. Ata da seleção
+      console.log(`\n📜 === ATAS DA SELEÇÃO ${ordemRomana} ===`);
+      const { data: atas } = await supabase
+        .from("atas_selecao")
+        .select("*")
+        .eq("selecao_id", selecaoIdLoop)
+        .order("data_geracao", { ascending: true });
+
+      if (atas && atas.length > 0) {
+        atas.forEach(ata => {
+          documentosPosHabilitacao.push({
+            tipo: "Ata de Seleção",
+            data: ata.data_geracao,
+            nome: ata.nome_arquivo,
+            url: ata.url_arquivo,
+            bucket: "processo-anexos"
+          });
+          console.log(`  ✓ Ata: ${ata.nome_arquivo}`);
+        });
+      }
+
+      // 15/27. Propostas realinhadas
+      console.log(`\n📝 === PROPOSTAS REALINHADAS DA SELEÇÃO ${ordemRomana} ===`);
+      const { data: propostasRealinhadas } = await supabase
+        .from("propostas_realinhadas")
+        .select("id, data_envio, url_pdf_proposta, protocolo, fornecedores(razao_social)")
+        .eq("selecao_id", selecaoIdLoop)
+        .order("data_envio", { ascending: true });
+
+      if (propostasRealinhadas && propostasRealinhadas.length > 0) {
+        propostasRealinhadas.forEach(proposta => {
+          if (proposta.url_pdf_proposta) {
+            const razaoSocial = (proposta.fornecedores as any)?.razao_social || "Fornecedor";
+            const nomeArquivo = getFileNameFromUrl(proposta.url_pdf_proposta) || "proposta_realinhada.pdf";
+
+            documentosPosHabilitacao.push({
+              tipo: "Proposta Realinhada",
+              data: proposta.data_envio,
+              nome: `Proposta Realinhada - ${razaoSocial} - ${nomeArquivo}`,
+              url: proposta.url_pdf_proposta,
+              bucket: "processo-anexos",
+              fornecedor: razaoSocial
+            });
+            console.log(`  ✓ Proposta Realinhada: ${razaoSocial}`);
+          }
+        });
+      }
+
+      // 16/28. Encaminhamento para contabilidade
+      // 17/29. Resposta da contabilidade
+      console.log(`\n📤 === ENCAMINHAMENTOS À CONTABILIDADE DA SELEÇÃO ${ordemRomana} ===`);
+      const { data: encaminhamentosContabilidade } = await supabase
+        .from("encaminhamentos_contabilidade")
+        .select("*")
+        .eq("selecao_id", selecaoIdLoop)
+        .order("data_geracao", { ascending: true });
+
+      if (encaminhamentosContabilidade && encaminhamentosContabilidade.length > 0) {
+        encaminhamentosContabilidade.forEach(enc => {
+          documentosPosHabilitacao.push({
+            tipo: "Encaminhamento Contabilidade",
+            data: enc.data_geracao,
+            nome: enc.nome_arquivo || `Encaminhamento Contabilidade - ${enc.protocolo}`,
+            url: enc.url_arquivo,
+            bucket: "processo-anexos"
+          });
+          console.log(`  ✓ Encaminhamento: ${enc.protocolo}`);
+          
+          if (enc.url_resposta_pdf) {
+            documentosPosHabilitacao.push({
+              tipo: "Resposta Contabilidade",
+              data: enc.data_resposta_contabilidade || enc.data_geracao,
+              nome: `Resposta Contabilidade - ${enc.processo_numero}`,
+              url: enc.url_resposta_pdf,
+              bucket: "processo-anexos"
+            });
+            console.log(`  ✓ Resposta Contabilidade: ${enc.processo_numero}`);
+          }
+        });
+      }
+
+      // 18/30. Homologação
+      console.log(`\n✅ === HOMOLOGAÇÕES DA SELEÇÃO ${ordemRomana} ===`);
+      const { data: homologacoes } = await supabase
+        .from("homologacoes_selecao")
+        .select("*")
+        .eq("selecao_id", selecaoIdLoop)
+        .order("data_geracao", { ascending: true });
+
+      if (homologacoes && homologacoes.length > 0) {
+        homologacoes.forEach(homologacao => {
+          documentosPosHabilitacao.push({
+            tipo: "Homologação",
+            data: homologacao.data_geracao,
+            nome: homologacao.nome_arquivo,
+            url: homologacao.url_arquivo,
+            bucket: "processo-anexos"
+          });
+          console.log(`  ✓ Homologação: ${homologacao.nome_arquivo}`);
+        });
+      }
+
+      // Mesclar documentos pós-habilitação (já estão na ordem correta)
+      console.log(`\n📋 Mesclando ${documentosPosHabilitacao.length} documentos pós-habilitação da seleção ${ordemRomana}...`);
+      await mesclarDocumentos(pdfFinal, documentosPosHabilitacao);
     }
 
     // Salvar o PDF final
     const pdfBytes = await pdfFinal.save();
     
     if (temporario) {
-      // Retornar como blob para download direto
       const blob = new Blob([pdfBytes], { type: 'application/pdf' });
       const url = URL.createObjectURL(blob);
       
-      console.log("✅ PDF gerado com sucesso (temporário)!");
+      console.log("\n✅ PDF gerado com sucesso (temporário)!");
       
       return {
         url,
@@ -1095,7 +627,6 @@ export const gerarProcessoCompletoSelecaoPDF = async (
         blob
       };
     } else {
-      // Upload para storage
       const filename = `processo_completo_selecao_${numeroSelecao}_${Date.now()}.pdf`;
       const { error: uploadError } = await supabase.storage
         .from('processo-anexos')
@@ -1113,7 +644,7 @@ export const gerarProcessoCompletoSelecaoPDF = async (
         .from('processo-anexos')
         .getPublicUrl(filename);
 
-      console.log("✅ PDF gerado e salvo com sucesso!");
+      console.log("\n✅ PDF gerado e salvo com sucesso!");
 
       return {
         url: urlData.publicUrl,
@@ -1125,3 +656,321 @@ export const gerarProcessoCompletoSelecaoPDF = async (
     throw error;
   }
 };
+
+// Função auxiliar para mesclar documentos
+async function mesclarDocumentos(pdfFinal: PDFDocument, documentos: DocumentoOrdenado[]): Promise<void> {
+  for (const doc of documentos) {
+    try {
+      console.log(`  Processando: ${doc.tipo} - ${doc.nome}`);
+      
+      let pdfUrl: string;
+      
+      const isStoragePath = doc.url && !doc.url.startsWith('http');
+      
+      if (doc.storagePath || isStoragePath) {
+        let path = doc.storagePath || doc.url;
+        
+        if (path?.includes('/storage/v1/object/')) {
+          const bucketMatch = doc.bucket === 'documents' ? 'documents' : 'processo-anexos';
+          const regex = new RegExp(`/${bucketMatch}/(.+?)(\\?|$)`);
+          const match = path.match(regex);
+          if (match) {
+            path = match[1].split('?')[0];
+          }
+        } else if (path?.startsWith(`${doc.bucket}/`)) {
+          path = path.replace(`${doc.bucket}/`, '');
+        }
+        
+        // Decodificar path para evitar dupla codificação
+        try {
+          while (path && path.includes('%')) {
+            const decoded = decodeURIComponent(path);
+            if (decoded === path) break;
+            path = decoded;
+          }
+        } catch {}
+        
+        const { data: signedUrlData, error: signedError } = await supabase.storage
+          .from(doc.bucket)
+          .createSignedUrl(path, 60);
+        
+        if (signedError || !signedUrlData) {
+          console.error(`  ✗ Erro ao gerar URL assinada para ${doc.nome}:`, signedError?.message);
+          return;
+        }
+        
+        pdfUrl = signedUrlData.signedUrl;
+      } else if (doc.url) {
+        pdfUrl = doc.url;
+      } else {
+        console.error(`  ✗ Nenhuma URL encontrada para ${doc.nome}`);
+        return;
+      }
+
+      const response = await fetch(pdfUrl);
+      
+      if (!response.ok) {
+        console.error(`  ✗ Erro HTTP ${response.status} ao buscar ${doc.nome}`);
+        return;
+      }
+      
+      const arrayBuffer = await response.arrayBuffer();
+      const pdfDoc = await PDFDocument.load(arrayBuffer);
+      const copiedPages = await pdfFinal.copyPages(pdfDoc, pdfDoc.getPageIndices());
+      copiedPages.forEach((page) => pdfFinal.addPage(page));
+      console.log(`  ✓ Mesclado: ${doc.tipo} (${copiedPages.length} páginas)`);
+    } catch (error) {
+      console.error(`  ✗ Erro ao mesclar ${doc.nome}:`, error);
+    }
+  }
+}
+
+// Função auxiliar para processar documentos de habilitação
+async function processarDocumentosHabilitacao(
+  pdfFinal: PDFDocument,
+  selecaoId: string,
+  criterioJulgamento: string | null,
+  documentosSelecao: DocumentoOrdenado[]
+): Promise<void> {
+  const fornecedoresParaDocumentos = new Set<string>();
+  const ordemFornecedoresPorItem = new Map<string, number>();
+  
+  // Buscar todos os lances
+  const { data: todosLances } = await supabase
+    .from("lances_fornecedores")
+    .select("fornecedor_id, numero_item, valor_lance, indicativo_lance_vencedor")
+    .eq("selecao_id", selecaoId);
+
+  const criterio = criterioJulgamento || "por_item";
+  const isDesconto = criterio === "desconto" || criterio === "maior_percentual_desconto";
+  
+  // Identificar vencedores conforme critério
+  if (criterio === "global") {
+    const totaisPorFornecedor = new Map<string, number>();
+    
+    todosLances?.forEach(lance => {
+      const totalAtual = totaisPorFornecedor.get(lance.fornecedor_id) || 0;
+      totaisPorFornecedor.set(lance.fornecedor_id, totalAtual + lance.valor_lance);
+    });
+    
+    let melhorFornecedor: string | null = null;
+    let melhorValor: number | null = null;
+    
+    totaisPorFornecedor.forEach((total, fornecedorId) => {
+      if (melhorValor === null) {
+        melhorFornecedor = fornecedorId;
+        melhorValor = total;
+      } else {
+        const isMelhor = isDesconto ? total > melhorValor : total < melhorValor;
+        if (isMelhor) {
+          melhorFornecedor = fornecedorId;
+          melhorValor = total;
+        }
+      }
+    });
+    
+    if (melhorFornecedor) {
+      fornecedoresParaDocumentos.add(melhorFornecedor);
+      ordemFornecedoresPorItem.set(melhorFornecedor, 0);
+    }
+  } else {
+    // Critério POR ITEM ou POR LOTE
+    const vencedoresPorItem = new Map<number, { fornecedor_id: string; valor: number }>();
+    
+    if (todosLances && todosLances.length > 0) {
+      todosLances.forEach(lance => {
+        if (lance.numero_item === null || lance.numero_item === undefined) return;
+        
+        const itemAtual = vencedoresPorItem.get(lance.numero_item);
+        
+        if (!itemAtual) {
+          vencedoresPorItem.set(lance.numero_item, { 
+            fornecedor_id: lance.fornecedor_id, 
+            valor: lance.valor_lance 
+          });
+        } else {
+          const melhorValor = isDesconto 
+            ? lance.valor_lance > itemAtual.valor
+            : lance.valor_lance < itemAtual.valor;
+          
+          if (melhorValor) {
+            vencedoresPorItem.set(lance.numero_item, { 
+              fornecedor_id: lance.fornecedor_id, 
+              valor: lance.valor_lance 
+            });
+          }
+        }
+      });
+      
+      // Mapear ordem dos fornecedores pelo primeiro item que venceram
+      vencedoresPorItem.forEach(({ fornecedor_id }, numeroItem) => {
+        fornecedoresParaDocumentos.add(fornecedor_id);
+        const ordemAtual = ordemFornecedoresPorItem.get(fornecedor_id);
+        if (ordemAtual === undefined || numeroItem < ordemAtual) {
+          ordemFornecedoresPorItem.set(fornecedor_id, numeroItem);
+        }
+      });
+    }
+  }
+  
+  console.log(`  🏆 Vencedores identificados: ${fornecedoresParaDocumentos.size}`);
+
+  // Buscar fornecedores INABILITADOS
+  const { data: fornecedoresInabilitados } = await supabase
+    .from("fornecedores_inabilitados_selecao")
+    .select("fornecedor_id, itens_afetados")
+    .eq("selecao_id", selecaoId)
+    .eq("revertido", false);
+
+  fornecedoresInabilitados?.forEach(f => {
+    if (f.fornecedor_id) {
+      fornecedoresParaDocumentos.add(f.fornecedor_id);
+      // Usar o primeiro item afetado como ordem
+      const primeiroItem = f.itens_afetados?.[0] || 9999;
+      const ordemAtual = ordemFornecedoresPorItem.get(f.fornecedor_id);
+      if (ordemAtual === undefined || primeiroItem < ordemAtual) {
+        ordemFornecedoresPorItem.set(f.fornecedor_id, primeiroItem);
+      }
+    }
+  });
+  
+  console.log(`  ❌ Inabilitados: ${fornecedoresInabilitados?.length || 0}`);
+
+  // Ordenar fornecedores pelo número do item que ganharam/foram inabilitados
+  const fornecedoresOrdenados = Array.from(fornecedoresParaDocumentos).sort((a, b) => {
+    const ordemA = ordemFornecedoresPorItem.get(a) || 9999;
+    const ordemB = ordemFornecedoresPorItem.get(b) || 9999;
+    return ordemA - ordemB;
+  });
+
+  // Processar documentos de cada fornecedor em ordem
+  for (const fornecedorId of fornecedoresOrdenados) {
+    console.log(`\n  📋 Processando documentos do fornecedor: ${fornecedorId}`);
+    
+    const documentosFornecedor: DocumentoOrdenado[] = [];
+    const dataBase = new Date().toISOString();
+
+    // Documentos do cadastro
+    const { data: documentosCadastro } = await supabase
+      .from("documentos_fornecedor")
+      .select("*")
+      .eq("fornecedor_id", fornecedorId)
+      .neq("tipo_documento", "Relatório KPMG")
+      .neq("tipo_documento", "relatorio_kpmg")
+      .eq("em_vigor", true)
+      .order("created_at", { ascending: true });
+
+    if (documentosCadastro && documentosCadastro.length > 0) {
+      const ordemDocumentos = [
+        "contrato_social", "cartao_cnpj", "inscricao_estadual_municipal",
+        "cnd_federal", "cnd_tributos_estaduais", "cnd_divida_ativa_estadual",
+        "cnd_tributos_municipais", "cnd_divida_ativa_municipal", "crf_fgts", "cndt"
+      ];
+
+      const docsOrdenados = [...documentosCadastro].sort((a, b) => {
+        const indexA = ordemDocumentos.indexOf(a.tipo_documento);
+        const indexB = ordemDocumentos.indexOf(b.tipo_documento);
+        if (indexA === -1 && indexB === -1) return 0;
+        if (indexA === -1) return 1;
+        if (indexB === -1) return -1;
+        return indexA - indexB;
+      });
+
+      for (const doc of docsOrdenados) {
+        if (!doc.url_arquivo || !isPdfUrl(doc.url_arquivo)) continue;
+        
+        const nomeArquivo = getFileNameFromUrl(doc.url_arquivo) || doc.nome_arquivo;
+        
+        documentosFornecedor.push({
+          tipo: "Documento Habilitação",
+          data: dataBase,
+          nome: `${doc.tipo_documento} - ${nomeArquivo}`,
+          url: doc.url_arquivo,
+          bucket: "processo-anexos",
+          fornecedor: fornecedorId
+        });
+      }
+    }
+
+    // Documentos adicionais solicitados
+    const { data: camposDocumentos } = await supabase
+      .from("campos_documentos_finalizacao")
+      .select("*")
+      .eq("selecao_id", selecaoId)
+      .eq("fornecedor_id", fornecedorId)
+      .order("ordem", { ascending: true });
+
+    if (camposDocumentos && camposDocumentos.length > 0) {
+      for (const campo of camposDocumentos) {
+        const { data: docsEnviados } = await supabase
+          .from("documentos_finalizacao_fornecedor")
+          .select("*")
+          .eq("campo_documento_id", campo.id)
+          .eq("fornecedor_id", fornecedorId)
+          .order("data_upload", { ascending: true });
+
+        if (docsEnviados && docsEnviados.length > 0) {
+          for (const doc of docsEnviados) {
+            if (!doc.url_arquivo || !isPdfUrl(doc.url_arquivo)) continue;
+            
+            const nomeArquivo = getFileNameFromUrl(doc.url_arquivo) || doc.nome_arquivo;
+            
+            documentosFornecedor.push({
+              tipo: "Documento Adicional",
+              data: dataBase,
+              nome: `${campo.nome_campo} - ${nomeArquivo}`,
+              url: doc.url_arquivo,
+              bucket: "processo-anexos",
+              fornecedor: fornecedorId
+            });
+          }
+        }
+      }
+    }
+
+    // Mesclar documentos do fornecedor
+    await mesclarDocumentos(pdfFinal, documentosFornecedor);
+
+    // Recursos e respostas deste fornecedor (13/25)
+    const { data: recursosFornecedor } = await supabase
+      .from("recursos_inabilitacao_selecao")
+      .select("*, fornecedores(razao_social)")
+      .eq("selecao_id", selecaoId)
+      .eq("fornecedor_id", fornecedorId)
+      .order("created_at", { ascending: true });
+
+    if (recursosFornecedor && recursosFornecedor.length > 0) {
+      console.log(`  📝 Recursos do fornecedor: ${recursosFornecedor.length}`);
+      
+      const documentosRecursos: DocumentoOrdenado[] = [];
+      
+      for (const recurso of recursosFornecedor) {
+        const razaoSocial = (recurso.fornecedores as any)?.razao_social || 'Fornecedor';
+        
+        if (recurso.url_pdf_recurso) {
+          documentosRecursos.push({
+            tipo: "Recurso de Inabilitação",
+            data: recurso.created_at,
+            nome: `Recurso - ${razaoSocial}`,
+            url: recurso.url_pdf_recurso,
+            bucket: "processo-anexos",
+            fornecedor: fornecedorId
+          });
+        }
+        
+        if (recurso.url_pdf_resposta) {
+          documentosRecursos.push({
+            tipo: "Resposta de Recurso",
+            data: recurso.data_resposta || recurso.created_at,
+            nome: `Resposta Recurso - ${razaoSocial}`,
+            url: recurso.url_pdf_resposta,
+            bucket: "processo-anexos",
+            fornecedor: fornecedorId
+          });
+        }
+      }
+      
+      await mesclarDocumentos(pdfFinal, documentosRecursos);
+    }
+  }
+}
