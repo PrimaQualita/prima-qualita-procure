@@ -473,7 +473,7 @@ const ParticiparSelecao = () => {
       const [planilhaResult, itensOriginaisResult] = await Promise.all([
         supabase
           .from("planilhas_consolidadas")
-          .select("fornecedores_incluidos, data_geracao")
+          .select("fornecedores_incluidos, data_geracao, estimativas_itens")
           .eq("cotacao_id", cotacaoId)
           .lte("data_geracao", dataCriacaoSelecao)
           .order("data_geracao", { ascending: false })
@@ -531,35 +531,17 @@ const ParticiparSelecao = () => {
       
       const isDesconto = cotacaoData?.criterio_julgamento === "desconto";
 
-      const fornecedoresArray = planilha.fornecedores_incluidos as any[];
-      const valoresPorItem = new Map<number, number>();
-
-      fornecedoresArray.forEach((fornecedor: any) => {
-        if (fornecedor.itens) {
-          fornecedor.itens.forEach((item: any) => {
-            const valorAtual = valoresPorItem.get(item.numero_item);
-            // Para desconto, buscar o MAIOR percentual; para valores, buscar o MENOR valor
-            const valorItem = isDesconto ? (item.percentual_desconto || 0) : (item.valor_unitario || 0);
-            
-            if (isDesconto) {
-              // Maior desconto
-              if (!valorAtual || valorItem > valorAtual) {
-                valoresPorItem.set(item.numero_item, valorItem);
-              }
-            } else {
-              // Menor valor
-              if (!valorAtual || valorItem < valorAtual) {
-                valoresPorItem.set(item.numero_item, valorItem);
-              }
-            }
-          });
-        }
-      });
+      // USAR estimativas_itens da planilha consolidada - reflete critério escolhido (média, mediana, menor)
+      const estimativasItens = (planilha.estimativas_itens || {}) as Record<string, number>;
+      console.log("📊 Usando estimativas da planilha consolidada:", estimativasItens);
 
       const todosItens: Item[] = [];
 
       itensOriginais.forEach((itemOriginal) => {
-        const valorEstimado = valoresPorItem.get(itemOriginal.numero_item) || 0;
+        // Buscar valor estimado das estimativas salvas na planilha
+        // A chave pode ser numero_item ou "numero_lote_numero_item" para critério por_lote
+        const chaveSimples = String(itemOriginal.numero_item);
+        const valorEstimado = estimativasItens[chaveSimples] || 0;
         const valorTotalItem = isDesconto ? 0 : (valorEstimado * itemOriginal.quantidade);
         
         todosItens.push({
