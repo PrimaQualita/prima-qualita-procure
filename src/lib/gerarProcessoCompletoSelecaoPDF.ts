@@ -444,14 +444,14 @@ export const gerarProcessoCompletoSelecaoPDF = async (
         .eq("selecao_id", selecaoIdLoop)
         .order("data_geracao", { ascending: true });
 
+      // Separar planilhas antes e depois da habilitação
+      let planilhasAntes: any[] = [];
+      let planilhasDepois: any[] = [];
+      
       if (planilhasLances && planilhasLances.length > 0) {
-        // Separar planilhas antes e depois da habilitação
         const dataEncerramentoHabilitacao = selecaoAtualLoop.data_encerramento_habilitacao
           ? new Date(selecaoAtualLoop.data_encerramento_habilitacao).getTime()
           : null;
-        
-        const planilhasAntes: any[] = [];
-        const planilhasDepois: any[] = [];
         
         planilhasLances.forEach(planilha => {
           const dataPlanilha = new Date(planilha.data_geracao).getTime();
@@ -462,7 +462,7 @@ export const gerarProcessoCompletoSelecaoPDF = async (
           }
         });
         
-        // Adicionar planilhas antes da habilitação
+        // Adicionar planilhas antes da habilitação ao array
         planilhasAntes.forEach(planilha => {
           documentosSelecao.push({
             tipo: "Planilha de Lances",
@@ -473,34 +473,33 @@ export const gerarProcessoCompletoSelecaoPDF = async (
           });
           console.log(`  ✓ Planilha (antes hab.): ${planilha.nome_arquivo}`);
         });
-
-        // 12/24. Documentos de habilitação de vencedores e inabilitados
-        console.log(`\n📋 === DOCUMENTOS DE HABILITAÇÃO DA SELEÇÃO ${ordemRomana} ===`);
-        await processarDocumentosHabilitacao(pdfFinal, selecaoIdLoop, selecaoAtualLoop.criterios_julgamento, documentosSelecao);
-        
-        // Adicionar planilhas depois da habilitação
-        if (planilhasDepois.length > 0) {
-          console.log(`\n📊 === PLANILHAS PÓS-HABILITAÇÃO DA SELEÇÃO ${ordemRomana} ===`);
-          planilhasDepois.forEach(planilha => {
-            documentosSelecao.push({
-              tipo: "Planilha de Lances (Pós-Habilitação)",
-              data: planilha.data_geracao,
-              nome: planilha.nome_arquivo,
-              url: planilha.url_arquivo,
-              bucket: "processo-anexos"
-            });
-            console.log(`  ✓ Planilha (pós hab.): ${planilha.nome_arquivo}`);
-          });
-        }
-      } else {
-        // Se não há planilhas, ainda precisa processar documentos de habilitação
-        await processarDocumentosHabilitacao(pdfFinal, selecaoIdLoop, selecaoAtualLoop.criterios_julgamento, documentosSelecao);
       }
 
-      // Ordenar e mesclar documentos da seleção até aqui
+      // PRIMEIRO: Ordenar e mesclar documentos da seleção (propostas + planilhas antes da habilitação)
       documentosSelecao.sort((a, b) => new Date(a.data).getTime() - new Date(b.data).getTime());
-      console.log(`\n📋 Mesclando ${documentosSelecao.length} documentos da seleção ${ordemRomana}...`);
+      console.log(`\n📋 Mesclando ${documentosSelecao.length} documentos da seleção ${ordemRomana} (propostas + planilhas antes hab.)...`);
       await mesclarDocumentos(pdfFinal, documentosSelecao);
+
+      // SEGUNDO: Documentos de habilitação de vencedores e inabilitados (12/24)
+      console.log(`\n📋 === DOCUMENTOS DE HABILITAÇÃO DA SELEÇÃO ${ordemRomana} ===`);
+      await processarDocumentosHabilitacao(pdfFinal, selecaoIdLoop, selecaoAtualLoop.criterios_julgamento);
+
+      // TERCEIRO: Planilhas pós-habilitação (se houver)
+      if (planilhasDepois.length > 0) {
+        console.log(`\n📊 === PLANILHAS PÓS-HABILITAÇÃO DA SELEÇÃO ${ordemRomana} ===`);
+        const documentosPlanilhasPos: DocumentoOrdenado[] = [];
+        planilhasDepois.forEach(planilha => {
+          documentosPlanilhasPos.push({
+            tipo: "Planilha de Lances (Pós-Habilitação)",
+            data: planilha.data_geracao,
+            nome: planilha.nome_arquivo,
+            url: planilha.url_arquivo,
+            bucket: "processo-anexos"
+          });
+          console.log(`  ✓ Planilha (pós hab.): ${planilha.nome_arquivo}`);
+        });
+        await mesclarDocumentos(pdfFinal, documentosPlanilhasPos);
+      }
 
       // Documentos pós-habilitação (em ordem específica, não cronológica global)
       const documentosPosHabilitacao: DocumentoOrdenado[] = [];
@@ -729,8 +728,7 @@ async function mesclarDocumentos(pdfFinal: PDFDocument, documentos: DocumentoOrd
 async function processarDocumentosHabilitacao(
   pdfFinal: PDFDocument,
   selecaoId: string,
-  criterioJulgamento: string | null,
-  documentosSelecao: DocumentoOrdenado[]
+  criterioJulgamento: string | null
 ): Promise<void> {
   const fornecedoresParaDocumentos = new Set<string>();
   const ordemFornecedoresPorItem = new Map<string, number>();
