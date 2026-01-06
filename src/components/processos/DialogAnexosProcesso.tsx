@@ -840,10 +840,14 @@ export function DialogAnexosProcesso({
                         {gerandoAutorizacao ? "Gerando..." : "Gerar Autorização"}
                       </Button>
                     )}
-                    {/* Botão Anexar PDF - gestor/colaborador pode anexar capa e termo */}
-                    {/* Gerente de contratos vinculado só pode anexar requisição */}
+                    {/* Botão Anexar PDF */}
+                    {/* Requisição: APENAS Gerente de Contratos vinculado */}
+                    {/* Capa e Termo: gestor/colaborador */}
                     {/* Autorização de despesa NÃO pode ser anexada manualmente - apenas gerada */}
-                    {!isAutorizacaoDespesa && (isGestorOuColaborador || (isGerenteContratos && isRequisicao)) && (
+                    {!isAutorizacaoDespesa && (
+                      (isRequisicao && isGerenteContratos) || 
+                      (!isRequisicao && isGestorOuColaborador)
+                    ) && (
                       <>
                         <input
                           type="file"
