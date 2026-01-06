@@ -1741,21 +1741,40 @@ export async function atualizarAtaComAssinaturas(ataId: string): Promise<void> {
   const todasAssinaturas = [...assinaturasFormatadas, ...assinaturasUsuariosFormatadas];
 
   // Helper para extrair path relativo do bucket a partir de URL pública (ou receber path já relativo)
+  // IMPORTANTE: URLs públicas do Supabase vêm com encoding, precisamos decodificar para obter o path real
   const extractStoragePathFromProcessoAnexosUrl = (urlOrPath: string): string => {
     const cleaned = (urlOrPath || '').split('?')[0];
     if (!cleaned) throw new Error('URL do arquivo inválida');
 
     const marker = '/processo-anexos/';
 
+    let rawPath: string;
+    
     // Caso seja URL pública completa
     if (cleaned.includes(marker)) {
       const parts = cleaned.split(marker);
       if (parts.length < 2 || !parts[1]) throw new Error('URL do arquivo inválida');
-      return parts[1];
+      rawPath = parts[1];
+    } else {
+      // Caso já seja path relativo dentro do bucket
+      rawPath = cleaned.replace(/^\/+/, '');
     }
-
-    // Caso já seja path relativo dentro do bucket
-    return cleaned.replace(/^\/+/, '');
+    
+    // Decodificar URL encoding para obter path real (evita double-encoding como %2520)
+    // Fazer múltiplas decodificações para garantir que não há encoding aninhado
+    let decoded = rawPath;
+    try {
+      let previousDecoded = '';
+      while (previousDecoded !== decoded) {
+        previousDecoded = decoded;
+        decoded = decodeURIComponent(decoded);
+      }
+    } catch (e) {
+      // Se falhar a decodificação, usar o path como está
+      console.warn('Aviso: não foi possível decodificar path:', rawPath);
+    }
+    
+    return decoded;
   };
 
   const storagePathOriginal = extractStoragePathFromProcessoAnexosUrl(urlOriginal);
