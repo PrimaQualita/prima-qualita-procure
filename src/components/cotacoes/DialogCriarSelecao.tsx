@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -17,6 +17,11 @@ interface DialogCriarSelecaoProps {
   onSuccess: () => void;
 }
 
+const numeroRomano = (num: number): string => {
+  const romanos = ["I", "II", "III", "IV", "V", "VI", "VII", "VIII", "IX", "X", "XI", "XII", "XIII", "XIV", "XV"];
+  return romanos[num - 1] || num.toString();
+};
+
 export function DialogCriarSelecao({
   open,
   onOpenChange,
@@ -27,10 +32,33 @@ export function DialogCriarSelecao({
   onSuccess,
 }: DialogCriarSelecaoProps) {
   const [creating, setCreating] = useState(false);
-  const [titulo, setTitulo] = useState(`Seleção de Fornecedores - Processo ${processoNumero}`);
+  const [titulo, setTitulo] = useState("");
   const [descricao, setDescricao] = useState("");
   const [dataDisputa, setDataDisputa] = useState("");
   const [horaDisputa, setHoraDisputa] = useState("09:00");
+
+  // Carregar título correto baseado nas seleções existentes
+  useEffect(() => {
+    const carregarTitulo = async () => {
+      if (!open) return;
+      
+      const { data: selecoesExistentes } = await supabase
+        .from("selecoes_fornecedores")
+        .select("id")
+        .eq("processo_compra_id", processoId);
+      
+      const quantidade = selecoesExistentes?.length || 0;
+      const tituloBase = `Seleção de Fornecedores - Processo ${processoNumero}`;
+      
+      if (quantidade > 0) {
+        setTitulo(`${tituloBase} ${numeroRomano(quantidade + 1)}`);
+      } else {
+        setTitulo(tituloBase);
+      }
+    };
+    
+    carregarTitulo();
+  }, [open, processoId, processoNumero]);
 
   const handleCriar = async () => {
     if (!titulo || !dataDisputa || !horaDisputa) {
@@ -72,28 +100,49 @@ export function DialogCriarSelecao({
         });
       }
 
-      // Gerar número da seleção no formato XXX/AAAA
-      const anoAtual = new Date().getFullYear();
-      
-      // Buscar todas as seleções para encontrar o maior número sequencial (independente do ano)
-      const { data: ultimaSelecao, error: ultimaSelecaoError } = await supabase
+      // Verificar quantas seleções já existem para este processo
+      const { data: selecoesExistentes, error: selecoesError } = await supabase
         .from("selecoes_fornecedores")
         .select("numero_selecao")
-        .not("numero_selecao", "is", null)
-        .order("created_at", { ascending: false })
-        .limit(1)
-        .maybeSingle();
+        .eq("processo_compra_id", processoId)
+        .order("created_at", { ascending: true });
 
-      let proximoNumero = 1;
-      if (!ultimaSelecaoError && ultimaSelecao?.numero_selecao) {
-        // Extrair o número da seleção mais recente (formato XXX/AAAA)
-        const partes = ultimaSelecao.numero_selecao.split("/");
-        if (partes.length === 2) {
-          proximoNumero = parseInt(partes[0], 10) + 1;
+
+      let numeroSelecao: string;
+      
+      if (!selecoesError && selecoesExistentes && selecoesExistentes.length > 0) {
+        // Já existe seleção para este processo - usar o mesmo número base com sufixo romano
+        const primeiraSelecao = selecoesExistentes[0];
+        // Extrair número base (sem sufixo romano)
+        const numeroBase = primeiraSelecao.numero_selecao?.split(" ")[0] || primeiraSelecao.numero_selecao;
+        const quantidadeExistente = selecoesExistentes.length;
+        
+        // Se é a segunda seleção, a primeira também precisa do sufixo I
+        // Então a nova será II, III, etc.
+        numeroSelecao = `${numeroBase} ${numeroRomano(quantidadeExistente + 1)}`;
+      } else {
+        // Primeira seleção do processo - gerar novo número sequencial
+        const anoAtual = new Date().getFullYear();
+        
+        const { data: ultimaSelecao, error: ultimaSelecaoError } = await supabase
+          .from("selecoes_fornecedores")
+          .select("numero_selecao")
+          .not("numero_selecao", "is", null)
+          .order("created_at", { ascending: false })
+          .limit(1)
+          .maybeSingle();
+
+        let proximoNumero = 1;
+        if (!ultimaSelecaoError && ultimaSelecao?.numero_selecao) {
+          const partes = ultimaSelecao.numero_selecao.split("/");
+          if (partes.length >= 2) {
+            const numParte = partes[0].split(" ")[0]; // Remove possível sufixo romano
+            proximoNumero = parseInt(numParte, 10) + 1;
+          }
         }
-      }
 
-      const numeroSelecao = `${String(proximoNumero).padStart(3, "0")}/${anoAtual}`;
+        numeroSelecao = `${String(proximoNumero).padStart(3, "0")}/${anoAtual}`;
+      }
 
       // Criar seleção - ajustar data para evitar problema de timezone
       const dataLocal = dataDisputa;
@@ -129,8 +178,7 @@ export function DialogCriarSelecao({
       onSuccess();
       onOpenChange(false);
       
-      // Resetar campos
-      setTitulo(`Seleção de Fornecedores - Processo ${processoNumero}`);
+      // Resetar campos (título será recarregado pelo useEffect)
       setDescricao("");
       setDataDisputa("");
       setHoraDisputa("09:00");
