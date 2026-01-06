@@ -1701,6 +1701,16 @@ const SistemaLancesFornecedor = () => {
     return total;
   };
 
+  // Comparações monetárias devem respeitar precisão de centavos (2 casas)
+  const toCurrencyCents = (value: number): number =>
+    Math.round((Number(value) + Number.EPSILON) * 100);
+
+  const isValorMaiorQueEstimado = (valor: number, estimado: number): boolean =>
+    toCurrencyCents(valor) > toCurrencyCents(estimado);
+
+  const isValorMenorOuIgualEstimado = (valor: number, estimado: number): boolean =>
+    toCurrencyCents(valor) <= toCurrencyCents(estimado);
+
   const fornecedorApresentouPropostaNoItem = (numeroItem: number): boolean => {
     const criterio = selecao?.processos_compras?.criterio_julgamento;
 
@@ -1721,86 +1731,58 @@ const SistemaLancesFornecedor = () => {
     const criterio = selecao?.processos_compras?.criterio_julgamento;
 
     const valorEstimado = itensEstimados.get(numeroItem);
-    
-    console.log(`🔍 [DESCLASSIFICACAO] Item ${numeroItem}:`, {
-      criterio,
-      valorEstimado,
-      itensEstimadosSize: itensEstimados.size,
-      itensEstimadosKeys: Array.from(itensEstimados.keys()),
-    });
-    
     if (!valorEstimado || valorEstimado === 0) {
-      console.log(`  ➡️ Sem estimado, retornando false`);
       return false;
     }
-
-    // Tolerância para comparação de ponto flutuante (0.001 = 0.1 centavo)
-    const tolerancia = 0.001;
 
     if (criterio === "por_lote") {
       const subtotal = getSubtotalPropostaDoLote(numeroItem);
       if (!subtotal) return false;
-      const resultado = subtotal > valorEstimado + tolerancia;
-      console.log(`  ➡️ por_lote: subtotal=${subtotal}, estimado=${valorEstimado}, resultado=${resultado}`);
-      return resultado;
+      // Desclassifica apenas quando excede o estimado (em centavos)
+      return isValorMaiorQueEstimado(subtotal, valorEstimado);
     }
 
     // Para critério global (item 0), compara o total da proposta com o estimado global
     if (criterio === "global" && numeroItem === 0) {
       const totalGlobal = getTotalGlobalProposta();
       if (!totalGlobal) return false;
-      const resultado = totalGlobal > valorEstimado + tolerancia;
-      console.log(`  ➡️ global: total=${totalGlobal}, estimado=${valorEstimado}, resultado=${resultado}`);
-      return resultado;
+      // Desclassifica apenas quando excede o estimado (em centavos)
+      return isValorMaiorQueEstimado(totalGlobal, valorEstimado);
     }
 
     const itemProposta = itens.find((i) => i.numero_item === numeroItem);
     if (!itemProposta) {
-      console.log(`  ➡️ Sem proposta, retornando false`);
       return false;
     }
 
     const isDesconto = criterio === "desconto";
     const valorOfertado = itemProposta.valor_unitario_ofertado;
 
-    console.log(`  ➡️ Item proposta encontrado:`, {
-      valorOfertado,
-      valorEstimado,
-      isDesconto,
-      diferenca: valorOfertado - valorEstimado,
-    });
-
     if (isDesconto) {
       // Para desconto: desclassifica se desconto ofertado for MENOR (<) que o estimado
-      const resultado = valorOfertado < valorEstimado - tolerancia;
-      console.log(`  ➡️ desconto: ${valorOfertado} < ${valorEstimado - tolerancia} = ${resultado}`);
-      return resultado;
+      // (tolerância para ponto flutuante)
+      const tolerancia = 0.001;
+      return valorOfertado < valorEstimado - tolerancia;
     }
 
-    // Para valor: desclassifica se valor ofertado for ESTRITAMENTE MAIOR (>) que o estimado
-    // Valor igual ao estimado NÃO é desclassificado (com tolerância para ponto flutuante)
-    const resultado = valorOfertado > valorEstimado + tolerancia;
-    console.log(`  ➡️ valor: ${valorOfertado} > ${valorEstimado + tolerancia} = ${resultado}`);
-    return resultado;
+    // Para valor: desclassifica apenas se valor ofertado for MAIOR que o estimado
+    // Comparação feita em centavos (2 casas) para evitar falso positivo em valores como 0.1475  0.15
+    return isValorMaiorQueEstimado(valorOfertado, valorEstimado);
   };
 
   const isLanceDesclassificado = (numeroItem: number, valorLance: number) => {
     const valorEstimado = itensEstimados.get(numeroItem);
     if (!valorEstimado) return false;
-    
-    const isDesconto = selecao?.processos_compras?.criterio_julgamento === "desconto";
-    
-    // Tolerância para comparação de ponto flutuante (0.001 = 0.1 centavo)
-    const tolerancia = 0.001;
-    
+
+    const criterio = selecao?.processos_compras?.criterio_julgamento;
+    const isDesconto = criterio === "desconto";
+
     if (isDesconto) {
-      // Para desconto: desclassifica se desconto ofertado < estimado (com tolerância)
+      const tolerancia = 0.001;
       return valorLance < valorEstimado - tolerancia;
-    } else {
-      // Para valor: desclassifica se valor ofertado > estimado (com tolerância)
-      // Valor IGUAL ao estimado NÃO é desclassificado
-      return valorLance > valorEstimado + tolerancia;
     }
+
+    return isValorMaiorQueEstimado(valorLance, valorEstimado);
   };
 
   const getValorMinimoAtual = (numeroItem: number) => {
@@ -1917,8 +1899,8 @@ const SistemaLancesFornecedor = () => {
           return;
         }
       } else {
-        // Para valor: desclassifica se valor > estimado
-        if (valorNumerico > valorEstimado) {
+        // Para valor: desclassifica se valor > estimado (comparação em centavos)
+        if (isValorMaiorQueEstimado(valorNumerico, valorEstimado)) {
           toast.error(`Lance desclassificado! Valor deve ser menor ou igual ao estimado: R$ ${valorEstimado.toFixed(2).replace('.', ',')}`);
           return;
         }
