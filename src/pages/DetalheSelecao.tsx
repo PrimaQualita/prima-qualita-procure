@@ -27,7 +27,6 @@ import { DialogEnviarAtaAssinatura } from "@/components/selecoes/DialogEnviarAta
 import { gerarAtaSelecaoPDF, atualizarAtaComAssinaturas } from "@/lib/gerarAtaSelecaoPDF";
 import { gerarHomologacaoSelecaoPDF } from "@/lib/gerarHomologacaoSelecaoPDF";
 import { gerarProcessoCompletoSelecaoPDF } from "@/lib/gerarProcessoCompletoSelecaoPDF";
-import { gerarProcessoCompletoSelecaoSucessivaPDF } from "@/lib/gerarProcessoCompletoSelecaoSucessivaPDF";
 import { gerarEncaminhamentoContabilidadePDF, gerarProtocoloContabilidade } from "@/lib/gerarEncaminhamentoContabilidadePDF";
 
 interface Item {
@@ -885,24 +884,12 @@ const [itens, setItens] = useState<Item[]>([]);
     try {
       setGerandoProcessoCompleto(true);
       
-      // Verificar se é uma seleção sucessiva (II, III, etc.) pelo sufixo romano
-      const numeroSelecao = selecao?.numero_selecao || "";
-      const isSucessiva = /\s+(II|III|IV|V|VI|VII|VIII|IX|X)$/i.test(numeroSelecao);
-      
-      console.log(`📋 Número da seleção: ${numeroSelecao}, É sucessiva: ${isSucessiva}`);
-      
-      // Usar função específica para seleções sucessivas (II, III, etc.)
-      const result = isSucessiva
-        ? await gerarProcessoCompletoSelecaoSucessivaPDF(
-            selecaoId!,
-            numeroSelecao,
-            false // temporário = false para salvar no storage
-          )
-        : await gerarProcessoCompletoSelecaoPDF(
-            selecaoId!,
-            numeroSelecao,
-            false // temporário = false para salvar no storage
-          );
+      // Gerar o PDF (não temporário - salvar no storage)
+      const result = await gerarProcessoCompletoSelecaoPDF(
+        selecaoId!,
+        selecao?.numero_selecao || "S/N",
+        false // temporário = false para salvar no storage
+      );
       
       // Salvar como anexo do processo de compra
       const { data: { session } } = await supabase.auth.getSession();
