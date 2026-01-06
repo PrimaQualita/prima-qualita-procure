@@ -1725,17 +1725,22 @@ const SistemaLancesFornecedor = () => {
       return false;
     }
 
+    // Tolerância para comparação de ponto flutuante (0.001 = 0.1 centavo)
+    const tolerancia = 0.001;
+
     if (criterio === "por_lote") {
       const subtotal = getSubtotalPropostaDoLote(numeroItem);
       if (!subtotal) return false;
-      return subtotal > valorEstimado;
+      // Desclassifica apenas se ESTRITAMENTE maior (com tolerância)
+      return subtotal > valorEstimado + tolerancia;
     }
 
     // Para critério global (item 0), compara o total da proposta com o estimado global
     if (criterio === "global" && numeroItem === 0) {
       const totalGlobal = getTotalGlobalProposta();
       if (!totalGlobal) return false;
-      return totalGlobal > valorEstimado;
+      // Desclassifica apenas se ESTRITAMENTE maior (com tolerância)
+      return totalGlobal > valorEstimado + tolerancia;
     }
 
     const itemProposta = itens.find((i) => i.numero_item === numeroItem);
@@ -1747,12 +1752,13 @@ const SistemaLancesFornecedor = () => {
 
     if (isDesconto) {
       // Para desconto: desclassifica se desconto ofertado for MENOR (<) que o estimado
-      // Porque menor desconto = preço mais alto
-      return itemProposta.valor_unitario_ofertado < valorEstimado;
+      // Porque menor desconto = preço mais alto (com tolerância)
+      return itemProposta.valor_unitario_ofertado < valorEstimado - tolerancia;
     }
 
-    // Para valor: desclassifica se valor ofertado for MAIOR (>) que o estimado
-    return itemProposta.valor_unitario_ofertado > valorEstimado;
+    // Para valor: desclassifica se valor ofertado for ESTRITAMENTE MAIOR (>) que o estimado
+    // Valor igual ao estimado NÃO é desclassificado (com tolerância para ponto flutuante)
+    return itemProposta.valor_unitario_ofertado > valorEstimado + tolerancia;
   };
 
   const isLanceDesclassificado = (numeroItem: number, valorLance: number) => {
@@ -1761,12 +1767,16 @@ const SistemaLancesFornecedor = () => {
     
     const isDesconto = selecao?.processos_compras?.criterio_julgamento === "desconto";
     
+    // Tolerância para comparação de ponto flutuante (0.001 = 0.1 centavo)
+    const tolerancia = 0.001;
+    
     if (isDesconto) {
-      // Para desconto: desclassifica se desconto ofertado < estimado
-      return valorLance < valorEstimado;
+      // Para desconto: desclassifica se desconto ofertado < estimado (com tolerância)
+      return valorLance < valorEstimado - tolerancia;
     } else {
-      // Para valor: desclassifica se valor ofertado > estimado
-      return valorLance > valorEstimado;
+      // Para valor: desclassifica se valor ofertado > estimado (com tolerância)
+      // Valor IGUAL ao estimado NÃO é desclassificado
+      return valorLance > valorEstimado + tolerancia;
     }
   };
 
