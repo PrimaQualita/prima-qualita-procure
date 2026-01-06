@@ -78,7 +78,7 @@ export const gerarProcessoCompletoSelecaoPDF = async (
     // 1c. Buscar TODAS as seleções do mesmo processo de compra (ordenadas por data de criação)
     const { data: todasSelecoes, error: selecoesError } = await supabase
       .from("selecoes_fornecedores")
-      .select("id, numero_selecao, created_at, data_encerramento_habilitacao, habilitacao_encerrada, criterio_julgamento")
+      .select("id, numero_selecao, created_at, data_encerramento_habilitacao, habilitacao_encerrada, criterios_julgamento")
       .eq("processo_compra_id", processoCompraId)
       .order("created_at", { ascending: true });
 
@@ -476,7 +476,7 @@ export const gerarProcessoCompletoSelecaoPDF = async (
 
         // 12/24. Documentos de habilitação de vencedores e inabilitados
         console.log(`\n📋 === DOCUMENTOS DE HABILITAÇÃO DA SELEÇÃO ${ordemRomana} ===`);
-        await processarDocumentosHabilitacao(pdfFinal, selecaoIdLoop, selecaoAtualLoop.criterio_julgamento, documentosSelecao);
+        await processarDocumentosHabilitacao(pdfFinal, selecaoIdLoop, selecaoAtualLoop.criterios_julgamento, documentosSelecao);
         
         // Adicionar planilhas depois da habilitação
         if (planilhasDepois.length > 0) {
@@ -494,7 +494,7 @@ export const gerarProcessoCompletoSelecaoPDF = async (
         }
       } else {
         // Se não há planilhas, ainda precisa processar documentos de habilitação
-        await processarDocumentosHabilitacao(pdfFinal, selecaoIdLoop, selecaoAtualLoop.criterio_julgamento, documentosSelecao);
+        await processarDocumentosHabilitacao(pdfFinal, selecaoIdLoop, selecaoAtualLoop.criterios_julgamento, documentosSelecao);
       }
 
       // Ordenar e mesclar documentos da seleção até aqui
