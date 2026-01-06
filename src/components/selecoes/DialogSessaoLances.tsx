@@ -2923,10 +2923,13 @@ export function DialogSessaoLances({
                     <p className="text-xs font-medium mb-2">Planilhas de Lances Geradas ({planilhasGeradas.length}):</p>
                     <div className="space-y-2 max-h-[200px] overflow-y-auto pr-2">
                       {planilhasGeradas.map((planilha, index) => {
-                        // Nome bonito: "Planilha de Lances - Seleção XXX/YYYY" + numeral romano se > 1
+                        // Nome bonito: "Planilha de Lances - Seleção XXX/YYYY" + numeral romano
+                        // Ordem cronológica: primeiro criado = I, segundo = II, etc.
+                        // Como planilhasGeradas está ordenado DESC (mais recente primeiro), invertemos o cálculo
+                        const numeroOrdem = planilhasGeradas.length - index; // 1 para o mais antigo, N para o mais recente
                         const nomeBonito = numeroSelecao 
-                          ? `Planilha de Lances - Seleção ${numeroSelecao}${index > 0 ? ` ${toRoman(index + 1)}` : ''}`
-                          : `Planilha de Lances${index > 0 ? ` ${toRoman(index + 1)}` : ''}`;
+                          ? `Planilha de Lances - Seleção ${numeroSelecao}${numeroOrdem > 1 ? ` ${toRoman(numeroOrdem)}` : ''}`
+                          : `Planilha de Lances${numeroOrdem > 1 ? ` ${toRoman(numeroOrdem)}` : ''}`;
                         
                         return (
                         <Card key={planilha.id} className="bg-muted/50">
