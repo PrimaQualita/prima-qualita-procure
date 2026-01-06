@@ -164,21 +164,6 @@ export function AppSidebar({
       icon: FileCheck,
       href: "/contratacoes-especificas",
     },
-    {
-      title: "Cadastro de Usuários",
-      icon: UserCog,
-      href: "/usuarios",
-    },
-    {
-      title: "Cadastro de Fornecedores",
-      icon: Building2,
-      href: "/fornecedores",
-    },
-    {
-      title: "Contato",
-      icon: MessageSquare,
-      href: "/contatos",
-    },
   ];
 
   // Verifica se o usuário é APENAS gerente de contratos (sem outros papéis)
@@ -197,25 +182,11 @@ export function AppSidebar({
       : [...menuCompleto];
 
   // Adicionar menu Compliance APENAS se for Compliance ou Superintendente Executivo (e não for apenas gerente de contratos)
-  if (!apenasGerenteContratos && (isCompliance || isSuperintendenteExecutivo)) {
+  if (!apenasGerenteContratos && !apenasContabilidade && (isCompliance || isSuperintendenteExecutivo)) {
     menuItems.push({
       title: "Compliance",
       icon: FileCheck,
       href: "/compliance",
-    });
-  }
-
-  // Compliance e Superintendente Executivo têm acesso a Auditoria e Storage
-  if (!apenasGerenteContratos && (isCompliance || isSuperintendenteExecutivo)) {
-    menuItems.push({
-      title: "Log de Auditoria",
-      icon: Home,
-      href: "/auditoria",
-    });
-    menuItems.push({
-      title: "Gestão de Storage",
-      icon: Camera,
-      href: "/gestao-storage",
     });
   }
 
@@ -225,6 +196,51 @@ export function AppSidebar({
       title: "Contabilidade",
       icon: Calculator,
       href: "/contabilidade",
+    });
+  }
+
+  // Cadastro de Fornecedores
+  if (!apenasGerenteContratos && !apenasContabilidade) {
+    menuItems.push({
+      title: "Cadastro de Fornecedores",
+      icon: Building2,
+      href: "/fornecedores",
+    });
+  }
+
+  // Cadastro de Usuários
+  if (!apenasGerenteContratos && !apenasContabilidade) {
+    menuItems.push({
+      title: "Cadastro de Usuários",
+      icon: UserCog,
+      href: "/usuarios",
+    });
+  }
+
+  // Contato (para todos os usuários com menu completo)
+  if (!apenasGerenteContratos && !apenasContabilidade) {
+    menuItems.push({
+      title: "Contato",
+      icon: MessageSquare,
+      href: "/contatos",
+    });
+  }
+
+  // Gestão de Storage - apenas Compliance e Superintendente Executivo
+  if (!apenasGerenteContratos && !apenasContabilidade && (isCompliance || isSuperintendenteExecutivo)) {
+    menuItems.push({
+      title: "Gestão de Storage",
+      icon: Camera,
+      href: "/gestao-storage",
+    });
+  }
+
+  // Log de Auditoria - apenas Compliance e Superintendente Executivo
+  if (!apenasGerenteContratos && !apenasContabilidade && (isCompliance || isSuperintendenteExecutivo)) {
+    menuItems.push({
+      title: "Log de Auditoria",
+      icon: Home,
+      href: "/auditoria",
     });
   }
 
