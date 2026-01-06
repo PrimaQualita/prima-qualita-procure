@@ -3344,6 +3344,18 @@ export type Database = {
           url: string
         }[]
       }
+      get_intencao_recurso_por_codigo: {
+        Args: { p_codigo_acesso: string; p_selecao_id: string }
+        Returns: {
+          created_at: string
+          data_intencao: string
+          deseja_recorrer: boolean
+          fornecedor_id: string
+          id: string
+          motivo_intencao: string
+          selecao_id: string
+        }[]
+      }
       get_itens_abertos_lances_por_codigo: {
         Args: { p_codigo_acesso: string; p_selecao_id: string }
         Returns: {

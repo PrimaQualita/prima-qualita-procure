@@ -661,8 +661,24 @@ const SistemaLancesFornecedor = () => {
   // Carregar intenção de recurso do fornecedor
   const loadMinhaIntencaoRecurso = async () => {
     if (!selecao?.id || !proposta?.fornecedor_id) return;
-    
+
     try {
+      // Esta tela pode ser acessada via código (sem sessão), então preferimos RPC
+      // para não depender de SELECT sujeito a RLS.
+      if (proposta?.codigo_acesso) {
+        const { data, error } = await supabase.rpc("get_intencao_recurso_por_codigo", {
+          p_selecao_id: selecao.id,
+          p_codigo_acesso: proposta.codigo_acesso,
+        });
+
+        if (error) throw error;
+
+        const row = Array.isArray(data) ? data[0] : data;
+        setMinhaIntencaoRecurso(row ?? null);
+        return;
+      }
+
+      // Fallback (sessão autenticada)
       const { data, error } = await supabase
         .from("intencoes_recurso_selecao")
         .select("*")
@@ -671,7 +687,7 @@ const SistemaLancesFornecedor = () => {
         .maybeSingle();
 
       if (error) throw error;
-      
+
       setMinhaIntencaoRecurso(data);
     } catch (error) {
       console.error("Erro ao carregar intenção de recurso:", error);
