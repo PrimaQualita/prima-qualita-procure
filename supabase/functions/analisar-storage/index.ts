@@ -1923,6 +1923,7 @@ Deno.serve(async (req) => {
         
         if (pathSemBucket.startsWith('selecao_') && pathSemBucket.includes('planilha')) {
           // Planilhas de lances
+          arquivosJaCategorizados.add(path);
           estatisticasPorCategoria.planilhas_lances.arquivos++;
           estatisticasPorCategoria.planilhas_lances.tamanho += metadata.size;
           estatisticasPorCategoria.planilhas_lances.detalhes.push({ path, fileName, size: metadata.size });
@@ -1956,16 +1957,23 @@ Deno.serve(async (req) => {
               });
             }
           }
-        } else if (pathSemBucket.startsWith('recursos/')) {
-        // Recursos e respostas - só contabilizar se arquivo existe no DB
-        const isOrfao = !pathsDB.has(path) && !nomeArquivoDB.has(fileName);
-        if (!isOrfao) {
-          estatisticasPorCategoria.recursos.arquivos++;
-          estatisticasPorCategoria.recursos.tamanho += metadata.size;
-          estatisticasPorCategoria.recursos.detalhes.push({ path, fileName, size: metadata.size });
-        } else {
-          console.log(`⚠️ Arquivo órfão em recursos: ${fileName}`);
+          console.log(`Arquivo categorizado como PLANILHA DE LANCES: ${fileName} (${path})`);
+          continue;
         }
+        
+        if (pathSemBucket.startsWith('recursos/')) {
+          // Recursos e respostas - adicionar à categoria imediatamente
+          arquivosJaCategorizados.add(path);
+          
+          // Só contabilizar se arquivo existe no DB
+          const isOrfao = !pathsDB.has(path) && !nomeArquivoDB.has(fileName);
+          if (!isOrfao) {
+            estatisticasPorCategoria.recursos.arquivos++;
+            estatisticasPorCategoria.recursos.tamanho += metadata.size;
+            estatisticasPorCategoria.recursos.detalhes.push({ path, fileName, size: metadata.size });
+          } else {
+            console.log(`⚠️ Arquivo órfão em recursos: ${fileName}`);
+          }
         
         // Primeiro tentar buscar em recursos_inabilitacao_selecao (seleção de fornecedores)
         const { data: recursoSelecao } = await supabase
@@ -2139,9 +2147,11 @@ Deno.serve(async (req) => {
             }
           }
         }
-       } 
+          console.log(`Arquivo categorizado como RECURSO: ${fileName} (${path})`);
+          continue;
+        } 
        
-       // === VERIFICAR ENCAMINHAMENTOS À CONTABILIDADE (ANTES de verificar encaminhamentos normais) ===
+        // === VERIFICAR ENCAMINHAMENTOS À CONTABILIDADE (ANTES de verificar encaminhamentos normais) ===
        const encContabInfo = encContabilidadeMap.get(pathSemBucket);
        if (encContabInfo) {
          if (encContabInfo.tipo === 'encaminhamento') {
