@@ -479,6 +479,33 @@ Deno.serve(async (req) => {
           }
         });
       }
+
+      // 3.9 Encaminhamentos à contabilidade de seleções (encaminhamento + resposta)
+      const { data: encaminhamentosContabilidadeSelecao } = await supabase
+        .from('encaminhamentos_contabilidade')
+        .select('url_arquivo, storage_path, url_resposta_pdf, storage_path_resposta')
+        .in('selecao_id', selecaoIds);
+
+      if (encaminhamentosContabilidadeSelecao) {
+        console.log(`📬 Encaminhamentos contabilidade (seleções) encontrados: ${encaminhamentosContabilidadeSelecao.length}`);
+        encaminhamentosContabilidadeSelecao.forEach(enc => {
+          // Arquivo do encaminhamento
+          const path = extractPath(enc.storage_path || enc.url_arquivo, 'processo-anexos');
+          if (path) {
+            console.log(`   Encaminhamento seleção: ${path}`);
+            arquivosProcessoAnexos.push(path);
+          }
+          
+          // Arquivo da resposta se existir
+          if (enc.url_resposta_pdf || enc.storage_path_resposta) {
+            const respostaPath = extractPath(enc.storage_path_resposta || enc.url_resposta_pdf, 'processo-anexos');
+            if (respostaPath) {
+              console.log(`   Resposta contabilidade seleção: ${respostaPath}`);
+              arquivosProcessoAnexos.push(respostaPath);
+            }
+          }
+        });
+      }
     }
 
     // 4. Buscar arquivos do processo completo na pasta processos/ do bucket documents
