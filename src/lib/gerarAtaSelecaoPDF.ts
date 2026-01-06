@@ -84,14 +84,19 @@ const formatarMoeda = (valor: number): string => {
 };
 
 const formatarDataExtenso = (dataStr: string): string => {
+  // Ajustar para timezone de Brasília
   const data = new Date(dataStr);
+  const brasiliaOffset = -3 * 60; // UTC-3 em minutos
+  const localOffset = data.getTimezoneOffset();
+  const dataBrasilia = new Date(data.getTime() + (localOffset - brasiliaOffset) * 60000);
+  
   const meses = [
     'janeiro', 'fevereiro', 'março', 'abril', 'maio', 'junho',
     'julho', 'agosto', 'setembro', 'outubro', 'novembro', 'dezembro'
   ];
-  const dia = data.getDate();
-  const mes = meses[data.getMonth()];
-  const ano = data.getFullYear();
+  const dia = dataBrasilia.getDate();
+  const mes = meses[dataBrasilia.getMonth()];
+  const ano = dataBrasilia.getFullYear();
   return `${dia} de ${mes} de ${ano}`;
 };
 
