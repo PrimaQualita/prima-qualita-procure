@@ -240,21 +240,29 @@ const Selecoes = () => {
   };
 
   const handleExcluirSelecao = async (selecaoId: string) => {
-    const { error } = await supabase
-      .from("selecoes_fornecedores")
-      .delete()
-      .eq("id", selecaoId);
+    try {
+      const { data, error } = await supabase.functions.invoke("deletar-selecao", {
+        body: { selecaoId },
+      });
 
-    if (error) {
-      toast.error("Erro ao excluir seleção");
-      console.error(error);
-    } else {
-      toast.success("Seleção excluída com sucesso");
+      if (error) throw error;
+
+      toast.success("Seleção excluída com sucesso", {
+        description:
+          data?.arquivosEncontrados != null
+            ? `Arquivos removidos do storage: ${data.arquivosDeletados || 0}/${data.arquivosEncontrados}`
+            : undefined,
+      });
+
       if (processoSelecionado) {
         loadSelecoes(processoSelecionado.id);
       }
+    } catch (error) {
+      console.error(error);
+      toast.error("Erro ao excluir seleção");
+    } finally {
+      setConfirmDeleteSelecao(null);
     }
-    setConfirmDeleteSelecao(null);
   };
 
   const contratosFiltrados = contratos.filter(c =>
