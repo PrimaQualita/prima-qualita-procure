@@ -1721,7 +1721,16 @@ const SistemaLancesFornecedor = () => {
     const criterio = selecao?.processos_compras?.criterio_julgamento;
 
     const valorEstimado = itensEstimados.get(numeroItem);
+    
+    console.log(`🔍 [DESCLASSIFICACAO] Item ${numeroItem}:`, {
+      criterio,
+      valorEstimado,
+      itensEstimadosSize: itensEstimados.size,
+      itensEstimadosKeys: Array.from(itensEstimados.keys()),
+    });
+    
     if (!valorEstimado || valorEstimado === 0) {
+      console.log(`  ➡️ Sem estimado, retornando false`);
       return false;
     }
 
@@ -1731,34 +1740,48 @@ const SistemaLancesFornecedor = () => {
     if (criterio === "por_lote") {
       const subtotal = getSubtotalPropostaDoLote(numeroItem);
       if (!subtotal) return false;
-      // Desclassifica apenas se ESTRITAMENTE maior (com tolerância)
-      return subtotal > valorEstimado + tolerancia;
+      const resultado = subtotal > valorEstimado + tolerancia;
+      console.log(`  ➡️ por_lote: subtotal=${subtotal}, estimado=${valorEstimado}, resultado=${resultado}`);
+      return resultado;
     }
 
     // Para critério global (item 0), compara o total da proposta com o estimado global
     if (criterio === "global" && numeroItem === 0) {
       const totalGlobal = getTotalGlobalProposta();
       if (!totalGlobal) return false;
-      // Desclassifica apenas se ESTRITAMENTE maior (com tolerância)
-      return totalGlobal > valorEstimado + tolerancia;
+      const resultado = totalGlobal > valorEstimado + tolerancia;
+      console.log(`  ➡️ global: total=${totalGlobal}, estimado=${valorEstimado}, resultado=${resultado}`);
+      return resultado;
     }
 
     const itemProposta = itens.find((i) => i.numero_item === numeroItem);
     if (!itemProposta) {
+      console.log(`  ➡️ Sem proposta, retornando false`);
       return false;
     }
 
     const isDesconto = criterio === "desconto";
+    const valorOfertado = itemProposta.valor_unitario_ofertado;
+
+    console.log(`  ➡️ Item proposta encontrado:`, {
+      valorOfertado,
+      valorEstimado,
+      isDesconto,
+      diferenca: valorOfertado - valorEstimado,
+    });
 
     if (isDesconto) {
       // Para desconto: desclassifica se desconto ofertado for MENOR (<) que o estimado
-      // Porque menor desconto = preço mais alto (com tolerância)
-      return itemProposta.valor_unitario_ofertado < valorEstimado - tolerancia;
+      const resultado = valorOfertado < valorEstimado - tolerancia;
+      console.log(`  ➡️ desconto: ${valorOfertado} < ${valorEstimado - tolerancia} = ${resultado}`);
+      return resultado;
     }
 
     // Para valor: desclassifica se valor ofertado for ESTRITAMENTE MAIOR (>) que o estimado
     // Valor igual ao estimado NÃO é desclassificado (com tolerância para ponto flutuante)
-    return itemProposta.valor_unitario_ofertado > valorEstimado + tolerancia;
+    const resultado = valorOfertado > valorEstimado + tolerancia;
+    console.log(`  ➡️ valor: ${valorOfertado} > ${valorEstimado + tolerancia} = ${resultado}`);
+    return resultado;
   };
 
   const isLanceDesclassificado = (numeroItem: number, valorLance: number) => {
