@@ -742,8 +742,45 @@ async function processarDocumentosHabilitacao(
   const criterio = criterioJulgamento || "por_item";
   const isDesconto = criterio === "desconto" || criterio === "maior_percentual_desconto";
   
-  // Identificar vencedores conforme critério
+  // Buscar fornecedores INABILITADOS PRIMEIRO para excluir da identificação de vencedores
+  const { data: fornecedoresInabilitados } = await supabase
+    .from("fornecedores_inabilitados_selecao")
+    .select("fornecedor_id, itens_afetados")
+    .eq("selecao_id", selecaoId)
+    .eq("revertido", false);
+
+  // Criar mapa de inabilitações: fornecedor_id -> Set de itens afetados (ou null para inabilitação geral)
+  const inabilitacoesPorFornecedor = new Map<string, Set<number> | null>();
+  fornecedoresInabilitados?.forEach(f => {
+    if (f.fornecedor_id) {
+      const itensAfetados = f.itens_afetados;
+      if (!itensAfetados || itensAfetados.length === 0) {
+        // Inabilitação geral
+        inabilitacoesPorFornecedor.set(f.fornecedor_id, null);
+      } else {
+        const existente = inabilitacoesPorFornecedor.get(f.fornecedor_id);
+        if (existente === null) {
+          // Já tem inabilitação geral, não precisa adicionar itens específicos
+        } else {
+          const setItens = existente || new Set<number>();
+          itensAfetados.forEach(item => setItens.add(item));
+          inabilitacoesPorFornecedor.set(f.fornecedor_id, setItens);
+        }
+      }
+    }
+  });
+
+  // Função para verificar se fornecedor está inabilitado para um item específico
+  const estaInabilitadoParaItem = (fornecedorId: string, numeroItem: number): boolean => {
+    const inabilitacao = inabilitacoesPorFornecedor.get(fornecedorId);
+    if (inabilitacao === undefined) return false;
+    if (inabilitacao === null) return true; // Inabilitação geral
+    return inabilitacao.has(numeroItem);
+  };
+  
+  // Identificar vencedores conforme critério, EXCLUINDO inabilitados
   if (criterio === "global") {
+    // Ordenar fornecedores por total e pegar o primeiro não inabilitado
     const totaisPorFornecedor = new Map<string, number>();
     
     todosLances?.forEach(lance => {
@@ -751,75 +788,54 @@ async function processarDocumentosHabilitacao(
       totaisPorFornecedor.set(lance.fornecedor_id, totalAtual + lance.valor_lance);
     });
     
-    let melhorFornecedor: string | null = null;
-    let melhorValor: number | null = null;
+    // Ordenar e encontrar o primeiro não inabilitado (item 0 para global)
+    const fornecedoresOrdenados = Array.from(totaisPorFornecedor.entries())
+      .sort((a, b) => isDesconto ? b[1] - a[1] : a[1] - b[1]);
     
-    totaisPorFornecedor.forEach((total, fornecedorId) => {
-      if (melhorValor === null) {
-        melhorFornecedor = fornecedorId;
-        melhorValor = total;
-      } else {
-        const isMelhor = isDesconto ? total > melhorValor : total < melhorValor;
-        if (isMelhor) {
-          melhorFornecedor = fornecedorId;
-          melhorValor = total;
-        }
+    for (const [fornecedorId] of fornecedoresOrdenados) {
+      if (!estaInabilitadoParaItem(fornecedorId, 0)) {
+        fornecedoresParaDocumentos.add(fornecedorId);
+        ordemFornecedoresPorItem.set(fornecedorId, 0);
+        break;
       }
-    });
-    
-    if (melhorFornecedor) {
-      fornecedoresParaDocumentos.add(melhorFornecedor);
-      ordemFornecedoresPorItem.set(melhorFornecedor, 0);
     }
   } else {
     // Critério POR ITEM ou POR LOTE
-    const vencedoresPorItem = new Map<number, { fornecedor_id: string; valor: number }>();
+    // Agrupar lances por item
+    const lancesPorItem = new Map<number, Array<{ fornecedor_id: string; valor: number }>>();
     
-    if (todosLances && todosLances.length > 0) {
-      todosLances.forEach(lance => {
-        if (lance.numero_item === null || lance.numero_item === undefined) return;
-        
-        const itemAtual = vencedoresPorItem.get(lance.numero_item);
-        
-        if (!itemAtual) {
-          vencedoresPorItem.set(lance.numero_item, { 
-            fornecedor_id: lance.fornecedor_id, 
-            valor: lance.valor_lance 
-          });
-        } else {
-          const melhorValor = isDesconto 
-            ? lance.valor_lance > itemAtual.valor
-            : lance.valor_lance < itemAtual.valor;
-          
-          if (melhorValor) {
-            vencedoresPorItem.set(lance.numero_item, { 
-              fornecedor_id: lance.fornecedor_id, 
-              valor: lance.valor_lance 
-            });
-          }
-        }
-      });
+    todosLances?.forEach(lance => {
+      if (lance.numero_item === null || lance.numero_item === undefined) return;
       
-      // Mapear ordem dos fornecedores pelo primeiro item que venceram
-      vencedoresPorItem.forEach(({ fornecedor_id }, numeroItem) => {
-        fornecedoresParaDocumentos.add(fornecedor_id);
-        const ordemAtual = ordemFornecedoresPorItem.get(fornecedor_id);
-        if (ordemAtual === undefined || numeroItem < ordemAtual) {
-          ordemFornecedoresPorItem.set(fornecedor_id, numeroItem);
+      const lancesItem = lancesPorItem.get(lance.numero_item) || [];
+      lancesItem.push({ fornecedor_id: lance.fornecedor_id, valor: lance.valor_lance });
+      lancesPorItem.set(lance.numero_item, lancesItem);
+    });
+    
+    // Para cada item, ordenar lances e pegar o primeiro fornecedor NÃO inabilitado
+    lancesPorItem.forEach((lances, numeroItem) => {
+      // Ordenar: menor valor primeiro (ou maior para desconto)
+      const lancesOrdenados = [...lances].sort((a, b) => 
+        isDesconto ? b.valor - a.valor : a.valor - b.valor
+      );
+      
+      // Encontrar o primeiro fornecedor não inabilitado para este item
+      for (const lance of lancesOrdenados) {
+        if (!estaInabilitadoParaItem(lance.fornecedor_id, numeroItem)) {
+          fornecedoresParaDocumentos.add(lance.fornecedor_id);
+          const ordemAtual = ordemFornecedoresPorItem.get(lance.fornecedor_id);
+          if (ordemAtual === undefined || numeroItem < ordemAtual) {
+            ordemFornecedoresPorItem.set(lance.fornecedor_id, numeroItem);
+          }
+          break; // Encontrou o vencedor do item, passar para o próximo
         }
-      });
-    }
+      }
+    });
   }
   
-  console.log(`  🏆 Vencedores identificados: ${fornecedoresParaDocumentos.size}`);
+  console.log(`  🏆 Vencedores identificados (excluindo inabilitados): ${fornecedoresParaDocumentos.size}`);
 
-  // Buscar fornecedores INABILITADOS
-  const { data: fornecedoresInabilitados } = await supabase
-    .from("fornecedores_inabilitados_selecao")
-    .select("fornecedor_id, itens_afetados")
-    .eq("selecao_id", selecaoId)
-    .eq("revertido", false);
-
+  // Adicionar fornecedores INABILITADOS à lista de documentos
   fornecedoresInabilitados?.forEach(f => {
     if (f.fornecedor_id) {
       fornecedoresParaDocumentos.add(f.fornecedor_id);
@@ -832,7 +848,7 @@ async function processarDocumentosHabilitacao(
     }
   });
   
-  console.log(`  ❌ Inabilitados: ${fornecedoresInabilitados?.length || 0}`);
+  console.log(`  ❌ Inabilitados adicionados: ${fornecedoresInabilitados?.length || 0}`);
 
   // Ordenar fornecedores pelo número do item que ganharam/foram inabilitados
   const fornecedoresOrdenados = Array.from(fornecedoresParaDocumentos).sort((a, b) => {
