@@ -208,10 +208,13 @@ export const gerarPropostaRealinhadaPDF = async (
   let valorTotal = 0;
   const tableData: any[] = [];
   
+  // Ordenar itens por numero_item antes de processar
+  const itensOrdenados = [...itens].sort((a, b) => a.numero_item - b.numero_item);
+  
   // Agrupar por lote se necessário
   if (criterio === 'por_lote' || temLotes) {
     const lotes = new Map<number, ItemPropostaRealinhada[]>();
-    itens.forEach(item => {
+    itensOrdenados.forEach(item => {
       const lote = item.numero_lote || 0;
       if (!lotes.has(lote)) lotes.set(lote, []);
       lotes.get(lote)!.push(item);
@@ -257,7 +260,7 @@ export const gerarPropostaRealinhadaPDF = async (
       ]);
     });
   } else {
-    itens.forEach(item => {
+    itensOrdenados.forEach(item => {
       valorTotal += item.valor_total;
       tableData.push([
         item.numero_item.toString(),
