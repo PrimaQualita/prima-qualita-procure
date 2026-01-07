@@ -492,10 +492,28 @@ export default function PropostasSelecao() {
       
       console.log("✅ Proposta excluída com sucesso");
 
+      // Notificar via realtime que propostas mudaram (força refresh nas telas de lances)
+      // Isso é feito inserindo um lance "fantasma" com valor 0 para disparar o realtime
+      // Alternativa: usar broadcast channel do Supabase
+      try {
+        await supabase.channel(`selecao_${selecaoId}_propostas`)
+          .send({
+            type: 'broadcast',
+            event: 'proposta_deletada',
+            payload: { 
+              proposta_id: propostaParaExcluirCompleta.id, 
+              timestamp: new Date().toISOString()
+            }
+          });
+        console.log("📡 Broadcast enviado para refresh de propostas");
+      } catch (broadcastError) {
+        console.warn("⚠️ Broadcast não enviado:", broadcastError);
+      }
+
       setPropostaParaExcluirCompleta(null);
       setConfirmDeleteCompletaOpen(false);
       
-      toast.success("Proposta excluída com sucesso. O fornecedor poderá enviar nova proposta.");
+      toast.success("Proposta excluída com sucesso. O fornecedor poderá enviar nova proposta. Atualize a sessão de lances.");
       
       // Recarregar propostas
       await loadPropostas();
