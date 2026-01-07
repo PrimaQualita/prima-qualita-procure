@@ -541,16 +541,17 @@ export async function gerarPropostaSelecaoPDF(
             textLines.forEach((linha, index) => {
               const yLinha = cellY + padding + 2 + (index * lineHeight);
               
-              if (yLinha < cellY + cellHeight - 1) {
-                const isUltimaLinha = index === textLines.length - 1;
-                
-                if (isUltimaLinha || textLines.length === 1) {
-                  // Última linha: alinhamento à esquerda (não esticar)
-                  doc.text(linha.trim(), cellX + padding, yLinha);
-                } else {
-                  // Linhas intermediárias: texto justificado
-                  renderizarTextoJustificado(doc, linha.trim(), cellX + padding, yLinha, larguraTexto);
-                }
+              // Não cortar última linha - apenas verificar se está acima do início da célula
+              if (yLinha < cellY + 1) return;
+              
+              const isUltimaLinha = index === textLines.length - 1;
+              
+              if (isUltimaLinha || textLines.length === 1) {
+                // Última linha: alinhamento à esquerda (não esticar)
+                doc.text(linha.trim(), cellX + padding, yLinha);
+              } else {
+                // Linhas intermediárias: texto justificado
+                renderizarTextoJustificado(doc, linha.trim(), cellX + padding, yLinha, larguraTexto);
               }
             });
           }

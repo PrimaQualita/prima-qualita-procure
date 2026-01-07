@@ -432,41 +432,45 @@ export const gerarPropostaRealinhadaPDF = async (
       const baselineOffset = Math.min(fontSize * PT_TO_MM * 0.8, lineHeight * 0.9);
       const startY = cellY + padding + baselineOffset;
 
-      // Coluna 1 (Descrição): justificar todas exceto a última do TEXTO COMPLETO
+      // Coluna 1 (Descrição): justificar todas exceto a última
       if (data.column.index === 1) {
         const larguraTexto = cellWidth - padding * 2;
-
-        const fullLines = fullDescricaoByKey.get(key) ?? textLines;
-        const segmentStart = findSegmentStartIndex(fullLines, textLines);
-
+        
         textLines.forEach((linha, index) => {
           const yLinha = startY + index * lineHeight;
-          const palavras = linha.trim().split(/\s+/).filter(Boolean);
-
-          const globalIndex = segmentStart !== null ? segmentStart + index : null;
-          const isLastOfFullText = globalIndex !== null ? globalIndex === fullLines.length - 1 : index === textLines.length - 1;
-          const shouldJustify = !isLastOfFullText && palavras.length > 1;
-
-          if (!shouldJustify) {
+          
+          // Não cortar - apenas pular se estiver acima do início da célula
+          if (yLinha < cellY + 1) return;
+          
+          const isUltimaLinha = index === textLines.length - 1;
+          const palavras = linha.trim().split(/\s+/).filter(p => p.length > 0);
+          
+          if (isUltimaLinha || textLines.length === 1 || palavras.length <= 1) {
+            // Última linha ou linha única: alinhamento à esquerda (não esticar)
             doc.text(linha.trim(), cellX + padding, yLinha);
-            return;
+          } else {
+            // Linhas intermediárias: texto justificado
+            let larguraPalavras = 0;
+            palavras.forEach(palavra => {
+              larguraPalavras += doc.getTextWidth(palavra);
+            });
+
+            const espacoDisponivel = larguraTexto - larguraPalavras;
+            if (espacoDisponivel <= 0) {
+              doc.text(linha.trim(), cellX + padding, yLinha);
+              return;
+            }
+            
+            const espacoEntrePalavras = espacoDisponivel / (palavras.length - 1);
+
+            let xAtual = cellX + padding;
+            palavras.forEach((palavra, idx) => {
+              doc.text(palavra, xAtual, yLinha);
+              if (idx < palavras.length - 1) {
+                xAtual += doc.getTextWidth(palavra) + espacoEntrePalavras;
+              }
+            });
           }
-
-          const larguraPalavras = palavras.reduce((acc, p) => acc + doc.getTextWidth(p), 0);
-          const espacoDisponivel = larguraTexto - larguraPalavras;
-
-          if (espacoDisponivel <= 0) {
-            doc.text(linha.trim(), cellX + padding, yLinha);
-            return;
-          }
-
-          const espacoEntrePalavras = espacoDisponivel / (palavras.length - 1);
-          let xAtual = cellX + padding;
-
-          palavras.forEach((p, i) => {
-            doc.text(p, xAtual, yLinha);
-            if (i < palavras.length - 1) xAtual += doc.getTextWidth(p) + espacoEntrePalavras;
-          });
         });
         return;
       }
