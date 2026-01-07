@@ -2864,7 +2864,9 @@ Deno.serve(async (req) => {
     }
 
     const referenciasOrfas: string[] = [];
-    for (const path of pathsDB) {
+    // CRÍTICO: Usar pathsDBOriginal (paths únicos) e NÃO pathsDB (que inclui versões decodificadas duplicadas)
+    // Isso evita que "2026%20II" e "2026 II" apareçam como 2 referências órfãs separadas
+    for (const path of pathsDBOriginal) {
       // Decodificar URL para comparar com arquivos do storage (que vêm decodificados)
       let pathDecoded = path;
       try {
@@ -2874,7 +2876,7 @@ Deno.serve(async (req) => {
         pathDecoded = path;
       }
       
-      // Verificar tanto path original quanto decodificado
+      // Verificar tanto path original quanto decodificado no storage
       if (!arquivosStorage.has(path) && !arquivosStorage.has(pathDecoded)) {
         // Verificar se é documento_finalizado - esses não devem ser reportados como órfãos de referência
         const pathSemBucket = path.replace(/^(processo-anexos|documents)\//, '');
