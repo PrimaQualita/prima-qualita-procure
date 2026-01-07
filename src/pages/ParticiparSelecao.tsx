@@ -203,12 +203,19 @@ const ParticiparSelecao = () => {
     if (!selecao?.data_sessao_disputa || !selecao?.hora_sessao_disputa) return;
 
     const verificarPrazo = () => {
+      // Construir data/hora da sessão com offset de Brasília (UTC-3)
       const dataHoraSessao = new Date(`${selecao.data_sessao_disputa}T${selecao.hora_sessao_disputa}:00-03:00`);
-      const agora = new Date();
-      const agoraBrasilia = new Date(agora.toLocaleString('en-US', { timeZone: 'America/Sao_Paulo' }));
       const cincoMinutosAntes = new Date(dataHoraSessao.getTime() - 5 * 60 * 1000);
+      const agora = new Date(); // Já em UTC, comparação correta com cincoMinutosAntes que também está em UTC
       
-      if (agoraBrasilia >= cincoMinutosAntes) {
+      console.log("⏰ Verificando prazo:", {
+        sessao: dataHoraSessao.toISOString(),
+        cincoMinAntes: cincoMinutosAntes.toISOString(),
+        agora: agora.toISOString(),
+        expirado: agora >= cincoMinutosAntes
+      });
+      
+      if (agora >= cincoMinutosAntes) {
         setPrazoExpirado(true);
       }
     };
