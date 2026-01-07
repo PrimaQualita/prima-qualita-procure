@@ -141,12 +141,15 @@ export const gerarProcessoCompletoSelecaoPDF = async (
       }
     }
 
-    // Array para documentos cronológicos do processo geral (antes das seleções)
-    const documentosProcessoGeral: DocumentoOrdenado[] = [];
+    // Array para TODOS os documentos de cotação (serão intercalados entre seleções)
+    const todosDocumentosCotacao: DocumentoOrdenado[] = [];
 
-    // ========== ETAPA 2: E-MAILS (ORDEM CRONOLÓGICA DO PROCESSO GERAL) ==========
+    // ========== COLETA DE DOCUMENTOS DE COTAÇÃO ==========
+    // Coletamos todos os documentos de cotação para depois intercalar entre seleções
+    
+    // E-MAILS
     if (cotacaoId) {
-      console.log("\n📧 === ETAPA 2: E-MAILS ===");
+      console.log("\n📧 === COLETANDO E-MAILS ===");
       
       const { data: emailsCotacao, error: emailsError } = await supabase
         .from("emails_cotacao_anexados")
@@ -163,7 +166,7 @@ export const gerarProcessoCompletoSelecaoPDF = async (
       if (emailsCotacao && emailsCotacao.length > 0) {
         emailsCotacao.forEach(email => {
           if (email.nome_arquivo.toLowerCase().endsWith('.pdf')) {
-            documentosProcessoGeral.push({
+            todosDocumentosCotacao.push({
               tipo: "E-mail",
               data: email.data_upload,
               nome: email.nome_arquivo,
@@ -175,9 +178,9 @@ export const gerarProcessoCompletoSelecaoPDF = async (
       }
     }
 
-    // ========== ETAPA 3: PROPOSTAS DE COTAÇÃO (ORDEM CRONOLÓGICA DO PROCESSO GERAL) ==========
+    // PROPOSTAS DE COTAÇÃO
     if (cotacaoId) {
-      console.log("\n💰 === ETAPA 3: PROPOSTAS DE COTAÇÃO ===");
+      console.log("\n💰 === COLETANDO PROPOSTAS DE COTAÇÃO ===");
       
       const { data: respostasCotacao, error: respostasCotacaoError } = await supabase
         .from("cotacao_respostas_fornecedor")
@@ -205,7 +208,7 @@ export const gerarProcessoCompletoSelecaoPDF = async (
             for (const anexo of anexosCotacao) {
               if (!anexo.nome_arquivo.toLowerCase().endsWith('.pdf')) continue;
               
-              documentosProcessoGeral.push({
+              todosDocumentosCotacao.push({
                 tipo: "Proposta Cotação",
                 data: resposta.data_envio_resposta || anexo.data_upload,
                 nome: `${razaoSocial} - ${anexo.nome_arquivo}`,
@@ -219,9 +222,9 @@ export const gerarProcessoCompletoSelecaoPDF = async (
       }
     }
 
-    // ========== ETAPA 4: PLANILHAS CONSOLIDADAS (ORDEM CRONOLÓGICA DO PROCESSO GERAL) ==========
+    // PLANILHAS CONSOLIDADAS
     if (cotacaoId) {
-      console.log("\n📊 === ETAPA 4: PLANILHAS CONSOLIDADAS ===");
+      console.log("\n📊 === COLETANDO PLANILHAS CONSOLIDADAS ===");
       
       const { data: planilhasConsolidadas, error: planilhaError } = await supabase
         .from("planilhas_consolidadas")
@@ -237,7 +240,7 @@ export const gerarProcessoCompletoSelecaoPDF = async (
 
       if (planilhasConsolidadas && planilhasConsolidadas.length > 0) {
         planilhasConsolidadas.forEach(planilha => {
-          documentosProcessoGeral.push({
+          todosDocumentosCotacao.push({
             tipo: "Planilha Consolidada",
             data: planilha.data_geracao,
             nome: planilha.nome_arquivo,
@@ -248,9 +251,9 @@ export const gerarProcessoCompletoSelecaoPDF = async (
       }
     }
 
-    // ========== ETAPA 5: ENCAMINHAMENTO AO COMPLIANCE (ORDEM CRONOLÓGICA DO PROCESSO GERAL) ==========
+    // ENCAMINHAMENTOS AO COMPLIANCE
     if (cotacaoId) {
-      console.log("\n📤 === ETAPA 5: ENCAMINHAMENTOS AO COMPLIANCE ===");
+      console.log("\n📤 === COLETANDO ENCAMINHAMENTOS AO COMPLIANCE ===");
       
       const { data: encaminhamentos, error: encaminhamentoError } = await supabase
         .from("encaminhamentos_processo")
@@ -266,7 +269,7 @@ export const gerarProcessoCompletoSelecaoPDF = async (
 
       if (encaminhamentos && encaminhamentos.length > 0) {
         encaminhamentos.forEach(encaminhamento => {
-          documentosProcessoGeral.push({
+          todosDocumentosCotacao.push({
             tipo: "Encaminhamento Compliance",
             data: encaminhamento.created_at,
             nome: `Encaminhamento - ${encaminhamento.protocolo}`,
@@ -277,9 +280,9 @@ export const gerarProcessoCompletoSelecaoPDF = async (
       }
     }
 
-    // ========== ETAPA 6: RESPOSTA DO COMPLIANCE (ORDEM CRONOLÓGICA DO PROCESSO GERAL) ==========
+    // RESPOSTAS DO COMPLIANCE
     if (cotacaoId) {
-      console.log("\n✅ === ETAPA 6: RESPOSTAS DO COMPLIANCE ===");
+      console.log("\n✅ === COLETANDO RESPOSTAS DO COMPLIANCE ===");
       
       const { data: analisesCompliance, error: analiseError } = await supabase
         .from("analises_compliance")
@@ -309,7 +312,7 @@ export const gerarProcessoCompletoSelecaoPDF = async (
             
             const useDirectUrl = storagePath.startsWith('documents/');
             
-            documentosProcessoGeral.push({
+            todosDocumentosCotacao.push({
               tipo: "Resposta Compliance",
               data: analise.data_analise || analise.created_at,
               nome: analise.nome_arquivo || `Análise Compliance - ${analise.protocolo}`,
@@ -322,20 +325,55 @@ export const gerarProcessoCompletoSelecaoPDF = async (
       }
     }
 
-    // Ordenar e mesclar documentos do processo geral
-    documentosProcessoGeral.sort((a, b) => new Date(a.data).getTime() - new Date(b.data).getTime());
-    
-    console.log(`\n📋 Mesclando ${documentosProcessoGeral.length} documentos do processo geral...`);
-    await mesclarDocumentos(pdfFinal, documentosProcessoGeral);
+    // Ordenar todos os documentos de cotação por data
+    todosDocumentosCotacao.sort((a, b) => new Date(a.data).getTime() - new Date(b.data).getTime());
+    console.log(`\n📋 Total de documentos de cotação coletados: ${todosDocumentosCotacao.length}`);
 
-    // ========== ETAPAS 7-30+: PROCESSAR CADA SELEÇÃO EM SEQUÊNCIA ==========
+    // ========== PROCESSAR SELEÇÕES COM DOCUMENTOS INTERCALADOS ==========
     const selecoesParaProcessar = todasSelecoes || [{ id: selecaoId, numero_selecao: numeroSelecao }];
+    
+    // Criar mapa de datas de criação das seleções para intercalar documentos
+    const datasSelecoes = selecoesParaProcessar.map((s, idx) => ({
+      indice: idx,
+      dataCriacao: new Date(s.created_at).getTime()
+    }));
+    
+    // Controlar quais documentos de cotação já foram mesclados
+    let indiceDocumentosCotacaoMesclados = 0;
     
     for (let selecaoIndex = 0; selecaoIndex < selecoesParaProcessar.length; selecaoIndex++) {
       const selecaoAtualLoop = selecoesParaProcessar[selecaoIndex];
       const selecaoIdLoop = selecaoAtualLoop.id;
       const numeroSelecaoLoop = selecaoAtualLoop.numero_selecao || `Seleção ${selecaoIndex + 1}`;
       const ordemRomana = ["I", "II", "III", "IV", "V", "VI", "VII", "VIII", "IX", "X"][selecaoIndex] || `${selecaoIndex + 1}`;
+      
+      // ========== INTERCALAR DOCUMENTOS DE COTAÇÃO ANTES DESTA SELEÇÃO ==========
+      // Determinar a data limite: data de criação da seleção atual
+      const dataLimiteSelecaoAtual = new Date(selecaoAtualLoop.created_at).getTime();
+      
+      // Mesclar documentos de cotação que foram criados ANTES da seleção atual
+      // (e APÓS a seleção anterior, se houver - isso é controlado por indiceDocumentosCotacaoMesclados)
+      const documentosCotacaoAntesSelecao: DocumentoOrdenado[] = [];
+      
+      while (indiceDocumentosCotacaoMesclados < todosDocumentosCotacao.length) {
+        const doc = todosDocumentosCotacao[indiceDocumentosCotacaoMesclados];
+        const dataDoc = new Date(doc.data).getTime();
+        
+        // Se a data do documento é ANTES da criação da seleção atual, incluir
+        if (dataDoc < dataLimiteSelecaoAtual) {
+          documentosCotacaoAntesSelecao.push(doc);
+          indiceDocumentosCotacaoMesclados++;
+        } else {
+          // Parar quando encontrar documento que é posterior à seleção
+          break;
+        }
+      }
+      
+      if (documentosCotacaoAntesSelecao.length > 0) {
+        console.log(`\n📋 === DOCUMENTOS DE COTAÇÃO ANTES DA SELEÇÃO ${ordemRomana} ===`);
+        console.log(`  ${documentosCotacaoAntesSelecao.length} documentos de cotação a mesclar antes da seleção`);
+        await mesclarDocumentos(pdfFinal, documentosCotacaoAntesSelecao);
+      }
       
       console.log(`\n\n🏁 ========== PROCESSANDO SELEÇÃO ${ordemRomana}: ${numeroSelecaoLoop} ==========`);
       
@@ -609,6 +647,14 @@ export const gerarProcessoCompletoSelecaoPDF = async (
       // Mesclar documentos pós-habilitação (já estão na ordem correta)
       console.log(`\n📋 Mesclando ${documentosPosHabilitacao.length} documentos pós-habilitação da seleção ${ordemRomana}...`);
       await mesclarDocumentos(pdfFinal, documentosPosHabilitacao);
+    }
+
+    // ========== MESCLAR DOCUMENTOS DE COTAÇÃO RESTANTES (após última seleção) ==========
+    if (indiceDocumentosCotacaoMesclados < todosDocumentosCotacao.length) {
+      const documentosCotacaoRestantes = todosDocumentosCotacao.slice(indiceDocumentosCotacaoMesclados);
+      console.log(`\n📋 === DOCUMENTOS DE COTAÇÃO APÓS A ÚLTIMA SELEÇÃO ===`);
+      console.log(`  ${documentosCotacaoRestantes.length} documentos de cotação restantes a mesclar`);
+      await mesclarDocumentos(pdfFinal, documentosCotacaoRestantes);
     }
 
     // Salvar o PDF final
