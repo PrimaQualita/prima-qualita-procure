@@ -285,10 +285,16 @@ export const gerarPropostaRealinhadaPDF = async (
     margin: { left: margin, right: margin },
     styles: {
       fontSize: 8,
-      cellPadding: 2,
+      cellPadding: 3, // Aumentar padding para evitar texto ultrapassar bordas
       overflow: 'linebreak',
       lineColor: [200, 200, 200],
-      lineWidth: 0.3
+      lineWidth: 0.3,
+      textColor: [0, 0, 0] // Garantir texto preto em todas as células
+    },
+    bodyStyles: {
+      textColor: [0, 0, 0], // Forçar texto preto no corpo da tabela
+      font: 'helvetica',
+      fontStyle: 'normal'
     },
     headStyles: {
       fillColor: [0, 75, 140],
@@ -298,13 +304,13 @@ export const gerarPropostaRealinhadaPDF = async (
       valign: 'middle',
     },
     columnStyles: {
-      0: { cellWidth: 12, halign: 'center', valign: 'middle' },  // Item
-      1: { cellWidth: 60, halign: 'left', valign: 'middle' },    // Descrição (reduzida de 65 para 60)
-      2: { cellWidth: 15, halign: 'center', valign: 'middle' },  // Qtd
-      3: { cellWidth: 15, halign: 'center', valign: 'middle' },  // Un
-      4: { cellWidth: 25, halign: 'center', valign: 'middle' },  // Marca
-      5: { cellWidth: 25, halign: 'right', valign: 'middle' },   // Vlr Unit
-      6: { cellWidth: 28, halign: 'right', valign: 'middle' },   // Vlr Total (aumentada de 23 para 28)
+      0: { cellWidth: 12, halign: 'center', valign: 'middle', textColor: [0, 0, 0] },  // Item
+      1: { cellWidth: 60, halign: 'left', valign: 'middle', textColor: [0, 0, 0] },    // Descrição
+      2: { cellWidth: 15, halign: 'center', valign: 'middle', textColor: [0, 0, 0] },  // Qtd
+      3: { cellWidth: 15, halign: 'center', valign: 'middle', textColor: [0, 0, 0] },  // Un
+      4: { cellWidth: 25, halign: 'center', valign: 'middle', textColor: [0, 0, 0] },  // Marca
+      5: { cellWidth: 25, halign: 'right', valign: 'middle', textColor: [0, 0, 0] },   // Vlr Unit
+      6: { cellWidth: 28, halign: 'right', valign: 'middle', textColor: [0, 0, 0] },   // Vlr Total
     },
     rowPageBreak: 'auto',
     didParseCell: (data) => {
@@ -341,34 +347,40 @@ export const gerarPropostaRealinhadaPDF = async (
       }
       doc.rect(cellX + 0.3, cellY + 0.3, cellWidth - 0.6, cellHeight - 0.6, 'F');
       
-      // Configurar fonte
+      // Configurar fonte - SEMPRE preto para o corpo
       doc.setFontSize(8);
       doc.setFont('helvetica', 'normal');
-      doc.setTextColor(0, 0, 0);
+      doc.setTextColor(0, 0, 0); // Forçar cor preta
       
-      // Coluna 1 (Descrição): texto justificado
+      // Coluna 1 (Descrição): texto justificado com cor preta
       if (data.column.index === 1 && data.cell.text && Array.isArray(data.cell.text) && data.cell.text.length > 0) {
-        const padding = 2;
+        const padding = 3; // Aumentado para evitar ultrapassar bordas
         const larguraTexto = cellWidth - (padding * 2);
         const textLines = data.cell.text as string[];
         const lineHeight = 3.5;
         
-        // Centralização vertical
+        // Garantir cor preta antes de renderizar
+        doc.setTextColor(0, 0, 0);
+        
+        // Centralização vertical com offset de segurança
         const totalTextHeight = textLines.length * lineHeight;
-        const startY = cellY + (cellHeight - totalTextHeight) / 2 + lineHeight - 0.5;
+        const startY = cellY + Math.max((cellHeight - totalTextHeight) / 2, padding) + lineHeight;
         
         textLines.forEach((linha, index) => {
           const yLinha = startY + (index * lineHeight);
           
-          // Verificar se a linha está dentro dos limites da célula
-          if (yLinha < cellY + cellHeight - 1) {
+          // Verificar se a linha está dentro dos limites da célula (bordas superior e inferior)
+          if (yLinha > cellY + padding && yLinha < cellY + cellHeight - 1) {
             const isUltimaLinha = index === textLines.length - 1;
             
+            // Garantir cor preta em cada linha
+            doc.setTextColor(0, 0, 0);
+            
             if (isUltimaLinha || textLines.length === 1) {
-              // Última linha ou linha única: alinhamento à esquerda
+              // Última linha ou linha única: alinhamento à esquerda (não esticar)
               doc.text(linha.trim(), cellX + padding, yLinha);
             } else {
-              // Linhas intermediárias: justificar
+              // Linhas intermediárias: texto justificado
               const palavras = linha.trim().split(/\s+/).filter(p => p.length > 0);
               if (palavras.length > 1) {
                 let larguraPalavras = 0;
@@ -392,23 +404,30 @@ export const gerarPropostaRealinhadaPDF = async (
           }
         });
       }
-      // Outras colunas: centralizar verticalmente com quebra de linha
+      // Outras colunas: centralizar verticalmente com cor preta
       else if (data.cell.text && Array.isArray(data.cell.text) && data.cell.text.length > 0) {
         const textLines = data.cell.text as string[];
         const lineHeight = 3.5;
+        const padding = 3;
         const totalTextHeight = textLines.length * lineHeight;
-        const startY = cellY + (cellHeight - totalTextHeight) / 2 + lineHeight - 0.5;
+        const startY = cellY + Math.max((cellHeight - totalTextHeight) / 2, padding) + lineHeight;
         
         textLines.forEach((linha, index) => {
           const yLinha = startY + (index * lineHeight);
           
-          // Colunas com alinhamento à direita (valores)
-          if (data.column.index === 5 || data.column.index === 6) {
-            doc.text(linha.trim(), cellX + cellWidth - 2, yLinha, { align: 'right' });
-          }
-          // Colunas com alinhamento central
-          else {
-            doc.text(linha.trim(), cellX + (cellWidth / 2), yLinha, { align: 'center' });
+          // Verificar limites da célula
+          if (yLinha > cellY + padding && yLinha < cellY + cellHeight - 1) {
+            // Garantir cor preta
+            doc.setTextColor(0, 0, 0);
+            
+            // Colunas com alinhamento à direita (valores)
+            if (data.column.index === 5 || data.column.index === 6) {
+              doc.text(linha.trim(), cellX + cellWidth - padding, yLinha, { align: 'right' });
+            }
+            // Colunas com alinhamento central
+            else {
+              doc.text(linha.trim(), cellX + (cellWidth / 2), yLinha, { align: 'center' });
+            }
           }
         });
       }
