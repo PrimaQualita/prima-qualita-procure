@@ -537,11 +537,39 @@ const ParticiparSelecao = () => {
 
       const todosItens: Item[] = [];
 
+      // Carregar lotes se critério por_lote para obter numero_lote
+      let lotesMap: Map<string, number> = new Map();
+      if (cotacaoData?.criterio_julgamento === 'por_lote') {
+        const { data: lotesData } = await supabase
+          .from("lotes_cotacao")
+          .select("id, numero_lote")
+          .eq("cotacao_id", cotacaoId);
+        
+        if (lotesData) {
+          lotesData.forEach(lote => {
+            lotesMap.set(lote.id, lote.numero_lote);
+          });
+        }
+      }
+
       itensOriginais.forEach((itemOriginal) => {
         // Buscar valor estimado das estimativas salvas na planilha
-        // A chave pode ser numero_item ou "numero_lote_numero_item" para critério por_lote
-        const chaveSimples = String(itemOriginal.numero_item);
-        const valorEstimado = estimativasItens[chaveSimples] || 0;
+        // Para critério por_lote: usar chave composta "numero_lote_numero_item"
+        // Para outros critérios: usar chave simples "numero_item"
+        let chaveEstimativa: string;
+        
+        if (cotacaoData?.criterio_julgamento === 'por_lote' && itemOriginal.lote_id) {
+          const numeroLote = lotesMap.get(itemOriginal.lote_id);
+          if (numeroLote) {
+            chaveEstimativa = `${numeroLote}_${itemOriginal.numero_item}`;
+          } else {
+            chaveEstimativa = String(itemOriginal.numero_item);
+          }
+        } else {
+          chaveEstimativa = String(itemOriginal.numero_item);
+        }
+        
+        const valorEstimado = estimativasItens[chaveEstimativa] || 0;
         const valorTotalItem = isDesconto ? 0 : (valorEstimado * itemOriginal.quantidade);
         
         todosItens.push({
