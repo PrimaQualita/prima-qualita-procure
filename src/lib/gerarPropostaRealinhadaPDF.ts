@@ -278,9 +278,56 @@ export const gerarPropostaRealinhadaPDF = async (
   ]);
 
   // Gerar tabela com descrição justificada e colunas centralizadas verticalmente
-  // Mapeamento: para cada row.index, armazenamos as linhas completas do texto original
-  // e quantas já foram desenhadas (para saber se ainda há mais em quebra de página)
-  const fullDescricaoByRow = new Map<number, { lines: string[]; drawnCount: number }>();
+  // Observação importante: quando uma linha “quebra” para a próxima página, o autoTable pode entregar
+  // apenas o “segmento” (linhas restantes) naquela página. Para justificar corretamente, precisamos
+  // identificar qual é a última linha do TEXTO COMPLETO, não a última linha do segmento.
+
+  type RowKey = string;
+
+  const getRowKey = (rowData: any): RowKey | null => {
+    if (!Array.isArray(rowData)) return null;
+    // Linhas especiais (lote/subtotal/total) não entram no controle
+    if (rowData.length === 1 && (rowData[0] as any)?.colSpan) return null;
+    if (rowData.length === 2 && (rowData[0] as any)?.colSpan) return null;
+
+    const itemCell = rowData[0];
+    if (typeof itemCell === 'string' && itemCell.trim()) return `item:${itemCell.trim()}`;
+    return null;
+  };
+
+  const normalizeTextLines = (text: unknown): string[] => {
+    if (Array.isArray(text)) return text.map(String);
+    if (typeof text === 'string') return [text];
+    return [];
+  };
+
+  const findSegmentStartIndex = (fullLines: string[], segmentLines: string[]): number | null => {
+    if (fullLines.length === 0 || segmentLines.length === 0) return null;
+
+    const seg0 = segmentLines[0]?.trim();
+    if (!seg0) return null;
+
+    // Tenta casar o segmento inteiro (mais robusto em quebras de página)
+    for (let i = 0; i <= fullLines.length - segmentLines.length; i++) {
+      if (fullLines[i].trim() !== seg0) continue;
+
+      let ok = true;
+      for (let j = 0; j < segmentLines.length; j++) {
+        if ((fullLines[i + j] ?? '').trim() !== (segmentLines[j] ?? '').trim()) {
+          ok = false;
+          break;
+        }
+      }
+      if (ok) return i;
+    }
+
+    // Fallback: casa só a primeira linha
+    const idx = fullLines.findIndex((l) => l.trim() === seg0);
+    return idx >= 0 ? idx : null;
+  };
+
+  // Para cada item (rowKey), armazenamos as linhas COMPLETAS do texto original
+  const fullDescricaoByKey = new Map<RowKey, string[]>();
 
   autoTable(doc, {
     head: headers,
@@ -321,21 +368,18 @@ export const gerarPropostaRealinhadaPDF = async (
       if (data.section !== 'body' || data.column.index !== 1) return;
 
       const rowData = tableData[data.row.index];
-      if (!rowData) return;
+      const key = getRowKey(rowData);
+      if (!key) return;
 
-      // Linhas especiais (lote/subtotal/total) não entram no controle
-      if (Array.isArray(rowData) && rowData.length === 1 && (rowData[0] as any)?.colSpan) return;
-      if (Array.isArray(rowData) && rowData.length === 2 && (rowData[0] as any)?.colSpan) return;
-
-      // Só calcular uma vez por row
-      if (fullDescricaoByRow.has(data.row.index)) return;
+      // Só calcular uma vez por item
+      if (fullDescricaoByKey.has(key)) return;
 
       const rawText =
-        typeof data.cell.raw === 'string'
-          ? data.cell.raw
-          : Array.isArray(data.cell.text)
-            ? data.cell.text.join(' ')
-            : String(data.cell.raw ?? '');
+        Array.isArray(rowData) && typeof rowData[1] === 'string'
+          ? rowData[1]
+          : typeof data.cell.raw === 'string'
+            ? data.cell.raw
+            : normalizeTextLines(data.cell.text).join(' ');
 
       doc.setFont('helvetica', 'normal');
       doc.setFontSize(8);
@@ -344,16 +388,14 @@ export const gerarPropostaRealinhadaPDF = async (
       const larguraTexto = data.cell.width - padding * 2;
       const fullLines = doc.splitTextToSize(rawText, larguraTexto) as string[];
 
-      fullDescricaoByRow.set(data.row.index, { lines: fullLines, drawnCount: 0 });
+      fullDescricaoByKey.set(key, fullLines);
     },
     didDrawCell: (data) => {
       if (data.section !== 'body') return;
 
       const rowData = tableData[data.row.index];
-      if (!rowData) return;
-
-      if (Array.isArray(rowData) && rowData.length === 1 && (rowData[0] as any)?.colSpan) return;
-      if (Array.isArray(rowData) && rowData.length === 2 && (rowData[0] as any)?.colSpan) return;
+      const key = getRowKey(rowData);
+      if (!key) return;
 
       const cellX = data.cell.x;
       const cellY = data.cell.y;
@@ -369,39 +411,40 @@ export const gerarPropostaRealinhadaPDF = async (
       }
       doc.rect(cellX + 0.3, cellY + 0.3, cellWidth - 0.6, cellHeight - 0.6, 'F');
 
-      doc.setFontSize(8);
+      const fontSize = 8;
+      doc.setFontSize(fontSize);
       doc.setFont('helvetica', 'normal');
       doc.setTextColor(0, 0, 0);
 
       const padding = 3;
-      const lineHeight = 3.5;
+      const textLines = normalizeTextLines(data.cell.text);
+      if (textLines.length === 0) return;
 
-      // Coluna 1 (Descrição): justificar todas exceto a última do texto COMPLETO
-      if (data.column.index === 1 && Array.isArray(data.cell.text) && data.cell.text.length > 0) {
-        const textLines = data.cell.text as string[];
+      // Converter pt -> mm (jsPDF padrão em mm)
+      const PT_TO_MM = 0.3527777778;
+      const lineHeightFactor = typeof (doc as any).getLineHeightFactor === 'function' ? (doc as any).getLineHeightFactor() : 1.15;
+      const defaultLineHeight = fontSize * PT_TO_MM * lineHeightFactor;
+      const availableHeight = Math.max(0, cellHeight - padding * 2);
+      const lineHeight = Math.min(defaultLineHeight, availableHeight / textLines.length);
+
+      // IMPORTANTE: descrição não deve centralizar verticalmente, para evitar “cortar” a última linha
+      // em células muito próximas da quebra de página.
+      const baselineOffset = Math.min(fontSize * PT_TO_MM * 0.8, lineHeight * 0.9);
+      const startY = cellY + padding + baselineOffset;
+
+      // Coluna 1 (Descrição): justificar todas exceto a última do TEXTO COMPLETO
+      if (data.column.index === 1) {
         const larguraTexto = cellWidth - padding * 2;
 
-        // Calcular startY para centralização vertical
-        const totalTextHeight = textLines.length * lineHeight;
-        const startY = cellY + Math.max((cellHeight - totalTextHeight) / 2, padding) + lineHeight - 0.5;
-
-        const fullData = fullDescricaoByRow.get(data.row.index);
-        const totalFullLines = fullData ? fullData.lines.length : textLines.length;
-        const alreadyDrawn = fullData ? fullData.drawnCount : 0;
+        const fullLines = fullDescricaoByKey.get(key) ?? textLines;
+        const segmentStart = findSegmentStartIndex(fullLines, textLines);
 
         textLines.forEach((linha, index) => {
           const yLinha = startY + index * lineHeight;
-          
-          // Desenhar mesmo se estiver perto da borda - não cortar última linha
-          if (yLinha < cellY + 1) return; // Só pular se estiver acima da célula
-          
           const palavras = linha.trim().split(/\s+/).filter(Boolean);
-          
-          // Índice global desta linha no texto completo
-          const globalIndex = alreadyDrawn + index;
-          const isLastOfFullText = globalIndex === totalFullLines - 1;
-          
-          // Justificar todas as linhas EXCETO a última do texto completo
+
+          const globalIndex = segmentStart !== null ? segmentStart + index : null;
+          const isLastOfFullText = globalIndex !== null ? globalIndex === fullLines.length - 1 : index === textLines.length - 1;
           const shouldJustify = !isLastOfFullText && palavras.length > 1;
 
           if (!shouldJustify) {
@@ -425,23 +468,16 @@ export const gerarPropostaRealinhadaPDF = async (
             if (i < palavras.length - 1) xAtual += doc.getTextWidth(p) + espacoEntrePalavras;
           });
         });
-
-        // Atualizar contador de linhas desenhadas
-        if (fullData) {
-          fullData.drawnCount += textLines.length;
-        }
         return;
       }
 
-      // Outras colunas: centralizar verticalmente
-      if (Array.isArray(data.cell.text) && data.cell.text.length > 0) {
-        const textLines = data.cell.text as string[];
+      // Outras colunas: centralizar verticalmente (mantém o comportamento original)
+      {
         const totalTextHeight = textLines.length * lineHeight;
-        const startY = cellY + Math.max((cellHeight - totalTextHeight) / 2, padding) + lineHeight - 0.5;
+        const startYCenter = cellY + Math.max((cellHeight - totalTextHeight) / 2, padding) + baselineOffset;
 
         textLines.forEach((linha, index) => {
-          const yLinha = startY + index * lineHeight;
-          if (yLinha < cellY + 1) return;
+          const yLinha = startYCenter + index * lineHeight;
 
           if (data.column.index === 5 || data.column.index === 6) {
             doc.text(linha.trim(), cellX + cellWidth - padding, yLinha, { align: 'right' });
