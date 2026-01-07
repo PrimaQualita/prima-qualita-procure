@@ -278,8 +278,9 @@ export const gerarPropostaRealinhadaPDF = async (
   ]);
 
   // Gerar tabela com descrição justificada e colunas centralizadas verticalmente
-  // (em quebras de página, a última linha da página também deve ficar justificada)
-  const remainingDescricaoLinesByRow = new Map<number, string[]>();
+  // Mapeamento: para cada row.index, armazenamos as linhas completas do texto original
+  // e quantas já foram desenhadas (para saber se ainda há mais em quebra de página)
+  const fullDescricaoByRow = new Map<number, { lines: string[]; drawnCount: number }>();
 
   autoTable(doc, {
     head: headers,
@@ -288,14 +289,14 @@ export const gerarPropostaRealinhadaPDF = async (
     margin: { left: margin, right: margin },
     styles: {
       fontSize: 8,
-      cellPadding: 3, // Aumentar padding para evitar texto ultrapassar bordas
+      cellPadding: 3,
       overflow: 'linebreak',
       lineColor: [200, 200, 200],
       lineWidth: 0.3,
-      textColor: [0, 0, 0] // Garantir texto preto em todas as células
+      textColor: [0, 0, 0]
     },
     bodyStyles: {
-      textColor: [0, 0, 0], // Forçar texto preto no corpo da tabela
+      textColor: [0, 0, 0],
       font: 'helvetica',
       fontStyle: 'normal'
     },
@@ -307,13 +308,13 @@ export const gerarPropostaRealinhadaPDF = async (
       valign: 'middle',
     },
     columnStyles: {
-      0: { cellWidth: 12, halign: 'center', valign: 'middle', textColor: [0, 0, 0] },  // Item
-      1: { cellWidth: 60, halign: 'left', valign: 'middle', textColor: [0, 0, 0] },    // Descrição
-      2: { cellWidth: 15, halign: 'center', valign: 'middle', textColor: [0, 0, 0] },  // Qtd
-      3: { cellWidth: 15, halign: 'center', valign: 'middle', textColor: [0, 0, 0] },  // Un
-      4: { cellWidth: 25, halign: 'center', valign: 'middle', textColor: [0, 0, 0] },  // Marca
-      5: { cellWidth: 25, halign: 'right', valign: 'middle', textColor: [0, 0, 0] },   // Vlr Unit
-      6: { cellWidth: 28, halign: 'right', valign: 'middle', textColor: [0, 0, 0] },   // Vlr Total
+      0: { cellWidth: 12, halign: 'center', valign: 'middle', textColor: [0, 0, 0] },
+      1: { cellWidth: 60, halign: 'left', valign: 'middle', textColor: [0, 0, 0] },
+      2: { cellWidth: 15, halign: 'center', valign: 'middle', textColor: [0, 0, 0] },
+      3: { cellWidth: 15, halign: 'center', valign: 'middle', textColor: [0, 0, 0] },
+      4: { cellWidth: 25, halign: 'center', valign: 'middle', textColor: [0, 0, 0] },
+      5: { cellWidth: 25, halign: 'right', valign: 'middle', textColor: [0, 0, 0] },
+      6: { cellWidth: 28, halign: 'right', valign: 'middle', textColor: [0, 0, 0] },
     },
     rowPageBreak: 'auto',
     didParseCell: (data) => {
@@ -322,11 +323,12 @@ export const gerarPropostaRealinhadaPDF = async (
       const rowData = tableData[data.row.index];
       if (!rowData) return;
 
-      // Linhas especiais (lote/subtotal/total) não entram no controle de quebra
+      // Linhas especiais (lote/subtotal/total) não entram no controle
       if (Array.isArray(rowData) && rowData.length === 1 && (rowData[0] as any)?.colSpan) return;
       if (Array.isArray(rowData) && rowData.length === 2 && (rowData[0] as any)?.colSpan) return;
 
-      if (remainingDescricaoLinesByRow.has(data.row.index)) return;
+      // Só calcular uma vez por row
+      if (fullDescricaoByRow.has(data.row.index)) return;
 
       const rawText =
         typeof data.cell.raw === 'string'
@@ -335,7 +337,6 @@ export const gerarPropostaRealinhadaPDF = async (
             ? data.cell.text.join(' ')
             : String(data.cell.raw ?? '');
 
-      // IMPORTANTE: garantir mesma fonte/tamanho da tabela antes do splitTextToSize
       doc.setFont('helvetica', 'normal');
       doc.setFontSize(8);
 
@@ -343,10 +344,9 @@ export const gerarPropostaRealinhadaPDF = async (
       const larguraTexto = data.cell.width - padding * 2;
       const fullLines = doc.splitTextToSize(rawText, larguraTexto) as string[];
 
-      remainingDescricaoLinesByRow.set(data.row.index, [...fullLines]);
+      fullDescricaoByRow.set(data.row.index, { lines: fullLines, drawnCount: 0 });
     },
     didDrawCell: (data) => {
-      // Ignorar header e linhas especiais (lote, subtotal, total)
       if (data.section !== 'body') return;
 
       const rowData = tableData[data.row.index];
@@ -360,7 +360,7 @@ export const gerarPropostaRealinhadaPDF = async (
       const cellWidth = data.cell.width;
       const cellHeight = data.cell.height;
 
-      // Preencher fundo da célula (e cobrir o texto padrão do autoTable)
+      // Preencher fundo da célula (cobrir texto padrão do autoTable)
       const fillColor = data.cell.styles.fillColor;
       if (fillColor && Array.isArray(fillColor)) {
         doc.setFillColor(fillColor[0], fillColor[1], fillColor[2]);
@@ -369,7 +369,6 @@ export const gerarPropostaRealinhadaPDF = async (
       }
       doc.rect(cellX + 0.3, cellY + 0.3, cellWidth - 0.6, cellHeight - 0.6, 'F');
 
-      // Configurar fonte - SEMPRE preto para o corpo
       doc.setFontSize(8);
       doc.setFont('helvetica', 'normal');
       doc.setTextColor(0, 0, 0);
@@ -377,30 +376,33 @@ export const gerarPropostaRealinhadaPDF = async (
       const padding = 3;
       const lineHeight = 3.5;
 
-      // Coluna 1 (Descrição): justificar todas as linhas EXCETO a última do texto completo
-      // (mesmo quando o texto quebra entre páginas)
+      // Coluna 1 (Descrição): justificar todas exceto a última do texto COMPLETO
       if (data.column.index === 1 && Array.isArray(data.cell.text) && data.cell.text.length > 0) {
         const textLines = data.cell.text as string[];
         const larguraTexto = cellWidth - padding * 2;
 
+        // Calcular startY para centralização vertical
         const totalTextHeight = textLines.length * lineHeight;
-        const startY =
-          textLines.length <= 2
-            ? cellY + Math.max((cellHeight - totalTextHeight) / 2, padding) + lineHeight
-            : cellY + padding + lineHeight;
+        const startY = cellY + Math.max((cellHeight - totalTextHeight) / 2, padding) + lineHeight - 0.5;
 
-        const remaining = remainingDescricaoLinesByRow.get(data.row.index);
+        const fullData = fullDescricaoByRow.get(data.row.index);
+        const totalFullLines = fullData ? fullData.lines.length : textLines.length;
+        const alreadyDrawn = fullData ? fullData.drawnCount : 0;
 
         textLines.forEach((linha, index) => {
           const yLinha = startY + index * lineHeight;
-          if (yLinha > cellY + cellHeight - padding / 2) return;
-
+          
+          // Desenhar mesmo se estiver perto da borda - não cortar última linha
+          if (yLinha < cellY + 1) return; // Só pular se estiver acima da célula
+          
           const palavras = linha.trim().split(/\s+/).filter(Boolean);
-
-          const isLastOverall = remaining
-            ? remaining.length - (index + 1) === 0
-            : index === textLines.length - 1;
-          const shouldJustify = !isLastOverall && palavras.length > 1;
+          
+          // Índice global desta linha no texto completo
+          const globalIndex = alreadyDrawn + index;
+          const isLastOfFullText = globalIndex === totalFullLines - 1;
+          
+          // Justificar todas as linhas EXCETO a última do texto completo
+          const shouldJustify = !isLastOfFullText && palavras.length > 1;
 
           if (!shouldJustify) {
             doc.text(linha.trim(), cellX + padding, yLinha);
@@ -410,7 +412,6 @@ export const gerarPropostaRealinhadaPDF = async (
           const larguraPalavras = palavras.reduce((acc, p) => acc + doc.getTextWidth(p), 0);
           const espacoDisponivel = larguraTexto - larguraPalavras;
 
-          // Segurança: se já estiver estourando a largura, não tenta justificar
           if (espacoDisponivel <= 0) {
             doc.text(linha.trim(), cellX + padding, yLinha);
             return;
@@ -425,20 +426,22 @@ export const gerarPropostaRealinhadaPDF = async (
           });
         });
 
-        // Consumir as linhas desenhadas para saber se ainda há texto nas próximas páginas
-        if (remaining && remaining.length > 0) remaining.splice(0, textLines.length);
+        // Atualizar contador de linhas desenhadas
+        if (fullData) {
+          fullData.drawnCount += textLines.length;
+        }
         return;
       }
 
-      // Outras colunas: centralizar verticalmente (sem cortar linhas)
+      // Outras colunas: centralizar verticalmente
       if (Array.isArray(data.cell.text) && data.cell.text.length > 0) {
         const textLines = data.cell.text as string[];
         const totalTextHeight = textLines.length * lineHeight;
-        const startY = cellY + Math.max((cellHeight - totalTextHeight) / 2, padding) + lineHeight;
+        const startY = cellY + Math.max((cellHeight - totalTextHeight) / 2, padding) + lineHeight - 0.5;
 
         textLines.forEach((linha, index) => {
           const yLinha = startY + index * lineHeight;
-          if (yLinha > cellY + cellHeight - padding / 2) return;
+          if (yLinha < cellY + 1) return;
 
           if (data.column.index === 5 || data.column.index === 6) {
             doc.text(linha.trim(), cellX + cellWidth - padding, yLinha, { align: 'right' });
