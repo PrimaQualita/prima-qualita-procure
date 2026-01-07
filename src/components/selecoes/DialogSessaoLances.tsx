@@ -1973,7 +1973,7 @@ export function DialogSessaoLances({
           autoTable(doc, {
             startY: yPosition,
             head: [
-              [{ content: tituloTexto, colSpan: 4, styles: { fillColor: [224, 242, 241], textColor: [0, 128, 128], halign: "left", fontStyle: "bold", fontSize: 10 } }],
+              [{ content: tituloTexto, colSpan: 4, styles: { fillColor: [224, 242, 241], textColor: [0, 128, 128], halign: "justify", fontSize: 10 } }],
               ["Pos.", "Fornecedor", "Valor", "Data/Hora"]
             ],
             body: [[{ content: termoSemLances, colSpan: 4, styles: { halign: "center", textColor: [100, 100, 100], fontStyle: "italic" } }]],
@@ -2065,7 +2065,7 @@ export function DialogSessaoLances({
           autoTable(doc, {
             startY: yPosition,
             head: [
-              [{ content: tituloTexto, colSpan: 4, styles: { fillColor: [224, 242, 241], textColor: [0, 128, 128], halign: "left", fontStyle: "bold", fontSize: 10 } }],
+              [{ content: tituloTexto, colSpan: 4, styles: { fillColor: [224, 242, 241], textColor: [0, 128, 128], halign: "justify", fontSize: 10 } }],
               ["Pos.", "Fornecedor", criterioJulgamento === "desconto" ? "% Desconto" : "Valor", "Data/Hora"]
             ],
             body: tableData.map(row => row.data),
