@@ -522,24 +522,20 @@ const ParticiparSelecao = () => {
         return;
       }
 
-      // Verificar critério de julgamento da cotação
-      const { data: cotacaoData } = await supabase
-        .from("cotacoes_precos")
-        .select("criterio_julgamento")
-        .eq("id", cotacaoId)
-        .single();
-      
-      const isDesconto = cotacaoData?.criterio_julgamento === "desconto";
+      // Usar critério de julgamento já carregado do processo (evita query que pode falhar com 406)
+      const criterioAtual = criterioJulgamento || processo?.criterio_julgamento || "";
+      const isDesconto = criterioAtual === "desconto";
 
       // USAR estimativas_itens da planilha consolidada - reflete critério escolhido (média, mediana, menor)
       const estimativasItens = (planilha.estimativas_itens || {}) as Record<string, number>;
       console.log("📊 Usando estimativas da planilha consolidada:", estimativasItens);
+      console.log("📊 Critério de julgamento atual:", criterioAtual);
 
       const todosItens: Item[] = [];
 
       // Carregar lotes se critério por_lote para obter numero_lote
       let lotesMap: Map<string, number> = new Map();
-      if (cotacaoData?.criterio_julgamento === 'por_lote') {
+      if (criterioAtual === 'por_lote') {
         const { data: lotesData } = await supabase
           .from("lotes_cotacao")
           .select("id, numero_lote")
@@ -549,6 +545,7 @@ const ParticiparSelecao = () => {
           lotesData.forEach(lote => {
             lotesMap.set(lote.id, lote.numero_lote);
           });
+          console.log("📊 Lotes carregados:", Object.fromEntries(lotesMap));
         }
       }
 
@@ -558,7 +555,7 @@ const ParticiparSelecao = () => {
         // Para outros critérios: usar chave simples "numero_item"
         let chaveEstimativa: string;
         
-        if (cotacaoData?.criterio_julgamento === 'por_lote' && itemOriginal.lote_id) {
+        if (criterioAtual === 'por_lote' && itemOriginal.lote_id) {
           const numeroLote = lotesMap.get(itemOriginal.lote_id);
           if (numeroLote) {
             chaveEstimativa = `${numeroLote}_${itemOriginal.numero_item}`;
@@ -568,6 +565,8 @@ const ParticiparSelecao = () => {
         } else {
           chaveEstimativa = String(itemOriginal.numero_item);
         }
+        
+        console.log(`📊 Item ${itemOriginal.numero_item} - chave: ${chaveEstimativa} - valor: ${estimativasItens[chaveEstimativa] || 0}`);
         
         const valorEstimado = estimativasItens[chaveEstimativa] || 0;
         const valorTotalItem = isDesconto ? 0 : (valorEstimado * itemOriginal.quantidade);
