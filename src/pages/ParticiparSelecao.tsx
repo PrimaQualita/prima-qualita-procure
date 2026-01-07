@@ -714,13 +714,8 @@ const ParticiparSelecao = () => {
     }
     
     // Para critério de valor monetário
-    // Verifica se o valor original contém vírgula ou ponto (separador decimal)
-    const temSeparadorDecimal = /[,.]/.test(value.replace(/\./g, (match, offset, str) => {
-      // Distinguir ponto de milhar (seguido de 3 dígitos) de ponto decimal
-      const afterPoint = str.slice(offset + 1);
-      return /^\d{3}(?!\d)/.test(afterPoint) ? '' : match;
-    }));
     
+
     // Remove R$, espaços e pontos de milhar, mantém vírgula decimal
     let valorLimpo = value.replace(/R\$\s?/g, '').replace(/\s/g, '');
     
