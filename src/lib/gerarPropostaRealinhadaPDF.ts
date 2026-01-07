@@ -278,6 +278,9 @@ export const gerarPropostaRealinhadaPDF = async (
   ]);
 
   // Gerar tabela com descrição justificada e colunas centralizadas verticalmente
+  // (em quebras de página, a última linha da página também deve ficar justificada)
+  const remainingDescricaoLinesByRow = new Map<number, string[]>();
+
   autoTable(doc, {
     head: headers,
     body: tableData,
@@ -314,31 +317,50 @@ export const gerarPropostaRealinhadaPDF = async (
     },
     rowPageBreak: 'auto',
     didParseCell: (data) => {
-      // Adicionar padding dinâmico para descrições longas
-      if (data.column.index === 1 && data.section === 'body' && data.cell.text && typeof data.cell.text === 'object') {
-        const textLines = Array.isArray(data.cell.text) ? data.cell.text.length : 1;
-        if (textLines > 2) {
-          data.cell.styles.cellPadding = { top: 2, right: 2, bottom: 2 + (textLines - 2) * 1.5, left: 2 };
-        }
-      }
+      if (data.section !== 'body' || data.column.index !== 1) return;
+
+      const rowData = tableData[data.row.index];
+      if (!rowData) return;
+
+      // Linhas especiais (lote/subtotal/total) não entram no controle de quebra
+      if (Array.isArray(rowData) && rowData.length === 1 && (rowData[0] as any)?.colSpan) return;
+      if (Array.isArray(rowData) && rowData.length === 2 && (rowData[0] as any)?.colSpan) return;
+
+      if (remainingDescricaoLinesByRow.has(data.row.index)) return;
+
+      const rawText =
+        typeof data.cell.raw === 'string'
+          ? data.cell.raw
+          : Array.isArray(data.cell.text)
+            ? data.cell.text.join(' ')
+            : String(data.cell.raw ?? '');
+
+      // IMPORTANTE: garantir mesma fonte/tamanho da tabela antes do splitTextToSize
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(8);
+
+      const padding = 3;
+      const larguraTexto = data.cell.width - padding * 2;
+      const fullLines = doc.splitTextToSize(rawText, larguraTexto) as string[];
+
+      remainingDescricaoLinesByRow.set(data.row.index, [...fullLines]);
     },
     didDrawCell: (data) => {
       // Ignorar header e linhas especiais (lote, subtotal, total)
       if (data.section !== 'body') return;
-      
+
       const rowData = tableData[data.row.index];
       if (!rowData) return;
-      
-      // Verificar se é linha especial (array com objeto colSpan ou objeto especial)
-      if (Array.isArray(rowData) && rowData.length === 1 && rowData[0]?.colSpan) return;
-      if (Array.isArray(rowData) && rowData.length === 2 && rowData[0]?.colSpan) return;
-      
+
+      if (Array.isArray(rowData) && rowData.length === 1 && (rowData[0] as any)?.colSpan) return;
+      if (Array.isArray(rowData) && rowData.length === 2 && (rowData[0] as any)?.colSpan) return;
+
       const cellX = data.cell.x;
       const cellY = data.cell.y;
       const cellWidth = data.cell.width;
       const cellHeight = data.cell.height;
-      
-      // Preencher fundo da célula
+
+      // Preencher fundo da célula (e cobrir o texto padrão do autoTable)
       const fillColor = data.cell.styles.fillColor;
       if (fillColor && Array.isArray(fillColor)) {
         doc.setFillColor(fillColor[0], fillColor[1], fillColor[2]);
@@ -346,88 +368,82 @@ export const gerarPropostaRealinhadaPDF = async (
         doc.setFillColor(255, 255, 255);
       }
       doc.rect(cellX + 0.3, cellY + 0.3, cellWidth - 0.6, cellHeight - 0.6, 'F');
-      
+
       // Configurar fonte - SEMPRE preto para o corpo
       doc.setFontSize(8);
       doc.setFont('helvetica', 'normal');
-      doc.setTextColor(0, 0, 0); // Forçar cor preta
-      
-      // Coluna 1 (Descrição): texto justificado com cor preta
-      if (data.column.index === 1 && data.cell.text && Array.isArray(data.cell.text) && data.cell.text.length > 0) {
-        const padding = 3; // Aumentado para evitar ultrapassar bordas
-        const larguraTexto = cellWidth - (padding * 2);
+      doc.setTextColor(0, 0, 0);
+
+      const padding = 3;
+      const lineHeight = 3.5;
+
+      // Coluna 1 (Descrição): justificar todas as linhas EXCETO a última do texto completo
+      // (mesmo quando o texto quebra entre páginas)
+      if (data.column.index === 1 && Array.isArray(data.cell.text) && data.cell.text.length > 0) {
         const textLines = data.cell.text as string[];
-        const lineHeight = 3.5;
-        
-        // Garantir cor preta antes de renderizar
-        doc.setTextColor(0, 0, 0);
-        
-        // Centralização vertical com offset de segurança
+        const larguraTexto = cellWidth - padding * 2;
+
         const totalTextHeight = textLines.length * lineHeight;
-        const startY = cellY + Math.max((cellHeight - totalTextHeight) / 2, padding) + lineHeight;
-        
+        const startY =
+          textLines.length <= 2
+            ? cellY + Math.max((cellHeight - totalTextHeight) / 2, padding) + lineHeight
+            : cellY + padding + lineHeight;
+
+        const remaining = remainingDescricaoLinesByRow.get(data.row.index);
+
         textLines.forEach((linha, index) => {
-          const yLinha = startY + (index * lineHeight);
-          
-          // Verificar se a linha está dentro dos limites da célula (bordas superior e inferior)
-          if (yLinha > cellY + padding && yLinha < cellY + cellHeight - 1) {
-            const isUltimaLinha = index === textLines.length - 1;
-            
-            // Garantir cor preta em cada linha
-            doc.setTextColor(0, 0, 0);
-            
-            if (isUltimaLinha || textLines.length === 1) {
-              // Última linha ou linha única: alinhamento à esquerda (não esticar)
-              doc.text(linha.trim(), cellX + padding, yLinha);
-            } else {
-              // Linhas intermediárias: texto justificado
-              const palavras = linha.trim().split(/\s+/).filter(p => p.length > 0);
-              if (palavras.length > 1) {
-                let larguraPalavras = 0;
-                palavras.forEach(palavra => {
-                  larguraPalavras += doc.getTextWidth(palavra);
-                });
-                const espacoDisponivel = larguraTexto - larguraPalavras;
-                const espacoEntrePalavras = espacoDisponivel / (palavras.length - 1);
-                
-                let xAtual = cellX + padding;
-                palavras.forEach((palavra, idx) => {
-                  doc.text(palavra, xAtual, yLinha);
-                  if (idx < palavras.length - 1) {
-                    xAtual += doc.getTextWidth(palavra) + espacoEntrePalavras;
-                  }
-                });
-              } else {
-                doc.text(linha.trim(), cellX + padding, yLinha);
-              }
-            }
+          const yLinha = startY + index * lineHeight;
+          if (yLinha > cellY + cellHeight - padding / 2) return;
+
+          const palavras = linha.trim().split(/\s+/).filter(Boolean);
+
+          const isLastOverall = remaining
+            ? remaining.length - (index + 1) === 0
+            : index === textLines.length - 1;
+          const shouldJustify = !isLastOverall && palavras.length > 1;
+
+          if (!shouldJustify) {
+            doc.text(linha.trim(), cellX + padding, yLinha);
+            return;
           }
+
+          const larguraPalavras = palavras.reduce((acc, p) => acc + doc.getTextWidth(p), 0);
+          const espacoDisponivel = larguraTexto - larguraPalavras;
+
+          // Segurança: se já estiver estourando a largura, não tenta justificar
+          if (espacoDisponivel <= 0) {
+            doc.text(linha.trim(), cellX + padding, yLinha);
+            return;
+          }
+
+          const espacoEntrePalavras = espacoDisponivel / (palavras.length - 1);
+          let xAtual = cellX + padding;
+
+          palavras.forEach((p, i) => {
+            doc.text(p, xAtual, yLinha);
+            if (i < palavras.length - 1) xAtual += doc.getTextWidth(p) + espacoEntrePalavras;
+          });
         });
+
+        // Consumir as linhas desenhadas para saber se ainda há texto nas próximas páginas
+        if (remaining && remaining.length > 0) remaining.splice(0, textLines.length);
+        return;
       }
-      // Outras colunas: centralizar verticalmente com cor preta
-      else if (data.cell.text && Array.isArray(data.cell.text) && data.cell.text.length > 0) {
+
+      // Outras colunas: centralizar verticalmente (sem cortar linhas)
+      if (Array.isArray(data.cell.text) && data.cell.text.length > 0) {
         const textLines = data.cell.text as string[];
-        const lineHeight = 3.5;
-        const padding = 3;
         const totalTextHeight = textLines.length * lineHeight;
         const startY = cellY + Math.max((cellHeight - totalTextHeight) / 2, padding) + lineHeight;
-        
+
         textLines.forEach((linha, index) => {
-          const yLinha = startY + (index * lineHeight);
-          
-          // Verificar limites da célula
-          if (yLinha > cellY + padding && yLinha < cellY + cellHeight - 1) {
-            // Garantir cor preta
-            doc.setTextColor(0, 0, 0);
-            
-            // Colunas com alinhamento à direita (valores)
-            if (data.column.index === 5 || data.column.index === 6) {
-              doc.text(linha.trim(), cellX + cellWidth - padding, yLinha, { align: 'right' });
-            }
-            // Colunas com alinhamento central
-            else {
-              doc.text(linha.trim(), cellX + (cellWidth / 2), yLinha, { align: 'center' });
-            }
+          const yLinha = startY + index * lineHeight;
+          if (yLinha > cellY + cellHeight - padding / 2) return;
+
+          if (data.column.index === 5 || data.column.index === 6) {
+            doc.text(linha.trim(), cellX + cellWidth - padding, yLinha, { align: 'right' });
+          } else {
+            doc.text(linha.trim(), cellX + cellWidth / 2, yLinha, { align: 'center' });
           }
         });
       }
