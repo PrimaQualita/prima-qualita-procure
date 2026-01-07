@@ -292,9 +292,41 @@ export const gerarPropostaRealinhadaPDF = async (
     return false;
   };
 
-  const getRowKey = (rowIndex: number, rowData: any): RowKey | null => {
+  const getRowKeyFromRowData = (rowData: any): RowKey | null => {
     if (isSpecialRow(rowData)) return null;
-    return `row:${rowIndex}`;
+
+    // A primeira coluna sempre é o número do item nas linhas normais.
+    const itemCell = rowData?.[0];
+    if (typeof itemCell === 'string' && itemCell.trim()) return `item:${itemCell.trim()}`;
+
+    return null;
+  };
+
+  const getKeyFromHookData = (data: any): RowKey | null => {
+    // IMPORTANTE: em quebras de página, data.row.index pode variar e/ou não referenciar tableData.
+    // O mais confiável é extrair o número do item a partir das células já processadas pelo autoTable.
+
+    // 1) Tentar pelo raw original (quando disponível)
+    const rowRaw = data?.row?.raw;
+    const keyFromRaw = getRowKeyFromRowData(rowRaw);
+    if (keyFromRaw) return keyFromRaw;
+
+    // 2) Tentar pela célula da coluna 0 (Item)
+    const itemCell = data?.row?.cells?.[0];
+    const itemText =
+      Array.isArray(itemCell?.text)
+        ? itemCell.text.join(' ').trim()
+        : typeof itemCell?.text === 'string'
+          ? itemCell.text.trim()
+          : typeof itemCell?.raw === 'string'
+            ? itemCell.raw.trim()
+            : '';
+
+    if (itemText && /^\d+$/.test(itemText)) return `item:${itemText}`;
+
+    // 3) Fallback estável (último recurso)
+    if (typeof data?.row?.index === 'number') return `row:${data.row.index}`;
+    return null;
   };
 
   const normalizeTextLines = (text: unknown): string[] => {
@@ -374,10 +406,10 @@ export const gerarPropostaRealinhadaPDF = async (
     didParseCell: (data) => {
       if (data.section !== 'body' || data.column.index !== 1) return;
 
-      const rowIndex = data.row.index;
-      const rowData = tableData[rowIndex];
-      const key = getRowKey(rowIndex, rowData);
+      const key = getKeyFromHookData(data);
       if (!key) return;
+
+      const rowRaw = (data as any)?.row?.raw;
 
       // Inicializar cursor sempre (mesmo se o autoTable reprocessar o mesmo item)
       if (!lineCursorByKey.has(key)) lineCursorByKey.set(key, 0);
@@ -386,8 +418,8 @@ export const gerarPropostaRealinhadaPDF = async (
       if (fullDescricaoByKey.has(key)) return;
 
       const rawText =
-        Array.isArray(rowData) && typeof rowData[1] === 'string'
-          ? rowData[1]
+        Array.isArray(rowRaw) && typeof rowRaw[1] === 'string'
+          ? rowRaw[1]
           : typeof data.cell.raw === 'string'
             ? data.cell.raw
             : normalizeTextLines(data.cell.text).join(' ');
@@ -404,9 +436,7 @@ export const gerarPropostaRealinhadaPDF = async (
     didDrawCell: (data) => {
       if (data.section !== 'body') return;
 
-      const rowIndex = data.row.index;
-      const rowData = tableData[rowIndex];
-      const key = getRowKey(rowIndex, rowData);
+      const key = getKeyFromHookData(data);
       if (!key) return;
 
       const cellX = data.cell.x;
