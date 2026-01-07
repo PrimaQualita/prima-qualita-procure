@@ -284,15 +284,17 @@ export const gerarPropostaRealinhadaPDF = async (
 
   type RowKey = string;
 
-  const getRowKey = (rowData: any): RowKey | null => {
-    if (!Array.isArray(rowData)) return null;
+  const isSpecialRow = (rowData: any): boolean => {
+    if (!Array.isArray(rowData)) return true;
     // Linhas especiais (lote/subtotal/total) não entram no controle
-    if (rowData.length === 1 && (rowData[0] as any)?.colSpan) return null;
-    if (rowData.length === 2 && (rowData[0] as any)?.colSpan) return null;
+    if (rowData.length === 1 && (rowData[0] as any)?.colSpan) return true;
+    if (rowData.length === 2 && (rowData[0] as any)?.colSpan) return true;
+    return false;
+  };
 
-    const itemCell = rowData[0];
-    if (typeof itemCell === 'string' && itemCell.trim()) return `item:${itemCell.trim()}`;
-    return null;
+  const getRowKey = (rowIndex: number, rowData: any): RowKey | null => {
+    if (isSpecialRow(rowData)) return null;
+    return `row:${rowIndex}`;
   };
 
   const normalizeTextLines = (text: unknown): string[] => {
@@ -328,6 +330,11 @@ export const gerarPropostaRealinhadaPDF = async (
 
   // Para cada item (rowKey), armazenamos as linhas COMPLETAS do texto original
   const fullDescricaoByKey = new Map<RowKey, string[]>();
+
+  // Cursor de “qual linha global estou desenhando agora” por item.
+  // Isso resolve o caso onde o autoTable quebra a mesma célula em múltiplas páginas:
+  // a última linha do SEGMENTO na página 1 não é a última linha do TEXTO COMPLETO.
+  const lineCursorByKey = new Map<RowKey, number>();
 
   autoTable(doc, {
     head: headers,
@@ -367,9 +374,13 @@ export const gerarPropostaRealinhadaPDF = async (
     didParseCell: (data) => {
       if (data.section !== 'body' || data.column.index !== 1) return;
 
-      const rowData = tableData[data.row.index];
-      const key = getRowKey(rowData);
+      const rowIndex = data.row.index;
+      const rowData = tableData[rowIndex];
+      const key = getRowKey(rowIndex, rowData);
       if (!key) return;
+
+      // Inicializar cursor sempre (mesmo se o autoTable reprocessar o mesmo item)
+      if (!lineCursorByKey.has(key)) lineCursorByKey.set(key, 0);
 
       // Só calcular uma vez por item
       if (fullDescricaoByKey.has(key)) return;
@@ -393,8 +404,9 @@ export const gerarPropostaRealinhadaPDF = async (
     didDrawCell: (data) => {
       if (data.section !== 'body') return;
 
-      const rowData = tableData[data.row.index];
-      const key = getRowKey(rowData);
+      const rowIndex = data.row.index;
+      const rowData = tableData[rowIndex];
+      const key = getRowKey(rowIndex, rowData);
       if (!key) return;
 
       const cellX = data.cell.x;
@@ -432,46 +444,49 @@ export const gerarPropostaRealinhadaPDF = async (
       const baselineOffset = Math.min(fontSize * PT_TO_MM * 0.8, lineHeight * 0.9);
       const startY = cellY + padding + baselineOffset;
 
-      // Coluna 1 (Descrição): justificar todas exceto a última
+      // Coluna 1 (Descrição): justificar todas exceto a última do TEXTO COMPLETO
       if (data.column.index === 1) {
         const larguraTexto = cellWidth - padding * 2;
-        
+
+        const fullLines = fullDescricaoByKey.get(key) ?? textLines;
+        const segmentStart =
+          lineCursorByKey.get(key) ?? findSegmentStartIndex(fullLines, textLines) ?? 0;
+
         textLines.forEach((linha, index) => {
           const yLinha = startY + index * lineHeight;
-          
+
           // Não cortar - apenas pular se estiver acima do início da célula
           if (yLinha < cellY + 1) return;
-          
-          const isUltimaLinha = index === textLines.length - 1;
-          const palavras = linha.trim().split(/\s+/).filter(p => p.length > 0);
-          
-          if (isUltimaLinha || textLines.length === 1 || palavras.length <= 1) {
-            // Última linha ou linha única: alinhamento à esquerda (não esticar)
+
+          const globalIndex = segmentStart + index;
+          const isLastOfFullText = globalIndex === fullLines.length - 1;
+
+          const palavras = linha.trim().split(/\s+/).filter(Boolean);
+          const shouldJustify = !isLastOfFullText && palavras.length > 1;
+
+          if (!shouldJustify) {
             doc.text(linha.trim(), cellX + padding, yLinha);
-          } else {
-            // Linhas intermediárias: texto justificado
-            let larguraPalavras = 0;
-            palavras.forEach(palavra => {
-              larguraPalavras += doc.getTextWidth(palavra);
-            });
-
-            const espacoDisponivel = larguraTexto - larguraPalavras;
-            if (espacoDisponivel <= 0) {
-              doc.text(linha.trim(), cellX + padding, yLinha);
-              return;
-            }
-            
-            const espacoEntrePalavras = espacoDisponivel / (palavras.length - 1);
-
-            let xAtual = cellX + padding;
-            palavras.forEach((palavra, idx) => {
-              doc.text(palavra, xAtual, yLinha);
-              if (idx < palavras.length - 1) {
-                xAtual += doc.getTextWidth(palavra) + espacoEntrePalavras;
-              }
-            });
+            return;
           }
+
+          const larguraPalavras = palavras.reduce((acc, p) => acc + doc.getTextWidth(p), 0);
+          const espacoDisponivel = larguraTexto - larguraPalavras;
+          if (espacoDisponivel <= 0) {
+            doc.text(linha.trim(), cellX + padding, yLinha);
+            return;
+          }
+
+          const espacoEntrePalavras = espacoDisponivel / (palavras.length - 1);
+          let xAtual = cellX + padding;
+
+          palavras.forEach((p, i) => {
+            doc.text(p, xAtual, yLinha);
+            if (i < palavras.length - 1) xAtual += doc.getTextWidth(p) + espacoEntrePalavras;
+          });
         });
+
+        // Avançar cursor global deste item (suporta célula quebrada em páginas)
+        lineCursorByKey.set(key, segmentStart + textLines.length);
         return;
       }
 
