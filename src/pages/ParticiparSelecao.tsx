@@ -1084,6 +1084,7 @@ const ParticiparSelecao = () => {
         descricao: item.descricao,
         quantidade: item.quantidade,
         unidade: item.unidade,
+        lote_id: item.lote_id || null,
         marca: respostas[item.id]?.marca_ofertada || null,
         valor_unitario_ofertado: respostas[item.id]?.valor_unitario_ofertado || 0,
         valor_total_item: (respostas[item.id]?.valor_unitario_ofertado || 0) * item.quantidade,
