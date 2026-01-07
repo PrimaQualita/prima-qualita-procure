@@ -196,6 +196,31 @@ const ParticiparSelecao = () => {
   const [observacoes, setObservacoes] = useState("");
   const [errors, setErrors] = useState<{ [key: string]: string }>({});
   const [arquivosComprovantes, setArquivosComprovantes] = useState<File[]>([]);
+  const [prazoExpirado, setPrazoExpirado] = useState(false);
+
+  // Verificar prazo em tempo real - expirar 5 minutos antes da sessão
+  useEffect(() => {
+    if (!selecao?.data_sessao_disputa || !selecao?.hora_sessao_disputa) return;
+
+    const verificarPrazo = () => {
+      const dataHoraSessao = new Date(`${selecao.data_sessao_disputa}T${selecao.hora_sessao_disputa}:00-03:00`);
+      const agora = new Date();
+      const agoraBrasilia = new Date(agora.toLocaleString('en-US', { timeZone: 'America/Sao_Paulo' }));
+      const cincoMinutosAntes = new Date(dataHoraSessao.getTime() - 5 * 60 * 1000);
+      
+      if (agoraBrasilia >= cincoMinutosAntes) {
+        setPrazoExpirado(true);
+      }
+    };
+
+    // Verificar imediatamente
+    verificarPrazo();
+    
+    // Verificar a cada segundo
+    const interval = setInterval(verificarPrazo, 1000);
+    
+    return () => clearInterval(interval);
+  }, [selecao?.data_sessao_disputa, selecao?.hora_sessao_disputa]);
 
   const verificarCnpjExistente = async (cnpj: string) => {
     const cnpjLimpo = cnpj.replace(/\D/g, '');
@@ -1339,10 +1364,27 @@ const ParticiparSelecao = () => {
         </Card>
 
         {/* Registro de Proposta */}
-        {!jaEnviouProposta ? (
+        {prazoExpirado ? (
+          <Card className="mb-6 border-amber-500 bg-amber-50 dark:bg-amber-950">
+            <CardHeader>
+              <CardTitle className="text-amber-700 dark:text-amber-400">⏰ Prazo Encerrado</CardTitle>
+              <CardDescription className="text-amber-600 dark:text-amber-300">
+                O prazo para envio de novas propostas foi encerrado.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <p className="text-amber-700 dark:text-amber-300">
+                Não é mais possível enviar ou modificar propostas para esta seleção.
+                O prazo encerra 5 minutos antes do horário da sessão de disputa.
+              </p>
+              <div className="mt-4 p-3 bg-white dark:bg-card rounded border">
+                <p className="text-sm"><strong>Data da Sessão:</strong> {selecao?.data_sessao_disputa?.split('T')[0].split('-').reverse().join('/')}</p>
+                <p className="text-sm"><strong>Horário:</strong> {selecao?.hora_sessao_disputa}</p>
+              </div>
+            </CardContent>
+          </Card>
+        ) : !jaEnviouProposta ? (
           <>
-            {/* DEBUG - VERIFICAÇÃO DE RENDERIZAÇÃO */}
-            {console.log("🎨 RENDERIZAÇÃO:", { fornecedor: fornecedor, isPublicAccess, shouldShowForm: !fornecedor || isPublicAccess })}
             
             {/* Dados da Empresa - FORMULÁRIO FORÇADO PARA PÚBLICO */}
             {(isPublicAccess || !fornecedor) && (
