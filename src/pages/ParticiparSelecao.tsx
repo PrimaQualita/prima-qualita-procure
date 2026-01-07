@@ -713,10 +713,36 @@ const ParticiparSelecao = () => {
       return;
     }
     
-    // Para critério de valor monetário (código original)
-    const numeros = value.replace(/\D/g, '');
+    // Para critério de valor monetário
+    // Verifica se o valor original contém vírgula ou ponto (separador decimal)
+    const temSeparadorDecimal = /[,.]/.test(value.replace(/\./g, (match, offset, str) => {
+      // Distinguir ponto de milhar (seguido de 3 dígitos) de ponto decimal
+      const afterPoint = str.slice(offset + 1);
+      return /^\d{3}(?!\d)/.test(afterPoint) ? '' : match;
+    }));
     
-    if (!numeros || numeros === '0' || numeros === '') {
+    // Remove R$, espaços e pontos de milhar, mantém vírgula decimal
+    let valorLimpo = value.replace(/R\$\s?/g, '').replace(/\s/g, '');
+    
+    // Se tem vírgula, usar como separador decimal
+    if (valorLimpo.includes(',')) {
+      // Remove pontos de milhar e substitui vírgula por ponto para parseFloat
+      valorLimpo = valorLimpo.replace(/\./g, '').replace(',', '.');
+    } else if (valorLimpo.includes('.')) {
+      // Se só tem ponto, verificar se é milhar ou decimal
+      const partes = valorLimpo.split('.');
+      if (partes.length === 2 && partes[1].length <= 2) {
+        // É separador decimal (ex: 69.00)
+        // Já está no formato correto
+      } else {
+        // São pontos de milhar (ex: 6.900)
+        valorLimpo = valorLimpo.replace(/\./g, '');
+      }
+    }
+    
+    const valorNumerico = parseFloat(valorLimpo);
+    
+    if (!valorNumerico || isNaN(valorNumerico) || valorNumerico === 0) {
       setRespostas(prev => ({
         ...prev,
         [itemId]: { 
@@ -728,8 +754,11 @@ const ParticiparSelecao = () => {
       return;
     }
     
-    const valorFormatado = formatarMoeda(numeros);
-    const valorNumerico = parseFloat(valorFormatado.replace(/\./g, '').replace(',', '.'));
+    // Formatar para exibição
+    const valorFormatado = valorNumerico.toLocaleString('pt-BR', {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2
+    });
     
     setRespostas(prev => ({
       ...prev,
@@ -739,7 +768,7 @@ const ParticiparSelecao = () => {
         valor_display: valorFormatado 
       }
     }));
-  }, [formatarMoeda, criterioJulgamento]);
+  }, [criterioJulgamento]);
 
   const handleMarcaBlur = useCallback((itemId: string, marca: string) => {
     setRespostas(prev => ({
