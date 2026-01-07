@@ -142,6 +142,7 @@ export function DialogFinalizarProcesso({
   const [confirmDeletePlanilhaHabOpen, setConfirmDeletePlanilhaHabOpen] = useState(false);
   const [planilhaHabParaExcluir, setPlanilhaHabParaExcluir] = useState<any>(null);
   const [foiEnviadoParaSelecao, setFoiEnviadoParaSelecao] = useState(false);
+  const [requerSelecao, setRequerSelecao] = useState(false);
   const [encaminhamentosContabilidade, setEncaminhamentosContabilidade] = useState<any[]>([]);
   
   // Estados para rejeição por item/lote
@@ -441,9 +442,10 @@ export function DialogFinalizarProcesso({
       console.log("🔄 Timestamp:", new Date().toISOString());
       
       // CRÍTICO: Buscar cotação com critério de julgamento E documentos_aprovados atualizados E enviado_para_selecao
+      // Também buscar requer_selecao do processo vinculado para definir o título corretamente
       const { data: cotacao, error: cotacaoError } = await supabase
         .from("cotacoes_precos")
-        .select("criterio_julgamento, documentos_aprovados, enviado_para_selecao")
+        .select("criterio_julgamento, documentos_aprovados, enviado_para_selecao, processos_compras!inner(requer_selecao)")
         .eq("id", cotacaoId)
         .single();
 
@@ -452,12 +454,15 @@ export function DialogFinalizarProcesso({
       console.log("📊 Critério de julgamento:", cotacao?.criterio_julgamento);
       console.log("📋 Documentos aprovados RAW do banco:", JSON.stringify(cotacao?.documentos_aprovados));
       console.log("🔄 Foi enviado para seleção:", cotacao?.enviado_para_selecao);
+      console.log("🔄 Requer seleção (processo):", (cotacao as any)?.processos_compras?.requer_selecao);
       
       // Atualizar estado do critério de julgamento
       setCriterioJulgamento(cotacao?.criterio_julgamento || "global");
       
       // Atualizar estado
       setFoiEnviadoParaSelecao(cotacao?.enviado_para_selecao || false);
+      // IMPORTANTE: Usar requer_selecao do processo para definir o título, não enviado_para_selecao
+      setRequerSelecao((cotacao as any)?.processos_compras?.requer_selecao || false);
       
       // CRÍTICO: Atualizar o estado com dados frescos do banco - tratar null explicitamente
       const docsAprovadosRaw = cotacao?.documentos_aprovados;
@@ -3139,7 +3144,7 @@ export function DialogFinalizarProcesso({
           <div className="flex items-center justify-between">
             <div>
               <DialogTitle>
-                Verificar Documentação - {foiEnviadoParaSelecao ? 'Seleção de Fornecedores' : 'Compra Direta'}
+                Verificar Documentação - {requerSelecao ? 'Seleção de Fornecedores' : 'Compra Direta'}
               </DialogTitle>
               <DialogDescription>
                 Revise os documentos de cada fornecedor vencedor e solicite documentos adicionais se necessário
