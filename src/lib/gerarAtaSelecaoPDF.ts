@@ -1513,14 +1513,16 @@ export async function gerarAtaSelecaoPDF(selecaoId: string): Promise<{ url: stri
   currentY += espacoEntreSecoes;
 
   // CERTIFICAÇÃO DIGITAL
-  checkNewPage(70);
-
   const verificationUrl = `${window.location.origin}/verificar-ata?protocolo=${protocolo}`;
-  
+
+  // Calcular altura real da certificação ANTES de decidir quebra de página
   doc.setFontSize(8);
   const urlLines = doc.splitTextToSize(verificationUrl, contentWidth - 10);
   const certHeight = 38 + (urlLines.length * 3.5);
-  
+
+  // Garantir que a caixa inteira caiba na página atual quando houver espaço
+  checkNewPage(certHeight + 4);
+
   const certY = currentY;
   
   // Fundo cinza
