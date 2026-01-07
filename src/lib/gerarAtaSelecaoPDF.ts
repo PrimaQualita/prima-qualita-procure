@@ -638,6 +638,9 @@ export async function gerarAtaSelecaoPDF(selecaoId: string): Promise<{ url: stri
   const lineHeight = 5.5;
   let secaoNumero = 1;
 
+  // Detectar se TODOS os itens são DESERTOS (nenhuma proposta em nenhum item/lote)
+  const todosItensDesertos = empresasParticipantes.length === 0;
+
   // ============= 1 - TÍTULO =============
   doc.setFontSize(14);
   doc.setFont("helvetica", "bold");
@@ -733,200 +736,208 @@ export async function gerarAtaSelecaoPDF(selecaoId: string): Promise<{ url: stri
   }
 
   // ============= 5 - VENCEDORES NOS LANCES (antes da habilitação) =============
-  checkNewPage(10);
-  doc.setFontSize(11);
-  doc.setFont("helvetica", "bold");
-  doc.text(`${secaoNumero}. VENCEDORES NOS LANCES`, marginLeft, currentY);
-  secaoNumero++;
-  currentY += espacoAposTitulo;
+  // OMITIR se todos os itens forem desertos
+  if (!todosItensDesertos) {
+    checkNewPage(10);
+    doc.setFontSize(11);
+    doc.setFont("helvetica", "bold");
+    doc.text(`${secaoNumero}. VENCEDORES NOS LANCES`, marginLeft, currentY);
+    secaoNumero++;
+    currentY += espacoAposTitulo;
 
-  if (itensVencedores.length > 0) {
-    // Agrupar por fornecedor
-    const vencedoresPorFornecedor: Record<string, { nome: string; itens: number[]; valorTotal: number; quantidadeItens: number }> = {};
-    itensVencedores.forEach(item => {
-      if (!vencedoresPorFornecedor[item.fornecedor_id]) {
-        vencedoresPorFornecedor[item.fornecedor_id] = {
-          nome: item.fornecedor_nome,
-          itens: [],
-          valorTotal: 0,
-          quantidadeItens: 0
-        };
-      }
-      vencedoresPorFornecedor[item.fornecedor_id].itens.push(item.numero_item);
-      vencedoresPorFornecedor[item.fornecedor_id].valorTotal += item.valor_final;
-      vencedoresPorFornecedor[item.fornecedor_id].quantidadeItens += 1;
-    });
-
-    const ehDesconto = criterioJulgamento === 'desconto';
-    const ehGlobal = criterioJulgamento === 'global';
-    
-    const tabelaVencedoresLances = Object.values(vencedoresPorFornecedor).map(f => {
-      const valor = ehDesconto ? (f.valorTotal / f.quantidadeItens) : f.valorTotal;
-      const valorStr = ehDesconto ? `${valor.toFixed(2)}%` : formatarMoeda(valor);
-      
-      // Para critério global, não incluir coluna de itens
-      if (ehGlobal) {
-        return [f.nome, valorStr];
-      }
-      
-      const itensStr = f.itens.sort((a, b) => a - b).join(', ');
-      return [f.nome, itensStr, valorStr];
-    });
-
-    const colunaValorHeader = ehDesconto ? 'DESCONTO VENCEDOR' : 'VALOR TOTAL';
-    const colunaItensHeader = criterioJulgamento === 'por_lote' ? 'LOTES' : 'ITENS';
-    
-    // Cabeçalho e estilos conforme critério global ou não
-    const headersLances = ehGlobal 
-      ? [['FORNECEDOR', colunaValorHeader]]
-      : [['FORNECEDOR', colunaItensHeader, colunaValorHeader]];
-    
-    const columnStylesLances = ehGlobal
-      ? {
-          0: { halign: 'left' as const, cellWidth: 'auto' as const },
-          1: { halign: 'right' as const, cellWidth: 50 }
+    if (itensVencedores.length > 0) {
+      // Agrupar por fornecedor
+      const vencedoresPorFornecedor: Record<string, { nome: string; itens: number[]; valorTotal: number; quantidadeItens: number }> = {};
+      itensVencedores.forEach(item => {
+        if (!vencedoresPorFornecedor[item.fornecedor_id]) {
+          vencedoresPorFornecedor[item.fornecedor_id] = {
+            nome: item.fornecedor_nome,
+            itens: [],
+            valorTotal: 0,
+            quantidadeItens: 0
+          };
         }
-      : {
-          0: { halign: 'left' as const, cellWidth: 'auto' as const },
-          1: { halign: 'center' as const, cellWidth: 50 },
-          2: { halign: 'right' as const, cellWidth: 40 }
-        };
+        vencedoresPorFornecedor[item.fornecedor_id].itens.push(item.numero_item);
+        vencedoresPorFornecedor[item.fornecedor_id].valorTotal += item.valor_final;
+        vencedoresPorFornecedor[item.fornecedor_id].quantidadeItens += 1;
+      });
 
-    autoTable(doc, {
-      startY: currentY,
-      head: headersLances,
-      body: tabelaVencedoresLances,
-      theme: 'grid',
-      headStyles: { 
-        fillColor: [0, 128, 128],
-        fontSize: 9,
-        halign: 'center',
-        valign: 'middle',
-        textColor: [255, 255, 255]
-      },
-      bodyStyles: { 
-        fontSize: 8,
-        valign: 'middle',
-        textColor: [0, 0, 0]
-      },
-      alternateRowStyles: {
-        fillColor: [224, 242, 241]
-      },
-      margin: { left: marginLeft, right: marginRight },
-      tableWidth: contentWidth,
-      columnStyles: columnStylesLances,
-      didDrawPage: () => {
-        addLogo();
-        addRodape();
-      }
-    });
+      const ehDesconto = criterioJulgamento === 'desconto';
+      const ehGlobal = criterioJulgamento === 'global';
+      
+      const tabelaVencedoresLances = Object.values(vencedoresPorFornecedor).map(f => {
+        const valor = ehDesconto ? (f.valorTotal / f.quantidadeItens) : f.valorTotal;
+        const valorStr = ehDesconto ? `${valor.toFixed(2)}%` : formatarMoeda(valor);
+        
+        // Para critério global, não incluir coluna de itens
+        if (ehGlobal) {
+          return [f.nome, valorStr];
+        }
+        
+        const itensStr = f.itens.sort((a, b) => a - b).join(', ');
+        return [f.nome, itensStr, valorStr];
+      });
 
-    currentY = (doc as any).lastAutoTable.finalY + 8;
-  } else {
-    doc.setFontSize(10);
-    doc.setFont("helvetica", "normal");
-    doc.text("Nenhum lance vencedor foi registrado até o momento.", marginLeft, currentY);
-    currentY += lineHeight + 8;
+      const colunaValorHeader = ehDesconto ? 'DESCONTO VENCEDOR' : 'VALOR TOTAL';
+      const colunaItensHeader = criterioJulgamento === 'por_lote' ? 'LOTES' : 'ITENS';
+      
+      // Cabeçalho e estilos conforme critério global ou não
+      const headersLances = ehGlobal 
+        ? [['FORNECEDOR', colunaValorHeader]]
+        : [['FORNECEDOR', colunaItensHeader, colunaValorHeader]];
+      
+      const columnStylesLances = ehGlobal
+        ? {
+            0: { halign: 'left' as const, cellWidth: 'auto' as const },
+            1: { halign: 'right' as const, cellWidth: 50 }
+          }
+        : {
+            0: { halign: 'left' as const, cellWidth: 'auto' as const },
+            1: { halign: 'center' as const, cellWidth: 50 },
+            2: { halign: 'right' as const, cellWidth: 40 }
+          };
+
+      autoTable(doc, {
+        startY: currentY,
+        head: headersLances,
+        body: tabelaVencedoresLances,
+        theme: 'grid',
+        headStyles: { 
+          fillColor: [0, 128, 128],
+          fontSize: 9,
+          halign: 'center',
+          valign: 'middle',
+          textColor: [255, 255, 255]
+        },
+        bodyStyles: { 
+          fontSize: 8,
+          valign: 'middle',
+          textColor: [0, 0, 0]
+        },
+        alternateRowStyles: {
+          fillColor: [224, 242, 241]
+        },
+        margin: { left: marginLeft, right: marginRight },
+        tableWidth: contentWidth,
+        columnStyles: columnStylesLances,
+        didDrawPage: () => {
+          addLogo();
+          addRodape();
+        }
+      });
+
+      currentY = (doc as any).lastAutoTable.finalY + 8;
+    } else {
+      doc.setFontSize(10);
+      doc.setFont("helvetica", "normal");
+      doc.text("Nenhum lance vencedor foi registrado até o momento.", marginLeft, currentY);
+      currentY += lineHeight + 8;
+    }
   }
 
   // ============= 6 - HABILITAÇÃO =============
-  checkNewPage(10);
-  doc.setFontSize(11);
-  doc.setFont("helvetica", "bold");
-  doc.text(`${secaoNumero}. HABILITAÇÃO`, marginLeft, currentY);
-  secaoNumero++;
-  currentY += espacoAposTitulo;
-
-  // 6.1 - HABILITADOS - Apenas empresas vencedoras de itens/lotes/global
-  const fornecedoresInabilitadosIds = fornecedoresInabilitados.map(f => f.cnpj);
-  
-  // Identificar apenas as empresas vencedoras (não todos que participaram)
-  const vencedoresIds = new Set<string>();
-  itensVencedores.forEach(item => {
-    // Verificar se o fornecedor está inabilitado neste item
-    const fornecedorInab = fornecedoresInabilitados.find(f => 
-      f.cnpj === item.fornecedor_cnpj && f.itens_afetados.includes(item.numero_item)
-    );
-    
-    if (!fornecedorInab) {
-      // Fornecedor habilitado neste item - adicionar como vencedor
-      vencedoresIds.add(item.fornecedor_id);
-    } else {
-      // Fornecedor inabilitado - verificar segundo colocado
-      const lancesDoItem = lancesPorItem[item.numero_item] || [];
-      const segundoColocado = lancesDoItem.find(lance => {
-        const estaInabilitado = fornecedoresInabilitados.some(f => 
-          f.cnpj === lance.fornecedor_cnpj && f.itens_afetados.includes(item.numero_item)
-        );
-        return !estaInabilitado && lance.fornecedor_id !== item.fornecedor_id;
-      });
-      if (segundoColocado) {
-        vencedoresIds.add(segundoColocado.fornecedor_id);
-      }
-    }
-  });
-  
-  // Filtrar apenas as empresas vencedoras
-  const fornecedoresHabilitados = empresasParticipantes.filter(e => 
-    vencedoresIds.has(e.fornecedor_id)
-  );
-
-  doc.setFontSize(10);
-  doc.setFont("helvetica", "bold");
-  doc.text(`${secaoNumero - 1}.1 HABILITADOS`, marginLeft, currentY);
-  currentY += espacoAposTitulo;
-
-  doc.setFontSize(10);
-  doc.setFont("helvetica", "normal");
-
-  if (fornecedoresHabilitados.length > 0) {
-    currentY = drawJustifiedText(doc, "Foram habilitadas as seguintes empresas:", marginLeft, currentY, contentWidth, lineHeight);
-    currentY += 2; // Pequeno espaço antes da lista
-    
-    fornecedoresHabilitados.forEach(f => {
-      checkNewPage(lineHeight);
-      currentY = drawJustifiedText(doc, `• ${f.razao_social}`, marginLeft + 5, currentY, contentWidth - 5, lineHeight);
-    });
-  } else {
-    currentY = drawJustifiedText(doc, "Nenhuma empresa foi habilitada nesta seleção.", marginLeft, currentY, contentWidth, lineHeight);
-  }
-
-  // 6.2 - INABILITADOS (apenas se houver)
-  if (fornecedoresInabilitados.length > 0) {
-    currentY += espacoEntreSecoes;
+  // OMITIR se todos os itens forem desertos
+  if (!todosItensDesertos) {
     checkNewPage(10);
+    doc.setFontSize(11);
+    doc.setFont("helvetica", "bold");
+    doc.text(`${secaoNumero}. HABILITAÇÃO`, marginLeft, currentY);
+    secaoNumero++;
+    currentY += espacoAposTitulo;
+
+    // 6.1 - HABILITADOS - Apenas empresas vencedoras de itens/lotes/global
+    const fornecedoresInabilitadosIds = fornecedoresInabilitados.map(f => f.cnpj);
+    
+    // Identificar apenas as empresas vencedoras (não todos que participaram)
+    const vencedoresIds = new Set<string>();
+    itensVencedores.forEach(item => {
+      // Verificar se o fornecedor está inabilitado neste item
+      const fornecedorInab = fornecedoresInabilitados.find(f => 
+        f.cnpj === item.fornecedor_cnpj && f.itens_afetados.includes(item.numero_item)
+      );
+      
+      if (!fornecedorInab) {
+        // Fornecedor habilitado neste item - adicionar como vencedor
+        vencedoresIds.add(item.fornecedor_id);
+      } else {
+        // Fornecedor inabilitado - verificar segundo colocado
+        const lancesDoItem = lancesPorItem[item.numero_item] || [];
+        const segundoColocado = lancesDoItem.find(lance => {
+          const estaInabilitado = fornecedoresInabilitados.some(f => 
+            f.cnpj === lance.fornecedor_cnpj && f.itens_afetados.includes(item.numero_item)
+          );
+          return !estaInabilitado && lance.fornecedor_id !== item.fornecedor_id;
+        });
+        if (segundoColocado) {
+          vencedoresIds.add(segundoColocado.fornecedor_id);
+        }
+      }
+    });
+    
+    // Filtrar apenas as empresas vencedoras
+    const fornecedoresHabilitados = empresasParticipantes.filter(e => 
+      vencedoresIds.has(e.fornecedor_id)
+    );
+
     doc.setFontSize(10);
     doc.setFont("helvetica", "bold");
-    doc.text(`${secaoNumero - 1}.2 INABILITADOS`, marginLeft, currentY);
+    doc.text(`${secaoNumero - 1}.1 HABILITADOS`, marginLeft, currentY);
     currentY += espacoAposTitulo;
 
     doc.setFontSize(10);
     doc.setFont("helvetica", "normal");
 
-    fornecedoresInabilitados.forEach(inab => {
+    if (fornecedoresHabilitados.length > 0) {
+      currentY = drawJustifiedText(doc, "Foram habilitadas as seguintes empresas:", marginLeft, currentY, contentWidth, lineHeight);
+      currentY += 2; // Pequeno espaço antes da lista
+      
+      fornecedoresHabilitados.forEach(f => {
+        checkNewPage(lineHeight);
+        currentY = drawJustifiedText(doc, `• ${f.razao_social}`, marginLeft + 5, currentY, contentWidth - 5, lineHeight);
+      });
+    } else {
+      currentY = drawJustifiedText(doc, "Nenhuma empresa foi habilitada nesta seleção.", marginLeft, currentY, contentWidth, lineHeight);
+    }
+
+    // 6.2 - INABILITADOS (apenas se houver)
+    if (fornecedoresInabilitados.length > 0) {
+      currentY += espacoEntreSecoes;
       checkNewPage(10);
-      const itensStr = inab.itens_afetados.sort((a, b) => a - b).join(', ');
-      const qtdItens = inab.itens_afetados.length;
-      // Adaptar texto conforme critério de julgamento
-      let textoItem: string;
-      if (criterioJulgamento === 'por_lote') {
-        textoItem = qtdItens === 1 ? 'no lote' : 'nos lotes';
-      } else {
-        textoItem = qtdItens === 1 ? 'no item' : 'nos itens';
-      }
-      const textoInab = `A empresa ${inab.razao_social} (CNPJ: ${formatarCNPJ(inab.cnpj)}) foi INABILITADA ${textoItem}: ${itensStr}. Motivo: ${inab.motivo_inabilitacao}.`;
-      currentY = drawJustifiedText(doc, textoInab, marginLeft, currentY, contentWidth, lineHeight);
-    });
-  }
-  currentY += espacoEntreSecoes;
+      doc.setFontSize(10);
+      doc.setFont("helvetica", "bold");
+      doc.text(`${secaoNumero - 1}.2 INABILITADOS`, marginLeft, currentY);
+      currentY += espacoAposTitulo;
+
+      doc.setFontSize(10);
+      doc.setFont("helvetica", "normal");
+
+      fornecedoresInabilitados.forEach(inab => {
+        checkNewPage(10);
+        const itensStr = inab.itens_afetados.sort((a, b) => a - b).join(', ');
+        const qtdItens = inab.itens_afetados.length;
+        // Adaptar texto conforme critério de julgamento
+        let textoItem: string;
+        if (criterioJulgamento === 'por_lote') {
+          textoItem = qtdItens === 1 ? 'no lote' : 'nos lotes';
+        } else {
+          textoItem = qtdItens === 1 ? 'no item' : 'nos itens';
+        }
+        const textoInab = `A empresa ${inab.razao_social} (CNPJ: ${formatarCNPJ(inab.cnpj)}) foi INABILITADA ${textoItem}: ${itensStr}. Motivo: ${inab.motivo_inabilitacao}.`;
+        currentY = drawJustifiedText(doc, textoInab, marginLeft, currentY, contentWidth, lineHeight);
+      });
+    }
+    currentY += espacoEntreSecoes;
+  } // Fim do bloco HABILITAÇÃO
 
   // ============= 7 - VENCEDOR(ES) APÓS HABILITAÇÃO =============
-  checkNewPage(10);
-  doc.setFontSize(11);
-  doc.setFont("helvetica", "bold");
-  doc.text(`${secaoNumero}. VENCEDOR(ES)`, marginLeft, currentY);
-  secaoNumero++;
-  currentY += espacoAposTitulo;
+  // OMITIR se todos os itens forem desertos
+  if (!todosItensDesertos) {
+    checkNewPage(10);
+    doc.setFontSize(11);
+    doc.setFont("helvetica", "bold");
+    doc.text(`${secaoNumero}. VENCEDOR(ES)`, marginLeft, currentY);
+    secaoNumero++;
+    currentY += espacoAposTitulo;
 
   doc.setFontSize(10);
   doc.setFont("helvetica", "normal");
@@ -1069,6 +1080,7 @@ export async function gerarAtaSelecaoPDF(selecaoId: string): Promise<{ url: stri
     doc.text("Nenhum vencedor foi declarado até o momento.", marginLeft, currentY);
     currentY += lineHeight + espacoEntreSecoes;
   }
+  } // Fim do bloco VENCEDORES (todosItensDesertos)
 
   // ============= DESERTOS E FRACASSADOS =============
   // Identificar itens desertos (nenhuma proposta) e fracassados (todos inabilitados)
@@ -1238,116 +1250,122 @@ export async function gerarAtaSelecaoPDF(selecaoId: string): Promise<{ url: stri
   }
 
   // ============= 8 - NEGOCIAÇÕES =============
-  checkNewPage(10);
-  doc.setFontSize(11);
-  doc.setFont("helvetica", "bold");
-  doc.text(`${secaoNumero}. NEGOCIAÇÕES`, marginLeft, currentY);
-  secaoNumero++;
-  currentY += espacoAposTitulo;
+  // OMITIR se todos os itens forem desertos
+  if (!todosItensDesertos) {
+    checkNewPage(10);
+    doc.setFontSize(11);
+    doc.setFont("helvetica", "bold");
+    doc.text(`${secaoNumero}. NEGOCIAÇÕES`, marginLeft, currentY);
+    secaoNumero++;
+    currentY += espacoAposTitulo;
 
-  doc.setFontSize(10);
-  doc.setFont("helvetica", "normal");
-  
-  if (criterioJulgamento === 'global') {
-    // Para critério global, texto geral sobre negociação
-    if (itensNegociados.length > 0) {
-      const textoNegociacao = `Houve negociação durante esta seleção de fornecedores.`;
+    doc.setFontSize(10);
+    doc.setFont("helvetica", "normal");
+    
+    if (criterioJulgamento === 'global') {
+      // Para critério global, texto geral sobre negociação
+      if (itensNegociados.length > 0) {
+        const textoNegociacao = `Houve negociação durante esta seleção de fornecedores.`;
+        currentY = drawJustifiedText(doc, textoNegociacao, marginLeft, currentY, contentWidth, lineHeight);
+      } else {
+        currentY = drawJustifiedText(doc, "Não houve negociações durante esta seleção de fornecedores.", marginLeft, currentY, contentWidth, lineHeight);
+      }
+    } else if (itensNegociados.length > 0) {
+      const itensNegociadosStr = itensNegociados.join(', ');
+      const termoNegociacao = criterioJulgamento === 'por_lote' ? 'lotes' : 'itens';
+      const textoNegociacao = `Foram realizadas negociações nos seguintes ${termoNegociacao}: ${itensNegociadosStr}.`;
       currentY = drawJustifiedText(doc, textoNegociacao, marginLeft, currentY, contentWidth, lineHeight);
     } else {
-      currentY = drawJustifiedText(doc, "Não houve negociações durante esta seleção de fornecedores.", marginLeft, currentY, contentWidth, lineHeight);
+      currentY = drawJustifiedText(doc, "Não houve negociações durante esta sessão.", marginLeft, currentY, contentWidth, lineHeight);
     }
-  } else if (itensNegociados.length > 0) {
-    const itensNegociadosStr = itensNegociados.join(', ');
-    const termoNegociacao = criterioJulgamento === 'por_lote' ? 'lotes' : 'itens';
-    const textoNegociacao = `Foram realizadas negociações nos seguintes ${termoNegociacao}: ${itensNegociadosStr}.`;
-    currentY = drawJustifiedText(doc, textoNegociacao, marginLeft, currentY, contentWidth, lineHeight);
-  } else {
-    currentY = drawJustifiedText(doc, "Não houve negociações durante esta sessão.", marginLeft, currentY, contentWidth, lineHeight);
-  }
-  currentY += espacoEntreSecoes;
+    currentY += espacoEntreSecoes;
+  } // Fim do bloco NEGOCIAÇÕES
 
   // ============= 9 - INTENÇÃO DE RECURSOS =============
-  checkNewPage(10);
-  doc.setFontSize(11);
-  doc.setFont("helvetica", "bold");
-  doc.text(`${secaoNumero}. INTENÇÃO DE RECURSOS`, marginLeft, currentY);
-  secaoNumero++;
-  currentY += espacoAposTitulo;
+  // OMITIR se todos os itens forem desertos
+  if (!todosItensDesertos) {
+    checkNewPage(10);
+    doc.setFontSize(11);
+    doc.setFont("helvetica", "bold");
+    doc.text(`${secaoNumero}. INTENÇÃO DE RECURSOS`, marginLeft, currentY);
+    secaoNumero++;
+    currentY += espacoAposTitulo;
 
-  doc.setFontSize(10);
-  doc.setFont("helvetica", "normal");
-  
-  const empresasQueRecorreram = intencoesRecurso.filter(i => i.deseja_recorrer);
-  const empresasQueNaoRecorreram = intencoesRecurso.filter(i => !i.deseja_recorrer);
-  
-  // Identificar empresas que NÃO se manifestaram (não têm registro em intencoesRecurso)
-  const cnpjsComIntencao = new Set(intencoesRecurso.map(i => i.cnpj));
-  const empresasQueNaoSeManifestaram = empresasParticipantes.filter(e => !cnpjsComIntencao.has(e.cnpj));
+    doc.setFontSize(10);
+    doc.setFont("helvetica", "normal");
+    
+    const empresasQueRecorreram = intencoesRecurso.filter(i => i.deseja_recorrer);
+    const empresasQueNaoRecorreram = intencoesRecurso.filter(i => !i.deseja_recorrer);
+    
+    // Identificar empresas que NÃO se manifestaram (não têm registro em intencoesRecurso)
+    const cnpjsComIntencao = new Set(intencoesRecurso.map(i => i.cnpj));
+    const empresasQueNaoSeManifestaram = empresasParticipantes.filter(e => !cnpjsComIntencao.has(e.cnpj));
 
-  const totalParticipantes = empresasParticipantes.length;
+    const totalParticipantes = empresasParticipantes.length;
 
-  if (intencoesRecurso.length === 0 && empresasQueNaoSeManifestaram.length === totalParticipantes) {
-    const textoRecursos = `O Gestor de Compras franqueou aos participantes a manifestação da intenção de recorrer das decisões proferidas durante a sessão pública. No prazo estabelecido de 5 (cinco) minutos, nenhuma empresa manifestou intenção de interpor recurso.`;
-    currentY = drawJustifiedText(doc, textoRecursos, marginLeft, currentY, contentWidth, lineHeight);
-  } else {
-    const textoAbertura = `O Gestor de Compras franqueou aos participantes a manifestação da intenção de recorrer das decisões proferidas durante a sessão pública. No prazo estabelecido de 5 (cinco) minutos, as empresas se manifestaram da seguinte forma:`;
-    currentY = drawJustifiedText(doc, textoAbertura, marginLeft, currentY, contentWidth, lineHeight);
+    if (intencoesRecurso.length === 0 && empresasQueNaoSeManifestaram.length === totalParticipantes) {
+      const textoRecursos = `O Gestor de Compras franqueou aos participantes a manifestação da intenção de recorrer das decisões proferidas durante a sessão pública. No prazo estabelecido de 5 (cinco) minutos, nenhuma empresa manifestou intenção de interpor recurso.`;
+      currentY = drawJustifiedText(doc, textoRecursos, marginLeft, currentY, contentWidth, lineHeight);
+    } else {
+      const textoAbertura = `O Gestor de Compras franqueou aos participantes a manifestação da intenção de recorrer das decisões proferidas durante a sessão pública. No prazo estabelecido de 5 (cinco) minutos, as empresas se manifestaram da seguinte forma:`;
+      currentY = drawJustifiedText(doc, textoAbertura, marginLeft, currentY, contentWidth, lineHeight);
 
-    // Empresas que não desejam recorrer (responderam NÃO)
-    if (empresasQueNaoRecorreram.length > 0) {
-      currentY += 4; // Espaço extra antes do subtítulo
-      checkNewPage(15);
-      doc.setFont("helvetica", "bold");
-      doc.setTextColor(0, 128, 0); // Verde
-      currentY = drawJustifiedText(doc, "Não Recorrerá:", marginLeft, currentY, contentWidth, lineHeight);
-      doc.setTextColor(0, 0, 0);
-      doc.setFont("helvetica", "normal");
-
-      empresasQueNaoRecorreram.forEach((e, index) => {
-        checkNewPage(10);
-        const textoCompleto = `${e.razao_social} (CNPJ: ${formatarCNPJ(e.cnpj)}) - Registrado em: ${formatarDataHoraCurta(e.data_intencao)}`;
-        currentY = drawJustifiedText(doc, textoCompleto, marginLeft, currentY, contentWidth, lineHeight);
-      });
-    }
-
-    // Empresas que NÃO se manifestaram no prazo (não têm registro em intencoesRecurso)
-    if (empresasQueNaoSeManifestaram.length > 0) {
-      currentY += 4; // Espaço extra antes do subtítulo
-      checkNewPage(15);
-      doc.setFont("helvetica", "bold");
-      doc.setTextColor(128, 128, 128); // Cinza
-      currentY = drawJustifiedText(doc, "Não se Manifestou no Prazo:", marginLeft, currentY, contentWidth, lineHeight);
-      doc.setTextColor(0, 0, 0);
-      doc.setFont("helvetica", "normal");
-
-      empresasQueNaoSeManifestaram.forEach((e, index) => {
-        checkNewPage(10);
-        const textoCompleto = `${e.razao_social} (CNPJ: ${formatarCNPJ(e.cnpj)}) - Por não ter se manifestado no prazo estabelecido, foi considerado que não possui intenção de interpor recurso.`;
-        currentY = drawJustifiedText(doc, textoCompleto, marginLeft, currentY, contentWidth, lineHeight);
-      });
-    }
-
-    // Empresas que desejam recorrer (mostrar por último para destacar)
-    if (empresasQueRecorreram.length > 0) {
-      currentY += 4; // Espaço extra antes do subtítulo
-      checkNewPage(15);
-      doc.setFont("helvetica", "bold");
-      doc.setTextColor(220, 120, 0); // Laranja
-      currentY = drawJustifiedText(doc, "Deseja Recorrer:", marginLeft, currentY, contentWidth, lineHeight);
-      doc.setTextColor(0, 0, 0);
-      doc.setFont("helvetica", "normal");
-
-      empresasQueRecorreram.forEach(e => {
+      // Empresas que não desejam recorrer (responderam NÃO)
+      if (empresasQueNaoRecorreram.length > 0) {
+        currentY += 4; // Espaço extra antes do subtítulo
         checkNewPage(15);
-        let textoCompleto = `${e.razao_social} (CNPJ: ${formatarCNPJ(e.cnpj)}) - Registrado em: ${formatarDataHoraCurta(e.data_intencao)}`;
-        if (e.motivo_intencao) {
-          textoCompleto += ` - Motivo: ${e.motivo_intencao}`;
-        }
-        currentY = drawJustifiedText(doc, textoCompleto, marginLeft, currentY, contentWidth, lineHeight);
-      });
+        doc.setFont("helvetica", "bold");
+        doc.setTextColor(0, 128, 0); // Verde
+        currentY = drawJustifiedText(doc, "Não Recorrerá:", marginLeft, currentY, contentWidth, lineHeight);
+        doc.setTextColor(0, 0, 0);
+        doc.setFont("helvetica", "normal");
+
+        empresasQueNaoRecorreram.forEach((e, index) => {
+          checkNewPage(10);
+          const textoCompleto = `${e.razao_social} (CNPJ: ${formatarCNPJ(e.cnpj)}) - Registrado em: ${formatarDataHoraCurta(e.data_intencao)}`;
+          currentY = drawJustifiedText(doc, textoCompleto, marginLeft, currentY, contentWidth, lineHeight);
+        });
+      }
+
+      // Empresas que NÃO se manifestaram no prazo (não têm registro em intencoesRecurso)
+      if (empresasQueNaoSeManifestaram.length > 0) {
+        currentY += 4; // Espaço extra antes do subtítulo
+        checkNewPage(15);
+        doc.setFont("helvetica", "bold");
+        doc.setTextColor(128, 128, 128); // Cinza
+        currentY = drawJustifiedText(doc, "Não se Manifestou no Prazo:", marginLeft, currentY, contentWidth, lineHeight);
+        doc.setTextColor(0, 0, 0);
+        doc.setFont("helvetica", "normal");
+
+        empresasQueNaoSeManifestaram.forEach((e, index) => {
+          checkNewPage(10);
+          const textoCompleto = `${e.razao_social} (CNPJ: ${formatarCNPJ(e.cnpj)}) - Por não ter se manifestado no prazo estabelecido, foi considerado que não possui intenção de interpor recurso.`;
+          currentY = drawJustifiedText(doc, textoCompleto, marginLeft, currentY, contentWidth, lineHeight);
+        });
+      }
+
+      // Empresas que desejam recorrer (mostrar por último para destacar)
+      if (empresasQueRecorreram.length > 0) {
+        currentY += 4; // Espaço extra antes do subtítulo
+        checkNewPage(15);
+        doc.setFont("helvetica", "bold");
+        doc.setTextColor(220, 120, 0); // Laranja
+        currentY = drawJustifiedText(doc, "Deseja Recorrer:", marginLeft, currentY, contentWidth, lineHeight);
+        doc.setTextColor(0, 0, 0);
+        doc.setFont("helvetica", "normal");
+
+        empresasQueRecorreram.forEach(e => {
+          checkNewPage(15);
+          let textoCompleto = `${e.razao_social} (CNPJ: ${formatarCNPJ(e.cnpj)}) - Registrado em: ${formatarDataHoraCurta(e.data_intencao)}`;
+          if (e.motivo_intencao) {
+            textoCompleto += ` - Motivo: ${e.motivo_intencao}`;
+          }
+          currentY = drawJustifiedText(doc, textoCompleto, marginLeft, currentY, contentWidth, lineHeight);
+        });
+      }
     }
-  }
-  currentY += espacoEntreSecoes;
+    currentY += espacoEntreSecoes;
+  } // Fim do bloco INTENÇÃO DE RECURSOS
 
   // ============= 10 - RESULTADO DO RECURSO =============
   if (recursosInabilitacao.length > 0) {
@@ -1384,29 +1402,32 @@ export async function gerarAtaSelecaoPDF(selecaoId: string): Promise<{ url: stri
   }
 
   // ============= 11 - PRAZO DE ENVIO DA PROPOSTA REALINHADA =============
-  checkNewPage(30);
-  doc.setFontSize(11);
-  doc.setFont("helvetica", "bold");
-  doc.text(`${secaoNumero}. PRAZO DE ENVIO DA PROPOSTA REALINHADA`, marginLeft, currentY);
-  secaoNumero++;
-  currentY += espacoAposTitulo;
+  // OMITIR se todos os itens forem desertos
+  if (!todosItensDesertos) {
+    checkNewPage(30);
+    doc.setFontSize(11);
+    doc.setFont("helvetica", "bold");
+    doc.text(`${secaoNumero}. PRAZO DE ENVIO DA PROPOSTA REALINHADA`, marginLeft, currentY);
+    secaoNumero++;
+    currentY += espacoAposTitulo;
 
-  doc.setFontSize(10);
-  doc.setFont("helvetica", "normal");
-  
-  // Texto varia conforme o critério de julgamento
-  let textoPrazoRealinhada = '';
-  if (criterioJulgamento === 'por_lote') {
-    textoPrazoRealinhada = 'Os fornecedores vencedores terão o prazo de 48 (quarenta e oito) horas, contados a partir do encerramento desta sessão pública, para envio das propostas realinhadas referentes aos lotes arrematados, conforme valores finais registrados nesta Ata.';
-  } else if (criterioJulgamento === 'global') {
-    textoPrazoRealinhada = 'O fornecedor vencedor terá o prazo de 48 (quarenta e oito) horas, contados a partir do encerramento desta sessão pública, para envio da proposta realinhada, conforme valor final registrado nesta Ata.';
-  } else {
-    // por_item ou desconto - tratados como item
-    textoPrazoRealinhada = 'Os fornecedores vencedores terão o prazo de 48 (quarenta e oito) horas, contados a partir do encerramento desta sessão pública, para envio das propostas realinhadas referentes aos itens arrematados, conforme valores finais registrados nesta Ata.';
-  }
-  
-  currentY = drawJustifiedText(doc, textoPrazoRealinhada, marginLeft, currentY, contentWidth, lineHeight);
-  currentY += espacoEntreSecoes;
+    doc.setFontSize(10);
+    doc.setFont("helvetica", "normal");
+    
+    // Texto varia conforme o critério de julgamento
+    let textoPrazoRealinhada = '';
+    if (criterioJulgamento === 'por_lote') {
+      textoPrazoRealinhada = 'Os fornecedores vencedores terão o prazo de 48 (quarenta e oito) horas, contados a partir do encerramento desta sessão pública, para envio das propostas realinhadas referentes aos lotes arrematados, conforme valores finais registrados nesta Ata.';
+    } else if (criterioJulgamento === 'global') {
+      textoPrazoRealinhada = 'O fornecedor vencedor terá o prazo de 48 (quarenta e oito) horas, contados a partir do encerramento desta sessão pública, para envio da proposta realinhada, conforme valor final registrado nesta Ata.';
+    } else {
+      // por_item ou desconto - tratados como item
+      textoPrazoRealinhada = 'Os fornecedores vencedores terão o prazo de 48 (quarenta e oito) horas, contados a partir do encerramento desta sessão pública, para envio das propostas realinhadas referentes aos itens arrematados, conforme valores finais registrados nesta Ata.';
+    }
+    
+    currentY = drawJustifiedText(doc, textoPrazoRealinhada, marginLeft, currentY, contentWidth, lineHeight);
+    currentY += espacoEntreSecoes;
+  } // Fim do bloco PRAZO PROPOSTA REALINHADA
 
   // ============= 12 - REGISTROS DO CHAT =============
   if (mensagensChat.length > 0) {
