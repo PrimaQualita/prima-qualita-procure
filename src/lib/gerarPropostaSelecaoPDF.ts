@@ -690,8 +690,8 @@ export async function gerarPropostaSelecaoPDF(
       const descLines = doc.splitTextToSize(sanitizarTexto(item.descricao), descricaoLargura);
       const unidadeLines = doc.splitTextToSize(sanitizarTexto(item.unidade), unidadeLargura);
       const maxLinhas = Math.max(descLines.length, unidadeLines.length);
-      // Altura mínima de 7, e cada linha adicional soma espacamentoLinhaDescTexto
-      const alturaLinha = Math.max(6 + ((maxLinhas - 1) * espacamentoLinhaDescTexto), 7);
+      // Altura mínima mais conservadora para evitar que a linha horizontal “corte” texto em descrições longas
+      const alturaLinha = Math.max(8 + ((maxLinhas - 1) * espacamentoLinhaDescTexto), 9);
       alturasPorItem.push(alturaLinha);
       alturaTotal += alturaLinha;
     }
@@ -708,7 +708,7 @@ export async function gerarPropostaSelecaoPDF(
       const descLines = doc.splitTextToSize(sanitizarTexto(item.descricao), descricaoLargura);
       const unidadeLines = doc.splitTextToSize(sanitizarTexto(item.unidade), unidadeLargura);
       const maxLinhas = Math.max(descLines.length, unidadeLines.length);
-      const alturaLinhaItem = Math.max(6 + ((maxLinhas - 1) * espacamentoLinhaDescTexto), 7);
+      const alturaLinhaItem = Math.max(8 + ((maxLinhas - 1) * espacamentoLinhaDescTexto), 9);
       
       // Verificar se o item inteiro cabe na página atual
       if (y + alturaLinhaItem > limitePagina) {
