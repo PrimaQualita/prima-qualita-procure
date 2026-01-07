@@ -104,39 +104,83 @@ Deno.serve(async (req) => {
         { tabela: 'propostas_realinhadas', coluna: 'url_pdf_proposta', apenasLimparUrl: true },
       ];
 
-      for (let i = 0; i < limite; i++) {
-        const path = refPaths[i];
-        let encontrouAlgum = false;
-        
-        console.log(`\n🔍 [${i + 1}/${limite}] Processando: ${path}`);
+      const normalizeToRelativePath = (input: string): string => {
+        if (!input) return '';
+        let s = String(input);
 
-        // CRÍTICO: Usar path COMPLETO para evitar colisões de nomes de arquivos iguais em diretórios diferentes!
-        // Exemplo: "atas-selecao/UUID1/ata.pdf" e "atas-selecao/UUID2/ata.pdf" são arquivos DIFERENTES
-        // Usando apenas "ata.pdf" deletaria AMBOS - ERRO GRAVE!
-        
-        // Extrair partes do path para busca precisa
-        const fileName = path.split('/').pop() || '';
-        // Usar a maior parte possível do path para garantir unicidade
-        // Remover prefixo de bucket se presente
-        let searchPath = path;
-        if (searchPath.startsWith('processo-anexos/')) {
-          searchPath = searchPath.substring('processo-anexos/'.length);
-        } else if (searchPath.startsWith('documents/')) {
-          searchPath = searchPath.substring('documents/'.length);
+        // Remover query string primeiro
+        s = s.split('?')[0];
+
+        // Se for URL completa, remover prefixo até o bucket
+        s = s.replace(/^https?:\/\/[^/]+\/storage\/v1\/object\/public\//, '');
+
+        // Remover prefixo com barra (quando vier como "/processo-anexos/..." ou "/documents/...")
+        if (s.includes('/processo-anexos/')) s = s.split('/processo-anexos/')[1] || s;
+        if (s.includes('/documents/')) s = s.split('/documents/')[1] || s;
+
+        // Remover prefixo de bucket (quando vier como "processo-anexos/..." ou "documents/...")
+        s = s.replace(/^processo-anexos\//, '').replace(/^documents\//, '');
+
+        // Decodificação recursiva (evita %2520 vs %20)
+        try {
+          while (s.includes('%')) {
+            const decoded = decodeURIComponent(s);
+            if (decoded === s) break;
+            s = decoded;
+          }
+        } catch {}
+
+        return s;
+      };
+
+      for (let i = 0; i < limite; i++) {
+        const rawPath = refPaths[i];
+        let encontrouAlgum = false;
+
+        console.log(`\n🔍 [${i + 1}/${limite}] Processando: ${rawPath}`);
+
+        // CRÍTICO: sempre trabalhar com path relativo normalizado
+        const targetPath = normalizeToRelativePath(rawPath);
+        console.log(`  📁 Path alvo (normalizado): ${targetPath}`);
+
+        // Segurança: se não conseguimos um path minimamente específico, não executa limpeza
+        // (evita colisões por pedaços comuns como "2026 II-...")
+        if (!targetPath || !targetPath.includes('/')) {
+          console.log(`  🚫 Path inválido/inespecífico para limpeza segura. Ignorando.`);
+          continue;
         }
-        
-        console.log(`  📁 Path de busca: ${searchPath}`);
 
         for (const query of queries) {
           const { tabela, coluna, apenasLimparUrl } = query as any;
+
           try {
+            // Pré-filtrar candidatos por LIKE, mas só agir com match EXATO após normalização
+            const { data: candidatos, error: selectError } = await supabase
+              .from(tabela)
+              .select(`id, ${coluna}`)
+              .ilike(coluna, `%${targetPath}%`);
+
+            if (selectError) {
+              console.log(`  ⚠️ Erro ao buscar candidatos em ${tabela}.${coluna}: ${selectError.message}`);
+              continue;
+            }
+
+            const ids = (candidatos || [])
+              .filter((row: any) => {
+                const valor = row?.[coluna];
+                if (!valor) return false;
+                return normalizeToRelativePath(String(valor)) === targetPath;
+              })
+              .map((row: any) => row.id)
+              .filter(Boolean);
+
+            if (ids.length === 0) continue;
+
             if (apenasLimparUrl) {
-              // Para tabelas de dados de negócio, apenas limpar o campo URL (não deletar registro)
-              // Usar path completo para evitar colisões
               const { data: updatedRows, error: updateError } = await supabase
                 .from(tabela)
                 .update({ [coluna]: null })
-                .ilike(coluna, `%${searchPath}%`)
+                .in('id', ids)
                 .select('id');
 
               if (updateError) {
@@ -148,15 +192,13 @@ Deno.serve(async (req) => {
               if (updatedCount > 0) {
                 encontrouAlgum = true;
                 deletados += updatedCount;
-                console.log(`  ✅ Limpou ${updatedCount} URL(s) em ${tabela}.${coluna} (registro mantido)`);
+                console.log(`  ✅ Limpou ${updatedCount} URL(s) em ${tabela}.${coluna} (match exato, registro mantido)`);
               }
             } else {
-              // Para tabelas de referência pura, deletar o registro inteiro
-              // CRÍTICO: Usar path completo para evitar deletar registros de outros processos!
               const { error: deleteError, count } = await supabase
                 .from(tabela)
                 .delete({ count: 'exact' })
-                .ilike(coluna, `%${searchPath}%`);
+                .in('id', ids);
 
               if (deleteError) {
                 console.log(`  ⚠️ Erro ao deletar de ${tabela}.${coluna}: ${deleteError.message}`);
@@ -166,16 +208,16 @@ Deno.serve(async (req) => {
               if (count && count > 0) {
                 encontrouAlgum = true;
                 deletados += count;
-                console.log(`  ✅ Deletou ${count} referência(s) de ${tabela}.${coluna}`);
+                console.log(`  ✅ Deletou ${count} referência(s) de ${tabela}.${coluna} (match exato)`);
               }
             }
           } catch (err) {
             console.log(`  ❌ Exceção em ${tabela}.${coluna}: ${err}`);
           }
         }
-        
+
         if (!encontrouAlgum) {
-          console.log(`  ⚠️ Referência não encontrada em nenhuma tabela`);
+          console.log(`  ⚠️ Referência não encontrada em nenhuma tabela (match exato)`);
         }
       }
       
