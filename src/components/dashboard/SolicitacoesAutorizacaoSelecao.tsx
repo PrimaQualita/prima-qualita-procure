@@ -131,8 +131,9 @@ export function SolicitacoesAutorizacaoSelecao() {
 
       toast.success("Redirecionando para gerar a autorização de seleção...");
       
-      // Redirecionar para página de cotações com parâmetro para abrir dialog
-      navigate(`/cotacoes?openFinalizarSelecao=${cotacaoId}`);
+      // Redirecionar para página de cotações com parâmetro para abrir dialog de FINALIZAÇÃO
+      // (onde está o checkbox de seleção e o botão de gerar autorização)
+      navigate(`/cotacoes?openFinalizar=${cotacaoId}`);
     } catch (error) {
       console.error("Erro ao autorizar:", error);
       toast.error("Erro ao autorizar solicitação");
