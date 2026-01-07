@@ -558,6 +558,72 @@ export default function PropostasSelecao() {
         return;
       }
 
+      // POR LOTE: itens podem repetir numeração; se a marca não foi salva na realinhada,
+      // tenta puxar da proposta original da seleção (somente para o PDF, sem alterar o banco).
+      if (processo.criterio_julgamento === "por_lote") {
+        const itensSemMarca = (itens || []).filter(
+          (i: any) => String(i?.marca ?? "").trim().length === 0
+        );
+
+        if (itensSemMarca.length > 0 && proposta?.fornecedor_id && proposta?.selecao_id) {
+          const { data: propostaOriginal } = await supabase
+            .from("selecao_propostas_fornecedor")
+            .select("id")
+            .eq("selecao_id", proposta.selecao_id)
+            .eq("fornecedor_id", proposta.fornecedor_id)
+            .maybeSingle();
+
+          if (propostaOriginal?.id) {
+            const { data: respostasOriginais } = await (supabase as any)
+              .from("selecao_respostas_itens_fornecedor")
+              .select("marca, descricao")
+              .eq("proposta_id", propostaOriginal.id);
+
+            if (Array.isArray(respostasOriginais) && respostasOriginais.length > 0) {
+              const normalizarDescricao = (texto: string) =>
+                String(texto || "")
+                  .toLowerCase()
+                  .normalize("NFD")
+                  .replace(/[\u0300-\u036f]/g, "")
+                  .replace(/[^\w\s]/g, " ")
+                  .replace(/\s+/g, " ")
+                  .trim();
+
+              const encontrarMarcaPorDescricao = (descricaoItem: string): string => {
+                const itemNorm = normalizarDescricao(descricaoItem);
+                if (!itemNorm) return "";
+
+                let melhor: { marca: string; lenDiff: number } | null = null;
+
+                for (const r of respostasOriginais) {
+                  const marca = String(r?.marca ?? "").trim();
+                  if (!marca) continue;
+
+                  const respNorm = normalizarDescricao(String(r?.descricao ?? ""));
+                  if (!respNorm) continue;
+
+                  const bateTexto = respNorm.includes(itemNorm) || itemNorm.includes(respNorm);
+                  if (!bateTexto) continue;
+
+                  const lenDiff = Math.abs(respNorm.length - itemNorm.length);
+                  if (!melhor || lenDiff < melhor.lenDiff) melhor = { marca, lenDiff };
+                }
+
+                return melhor?.marca || "";
+              };
+
+              itens = (itens || []).map((i: any) => {
+                const marcaAtual = String(i?.marca ?? "").trim();
+                if (marcaAtual) return i;
+
+                const marca = encontrarMarcaPorDescricao(i?.descricao);
+                return { ...i, marca: marca || null };
+              });
+            }
+          }
+        }
+      }
+
       // Gerar PDF (protocolo é gerado internamente)
       const { pdfUrl, protocolo } = await gerarPropostaRealinhadaPDF(
         itens.map((i: any) => ({
