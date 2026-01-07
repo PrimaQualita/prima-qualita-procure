@@ -594,7 +594,7 @@ export async function gerarPropostaSelecaoPDF(
       // ============ LÓGICA ORIGINAL PARA OUTROS CRITÉRIOS ============
 
     // Desenhar borda externa da tabela (perímetro)
-    const tabelaY = y - 5;
+    let tabelaY = y - 5;
     const alturaHeader = 8;
     
     // Cabeçalho da tabela com sombra
@@ -717,10 +717,45 @@ export async function gerarPropostaSelecaoPDF(
         doc.setLineWidth(0.3);
         doc.rect(margemEsquerda, tabelaY, larguraUtil, y - tabelaY, 'S');
         
-        
         doc.addPage();
         y = 20;
         yInicio = y;
+        
+        // Redesenhar o cabeçalho da tabela na nova página
+        tabelaY = y - 5;
+        doc.setFillColor(30, 159, 204);
+        doc.rect(margemEsquerda, y - 5, larguraUtil, 8, 'F');
+        
+        doc.setFontSize(8);
+        doc.setFont('helvetica', 'bold');
+        doc.setTextColor(255, 255, 255);
+        
+        const headerYCenterNew = y - 1;
+        doc.text('Item', colItemCenter, headerYCenterNew, { align: 'center' });
+        doc.text('Descrição', colDescCenter, headerYCenterNew, { align: 'center' });
+        doc.text('Qtd', colQtdCenter, headerYCenterNew, { align: 'center' });
+        doc.text('Unid', colUniCenter, headerYCenterNew, { align: 'center' });
+        doc.text('Marca', colMarcaCenter, headerYCenterNew, { align: 'center' });
+        
+        if (isDesconto) {
+          doc.text('% Desconto', colDescontoCenter!, headerYCenterNew, { align: 'center' });
+        } else {
+          doc.text('Vlr Unit.', colValorUnitCenter!, headerYCenterNew, { align: 'center' });
+          doc.text('Vlr Total', colValorTotalCenter!, headerYCenterNew, { align: 'center' });
+        }
+        
+        // Desenhar linhas verticais no cabeçalho
+        doc.setDrawColor(200, 200, 200);
+        doc.setLineWidth(0.3);
+        colPositions.forEach(xPos => {
+          doc.line(xPos, tabelaY, xPos, tabelaY + alturaHeader);
+        });
+        doc.line(margemEsquerda, tabelaY, margemEsquerda, tabelaY + alturaHeader);
+        doc.line(margemEsquerda + larguraUtil, tabelaY, margemEsquerda + larguraUtil, tabelaY + alturaHeader);
+        
+        y += 5;
+        doc.setTextColor(0, 0, 0);
+        doc.setFont('helvetica', 'normal');
       }
 
       const itemCotadoCalculo = item.valor_unitario_ofertado && item.valor_unitario_ofertado > 0;
