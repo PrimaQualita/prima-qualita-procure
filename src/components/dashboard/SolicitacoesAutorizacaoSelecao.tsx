@@ -105,14 +105,15 @@ export function SolicitacoesAutorizacaoSelecao() {
 
   const autorizarSolicitacao = async (cotacaoId: string, solicitacaoId: string) => {
     try {
-      // Marcar checkbox requer_selecao do processo
+      // Buscar cotação com processo e contrato para navegação
       const { data: cotacao } = await supabase
         .from("cotacoes_precos")
-        .select("processo_compra_id")
+        .select("processo_compra_id, processos_compras!inner(id, contrato_gestao_id)")
         .eq("id", cotacaoId)
         .single();
 
       if (cotacao) {
+        // Marcar checkbox requer_selecao do processo
         await supabase
           .from("processos_compras")
           .update({ requer_selecao: true })
@@ -131,9 +132,12 @@ export function SolicitacoesAutorizacaoSelecao() {
 
       toast.success("Redirecionando para gerar a autorização de seleção...");
       
-      // Redirecionar para página de cotações com parâmetro para abrir dialog de FINALIZAÇÃO
-      // (onde está o checkbox de seleção e o botão de gerar autorização)
-      navigate(`/cotacoes?openFinalizar=${cotacaoId}`);
+      // Redirecionar para página de cotações com parâmetros para restaurar a navegação
+      // (página principal onde estão os checkboxes e o botão de gerar autorização)
+      const processoId = cotacao?.processo_compra_id;
+      const contratoId = (cotacao?.processos_compras as any)?.contrato_gestao_id;
+      
+      navigate(`/cotacoes?contrato=${contratoId}&processo=${processoId}&cotacao=${cotacaoId}`);
     } catch (error) {
       console.error("Erro ao autorizar:", error);
       toast.error("Erro ao autorizar solicitação");
