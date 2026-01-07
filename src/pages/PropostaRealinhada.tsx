@@ -273,56 +273,148 @@ const PropostaRealinhada = () => {
         .filter(p => p.length > 2 && !palavrasIgnorar.has(p));
     };
 
-    // Função helper para buscar marca e valor original pela descrição do item usando palavras-chave
-    // IMPORTANTE: Em critério por_lote, o numero_item pode se repetir em lotes diferentes,
-    // então a prioridade é fazer match pela descrição para garantir que a marca correta seja encontrada
-    const buscarDadosOriginaisPorDescricao = (descricaoItem: string, numeroItem: number): { marca: string; valorUnitario: number } => {
-      const palavrasItem = extrairPalavrasChave(descricaoItem);
-      
-      let melhorMatch = { marca: "", valorUnitario: 0, score: 0, matchExato: false };
-      
-      for (const resposta of respostasOriginais) {
-        if (!resposta.descricao) continue;
-        
-        const palavrasResposta = extrairPalavrasChave(resposta.descricao);
-        
-        // Contar palavras em comum
-        let score = 0;
-        for (const palavra of palavrasResposta) {
-          if (palavrasItem.some(p => p.includes(palavra) || palavra.includes(p))) {
-            score++;
+    const normalizarDescricao = (texto: string): string => {
+      return (texto || "")
+        .toLowerCase()
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "") // Remove acentos
+        .replace(/[^\w\s]/g, " ")
+        .replace(/\s+/g, " ")
+        .trim();
+    };
+
+    // Função helper para buscar marca e valor original
+    // REGRA CRÍTICA: em critério por_lote, numero_item pode se repetir em lotes diferentes.
+    // Portanto, por_lote usa matching por descrição (texto) e NÃO por numero_item.
+    const buscarDadosOriginaisPorDescricao = (
+      descricaoItem: string,
+      numeroItem: number
+    ): { marca: string; valorUnitario: number } => {
+      // ======== LÓGICA ISOLADA: POR LOTE ========
+      if (criterio === "por_lote") {
+        const itemNorm = normalizarDescricao(descricaoItem);
+
+        // 1) Matching forte por inclusão/prefixo do texto (muito comum quando a resposta tem descrição “estendida”)
+        if (itemNorm) {
+          const candidatos = respostasOriginais
+            .map((r) => ({
+              r,
+              descNorm: normalizarDescricao(String(r?.descricao || "")),
+              marcaNorm: String(r?.marca || "").trim(),
+            }))
+            .filter(
+              (c) =>
+                c.descNorm &&
+                (c.descNorm.startsWith(itemNorm) ||
+                  itemNorm.startsWith(c.descNorm) ||
+                  c.descNorm.includes(itemNorm) ||
+                  itemNorm.includes(c.descNorm))
+            )
+            .sort((a, b) => {
+              // Preferir quem tem marca preenchida
+              const hasMarcaA = a.marcaNorm.length > 0;
+              const hasMarcaB = b.marcaNorm.length > 0;
+              if (hasMarcaA !== hasMarcaB) return hasMarcaB ? 1 : -1;
+
+              // Preferir prefix match
+              const aPrefix = a.descNorm.startsWith(itemNorm) || itemNorm.startsWith(a.descNorm);
+              const bPrefix = b.descNorm.startsWith(itemNorm) || itemNorm.startsWith(b.descNorm);
+              if (aPrefix !== bPrefix) return bPrefix ? 1 : -1;
+
+              // Preferir o mais “próximo” por tamanho
+              const lenDiffA = Math.abs(a.descNorm.length - itemNorm.length);
+              const lenDiffB = Math.abs(b.descNorm.length - itemNorm.length);
+              return lenDiffA - lenDiffB;
+            });
+
+          if (candidatos.length > 0) {
+            const best = candidatos[0];
+            return {
+              marca: best.marcaNorm,
+              valorUnitario: Number(best.r?.valor_unitario_ofertado || 0),
+            };
           }
         }
-        
-        // Match exato: mesmas palavras-chave (alta confiança)
-        const isMatchExato = score >= Math.min(palavrasItem.length, palavrasResposta.length) * 0.7;
-        
-        // Preferir matches exatos, depois matches com mais palavras em comum
-        const deveAtualizar = 
-          (!melhorMatch.matchExato && isMatchExato) || 
-          (isMatchExato === melhorMatch.matchExato && score > melhorMatch.score);
-        
-        if (deveAtualizar && score >= 2) {
-          melhorMatch = { 
-            marca: resposta.marca || "", 
-            valorUnitario: resposta.valor_unitario_ofertado || 0,
+
+        // 2) Fallback por palavras-chave (quando o texto não bate por inclusão)
+        const palavrasItem = extrairPalavrasChave(descricaoItem);
+        let melhorMatch = { marca: "", valorUnitario: 0, score: 0, hasMarca: false };
+
+        for (const resposta of respostasOriginais) {
+          if (!resposta?.descricao) continue;
+
+          const palavrasResposta = extrairPalavrasChave(String(resposta.descricao));
+          let score = 0;
+
+          for (const palavra of palavrasResposta) {
+            if (palavrasItem.some((p) => p.includes(palavra) || palavra.includes(p))) score++;
+          }
+
+          const marca = String(resposta?.marca || "").trim();
+          const hasMarca = marca.length > 0;
+
+          const deveAtualizar =
+            score > melhorMatch.score ||
+            (score === melhorMatch.score && hasMarca && !melhorMatch.hasMarca);
+
+          if (deveAtualizar && score >= 2) {
+            melhorMatch = {
+              marca,
+              valorUnitario: Number(resposta?.valor_unitario_ofertado || 0),
+              score,
+              hasMarca,
+            };
+          }
+        }
+
+        // 3) Último fallback: numero_item SOMENTE se for único e tiver marca (evita pegar o item errado de outro lote)
+        if (!melhorMatch.hasMarca) {
+          const matchesPorNumeroComMarca = respostasOriginais.filter(
+            (r) => r?.numero_item === numeroItem && String(r?.marca || "").trim().length > 0
+          );
+          if (matchesPorNumeroComMarca.length === 1) {
+            return {
+              marca: String(matchesPorNumeroComMarca[0].marca || "").trim(),
+              valorUnitario: Number(matchesPorNumeroComMarca[0].valor_unitario_ofertado || 0),
+            };
+          }
+        }
+
+        return { marca: melhorMatch.marca, valorUnitario: melhorMatch.valorUnitario };
+      }
+
+      // ======== OUTROS CRITÉRIOS (NÃO ALTERAR): match direto por numero_item ========
+      const matchDirecto = respostasOriginais.find((r) => r.numero_item === numeroItem);
+      if (matchDirecto) {
+        return {
+          marca: String(matchDirecto.marca || ""),
+          valorUnitario: Number(matchDirecto.valor_unitario_ofertado || 0),
+        };
+      }
+
+      // Fallback por palavras-chave (apenas se não encontrou pelo número)
+      const palavrasItem = extrairPalavrasChave(descricaoItem);
+      let melhorMatch = { marca: "", valorUnitario: 0, score: 0 };
+
+      for (const resposta of respostasOriginais) {
+        if (!resposta?.descricao) continue;
+
+        const palavrasResposta = extrairPalavrasChave(String(resposta.descricao));
+        let score = 0;
+
+        for (const palavra of palavrasResposta) {
+          if (palavrasItem.some((p) => p.includes(palavra) || palavra.includes(p))) score++;
+        }
+
+        if (score > melhorMatch.score && score >= 2) {
+          melhorMatch = {
+            marca: String(resposta.marca || ""),
+            valorUnitario: Number(resposta.valor_unitario_ofertado || 0),
             score,
-            matchExato: isMatchExato
           };
         }
       }
-      
-      // Fallback: se não encontrou por descrição, tentar numero_item (apenas se único)
-      if (!melhorMatch.marca && !melhorMatch.valorUnitario) {
-        const matchesPorNumero = respostasOriginais.filter(r => r.numero_item === numeroItem);
-        if (matchesPorNumero.length === 1) {
-          return { 
-            marca: matchesPorNumero[0].marca || "", 
-            valorUnitario: matchesPorNumero[0].valor_unitario_ofertado || 0 
-          };
-        }
-      }
-      
+
       return { marca: melhorMatch.marca, valorUnitario: melhorMatch.valorUnitario };
     };
 
