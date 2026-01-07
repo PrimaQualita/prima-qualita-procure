@@ -274,20 +274,12 @@ const PropostaRealinhada = () => {
     };
 
     // Função helper para buscar marca e valor original pela descrição do item usando palavras-chave
+    // IMPORTANTE: Em critério por_lote, o numero_item pode se repetir em lotes diferentes,
+    // então a prioridade é fazer match pela descrição para garantir que a marca correta seja encontrada
     const buscarDadosOriginaisPorDescricao = (descricaoItem: string, numeroItem: number): { marca: string; valorUnitario: number } => {
-      // Primeiro, tentar match por numero_item direto
-      const matchDirecto = respostasOriginais.find(r => r.numero_item === numeroItem);
-      if (matchDirecto) {
-        return { 
-          marca: matchDirecto.marca || "", 
-          valorUnitario: matchDirecto.valor_unitario_ofertado || 0 
-        };
-      }
-
-      // Se não encontrar, usar matching por palavras-chave
       const palavrasItem = extrairPalavrasChave(descricaoItem);
       
-      let melhorMatch = { marca: "", valorUnitario: 0, score: 0 };
+      let melhorMatch = { marca: "", valorUnitario: 0, score: 0, matchExato: false };
       
       for (const resposta of respostasOriginais) {
         if (!resposta.descricao) continue;
@@ -302,12 +294,31 @@ const PropostaRealinhada = () => {
           }
         }
         
-        // Preferir matches com mais palavras em comum
-        if (score > melhorMatch.score && score >= 2) {
+        // Match exato: mesmas palavras-chave (alta confiança)
+        const isMatchExato = score >= Math.min(palavrasItem.length, palavrasResposta.length) * 0.7;
+        
+        // Preferir matches exatos, depois matches com mais palavras em comum
+        const deveAtualizar = 
+          (!melhorMatch.matchExato && isMatchExato) || 
+          (isMatchExato === melhorMatch.matchExato && score > melhorMatch.score);
+        
+        if (deveAtualizar && score >= 2) {
           melhorMatch = { 
             marca: resposta.marca || "", 
             valorUnitario: resposta.valor_unitario_ofertado || 0,
-            score 
+            score,
+            matchExato: isMatchExato
+          };
+        }
+      }
+      
+      // Fallback: se não encontrou por descrição, tentar numero_item (apenas se único)
+      if (!melhorMatch.marca && !melhorMatch.valorUnitario) {
+        const matchesPorNumero = respostasOriginais.filter(r => r.numero_item === numeroItem);
+        if (matchesPorNumero.length === 1) {
+          return { 
+            marca: matchesPorNumero[0].marca || "", 
+            valorUnitario: matchesPorNumero[0].valor_unitario_ofertado || 0 
           };
         }
       }
