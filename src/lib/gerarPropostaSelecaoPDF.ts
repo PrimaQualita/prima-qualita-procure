@@ -461,7 +461,13 @@ export async function gerarPropostaSelecaoPDF(
           cellPadding: 2,
           overflow: 'linebreak',
           lineColor: [200, 200, 200],
-          lineWidth: 0.3
+          lineWidth: 0.3,
+          textColor: [0, 0, 0] // Garantir texto preto em todas as células
+        },
+        bodyStyles: {
+          textColor: [0, 0, 0], // Forçar texto preto no corpo da tabela
+          font: 'helvetica',
+          fontStyle: 'normal'
         },
         headStyles: {
           fillColor: [30, 159, 204],
@@ -470,13 +476,13 @@ export async function gerarPropostaSelecaoPDF(
           halign: 'center'
         },
         columnStyles: {
-          0: { cellWidth: colWidths.item, halign: 'center' },
-          1: { cellWidth: colWidths.descricao, halign: 'left' },
-          2: { cellWidth: colWidths.quantidade, halign: 'center' },
-          3: { cellWidth: colWidths.unidade, halign: 'center' },
-          4: { cellWidth: colWidths.marca, halign: 'center' },
-          5: { cellWidth: colWidths.valorUnitario, halign: 'right' },
-          6: { cellWidth: colWidths.valorTotal, halign: 'right' }
+          0: { cellWidth: colWidths.item, halign: 'center', textColor: [0, 0, 0] },
+          1: { cellWidth: colWidths.descricao, halign: 'justify', textColor: [0, 0, 0] },
+          2: { cellWidth: colWidths.quantidade, halign: 'center', textColor: [0, 0, 0] },
+          3: { cellWidth: colWidths.unidade, halign: 'center', textColor: [0, 0, 0] },
+          4: { cellWidth: colWidths.marca, halign: 'center', textColor: [0, 0, 0] },
+          5: { cellWidth: colWidths.valorUnitario, halign: 'right', textColor: [0, 0, 0] },
+          6: { cellWidth: colWidths.valorTotal, halign: 'right', textColor: [0, 0, 0] }
         },
         head: [['Item', 'Descrição', 'Qtd', 'Unid', 'Marca', 'Vlr Unit.', 'Vlr Total']],
         body: tableData.map(row => {
@@ -517,17 +523,20 @@ export async function gerarPropostaSelecaoPDF(
           }
           doc.rect(cellX + 0.3, cellY + 0.3, cellWidth - 0.6, cellHeight - 0.6, 'F');
           
-          // Configurar fonte
+          // Configurar fonte - SEMPRE preto para o corpo
           doc.setFontSize(8);
           doc.setFont('helvetica', 'normal');
-          doc.setTextColor(0, 0, 0);
+          doc.setTextColor(0, 0, 0); // Forçar cor preta
           
-          // Coluna 1 (Descrição): texto justificado
+          // Coluna 1 (Descrição): texto justificado com cor preta
           if (data.column.index === 1 && data.cell.text && Array.isArray(data.cell.text) && data.cell.text.length > 0) {
             const padding = 2;
             const larguraTexto = cellWidth - (padding * 2);
             const textLines = data.cell.text as string[];
             const lineHeight = 3.5;
+            
+            // Garantir cor preta antes de renderizar
+            doc.setTextColor(0, 0, 0);
             
             textLines.forEach((linha, index) => {
               const yLinha = cellY + padding + 2 + (index * lineHeight);
@@ -536,17 +545,22 @@ export async function gerarPropostaSelecaoPDF(
                 const isUltimaLinha = index === textLines.length - 1;
                 
                 if (isUltimaLinha || textLines.length === 1) {
+                  // Última linha: alinhamento à esquerda (não esticar)
                   doc.text(linha.trim(), cellX + padding, yLinha);
                 } else {
+                  // Linhas intermediárias: texto justificado
                   renderizarTextoJustificado(doc, linha.trim(), cellX + padding, yLinha, larguraTexto);
                 }
               }
             });
           }
-          // Outras colunas: centralizar verticalmente
+          // Outras colunas: centralizar verticalmente com cor preta
           else if (data.cell.text && Array.isArray(data.cell.text) && data.cell.text.length > 0) {
             const texto = data.cell.text.join(' ').trim();
             const yCenter = cellY + (cellHeight / 2) + 1;
+            
+            // Garantir cor preta
+            doc.setTextColor(0, 0, 0);
             
             // Colunas com alinhamento à direita (valores)
             if (data.column.index === 5 || data.column.index === 6) {
