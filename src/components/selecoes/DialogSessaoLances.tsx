@@ -2339,7 +2339,7 @@ export function DialogSessaoLances({
       // Larguras ajustadas para critério global (5 colunas: Item, Descrição, Vencedor, Unidade, Quantidade)
       const columnStylesGlobal = {
         0: { cellWidth: 15, halign: "center" as const, fontStyle: "bold" as const },
-        1: { cellWidth: larguraTotalTabela - 15 - 60 - 35 - 35, halign: "left" as const }, // Descrição ocupa o restante
+        1: { cellWidth: larguraTotalTabela - 15 - 60 - 35 - 35, halign: "justify" as const }, // Descrição ocupa o restante
         2: { cellWidth: 60, halign: "left" as const }, // Vencedor
         3: { cellWidth: 35, halign: "center" as const },
         4: { cellWidth: 35, halign: "center" as const },
@@ -2359,7 +2359,7 @@ export function DialogSessaoLances({
 
       const columnStylesPadrao = {
         0: { cellWidth: colItemWidth, halign: "center" as const, fontStyle: "bold" as const },
-        1: { cellWidth: colDescricaoWidth },
+        1: { cellWidth: colDescricaoWidth, halign: "justify" as const },
         2: { cellWidth: colVencedorWidth },
         3: { cellWidth: colMarcaWidth, halign: "center" as const },
         4: { cellWidth: colQtdWidth, halign: "center" as const },
