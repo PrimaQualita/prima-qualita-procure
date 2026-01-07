@@ -304,6 +304,7 @@ const PropostaRealinhada = () => {
             }))
             .filter(
               (c) =>
+                c.marcaNorm && // SOMENTE considerar candidatos com marca preenchida
                 c.descNorm &&
                 (c.descNorm.startsWith(itemNorm) ||
                   itemNorm.startsWith(c.descNorm) ||
@@ -367,18 +368,8 @@ const PropostaRealinhada = () => {
           }
         }
 
-        // 3) Último fallback: numero_item SOMENTE se for único e tiver marca (evita pegar o item errado de outro lote)
-        if (!melhorMatch.hasMarca) {
-          const matchesPorNumeroComMarca = respostasOriginais.filter(
-            (r) => r?.numero_item === numeroItem && String(r?.marca || "").trim().length > 0
-          );
-          if (matchesPorNumeroComMarca.length === 1) {
-            return {
-              marca: String(matchesPorNumeroComMarca[0].marca || "").trim(),
-              valorUnitario: Number(matchesPorNumeroComMarca[0].valor_unitario_ofertado || 0),
-            };
-          }
-        }
+        // NÃO usar fallback por numero_item em por_lote - causa erro de pegar marca de outro lote
+        // O matching deve ser EXCLUSIVAMENTE por descrição
 
         return { marca: melhorMatch.marca, valorUnitario: melhorMatch.valorUnitario };
       }
