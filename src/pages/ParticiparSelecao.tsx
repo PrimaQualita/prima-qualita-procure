@@ -1372,24 +1372,106 @@ const ParticiparSelecao = () => {
 
         {/* Registro de Proposta */}
         {prazoExpirado ? (
-          <Card className="mb-6 border-amber-500 bg-amber-50 dark:bg-amber-950">
-            <CardHeader>
-              <CardTitle className="text-amber-700 dark:text-amber-400">⏰ Prazo Encerrado</CardTitle>
-              <CardDescription className="text-amber-600 dark:text-amber-300">
-                O prazo para envio de novas propostas foi encerrado.
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <p className="text-amber-700 dark:text-amber-300">
-                Não é mais possível enviar ou modificar propostas para esta seleção.
-                O prazo encerra 5 minutos antes do horário da sessão de disputa.
-              </p>
-              <div className="mt-4 p-3 bg-white dark:bg-card rounded border">
-                <p className="text-sm"><strong>Data da Sessão:</strong> {selecao?.data_sessao_disputa?.split('T')[0].split('-').reverse().join('/')}</p>
-                <p className="text-sm"><strong>Horário:</strong> {selecao?.hora_sessao_disputa}</p>
-              </div>
-            </CardContent>
-          </Card>
+          <>
+            {/* Mensagem de prazo encerrado */}
+            <Card className="mb-6 border-amber-500 bg-amber-50 dark:bg-amber-950">
+              <CardHeader>
+                <CardTitle className="text-amber-700 dark:text-amber-400">⏰ Prazo Encerrado</CardTitle>
+                <CardDescription className="text-amber-600 dark:text-amber-300">
+                  O prazo para envio de novas propostas foi encerrado.
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <p className="text-amber-700 dark:text-amber-300">
+                  Não é mais possível enviar ou modificar propostas para esta seleção.
+                  O prazo encerra 5 minutos antes do horário da sessão de disputa.
+                </p>
+                <div className="mt-4 p-3 bg-white dark:bg-card rounded border">
+                  <p className="text-sm"><strong>Data da Sessão:</strong> {selecao?.data_sessao_disputa?.split('T')[0].split('-').reverse().join('/')}</p>
+                  <p className="text-sm"><strong>Horário:</strong> {selecao?.hora_sessao_disputa}</p>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Tabela de itens em modo somente leitura */}
+            <Card className="mb-6 opacity-75">
+              <CardHeader>
+                <CardTitle>📝 Itens da Seleção (Somente Visualização)</CardTitle>
+                <CardDescription>O prazo para envio de propostas encerrou</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="w-[50px]">Item</TableHead>
+                      <TableHead>Descrição</TableHead>
+                      <TableHead className="w-[80px]">Qtd</TableHead>
+                      <TableHead className="w-[80px]">Unid.</TableHead>
+                      {processo?.tipo === "material" && <TableHead className="w-[120px]">Marca</TableHead>}
+                      {criterioJulgamento === "desconto" ? (
+                        <TableHead className="text-right w-[120px]">Desconto Est.</TableHead>
+                      ) : (
+                        <TableHead className="text-right w-[120px]">Vlr. Unit. Est.</TableHead>
+                      )}
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {processo?.criterio_julgamento === 'por_lote' ? (
+                      <>
+                        {lotes.map(lote => {
+                          const itensLote = itens.filter(i => i.lote_id === lote.id);
+                          return (
+                            <React.Fragment key={lote.id}>
+                              <TableRow className="bg-primary/20">
+                                <TableCell colSpan={processo?.tipo === "material" ? 6 : 5} className="font-bold text-primary">
+                                  LOTE {lote.numero_lote} - {lote.descricao_lote}
+                                </TableCell>
+                              </TableRow>
+                              {itensLote.map(item => (
+                                <TableRow key={item.id}>
+                                  <TableCell>{item.numero_item}</TableCell>
+                                  <TableCell>{item.descricao}</TableCell>
+                                  <TableCell className="text-center">{item.quantidade}</TableCell>
+                                  <TableCell className="text-center">{item.unidade}</TableCell>
+                                  {processo?.tipo === "material" && (
+                                    <TableCell className="text-muted-foreground">-</TableCell>
+                                  )}
+                                  <TableCell className="text-right">
+                                    {criterioJulgamento === "desconto" 
+                                      ? (item.valor_unitario_estimado ? `${item.valor_unitario_estimado.toFixed(2)}%` : "-")
+                                      : formatCurrency(item.valor_unitario_estimado)
+                                    }
+                                  </TableCell>
+                                </TableRow>
+                              ))}
+                            </React.Fragment>
+                          );
+                        })}
+                      </>
+                    ) : (
+                      itens.map(item => (
+                        <TableRow key={item.id}>
+                          <TableCell>{item.numero_item}</TableCell>
+                          <TableCell>{item.descricao}</TableCell>
+                          <TableCell className="text-center">{item.quantidade}</TableCell>
+                          <TableCell className="text-center">{item.unidade}</TableCell>
+                          {processo?.tipo === "material" && (
+                            <TableCell className="text-muted-foreground">-</TableCell>
+                          )}
+                          <TableCell className="text-right">
+                            {criterioJulgamento === "desconto" 
+                              ? (item.valor_unitario_estimado ? `${item.valor_unitario_estimado.toFixed(2)}%` : "-")
+                              : formatCurrency(item.valor_unitario_estimado)
+                            }
+                          </TableCell>
+                        </TableRow>
+                      ))
+                    )}
+                  </TableBody>
+                </Table>
+              </CardContent>
+            </Card>
+          </>
         ) : !jaEnviouProposta ? (
           <>
             
