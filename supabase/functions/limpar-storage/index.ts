@@ -90,9 +90,9 @@ Deno.serve(async (req) => {
         { tabela: 'recursos_fornecedor', coluna: 'url_arquivo' },
         { tabela: 'documentos_finalizacao_fornecedor', coluna: 'url_arquivo' },
         { tabela: 'anexos_selecao', coluna: 'url_arquivo' },
-        { tabela: 'atas_selecao', coluna: 'url_arquivo' },
-        { tabela: 'atas_selecao', coluna: 'url_arquivo_original' },
-        { tabela: 'homologacoes_selecao', coluna: 'url_arquivo' },
+        { tabela: 'atas_selecao', coluna: 'url_arquivo', apenasLimparUrl: true },
+        { tabela: 'atas_selecao', coluna: 'url_arquivo_original', apenasLimparUrl: true },
+        { tabela: 'homologacoes_selecao', coluna: 'url_arquivo', apenasLimparUrl: true },
         { tabela: 'planilhas_lances_selecao', coluna: 'url_arquivo' },
         { tabela: 'recursos_inabilitacao_selecao', coluna: 'url_pdf_recurso' },
         { tabela: 'recursos_inabilitacao_selecao', coluna: 'url_pdf_resposta' },
@@ -233,6 +233,35 @@ Deno.serve(async (req) => {
       // CRÍTICO: Buscar TODAS as referências do banco PRIMEIRO para evitar deletar arquivos válidos
       console.log('🔒 Buscando todas as referências do banco para proteção...');
       const { data: referencias } = await supabase.rpc('get_all_file_references');
+
+      const normalizeToRelativePath = (input: string): string => {
+        if (!input) return '';
+        let s = String(input);
+
+        // Remover query string primeiro
+        s = s.split('?')[0];
+
+        // Se for URL completa, remover prefixo até o bucket
+        s = s.replace(/^https?:\/\/[^/]+\/storage\/v1\/object\/public\//, '');
+
+        // Remover prefixo com barra (quando vier como "/processo-anexos/..." ou "/documents/...")
+        if (s.includes('/processo-anexos/')) s = s.split('/processo-anexos/')[1] || s;
+        if (s.includes('/documents/')) s = s.split('/documents/')[1] || s;
+
+        // Remover prefixo de bucket (quando vier como "processo-anexos/..." ou "documents/...")
+        s = s.replace(/^processo-anexos\//, '').replace(/^documents\//, '');
+
+        // Decodificação recursiva (evita %2520 vs %20)
+        try {
+          while (s.includes('%')) {
+            const decoded = decodeURIComponent(s);
+            if (decoded === s) break;
+            s = decoded;
+          }
+        } catch {}
+
+        return s;
+      };
       
       // Criar sets normalizados para verificação rápida
       const referenciasProtegidas = new Set<string>();
@@ -241,25 +270,19 @@ Deno.serve(async (req) => {
       for (const ref of (referencias || [])) {
         const url = ref.url || '';
         if (!url) continue;
+
+        const normalizedPath = normalizeToRelativePath(url);
+        if (!normalizedPath) continue;
+
+        referenciasProtegidas.add(normalizedPath);
+        // Também proteger com prefixo de bucket
+        referenciasProtegidas.add(`processo-anexos/${normalizedPath}`);
+        referenciasProtegidas.add(`documents/${normalizedPath}`);
         
-        // Normalizar para path relativo (ex: emails/.../file.pdf)
-        let normalizedPath = url
-          .replace(/^https?:\/\/[^\/]+\/storage\/v1\/object\/public\//, '')
-          .replace(/^processo-anexos\//, '')
-          .replace(/^documents\//, '')
-          .split('?')[0];
-        
-        if (normalizedPath) {
-          referenciasProtegidas.add(normalizedPath);
-          // Também proteger com prefixo de bucket
-          referenciasProtegidas.add(`processo-anexos/${normalizedPath}`);
-          referenciasProtegidas.add(`documents/${normalizedPath}`);
-          
-          // Adicionar nome do arquivo para proteção extra
-          const fileName = normalizedPath.split('/').pop();
-          if (fileName) {
-            nomesArquivosProtegidos.add(fileName);
-          }
+        // Adicionar nome do arquivo para proteção extra
+        const fileName = normalizedPath.split('/').pop();
+        if (fileName) {
+          nomesArquivosProtegidos.add(fileName);
         }
       }
       console.log(`🔒 Total de paths protegidos: ${referenciasProtegidas.size}, nomes protegidos: ${nomesArquivosProtegidos.size}`);

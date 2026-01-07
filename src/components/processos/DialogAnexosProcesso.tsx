@@ -274,22 +274,44 @@ export function DialogAnexosProcesso({
       const anexo = anexoToDelete;
       const urlArquivo = anexo.url_arquivo;
       
-      // Determinar bucket e path baseado na URL
-      let bucket = "processo-anexos";
-      let filePath = urlArquivo;
-      
-      if (urlArquivo.includes('/documents/')) {
-        // Arquivo no bucket documents
-        bucket = "documents";
-        filePath = urlArquivo.split('/documents/')[1]?.split('?')[0] || '';
-      } else if (urlArquivo.includes('/processo-anexos/')) {
-        // Arquivo no bucket processo-anexos (URL completa)
-        filePath = urlArquivo.split('/processo-anexos/')[1]?.split('?')[0] || '';
-      } else if (!urlArquivo.startsWith('http')) {
-        // Path relativo já
-        filePath = urlArquivo;
-      }
+      const getBucketAndPath = (
+        raw: string,
+        tipoAnexo?: string
+      ): { bucket: "processo-anexos" | "documents"; path: string } | null => {
+        if (!raw) return null;
 
+        // 1) remover query string
+        let s = String(raw).split("?")[0];
+
+        // 2) se for URL completa, remover prefixo /storage/v1/object/public/
+        s = s.replace(/^https?:\/\/[^/]+\/storage\/v1\/object\/public\//, "");
+
+        // 3) inferir bucket
+        let bucket: "processo-anexos" | "documents" = "processo-anexos";
+        if (s.startsWith("documents/") || raw.includes("/documents/")) bucket = "documents";
+        else if (s.startsWith("processo-anexos/") || raw.includes("/processo-anexos/")) bucket = "processo-anexos";
+        else if (tipoAnexo === "PROCESSO_COMPLETO") bucket = "documents";
+        else if (s.startsWith("processos/")) bucket = "documents";
+
+        // 4) remover prefixo de bucket se estiver embutido
+        s = s.replace(/^documents\//, "").replace(/^processo-anexos\//, "");
+
+        // 5) decodificação recursiva (evita %2520 vs %20)
+        try {
+          while (s.includes("%")) {
+            const decoded = decodeURIComponent(s);
+            if (decoded === s) break;
+            s = decoded;
+          }
+        } catch {}
+
+        if (!s) return null;
+        return { bucket, path: s };
+      };
+
+      const target = getBucketAndPath(urlArquivo, anexo.tipo_anexo);
+      const bucket = target?.bucket || "processo-anexos";
+      const filePath = target?.path || "";
       // Delete from storage se tiver path válido
       if (filePath) {
         console.log(`Deletando arquivo do bucket ${bucket}: ${filePath}`);
