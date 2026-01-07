@@ -198,7 +198,7 @@ const ParticiparSelecao = () => {
   const [arquivosComprovantes, setArquivosComprovantes] = useState<File[]>([]);
   const [prazoExpirado, setPrazoExpirado] = useState(false);
 
-  // Verificar prazo em tempo real - expirar 5 minutos antes da sessão
+  // Verificar prazo em tempo real - encerrar exatamente no horário da sessão
   useEffect(() => {
     if (!selecao?.data_sessao_disputa || !selecao?.hora_sessao_disputa) return;
 
@@ -215,10 +215,8 @@ const ParticiparSelecao = () => {
       const dataHoraSessao = new Date(`${dataPart}T${horaPart}-03:00`);
       if (Number.isNaN(dataHoraSessao.getTime())) return;
 
-      const cincoMinutosAntes = new Date(dataHoraSessao.getTime() - 5 * 60 * 1000);
       const agora = new Date();
-
-      setPrazoExpirado(agora >= cincoMinutosAntes);
+      setPrazoExpirado(agora >= dataHoraSessao);
     };
 
     // Verificar imediatamente
@@ -229,6 +227,7 @@ const ParticiparSelecao = () => {
 
     return () => clearInterval(interval);
   }, [selecao?.data_sessao_disputa, selecao?.hora_sessao_disputa]);
+
 
 
   const verificarCnpjExistente = async (cnpj: string) => {
@@ -897,21 +896,21 @@ const ParticiparSelecao = () => {
 
     setSubmitting(true);
     try {
-      // Validar prazo - bloquear envios a menos de 5 minutos da sessão
-      // Usar fuso horário de Brasília (America/Sao_Paulo = UTC-3)
-      const dataHoraSessao = new Date(`${selecao.data_sessao_disputa}T${selecao.hora_sessao_disputa}:00-03:00`);
+      // Validar prazo - encerrar exatamente no horário da sessão (Brasília)
+      const dataPart = String(selecao.data_sessao_disputa).split("T")[0];
+      const horaRaw = String(selecao.hora_sessao_disputa).trim();
+      const horaPart =
+        horaRaw.length === 5 ? `${horaRaw}:00` : horaRaw.length >= 8 ? horaRaw.slice(0, 8) : horaRaw;
+
+      const dataHoraSessao = new Date(`${dataPart}T${horaPart}-03:00`);
       const agora = new Date();
-      const agoraBrasilia = new Date(agora.toLocaleString('en-US', { timeZone: 'America/Sao_Paulo' }));
-      const diferencaMinutos = (dataHoraSessao.getTime() - agoraBrasilia.getTime()) / (1000 * 60);
-      
-      if (diferencaMinutos < 5) {
-        toast.error("O prazo para envio de propostas encerrou-se 5 minutos antes da sessão");
+
+      if (!Number.isNaN(dataHoraSessao.getTime()) && agora >= dataHoraSessao) {
+        toast.error("O prazo para envio de propostas encerrou-se no início da sessão");
         setSubmitting(false);
         return;
       }
-      
-      console.log(`⏰ Tempo restante para sessão: ${diferencaMinutos.toFixed(0)} minutos`);
-      
+
       // Validar dados da empresa se não autenticado
       if (!fornecedor) {
         try {
@@ -1386,8 +1385,9 @@ const ParticiparSelecao = () => {
               <CardContent>
                 <p className="text-amber-700 dark:text-amber-300">
                   Não é mais possível enviar ou modificar propostas para esta seleção.
-                  O prazo encerra 5 minutos antes do horário da sessão de disputa.
+                  O prazo encerra exatamente no horário da sessão de disputa.
                 </p>
+
                 <div className="mt-4 p-3 bg-white dark:bg-card rounded border">
                   <p className="text-sm"><strong>Data da Sessão:</strong> {selecao?.data_sessao_disputa?.split('T')[0].split('-').reverse().join('/')}</p>
                   <p className="text-sm"><strong>Horário:</strong> {selecao?.hora_sessao_disputa}</p>
