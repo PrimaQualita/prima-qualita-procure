@@ -203,31 +203,33 @@ const ParticiparSelecao = () => {
     if (!selecao?.data_sessao_disputa || !selecao?.hora_sessao_disputa) return;
 
     const verificarPrazo = () => {
+      // data_sessao_disputa pode vir como "YYYY-MM-DD" ou timestamp; usamos só a parte da data.
+      const dataPart = String(selecao.data_sessao_disputa).split("T")[0];
+
+      // hora_sessao_disputa pode vir como "HH:mm" ou "HH:mm:ss".
+      const horaRaw = String(selecao.hora_sessao_disputa).trim();
+      const horaPart =
+        horaRaw.length === 5 ? `${horaRaw}:00` : horaRaw.length >= 8 ? horaRaw.slice(0, 8) : horaRaw;
+
       // Construir data/hora da sessão com offset de Brasília (UTC-3)
-      const dataHoraSessao = new Date(`${selecao.data_sessao_disputa}T${selecao.hora_sessao_disputa}:00-03:00`);
+      const dataHoraSessao = new Date(`${dataPart}T${horaPart}-03:00`);
+      if (Number.isNaN(dataHoraSessao.getTime())) return;
+
       const cincoMinutosAntes = new Date(dataHoraSessao.getTime() - 5 * 60 * 1000);
-      const agora = new Date(); // Já em UTC, comparação correta com cincoMinutosAntes que também está em UTC
-      
-      console.log("⏰ Verificando prazo:", {
-        sessao: dataHoraSessao.toISOString(),
-        cincoMinAntes: cincoMinutosAntes.toISOString(),
-        agora: agora.toISOString(),
-        expirado: agora >= cincoMinutosAntes
-      });
-      
-      if (agora >= cincoMinutosAntes) {
-        setPrazoExpirado(true);
-      }
+      const agora = new Date();
+
+      setPrazoExpirado(agora >= cincoMinutosAntes);
     };
 
     // Verificar imediatamente
     verificarPrazo();
-    
+
     // Verificar a cada segundo
     const interval = setInterval(verificarPrazo, 1000);
-    
+
     return () => clearInterval(interval);
   }, [selecao?.data_sessao_disputa, selecao?.hora_sessao_disputa]);
+
 
   const verificarCnpjExistente = async (cnpj: string) => {
     const cnpjLimpo = cnpj.replace(/\D/g, '');
