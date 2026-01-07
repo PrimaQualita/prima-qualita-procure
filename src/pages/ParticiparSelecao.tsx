@@ -452,7 +452,11 @@ const ParticiparSelecao = () => {
 
       // Carregar itens
       if (selecaoData.cotacao_relacionada_id) {
-        await loadItensFromPlanilha(selecaoData.cotacao_relacionada_id, selecaoData.created_at);
+        await loadItensFromPlanilha(
+          selecaoData.cotacao_relacionada_id,
+          selecaoData.created_at,
+          selecaoData.processos_compras?.criterio_julgamento || ""
+        );
       }
 
       // IMPORTANTE: Carregar documentos SEMPRE
@@ -468,22 +472,29 @@ const ParticiparSelecao = () => {
     }
   };
 
-  const loadItensFromPlanilha = async (cotacaoId: string, dataCriacaoSelecao: string) => {
+  const loadItensFromPlanilha = async (cotacaoId: string, dataCriacaoSelecao: string, criterioProcesso: string) => {
     try {
+      const planilhaQueryBase = supabase
+        .from("planilhas_consolidadas")
+        .select("fornecedores_incluidos, data_geracao, estimativas_itens")
+        .eq("cotacao_id", cotacaoId);
+
+      // IMPORTANTE:
+      // - Para critério por_lote, usar SEMPRE a planilha consolidada mais recente (mesmo que gerada após a criação da seleção)
+      //   pois é ela que contém as chaves compostas (numero_lote_numero_item) e os valores corretos.
+      // - Para demais critérios, mantém o comportamento anterior (até a data de criação da seleção).
+      const planilhaQuery =
+        criterioProcesso === "por_lote"
+          ? planilhaQueryBase
+          : planilhaQueryBase.lte("data_geracao", dataCriacaoSelecao);
+
       const [planilhaResult, itensOriginaisResult] = await Promise.all([
-        supabase
-          .from("planilhas_consolidadas")
-          .select("fornecedores_incluidos, data_geracao, estimativas_itens")
-          .eq("cotacao_id", cotacaoId)
-          .lte("data_geracao", dataCriacaoSelecao)
-          .order("data_geracao", { ascending: false })
-          .limit(1)
-          .maybeSingle(),
+        planilhaQuery.order("data_geracao", { ascending: false }).limit(1).maybeSingle(),
         supabase
           .from("itens_cotacao")
           .select("*")
           .eq("cotacao_id", cotacaoId)
-          .order("numero_item", { ascending: true })
+          .order("numero_item", { ascending: true }),
       ]);
 
       const { data: planilha } = planilhaResult;
@@ -522,8 +533,8 @@ const ParticiparSelecao = () => {
         return;
       }
 
-      // Usar critério de julgamento já carregado do processo (evita query que pode falhar com 406)
-      const criterioAtual = criterioJulgamento || processo?.criterio_julgamento || "";
+      // Usar critério vindo do processo carregado na seleção (evita race de setState)
+      const criterioAtual = criterioProcesso || "";
       const isDesconto = criterioAtual === "desconto";
 
       // USAR estimativas_itens da planilha consolidada - reflete critério escolhido (média, mediana, menor)
