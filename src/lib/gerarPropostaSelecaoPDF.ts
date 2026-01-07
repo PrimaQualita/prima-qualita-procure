@@ -690,8 +690,8 @@ export async function gerarPropostaSelecaoPDF(
       const descLines = doc.splitTextToSize(sanitizarTexto(item.descricao), descricaoLargura);
       const unidadeLines = doc.splitTextToSize(sanitizarTexto(item.unidade), unidadeLargura);
       const maxLinhas = Math.max(descLines.length, unidadeLines.length);
-      // Altura mínima mais conservadora para evitar que a linha horizontal “corte” texto em descrições longas
-      const alturaLinha = Math.max(8 + ((maxLinhas - 1) * espacamentoLinhaDescTexto), 9);
+      // Altura mínima mais conservadora para garantir “respiro” abaixo do texto e evitar borda cortando linha
+      const alturaLinha = Math.max(10 + ((maxLinhas - 1) * espacamentoLinhaDescTexto), 11);
       alturasPorItem.push(alturaLinha);
       alturaTotal += alturaLinha;
     }
@@ -708,7 +708,7 @@ export async function gerarPropostaSelecaoPDF(
       const descLines = doc.splitTextToSize(sanitizarTexto(item.descricao), descricaoLargura);
       const unidadeLines = doc.splitTextToSize(sanitizarTexto(item.unidade), unidadeLargura);
       const maxLinhas = Math.max(descLines.length, unidadeLines.length);
-      const alturaLinhaItem = Math.max(8 + ((maxLinhas - 1) * espacamentoLinhaDescTexto), 9);
+      const alturaLinhaItem = Math.max(10 + ((maxLinhas - 1) * espacamentoLinhaDescTexto), 11);
       
       // Verificar se o item inteiro cabe na página atual
       if (y + alturaLinhaItem > limitePagina) {
@@ -793,7 +793,7 @@ export async function gerarPropostaSelecaoPDF(
       // Descrição com alinhamento justificado - centralizada verticalmente
       const descricaoX = colDesc;
       const alturaTextoDescricao = descLines.length * espacamentoLinhaDescTexto;
-      const descricaoYInicio = y + (alturaLinha - alturaTextoDescricao) / 2 + 2.5;
+      const descricaoYInicio = y + (alturaLinha - alturaTextoDescricao) / 2 + 1.0;
       
       // Renderizar cada linha da descrição com justificação
       descLines.forEach((linha: string, index: number) => {
@@ -823,7 +823,7 @@ export async function gerarPropostaSelecaoPDF(
       } else {
         // Múltiplas linhas - calcular posição inicial para centralizar verticalmente
         const alturaTextoUnidade = unidadeLinhas.length * espacamentoLinhaDescTexto;
-        const yInicioUnidade = y + (alturaLinha - alturaTextoUnidade) / 2 + 2.5;
+        const yInicioUnidade = y + (alturaLinha - alturaTextoUnidade) / 2 + 1.0;
         unidadeLinhas.forEach((linha: string, idx: number) => {
           const yLinhaUnidade = yInicioUnidade + (idx * espacamentoLinhaDescTexto);
           if (yLinhaUnidade <= y + alturaLinha - 1) {
