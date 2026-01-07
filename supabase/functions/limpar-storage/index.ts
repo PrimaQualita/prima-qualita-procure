@@ -110,19 +110,33 @@ Deno.serve(async (req) => {
         
         console.log(`\n🔍 [${i + 1}/${limite}] Processando: ${path}`);
 
-        // Extrair apenas o nome do arquivo para busca mais flexível
+        // CRÍTICO: Usar path COMPLETO para evitar colisões de nomes de arquivos iguais em diretórios diferentes!
+        // Exemplo: "atas-selecao/UUID1/ata.pdf" e "atas-selecao/UUID2/ata.pdf" são arquivos DIFERENTES
+        // Usando apenas "ata.pdf" deletaria AMBOS - ERRO GRAVE!
+        
+        // Extrair partes do path para busca precisa
         const fileName = path.split('/').pop() || '';
-        console.log(`  📁 Nome do arquivo: ${fileName}`);
+        // Usar a maior parte possível do path para garantir unicidade
+        // Remover prefixo de bucket se presente
+        let searchPath = path;
+        if (searchPath.startsWith('processo-anexos/')) {
+          searchPath = searchPath.substring('processo-anexos/'.length);
+        } else if (searchPath.startsWith('documents/')) {
+          searchPath = searchPath.substring('documents/'.length);
+        }
+        
+        console.log(`  📁 Path de busca: ${searchPath}`);
 
         for (const query of queries) {
           const { tabela, coluna, apenasLimparUrl } = query as any;
           try {
-          if (apenasLimparUrl) {
+            if (apenasLimparUrl) {
               // Para tabelas de dados de negócio, apenas limpar o campo URL (não deletar registro)
+              // Usar path completo para evitar colisões
               const { data: updatedRows, error: updateError } = await supabase
                 .from(tabela)
                 .update({ [coluna]: null })
-                .ilike(coluna, `%${fileName}`)
+                .ilike(coluna, `%${searchPath}%`)
                 .select('id');
 
               if (updateError) {
@@ -138,10 +152,11 @@ Deno.serve(async (req) => {
               }
             } else {
               // Para tabelas de referência pura, deletar o registro inteiro
+              // CRÍTICO: Usar path completo para evitar deletar registros de outros processos!
               const { error: deleteError, count } = await supabase
                 .from(tabela)
                 .delete({ count: 'exact' })
-                .ilike(coluna, `%${fileName}`);
+                .ilike(coluna, `%${searchPath}%`);
 
               if (deleteError) {
                 console.log(`  ⚠️ Erro ao deletar de ${tabela}.${coluna}: ${deleteError.message}`);
