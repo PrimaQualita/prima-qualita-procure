@@ -558,14 +558,11 @@ export default function PropostasSelecao() {
         return;
       }
 
-      // POR LOTE: itens podem repetir numeração; se a marca não foi salva na realinhada,
-      // tenta puxar da proposta original da seleção (somente para o PDF, sem alterar o banco).
+      // POR LOTE: numero_item se repete em lotes diferentes.
+      // Corrigir marca usando matching determinístico (lote_id + numero_item) da proposta ORIGINAL.
+      // Isso corrige propostas antigas onde a marca pode ter sido gravada errada por colisão.
       if (processo.criterio_julgamento === "por_lote") {
-        const itensSemMarca = (itens || []).filter(
-          (i: any) => String(i?.marca ?? "").trim().length === 0
-        );
-
-        if (itensSemMarca.length > 0 && proposta?.fornecedor_id && proposta?.selecao_id) {
+        if (proposta?.fornecedor_id && proposta?.selecao_id && selecao?.cotacao_relacionada_id) {
           const { data: propostaOriginal } = await supabase
             .from("selecao_propostas_fornecedor")
             .select("id")
@@ -576,50 +573,44 @@ export default function PropostasSelecao() {
           if (propostaOriginal?.id) {
             const { data: respostasOriginais } = await (supabase as any)
               .from("selecao_respostas_itens_fornecedor")
-              .select("marca, descricao")
+              .select("numero_item, lote_id, marca")
               .eq("proposta_id", propostaOriginal.id);
 
-            if (Array.isArray(respostasOriginais) && respostasOriginais.length > 0) {
-              const normalizarDescricao = (texto: string) =>
-                String(texto || "")
-                  .toLowerCase()
-                  .normalize("NFD")
-                  .replace(/[\u0300-\u036f]/g, "")
-                  .replace(/[^\w\s]/g, " ")
-                  .replace(/\s+/g, " ")
-                  .trim();
+            const { data: itensCotacao } = await supabase
+              .from("itens_cotacao")
+              .select("numero_item, lote_id, lotes_cotacao(numero_lote)")
+              .eq("cotacao_id", selecao.cotacao_relacionada_id);
 
-              const encontrarMarcaPorDescricao = (descricaoItem: string): string => {
-                const itemNorm = normalizarDescricao(descricaoItem);
-                if (!itemNorm) return "";
+            const loteIdByNumeroLoteItem = new Map<string, string>();
+            (itensCotacao || []).forEach((ic: any) => {
+              const numeroLote = ic?.lotes_cotacao?.numero_lote;
+              if (numeroLote == null) return;
+              if (!ic?.lote_id) return;
+              loteIdByNumeroLoteItem.set(`${numeroLote}#${ic.numero_item}`, ic.lote_id);
+            });
 
-                let melhor: { marca: string; lenDiff: number } | null = null;
+            const marcaByLoteIdItem = new Map<string, string>();
+            (respostasOriginais || []).forEach((r: any) => {
+              const marca = String(r?.marca ?? "").trim();
+              if (!marca) return;
+              if (!r?.lote_id) return;
+              marcaByLoteIdItem.set(`${r.lote_id}#${r.numero_item}`, marca);
+            });
 
-                for (const r of respostasOriginais) {
-                  const marca = String(r?.marca ?? "").trim();
-                  if (!marca) continue;
+            itens = (itens || []).map((i: any) => {
+              const numeroLote = i?.numero_lote;
+              const numeroItem = i?.numero_item;
 
-                  const respNorm = normalizarDescricao(String(r?.descricao ?? ""));
-                  if (!respNorm) continue;
+              if (numeroLote == null || numeroItem == null) return i;
 
-                  const bateTexto = respNorm.includes(itemNorm) || itemNorm.includes(respNorm);
-                  if (!bateTexto) continue;
+              const loteId = loteIdByNumeroLoteItem.get(`${numeroLote}#${numeroItem}`);
+              if (!loteId) return i;
 
-                  const lenDiff = Math.abs(respNorm.length - itemNorm.length);
-                  if (!melhor || lenDiff < melhor.lenDiff) melhor = { marca, lenDiff };
-                }
+              const marcaOriginal = marcaByLoteIdItem.get(`${loteId}#${numeroItem}`);
+              if (!marcaOriginal) return i;
 
-                return melhor?.marca || "";
-              };
-
-              itens = (itens || []).map((i: any) => {
-                const marcaAtual = String(i?.marca ?? "").trim();
-                if (marcaAtual) return i;
-
-                const marca = encontrarMarcaPorDescricao(i?.descricao);
-                return { ...i, marca: marca || null };
-              });
-            }
+              return { ...i, marca: marcaOriginal };
+            });
           }
         }
       }

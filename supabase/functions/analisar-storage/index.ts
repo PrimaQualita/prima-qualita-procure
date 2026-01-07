@@ -368,8 +368,8 @@ Deno.serve(async (req) => {
     if (autorizacoes) {
       // Buscar seleções para obter numero_selecao para autorizações de seleção
       const cotacaoIds = autorizacoes
-        .filter(a => a.tipo_autorizacao === 'selecao_fornecedores')
-        .map(a => (a as any).cotacoes_precos?.id)
+        .filter((a: any) => a.tipo_autorizacao === 'selecao_fornecedores')
+        .map((a: any) => (a as any).cotacoes_precos?.id)
         .filter(Boolean);
       
       let selecoesMap = new Map<string, string>();
@@ -3006,7 +3006,7 @@ Deno.serve(async (req) => {
         const isDesconto = criterio === 'desconto' || criterio === 'maior_percentual_desconto';
 
         // Filtrar lances desta seleção
-        const lancesDaSelecao = lancesSelecao?.filter(l => l.selecao_id === selecaoId) || [];
+        const lancesDaSelecao = lancesSelecao?.filter((l: any) => l.selecao_id === selecaoId) || [];
         
         // Agrupar lances por item/lote (numero_item) e identificar o melhor lance de cada
         const melhorLancePorItem = new Map<number, { fornecedor_id: string; valor_lance: number }>();
@@ -3041,7 +3041,7 @@ Deno.serve(async (req) => {
         }
 
         // Adicionar inabilitados também
-        const inabilitados = inabilitadosSelecao?.filter(i => i.selecao_id === selecaoId) || [];
+        const inabilitados = inabilitadosSelecao?.filter((i: any) => i.selecao_id === selecaoId) || [];
         for (const inab of inabilitados) {
           fornecedoresDoProcesso.add(inab.fornecedor_id);
         }
@@ -3060,7 +3060,7 @@ Deno.serve(async (req) => {
       .not('processo_compra_id', 'in', `(${Array.from(processosSelecaoSet).join(',') || '00000000-0000-0000-0000-000000000000'})`);
 
     if (cotacoesCompraDireta && cotacoesCompraDireta.length > 0) {
-      const cotacaoIdsDireta = cotacoesCompraDireta.map(c => c.id);
+      const cotacaoIdsDireta = cotacoesCompraDireta.map((c: any) => c.id);
       
       // Criar mapa cotação -> processo e cotação -> criterio
       const cotacaoParaProcesso = new Map<string, string>();
@@ -3114,7 +3114,7 @@ Deno.serve(async (req) => {
         const planilha = planilhaMaisRecentePorCotacao.get(cotacaoId);
         let countVencedores = 0;
         const fornecedoresRejeitadosIds = new Set(
-          (rejeicoesAtivas?.filter(r => r.cotacao_id === cotacaoId) || []).map(r => r.fornecedor_id)
+          (rejeicoesAtivas?.filter((r: any) => r.cotacao_id === cotacaoId) || []).map((r: any) => r.fornecedor_id)
         );
         
         const criterioJulgamento = cotacaoParaCriterio.get(cotacaoId) || 'por_item';
@@ -3174,7 +3174,7 @@ Deno.serve(async (req) => {
           
           // Criar mapa de fornecedor -> itens rejeitados
           const fornecedorItensRejeitados = new Map<string, Set<number>>();
-          for (const r of (rejeicoesAtivas?.filter(rej => rej.cotacao_id === cotacaoId) || [])) {
+          for (const r of (rejeicoesAtivas?.filter((rej: any) => rej.cotacao_id === cotacaoId) || [])) {
             if (!fornecedorItensRejeitados.has(r.fornecedor_id)) {
               fornecedorItensRejeitados.set(r.fornecedor_id, new Set());
             }
@@ -3349,7 +3349,7 @@ Deno.serve(async (req) => {
         }
 
         // Adicionar TODOS os REJEITADOS/INABILITADOS (documentos deles devem aparecer)
-        const rejeicoes = rejeicoesAtivas?.filter(r => r.cotacao_id === cotacaoId) || [];
+        const rejeicoes = rejeicoesAtivas?.filter((r: any) => r.cotacao_id === cotacaoId) || [];
         console.log(`  📋 Cotação ${cotacaoId.substring(0,8)}: ${rejeicoes.length} rejeições encontradas`);
         for (const r of rejeicoes) {
           fornecedoresDoProcesso.add(r.fornecedor_id);
@@ -3519,7 +3519,7 @@ Deno.serve(async (req) => {
           // Portanto, DEVE usar documento antigo se está vinculado, INDEPENDENTE de datas.
           console.log(`    🔎 Verificando docs antigos para ${fornecedorNome} no processo ${processoId.substring(0,8)}`);
           
-          const docsAntigosDoFornecedor = (docsAntigosHab || []).filter(d => {
+          const docsAntigosDoFornecedor = (docsAntigosHab || []).filter((d: any) => {
             if (d.fornecedor_id !== fornecedorId) return false;
             
             // Verificar se algum dos processos_vinculados (que são cotacao_id ou selecao_id) 
@@ -3541,10 +3541,10 @@ Deno.serve(async (req) => {
           });
           
           // Pegar documentos atuais deste fornecedor
-          const docsCadastroDoFornecedor = (docsCadastroHab || []).filter(d => d.fornecedor_id === fornecedorId);
+          const docsCadastroDoFornecedor = (docsCadastroHab || []).filter((d: any) => d.fornecedor_id === fornecedorId);
           
           // Criar set de tipos de documento que têm versão antiga válida para este processo
-          const tiposComDocAntigo = new Set(docsAntigosDoFornecedor.map(d => d.tipo_documento));
+          const tiposComDocAntigo = new Set(docsAntigosDoFornecedor.map((d: any) => d.tipo_documento));
           
           console.log(`  📝 ${fornecedorNome}: ${docsCadastroDoFornecedor.length} docs atuais, ${docsAntigosDoFornecedor.length} docs antigos válidos para processo`);
           
