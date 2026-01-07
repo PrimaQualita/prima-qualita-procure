@@ -1,5 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { getDocument } from 'https://esm.sh/pdfjs-serverless@0.3.2';
+import { getDocument } from "https://cdn.jsdelivr.net/npm/pdfjs-serverless@0.3.2/+esm";
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 
 const corsHeaders = {
