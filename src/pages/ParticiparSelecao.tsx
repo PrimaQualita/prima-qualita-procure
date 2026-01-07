@@ -1476,21 +1476,21 @@ const ParticiparSelecao = () => {
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead>Item</TableHead>
-                      <TableHead>Descrição</TableHead>
-                      <TableHead>Qtd</TableHead>
-                      <TableHead>Unid.</TableHead>
-                      {processo?.tipo === "material" && <TableHead>Marca</TableHead>}
+                      <TableHead className="w-[50px]">Item</TableHead>
+                      <TableHead className="w-[30%]">Descrição</TableHead>
+                      <TableHead className="w-[50px]">Qtd</TableHead>
+                      <TableHead className="w-[60px]">Unid.</TableHead>
+                      {processo?.tipo === "material" && <TableHead className="w-[100px]">Marca</TableHead>}
                       {criterioJulgamento === "desconto" ? (
                         <>
-                          <TableHead className="text-right">Desconto Estimado</TableHead>
-                          <TableHead className="text-right">Desconto Ofertado</TableHead>
+                          <TableHead className="text-right w-[120px]">Desconto Estimado</TableHead>
+                          <TableHead className="text-right w-[150px]">Desconto Ofertado</TableHead>
                         </>
                       ) : (
                         <>
-                          <TableHead className="text-right">Vlr. Unit. Est.</TableHead>
-                          <TableHead className="text-right">Seu Valor Unit.</TableHead>
-                          <TableHead className="text-right">Vlr. Total</TableHead>
+                          <TableHead className="text-right w-[100px]">Vlr. Unit. Est.</TableHead>
+                          <TableHead className="text-right w-[150px]">Seu Valor Unit.</TableHead>
+                          <TableHead className="text-right w-[100px]">Vlr. Total</TableHead>
                         </>
                       )}
                     </TableRow>
