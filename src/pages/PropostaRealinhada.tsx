@@ -15,6 +15,9 @@ import { gerarPropostaRealinhadaPDF } from "@/lib/gerarPropostaRealinhadaPDF";
 interface ItemVencedor {
   numero_item: number;
   numero_lote?: number;
+  // Em critério por_lote, numero_item pode se repetir em lotes diferentes.
+  // Este campo garante chave única (lote_id + numero_item).
+  lote_id?: string | null;
   descricao: string;
   quantidade: number;
   unidade: string;
@@ -57,6 +60,19 @@ const PropostaRealinhada = () => {
       loadDados();
     }
   }, [selecaoId, fornecedorIdParam]);
+
+  const buildRespostaKey = (
+    criterio: string,
+    item: { numero_item: number; numero_lote?: number; lote_id?: string | null }
+  ) => {
+    if (criterio === "por_lote") {
+      const loteKey = item.lote_id ?? (item.numero_lote != null ? `lote:${item.numero_lote}` : "lote:unknown");
+      return `${loteKey}#${item.numero_item}`;
+    }
+    return String(item.numero_item);
+  };
+
+  const getRespostaKey = (item: ItemVencedor) => buildRespostaKey(criterioJulgamento, item);
 
   const loadDados = async () => {
     try {
@@ -431,6 +447,7 @@ const PropostaRealinhada = () => {
           itensProcessados.push({
             numero_item: item.numero_item,
             numero_lote: numeroLote,
+            lote_id: item.lote_id || null,
             descricao: item.descricao,
             quantidade: item.quantidade,
             unidade: item.unidade,
@@ -473,6 +490,7 @@ const PropostaRealinhada = () => {
           itensProcessados.push({
             numero_item: lance.numero_item,
             numero_lote: itemOriginal.lotes_cotacao?.numero_lote,
+            lote_id: itemOriginal.lote_id || null,
             descricao: itemOriginal.descricao,
             quantidade: itemOriginal.quantidade,
             unidade: itemOriginal.unidade,
@@ -490,56 +508,66 @@ const PropostaRealinhada = () => {
 
     // Inicializar respostas baseado no critério
     const respostasIniciais: RespostaItem = {};
-    
+
     // Para critérios por_item e desconto: preencher valores automaticamente (readonly)
     // Para critérios global e por_lote: preencher apenas marcas
     const preencherValoresAutomaticamente = criterio === "por_item" || criterio === "desconto";
-    
-    itensProcessados.forEach((item: any) => {
+
+    itensProcessados.forEach((item) => {
+      const key = buildRespostaKey(criterio, item);
+
       if (preencherValoresAutomaticamente && item.valor_unitario_lance) {
         // Critério por_item ou desconto: valores já definidos na sessão de lances
-        respostasIniciais[item.numero_item] = {
+        respostasIniciais[key] = {
           valor_unitario: item.valor_unitario_lance,
           marca: item.marca || "",
           valor_display: item.valor_unitario_lance.toFixed(2).replace(".", ","),
         };
       } else {
         // Critério global ou por_lote: apenas marcas preenchidas
-        respostasIniciais[item.numero_item] = {
+        respostasIniciais[key] = {
           valor_unitario: 0,
           marca: item.marca || "",
           valor_display: "",
         };
       }
     });
+
     setRespostas(respostasIniciais);
   };
 
-  const handleValorChange = (numeroItem: number, valor: string) => {
+  const handleValorChange = (item: ItemVencedor, valor: string) => {
+    const key = getRespostaKey(item);
     const valorNumerico = parseFloat(valor.replace(",", ".")) || 0;
-    
+
     // Validar se o valor não excede o valor da proposta original
-    const item = itensVencedores.find(i => i.numero_item === numeroItem);
-    if (item?.valor_unitario_proposta_original && valorNumerico > item.valor_unitario_proposta_original + 0.001) {
-      toast.error(`O valor unitário não pode ser maior que o valor da proposta original (${formatCurrency(item.valor_unitario_proposta_original)})`);
+    if (
+      item?.valor_unitario_proposta_original &&
+      valorNumerico > item.valor_unitario_proposta_original + 0.001
+    ) {
+      toast.error(
+        `O valor unitário não pode ser maior que o valor da proposta original (${formatCurrency(item.valor_unitario_proposta_original)})`
+      );
       return;
     }
-    
+
     setRespostas((prev) => ({
       ...prev,
-      [numeroItem]: {
-        ...prev[numeroItem],
+      [key]: {
+        ...prev[key],
         valor_unitario: valorNumerico,
         valor_display: valor,
       },
     }));
   };
 
-  const handleMarcaChange = (numeroItem: number, marca: string) => {
+  const handleMarcaChange = (item: ItemVencedor, marca: string) => {
+    const key = getRespostaKey(item);
+
     setRespostas((prev) => ({
       ...prev,
-      [numeroItem]: {
-        ...prev[numeroItem],
+      [key]: {
+        ...prev[key],
         marca,
       },
     }));
@@ -547,9 +575,9 @@ const PropostaRealinhada = () => {
 
   const calcularValorTotal = () => {
     return itensVencedores.reduce((total, item) => {
-      const resposta = respostas[item.numero_item];
+      const resposta = respostas[getRespostaKey(item)];
       if (resposta?.valor_unitario) {
-        return total + (resposta.valor_unitario * item.quantidade);
+        return total + resposta.valor_unitario * item.quantidade;
       }
       return total;
     }, 0);
@@ -559,10 +587,10 @@ const PropostaRealinhada = () => {
     if (criterioJulgamento === "por_lote") {
       // Verificar se cada lote tem total igual ou menor ao valor ganho
       const totaisPorLote = new Map<number, number>();
-      
+
       itensVencedores.forEach((item) => {
         if (item.numero_lote) {
-          const resposta = respostas[item.numero_item];
+          const resposta = respostas[getRespostaKey(item)];
           const valorItem = (resposta?.valor_unitario || 0) * item.quantidade;
           totaisPorLote.set(
             item.numero_lote,
@@ -573,50 +601,50 @@ const PropostaRealinhada = () => {
 
       for (const [numeroLote, totalPreenchido] of totaisPorLote.entries()) {
         const valorGanho = lotesGanhos.get(numeroLote) || 0;
-        
+
         // Não permitir valor MAIOR que o ganho
         if (totalPreenchido > valorGanho + 0.01) {
           return {
             valido: false,
-            mensagem: `O total do Lote ${numeroLote} (${formatCurrency(totalPreenchido)}) não pode ser maior que o valor ganho (${formatCurrency(valorGanho)})`
+            mensagem: `O total do Lote ${numeroLote} (${formatCurrency(totalPreenchido)}) não pode ser maior que o valor ganho (${formatCurrency(valorGanho)})`,
           };
         }
-        
+
         // Valor MENOR é permitido se observações estiverem preenchidas
         if (totalPreenchido < valorGanho - 0.01 && !observacoes.trim()) {
           return {
             valido: false,
-            mensagem: `O total do Lote ${numeroLote} (${formatCurrency(totalPreenchido)}) é menor que o valor ganho (${formatCurrency(valorGanho)}). Preencha as observações para justificar o desconto adicional.`
+            mensagem: `O total do Lote ${numeroLote} (${formatCurrency(totalPreenchido)}) é menor que o valor ganho (${formatCurrency(valorGanho)}). Preencha as observações para justificar o desconto adicional.`,
           };
         }
       }
     } else if (criterioJulgamento === "global") {
       const totalPreenchido = calcularValorTotal();
-      
+
       // Não permitir valor MAIOR que o ganho
       if (totalPreenchido > valorTotalGanho + 0.01) {
         return {
           valido: false,
-          mensagem: `O total da proposta (${formatCurrency(totalPreenchido)}) não pode ser maior que o valor ganho (${formatCurrency(valorTotalGanho)})`
+          mensagem: `O total da proposta (${formatCurrency(totalPreenchido)}) não pode ser maior que o valor ganho (${formatCurrency(valorTotalGanho)})`,
         };
       }
-      
+
       // Valor MENOR é permitido se observações estiverem preenchidas
       if (totalPreenchido < valorTotalGanho - 0.01 && !observacoes.trim()) {
         return {
           valido: false,
-          mensagem: `O total da proposta (${formatCurrency(totalPreenchido)}) é menor que o valor ganho (${formatCurrency(valorTotalGanho)}). Preencha as observações para justificar o desconto adicional.`
+          mensagem: `O total da proposta (${formatCurrency(totalPreenchido)}) é menor que o valor ganho (${formatCurrency(valorTotalGanho)}). Preencha as observações para justificar o desconto adicional.`,
         };
       }
     }
-    
+
     return { valido: true };
   };
 
   const handleSubmit = async () => {
     // Validar preenchimento
     const itensNaoPreenchidos = itensVencedores.filter(
-      (item) => !respostas[item.numero_item]?.valor_unitario
+      (item) => !respostas[getRespostaKey(item)]?.valor_unitario
     );
 
     if (itensNaoPreenchidos.length > 0) {
@@ -626,9 +654,14 @@ const PropostaRealinhada = () => {
 
     // Validar se algum item excede o valor da proposta original
     for (const item of itensVencedores) {
-      const resposta = respostas[item.numero_item];
-      if (item.valor_unitario_proposta_original && resposta?.valor_unitario > item.valor_unitario_proposta_original + 0.001) {
-        toast.error(`Item ${item.numero_item}: O valor unitário (${formatCurrency(resposta.valor_unitario)}) não pode ser maior que o valor da proposta original (${formatCurrency(item.valor_unitario_proposta_original)})`);
+      const resposta = respostas[getRespostaKey(item)];
+      if (
+        item.valor_unitario_proposta_original &&
+        resposta?.valor_unitario > item.valor_unitario_proposta_original + 0.001
+      ) {
+        toast.error(
+          `Item ${item.numero_item}: O valor unitário (${formatCurrency(resposta.valor_unitario)}) não pode ser maior que o valor da proposta original (${formatCurrency(item.valor_unitario_proposta_original)})`
+        );
         return;
       }
     }
@@ -645,16 +678,19 @@ const PropostaRealinhada = () => {
       const valorTotal = calcularValorTotal();
 
       // Preparar itens para PDF
-      const itensParaPDF = itensVencedores.map((item) => ({
-        numero_item: item.numero_item,
-        numero_lote: item.numero_lote || null,
-        descricao: item.descricao,
-        quantidade: item.quantidade,
-        unidade: item.unidade,
-        valor_unitario: respostas[item.numero_item].valor_unitario,
-        valor_total: respostas[item.numero_item].valor_unitario * item.quantidade,
-        marca: respostas[item.numero_item].marca || null,
-      }));
+      const itensParaPDF = itensVencedores.map((item) => {
+        const resposta = respostas[getRespostaKey(item)];
+        return {
+          numero_item: item.numero_item,
+          numero_lote: item.numero_lote || null,
+          descricao: item.descricao,
+          quantidade: item.quantidade,
+          unidade: item.unidade,
+          valor_unitario: resposta.valor_unitario,
+          valor_total: resposta.valor_unitario * item.quantidade,
+          marca: resposta.marca || null,
+        };
+      });
 
       // Gerar PDF (protocolo é gerado internamente)
       const { pdfUrl, protocolo } = await gerarPropostaRealinhadaPDF(
@@ -676,14 +712,17 @@ const PropostaRealinhada = () => {
       // Criar proposta realinhada com URL do PDF
       const { data: proposta, error: propostaError } = await supabase
         .from("propostas_realinhadas")
-        .upsert({
-          selecao_id: selecaoId,
-          fornecedor_id: fornecedor.id,
-          valor_total_proposta: valorTotal,
-          observacoes,
-          protocolo,
-          url_pdf_proposta: pdfUrl,
-        }, { onConflict: "selecao_id,fornecedor_id" })
+        .upsert(
+          {
+            selecao_id: selecaoId,
+            fornecedor_id: fornecedor.id,
+            valor_total_proposta: valorTotal,
+            observacoes,
+            protocolo,
+            url_pdf_proposta: pdfUrl,
+          },
+          { onConflict: "selecao_id,fornecedor_id" }
+        )
         .select()
         .single();
 
@@ -696,17 +735,20 @@ const PropostaRealinhada = () => {
         .eq("proposta_realinhada_id", proposta.id);
 
       // Inserir itens
-      const itensParaInserir = itensVencedores.map((item) => ({
-        proposta_realinhada_id: proposta.id,
-        numero_item: item.numero_item,
-        numero_lote: item.numero_lote || null,
-        descricao: item.descricao,
-        quantidade: item.quantidade,
-        unidade: item.unidade,
-        valor_unitario: respostas[item.numero_item].valor_unitario,
-        valor_total: respostas[item.numero_item].valor_unitario * item.quantidade,
-        marca: respostas[item.numero_item].marca || null,
-      }));
+      const itensParaInserir = itensVencedores.map((item) => {
+        const resposta = respostas[getRespostaKey(item)];
+        return {
+          proposta_realinhada_id: proposta.id,
+          numero_item: item.numero_item,
+          numero_lote: item.numero_lote || null,
+          descricao: item.descricao,
+          quantidade: item.quantidade,
+          unidade: item.unidade,
+          valor_unitario: resposta.valor_unitario,
+          valor_total: resposta.valor_unitario * item.quantidade,
+          marca: resposta.marca || null,
+        };
+      });
 
       const { error: itensError } = await supabase
         .from("propostas_realinhadas_itens")
@@ -717,7 +759,6 @@ const PropostaRealinhada = () => {
       toast.success("Proposta realinhada enviada com sucesso!");
       setJaEnviouProposta(true);
       setPropostaExistente(proposta);
-
     } catch (error) {
       console.error("Erro ao enviar proposta:", error);
       toast.error("Erro ao enviar proposta realinhada");
@@ -913,12 +954,14 @@ const PropostaRealinhada = () => {
                 </TableHeader>
                 <TableBody>
                   {itensDoLote.map((item) => {
-                    const resposta = respostas[item.numero_item];
+                    const key = getRespostaKey(item);
+                    const resposta = respostas[key];
                     const valorTotal = (resposta?.valor_unitario || 0) * item.quantidade;
-                    const valorReadonly = criterioJulgamento === "por_item" || criterioJulgamento === "desconto";
-                    
+                    const valorReadonly =
+                      criterioJulgamento === "por_item" || criterioJulgamento === "desconto";
+
                     return (
-                      <TableRow key={item.numero_item}>
+                      <TableRow key={key}>
                         <TableCell>{item.numero_item}</TableCell>
                         <TableCell className="text-sm">{item.descricao}</TableCell>
                         <TableCell>{item.quantidade}</TableCell>
@@ -931,13 +974,16 @@ const PropostaRealinhada = () => {
                         <TableCell>
                           {valorReadonly ? (
                             <span className="text-sm font-medium text-foreground">
-                              {resposta?.valor_display || formatCurrency(resposta?.valor_unitario || 0).replace("R$", "").trim()}
+                              {resposta?.valor_display ||
+                                formatCurrency(resposta?.valor_unitario || 0)
+                                  .replace("R$", "")
+                                  .trim()}
                             </span>
                           ) : (
                             <Input
                               type="text"
                               value={resposta?.valor_display || ""}
-                              onChange={(e) => handleValorChange(item.numero_item, e.target.value)}
+                              onChange={(e) => handleValorChange(item, e.target.value)}
                               placeholder="0,00"
                               className="h-8"
                             />
@@ -951,13 +997,16 @@ const PropostaRealinhada = () => {
                   })}
                   {criterioJulgamento === "por_lote" && numeroLote > 0 && (
                     <TableRow className="bg-muted font-bold">
-                      <TableCell colSpan={processo?.tipo === "material" ? 5 : 4} className="text-right">
+                      <TableCell
+                        colSpan={processo?.tipo === "material" ? 5 : 4}
+                        className="text-right"
+                      >
                         Subtotal do Lote
                       </TableCell>
                       <TableCell className="text-right">
                         {formatCurrency(
                           itensDoLote.reduce((acc, item) => {
-                            const resposta = respostas[item.numero_item];
+                            const resposta = respostas[getRespostaKey(item)];
                             return acc + (resposta?.valor_unitario || 0) * item.quantidade;
                           }, 0)
                         )}
