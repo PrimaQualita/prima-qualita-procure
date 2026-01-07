@@ -249,7 +249,7 @@ const PropostaRealinhada = () => {
     if (propostaFornecedor) {
       const { data } = await (supabase as any)
         .from("selecao_respostas_itens_fornecedor")
-        .select("numero_item, marca, descricao, valor_unitario_ofertado")
+        .select("numero_item, lote_id, marca, descricao, valor_unitario_ofertado")
         .eq("proposta_id", propostaFornecedor.id);
       
       if (data) {
@@ -285,16 +285,51 @@ const PropostaRealinhada = () => {
 
     // Função helper para buscar marca e valor original
     // REGRA CRÍTICA: em critério por_lote, numero_item pode se repetir em lotes diferentes.
-    // Portanto, por_lote usa matching por descrição (texto) e NÃO por numero_item.
+    // Portanto, por_lote deve usar o identificador do lote (lote_id) + numero_item.
     const buscarDadosOriginaisPorDescricao = (
       descricaoItem: string,
-      numeroItem: number
+      numeroItem: number,
+      loteId?: string | null
     ): { marca: string; valorUnitario: number } => {
       // ======== LÓGICA ISOLADA: POR LOTE ========
       if (criterio === "por_lote") {
+        // Se temos lote_id, fazemos matching determinístico (sem heurística) para evitar cruzar lotes.
+        if (loteId) {
+          const matchDireto = respostasOriginais.find(
+            (r) => r?.lote_id === loteId && r?.numero_item === numeroItem
+          );
+
+          if (matchDireto) {
+            return {
+              marca: String(matchDireto?.marca || "").trim(),
+              valorUnitario: Number(matchDireto?.valor_unitario_ofertado || 0),
+            };
+          }
+
+          // Fallback seguro apenas para dados antigos sem lote_id: exige match EXATO de descrição
+          const itemNorm = normalizarDescricao(descricaoItem);
+          const candidatosSemLote = respostasOriginais.filter((r) => {
+            if (r?.lote_id) return false;
+            if (r?.numero_item !== numeroItem) return false;
+            const descNorm = normalizarDescricao(String(r?.descricao || ""));
+            return descNorm && itemNorm && descNorm === itemNorm;
+          });
+
+          if (candidatosSemLote.length === 1) {
+            const r = candidatosSemLote[0];
+            return {
+              marca: String(r?.marca || "").trim(),
+              valorUnitario: Number(r?.valor_unitario_ofertado || 0),
+            };
+          }
+
+          // Se não achou com segurança, é melhor NÃO preencher do que preencher errado de outro lote.
+          return { marca: "", valorUnitario: 0 };
+        }
+
+        // Sem lote_id (não esperado): manter comportamento anterior por descrição, mas sem fallback por numero_item.
         const itemNorm = normalizarDescricao(descricaoItem);
 
-        // 1) Matching forte por inclusão/prefixo do texto (muito comum quando a resposta tem descrição “estendida”)
         if (itemNorm) {
           const candidatos = respostasOriginais
             .map((r) => ({
@@ -304,7 +339,7 @@ const PropostaRealinhada = () => {
             }))
             .filter(
               (c) =>
-                c.marcaNorm && // SOMENTE considerar candidatos com marca preenchida
+                c.marcaNorm &&
                 c.descNorm &&
                 (c.descNorm.startsWith(itemNorm) ||
                   itemNorm.startsWith(c.descNorm) ||
@@ -312,17 +347,10 @@ const PropostaRealinhada = () => {
                   itemNorm.includes(c.descNorm))
             )
             .sort((a, b) => {
-              // Preferir quem tem marca preenchida
-              const hasMarcaA = a.marcaNorm.length > 0;
-              const hasMarcaB = b.marcaNorm.length > 0;
-              if (hasMarcaA !== hasMarcaB) return hasMarcaB ? 1 : -1;
-
-              // Preferir prefix match
               const aPrefix = a.descNorm.startsWith(itemNorm) || itemNorm.startsWith(a.descNorm);
               const bPrefix = b.descNorm.startsWith(itemNorm) || itemNorm.startsWith(b.descNorm);
               if (aPrefix !== bPrefix) return bPrefix ? 1 : -1;
 
-              // Preferir o mais “próximo” por tamanho
               const lenDiffA = Math.abs(a.descNorm.length - itemNorm.length);
               const lenDiffB = Math.abs(b.descNorm.length - itemNorm.length);
               return lenDiffA - lenDiffB;
@@ -337,41 +365,7 @@ const PropostaRealinhada = () => {
           }
         }
 
-        // 2) Fallback por palavras-chave (quando o texto não bate por inclusão)
-        const palavrasItem = extrairPalavrasChave(descricaoItem);
-        let melhorMatch = { marca: "", valorUnitario: 0, score: 0, hasMarca: false };
-
-        for (const resposta of respostasOriginais) {
-          if (!resposta?.descricao) continue;
-
-          const palavrasResposta = extrairPalavrasChave(String(resposta.descricao));
-          let score = 0;
-
-          for (const palavra of palavrasResposta) {
-            if (palavrasItem.some((p) => p.includes(palavra) || palavra.includes(p))) score++;
-          }
-
-          const marca = String(resposta?.marca || "").trim();
-          const hasMarca = marca.length > 0;
-
-          const deveAtualizar =
-            score > melhorMatch.score ||
-            (score === melhorMatch.score && hasMarca && !melhorMatch.hasMarca);
-
-          if (deveAtualizar && score >= 2) {
-            melhorMatch = {
-              marca,
-              valorUnitario: Number(resposta?.valor_unitario_ofertado || 0),
-              score,
-              hasMarca,
-            };
-          }
-        }
-
-        // NÃO usar fallback por numero_item em por_lote - causa erro de pegar marca de outro lote
-        // O matching deve ser EXCLUSIVAMENTE por descrição
-
-        return { marca: melhorMatch.marca, valorUnitario: melhorMatch.valorUnitario };
+        return { marca: "", valorUnitario: 0 };
       }
 
       // ======== OUTROS CRITÉRIOS (NÃO ALTERAR): match direto por numero_item ========
@@ -433,7 +427,7 @@ const PropostaRealinhada = () => {
         );
         
         itensDoLote.forEach((item: any) => {
-          const dadosOriginais = buscarDadosOriginaisPorDescricao(item.descricao, item.numero_item);
+          const dadosOriginais = buscarDadosOriginaisPorDescricao(item.descricao, item.numero_item, item.lote_id);
           itensProcessados.push({
             numero_item: item.numero_item,
             numero_lote: numeroLote,

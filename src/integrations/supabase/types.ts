@@ -2946,6 +2946,7 @@ export type Database = {
           desclassificado: boolean | null
           descricao: string
           id: string
+          lote_id: string | null
           marca: string | null
           motivo_desclassificacao: string | null
           numero_item: number
@@ -2960,6 +2961,7 @@ export type Database = {
           desclassificado?: boolean | null
           descricao: string
           id?: string
+          lote_id?: string | null
           marca?: string | null
           motivo_desclassificacao?: string | null
           numero_item: number
@@ -2974,6 +2976,7 @@ export type Database = {
           desclassificado?: boolean | null
           descricao?: string
           id?: string
+          lote_id?: string | null
           marca?: string | null
           motivo_desclassificacao?: string | null
           numero_item?: number
