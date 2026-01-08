@@ -13,8 +13,8 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Shield, User, FileText, Building, FileCheck, ScrollText, ClipboardList, Truck, RefreshCw, Download } from "lucide-react";
+import primaLogo from "@/assets/prima-qualita-logo.png";
+import { ArrowLeft, Shield, User, FileText, Trash2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 interface AuditLog {
@@ -35,8 +35,6 @@ const Auditoria = () => {
   const [loading, setLoading] = useState(true);
   const [logs, setLogs] = useState<AuditLog[]>([]);
   const [filtro, setFiltro] = useState("");
-  const [filtroAcao, setFiltroAcao] = useState<string>("todas");
-  const [filtroEntidade, setFiltroEntidade] = useState<string>("todas");
 
   useEffect(() => {
     checkAuth();
@@ -87,7 +85,7 @@ const Auditoria = () => {
         .from("audit_logs")
         .select("*")
         .order("created_at", { ascending: false })
-        .limit(1000);
+        .limit(500);
 
       if (error) throw error;
       setLogs(data || []);
@@ -100,125 +98,36 @@ const Auditoria = () => {
     }
   };
 
-  const logsFiltrados = logs.filter((log) => {
-    const matchTexto =
+  const logsFiltrados = logs.filter(
+    (log) =>
       log.acao.toLowerCase().includes(filtro.toLowerCase()) ||
       log.entidade.toLowerCase().includes(filtro.toLowerCase()) ||
-      log.usuario_nome?.toLowerCase().includes(filtro.toLowerCase()) ||
-      (log.detalhes && JSON.stringify(log.detalhes).toLowerCase().includes(filtro.toLowerCase()));
-
-    const matchAcao = filtroAcao === "todas" || log.acao === filtroAcao;
-    const matchEntidade = filtroEntidade === "todas" || log.entidade === filtroEntidade;
-
-    return matchTexto && matchAcao && matchEntidade;
-  });
-
-  // Obter lista única de entidades para o filtro
-  const entidadesUnicas = [...new Set(logs.map(log => log.entidade))].sort();
+      log.usuario_nome?.toLowerCase().includes(filtro.toLowerCase())
+  );
 
   const getAcaoBadge = (acao: string) => {
-    switch (acao) {
-      case "criar":
-        return <Badge className="bg-green-500 hover:bg-green-600">Criar</Badge>;
-      case "editar":
-        return <Badge className="bg-blue-500 hover:bg-blue-600">Editar</Badge>;
-      case "excluir":
-        return <Badge variant="destructive">Excluir</Badge>;
-      case "enviar":
-        return <Badge className="bg-purple-500 hover:bg-purple-600">Enviar</Badge>;
-      case "receber":
-        return <Badge className="bg-cyan-500 hover:bg-cyan-600">Receber</Badge>;
-      case "aprovar":
-        return <Badge className="bg-emerald-500 hover:bg-emerald-600">Aprovar</Badge>;
-      case "rejeitar":
-        return <Badge className="bg-orange-500 hover:bg-orange-600">Rejeitar</Badge>;
-      default:
-        return <Badge variant="outline">{acao}</Badge>;
+    const acaoLower = acao.toLowerCase();
+    if (acaoLower.includes("criar") || acaoLower.includes("insert")) {
+      return <Badge variant="default">Criar</Badge>;
     }
+    if (acaoLower.includes("editar") || acaoLower.includes("update")) {
+      return <Badge variant="secondary">Editar</Badge>;
+    }
+    if (acaoLower.includes("excluir") || acaoLower.includes("delete")) {
+      return <Badge variant="destructive">Excluir</Badge>;
+    }
+    return <Badge variant="outline">{acao}</Badge>;
   };
 
   const getEntidadeIcon = (entidade: string) => {
     const entidadeLower = entidade.toLowerCase();
-    if (entidadeLower.includes("usuário") || entidadeLower.includes("profile")) {
+    if (entidadeLower.includes("usuario") || entidadeLower.includes("profile")) {
       return <User className="h-4 w-4" />;
     }
-    if (entidadeLower.includes("processo")) {
+    if (entidadeLower.includes("processo") || entidadeLower.includes("contrato")) {
       return <FileText className="h-4 w-4" />;
     }
-    if (entidadeLower.includes("contrato")) {
-      return <Building className="h-4 w-4" />;
-    }
-    if (entidadeLower.includes("ata") || entidadeLower.includes("homologação")) {
-      return <FileCheck className="h-4 w-4" />;
-    }
-    if (entidadeLower.includes("seleção") || entidadeLower.includes("cotação")) {
-      return <ClipboardList className="h-4 w-4" />;
-    }
-    if (entidadeLower.includes("proposta") || entidadeLower.includes("fornecedor")) {
-      return <Truck className="h-4 w-4" />;
-    }
-    if (entidadeLower.includes("relatório") || entidadeLower.includes("planilha")) {
-      return <ScrollText className="h-4 w-4" />;
-    }
     return <Shield className="h-4 w-4" />;
-  };
-
-  const getTipoBadge = (tipo: string) => {
-    switch (tipo) {
-      case "interno":
-        return <Badge variant="secondary">Interno</Badge>;
-      case "fornecedor":
-        return <Badge className="bg-amber-500 hover:bg-amber-600">Fornecedor</Badge>;
-      case "externo":
-        return <Badge variant="outline">Externo</Badge>;
-      case "sistema":
-        return <Badge variant="outline">Sistema</Badge>;
-      default:
-        return <Badge variant="outline">{tipo || "interno"}</Badge>;
-    }
-  };
-
-  const formatarDetalhes = (detalhes: any): string => {
-    if (!detalhes) return "-";
-    
-    // Priorizar nome_documento que é mais descritivo
-    if (detalhes.nome_documento) {
-      return detalhes.nome_documento;
-    }
-    
-    const partes: string[] = [];
-    
-    // Número do processo primeiro se existir
-    if (detalhes.numero_processo) partes.push(`Processo: ${detalhes.numero_processo}`);
-    if (detalhes.titulo) partes.push(detalhes.titulo);
-    if (detalhes.nome) partes.push(detalhes.nome);
-    if (detalhes.razao_social) partes.push(detalhes.razao_social);
-    if (detalhes.fornecedor) partes.push(`Fornecedor: ${detalhes.fornecedor}`);
-    if (detalhes.selecao) partes.push(`Seleção: ${detalhes.selecao}`);
-    if (detalhes.objeto) partes.push(`Objeto: ${detalhes.objeto.substring(0, 50)}...`);
-    if (detalhes.protocolo) partes.push(`Protocolo: ${detalhes.protocolo}`);
-    
-    return partes.length > 0 ? partes.join(" | ") : "-";
-  };
-
-  const exportarCSV = () => {
-    const headers = ["Data/Hora", "Ação", "Entidade", "Usuário", "Tipo", "Detalhes"];
-    const rows = logsFiltrados.map(log => [
-      new Date(log.created_at).toLocaleString("pt-BR"),
-      log.acao,
-      log.entidade,
-      log.usuario_nome || "Sistema",
-      log.usuario_tipo || "interno",
-      formatarDetalhes(log.detalhes)
-    ]);
-
-    const csv = [headers.join(";"), ...rows.map(r => r.join(";"))].join("\n");
-    const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `log-auditoria-${new Date().toISOString().split("T")[0]}.csv`;
-    a.click();
   };
 
   if (loading) {
@@ -230,103 +139,58 @@ const Auditoria = () => {
       <div className="container mx-auto px-4 py-8">
         <Card>
           <CardHeader>
-            <div className="flex items-center justify-between flex-wrap gap-4">
+            <div className="flex items-center justify-between">
               <div>
                 <CardTitle>Log de Auditoria</CardTitle>
                 <CardDescription>
-                  Visualize todas as ações realizadas no sistema ({logs.length} registros)
+                  Visualize todas as ações realizadas no sistema
                 </CardDescription>
-              </div>
-              <div className="flex gap-2">
-                <Button variant="outline" size="sm" onClick={loadLogs}>
-                  <RefreshCw className="h-4 w-4 mr-2" />
-                  Atualizar
-                </Button>
-                <Button variant="outline" size="sm" onClick={exportarCSV}>
-                  <Download className="h-4 w-4 mr-2" />
-                  Exportar CSV
-                </Button>
               </div>
             </div>
           </CardHeader>
           <CardContent>
-            <div className="flex flex-col sm:flex-row gap-4 mb-4">
-              <div className="flex-1">
-                <Input
-                  placeholder="Buscar por ação, entidade, usuário ou detalhes..."
-                  value={filtro}
-                  onChange={(e) => setFiltro(e.target.value)}
-                />
-              </div>
-              <Select value={filtroAcao} onValueChange={setFiltroAcao}>
-                <SelectTrigger className="w-full sm:w-40">
-                  <SelectValue placeholder="Ação" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="todas">Todas ações</SelectItem>
-                  <SelectItem value="criar">Criar</SelectItem>
-                  <SelectItem value="editar">Editar</SelectItem>
-                  <SelectItem value="excluir">Excluir</SelectItem>
-                  <SelectItem value="enviar">Enviar</SelectItem>
-                  <SelectItem value="receber">Receber</SelectItem>
-                </SelectContent>
-              </Select>
-              <Select value={filtroEntidade} onValueChange={setFiltroEntidade}>
-                <SelectTrigger className="w-full sm:w-56">
-                  <SelectValue placeholder="Entidade" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="todas">Todas entidades</SelectItem>
-                  {entidadesUnicas.map(e => (
-                    <SelectItem key={e} value={e}>{e}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+            <div className="mb-4">
+              <Input
+                placeholder="Buscar por ação, entidade ou usuário..."
+                value={filtro}
+                onChange={(e) => setFiltro(e.target.value)}
+              />
             </div>
 
             {logsFiltrados.length === 0 ? (
               <p className="text-center text-muted-foreground py-8">
                 {logs.length === 0
-                  ? "Nenhum registro de auditoria encontrado. As próximas ações no sistema serão registradas automaticamente."
+                  ? "Nenhum registro de auditoria encontrado."
                   : "Nenhum log encontrado com os filtros aplicados."}
               </p>
             ) : (
-              <div className="rounded-md border overflow-x-auto">
+              <div className="rounded-md border">
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead className="w-40">Data/Hora</TableHead>
-                      <TableHead className="w-24">Ação</TableHead>
-                      <TableHead className="w-48">Entidade</TableHead>
-                      <TableHead className="w-40">Usuário</TableHead>
-                      <TableHead className="w-28">Tipo</TableHead>
-                      <TableHead>Detalhes</TableHead>
+                      <TableHead>Data/Hora</TableHead>
+                      <TableHead>Ação</TableHead>
+                      <TableHead>Entidade</TableHead>
+                      <TableHead>Usuário</TableHead>
+                      <TableHead>Tipo</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {logsFiltrados.map((log) => (
                       <TableRow key={log.id}>
-                        <TableCell className="text-xs whitespace-nowrap">
-                          {new Date(log.created_at).toLocaleString("pt-BR", {
-                            day: "2-digit",
-                            month: "2-digit",
-                            year: "numeric",
-                            hour: "2-digit",
-                            minute: "2-digit",
-                            second: "2-digit"
-                          })}
+                        <TableCell className="text-xs">
+                          {new Date(log.created_at).toLocaleString("pt-BR")}
                         </TableCell>
                         <TableCell>{getAcaoBadge(log.acao)}</TableCell>
                         <TableCell>
                           <div className="flex items-center gap-2">
                             {getEntidadeIcon(log.entidade)}
-                            <span className="font-medium text-sm">{log.entidade}</span>
+                            <span className="font-medium">{log.entidade}</span>
                           </div>
                         </TableCell>
-                        <TableCell className="text-sm">{log.usuario_nome || "Sistema"}</TableCell>
-                        <TableCell>{getTipoBadge(log.usuario_tipo || "interno")}</TableCell>
-                        <TableCell className="text-xs text-muted-foreground max-w-md truncate">
-                          {formatarDetalhes(log.detalhes)}
+                        <TableCell>{log.usuario_nome || "Sistema"}</TableCell>
+                        <TableCell>
+                          <Badge variant="outline">{log.usuario_tipo || "interno"}</Badge>
                         </TableCell>
                       </TableRow>
                     ))}
