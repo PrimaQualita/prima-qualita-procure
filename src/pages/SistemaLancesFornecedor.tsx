@@ -2292,10 +2292,12 @@ const SistemaLancesFornecedor = () => {
     return itensVencidos.sort((a, b) => a - b);
   };
 
-  const getValorVencedorItem = (numeroItem: number): number => {
+  const getValorVencedorItem = (numeroItem: number): number | null => {
     const valorEstimado = itensEstimados.get(numeroItem) || 0;
     const lancesDoItem = getLancesDoItem(numeroItem);
     const isDesconto = selecao?.processos_compras?.criterio_julgamento === "desconto";
+    const isPorLote = selecao?.processos_compras?.criterio_julgamento === "por_lote";
+    const isGlobal = selecao?.processos_compras?.criterio_julgamento === "global";
     
     // Filtrar conforme critério
     const lancesClassificados = isDesconto
@@ -2325,7 +2327,27 @@ const SistemaLancesFornecedor = () => {
       return lancesOrdenados[0]?.valor_lance || 0;
     }
     
-    return menorValorPropostas.get(numeroItem) || 0;
+    // Se não há lances, verificar se há proposta classificada
+    const melhorValorProposta = menorValorPropostas.get(numeroItem);
+    
+    if (melhorValorProposta && melhorValorProposta > 0) {
+      // Verificar se a melhor proposta está classificada (valor <= estimado ou desconto >= estimado)
+      if (valorEstimado === 0) {
+        // Se não há estimativa, considerar como classificada
+        return melhorValorProposta;
+      }
+      
+      const propostaClassificada = isDesconto
+        ? melhorValorProposta >= valorEstimado
+        : melhorValorProposta <= valorEstimado;
+      
+      if (propostaClassificada) {
+        return melhorValorProposta;
+      }
+    }
+    
+    // Nenhum lance ou proposta classificada - item FRACASSADO
+    return null;
   };
 
   const handleUpdateItem = (itemId: string, field: string, value: any) => {
@@ -3304,14 +3326,20 @@ const SistemaLancesFornecedor = () => {
                                   {item?.descricao || ""}
                                 </div>
                                 
-                                <div className="bg-green-100 rounded px-2 py-1.5">
-                                  <div className="text-[10px] text-green-600 mb-0.5">
-                                    {selecao?.processos_compras?.criterio_julgamento === "desconto" ? "Desconto Vencedor" : "Valor Vencedor"}
+                                <div className={valorVencedor !== null ? "bg-green-100 rounded px-2 py-1.5" : "bg-red-100 rounded px-2 py-1.5"}>
+                                  <div className={`text-[10px] mb-0.5 ${valorVencedor !== null ? "text-green-600" : "text-red-600"}`}>
+                                    {valorVencedor !== null 
+                                      ? (selecao?.processos_compras?.criterio_julgamento === "desconto" ? "Desconto Vencedor" : "Valor Vencedor")
+                                      : "Status"
+                                    }
                                   </div>
-                                  <p className="font-bold text-sm text-green-700">
-                                    {selecao?.processos_compras?.criterio_julgamento === "desconto" 
-                                      ? `${formatarMoeda(valorVencedor)}%`
-                                      : formatarMoeda(valorVencedor)
+                                  <p className={`font-bold text-sm ${valorVencedor !== null ? "text-green-700" : "text-red-700"}`}>
+                                    {valorVencedor !== null 
+                                      ? (selecao?.processos_compras?.criterio_julgamento === "desconto" 
+                                          ? `${formatarMoeda(valorVencedor)}%`
+                                          : formatarMoeda(valorVencedor)
+                                        )
+                                      : "FRACASSADO"
                                     }
                                   </p>
                                 </div>
@@ -3345,14 +3373,20 @@ const SistemaLancesFornecedor = () => {
                                 {item?.descricao || ""}
                               </div>
                               
-                              <div className="bg-muted/50 rounded px-2 py-1.5">
-                                <div className="text-[10px] text-muted-foreground mb-0.5">
-                                  {selecao?.processos_compras?.criterio_julgamento === "desconto" ? "Desconto Vencedor" : "Valor Vencedor"}
+                              <div className={valorVencedor !== null ? "bg-muted/50 rounded px-2 py-1.5" : "bg-red-100 rounded px-2 py-1.5"}>
+                                <div className={`text-[10px] mb-0.5 ${valorVencedor !== null ? "text-muted-foreground" : "text-red-600"}`}>
+                                  {valorVencedor !== null 
+                                    ? (selecao?.processos_compras?.criterio_julgamento === "desconto" ? "Desconto Vencedor" : "Valor Vencedor")
+                                    : "Status"
+                                  }
                                 </div>
-                                <p className="font-bold text-sm text-muted-foreground">
-                                  {selecao?.processos_compras?.criterio_julgamento === "desconto" 
-                                    ? `${formatarMoeda(valorVencedor)}%`
-                                    : formatarMoeda(valorVencedor)
+                                <p className={`font-bold text-sm ${valorVencedor !== null ? "text-muted-foreground" : "text-red-700"}`}>
+                                  {valorVencedor !== null 
+                                    ? (selecao?.processos_compras?.criterio_julgamento === "desconto" 
+                                        ? `${formatarMoeda(valorVencedor)}%`
+                                        : formatarMoeda(valorVencedor)
+                                      )
+                                    : "FRACASSADO"
                                   }
                                 </p>
                               </div>
