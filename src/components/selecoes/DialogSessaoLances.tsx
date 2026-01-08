@@ -2503,7 +2503,7 @@ export function DialogSessaoLances({
       // Buscar TODAS as propostas para determinar marcas e quais itens receberam proposta
       const { data: todasPropostasItens } = await supabase
         .from("selecao_respostas_itens_fornecedor")
-        .select("numero_item, lote_id, marca, valor_unitario_ofertado, desclassificado, proposta_id, selecao_propostas_fornecedor!inner(fornecedor_id)")
+        .select("numero_item, lote_id, marca, valor_unitario_ofertado, valor_total_item, desclassificado, proposta_id, selecao_propostas_fornecedor!inner(fornecedor_id)")
         .eq("selecao_propostas_fornecedor.selecao_id", selecaoId);
 
       // Criar mapa de marcas por item/fornecedor
@@ -2651,7 +2651,11 @@ export function DialogSessaoLances({
         // Verificar se todos os lances estão desclassificados por preço
         const todosDesclassificados = todosLancesDesclassificadosPorPreco(elemento.numero);
         
-        if (!vencedor) {
+        // Se houve proposta enviada mas nenhuma classificada, sempre é FRACASSADO (mesmo que exista "vencedor" salvo)
+        if (elemento.isLote && tevePropostaEnviada && !tevePropostaClassificada) {
+          vencedorEfetivo = null;
+          statusSemVencedor = "FRACASSADO";
+        } else if (!vencedor) {
           // Se houve proposta ENVIADA mas nenhuma CLASSIFICADA, é FRACASSADO
           if (tevePropostaEnviada && !tevePropostaClassificada) {
             statusSemVencedor = "FRACASSADO";
