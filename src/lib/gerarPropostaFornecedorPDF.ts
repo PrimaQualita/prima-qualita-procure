@@ -3,6 +3,7 @@ import autoTable from 'jspdf-autotable';
 import { PDFDocument, rgb, StandardFonts } from 'pdf-lib';
 import { supabase } from '@/integrations/supabase/client';
 import { gerarHashDocumento } from './certificacaoDigital';
+import { valorPorExtenso } from './valorPorExtenso';
 import type { SupabaseClient } from '@supabase/supabase-js';
 
 // Função para formatar CNPJ
@@ -527,7 +528,53 @@ export async function gerarPropostaFornecedorPDF(
       doc.text(`VALOR TOTAL: ${valorTotalFormatted}`, 193, y, { align: 'right' });
       
       doc.setTextColor(corTexto[0], corTexto[1], corTexto[2]);
-      y += 15;
+      y += 10;
+      
+      // Valor por extenso em quadro
+      const extenso = valorPorExtenso(valorTotal).toUpperCase();
+      const extensoTexto = `(${extenso})`;
+      
+      // Calcular altura do quadro baseado no texto
+      doc.setFontSize(9);
+      doc.setFont('helvetica', 'normal');
+      const extensoLines = doc.splitTextToSize(extensoTexto, 170);
+      const alturaQuadroExtenso = extensoLines.length * 4 + 6;
+      
+      // Desenhar quadro
+      doc.setDrawColor(corPrimaria[0], corPrimaria[1], corPrimaria[2]);
+      doc.setLineWidth(0.5);
+      doc.rect(15, y, 180, alturaQuadroExtenso, 'S');
+      
+      // Renderizar texto justificado
+      doc.setTextColor(corTexto[0], corTexto[1], corTexto[2]);
+      let yExtenso = y + 4;
+      extensoLines.forEach((linha: string, index: number) => {
+        const isUltimaLinha = index === extensoLines.length - 1;
+        const palavras = linha.trim().split(/\s+/).filter((p: string) => p.length > 0);
+        
+        if (!isUltimaLinha && palavras.length > 1) {
+          // Justificar
+          let larguraPalavras = 0;
+          palavras.forEach((palavra: string) => {
+            larguraPalavras += doc.getTextWidth(palavra);
+          });
+          const espacoDisponivel = 170 - larguraPalavras;
+          const espacoEntrePalavras = espacoDisponivel / (palavras.length - 1);
+          
+          let xAtual = 20;
+          palavras.forEach((palavra: string, idx: number) => {
+            doc.text(palavra, xAtual, yExtenso);
+            if (idx < palavras.length - 1) {
+              xAtual += doc.getTextWidth(palavra) + espacoEntrePalavras;
+            }
+          });
+        } else {
+          doc.text(linha.trim(), 20, yExtenso);
+        }
+        yExtenso += 4;
+      });
+      
+      y += alturaQuadroExtenso + 8;
     }
 
     // Observações

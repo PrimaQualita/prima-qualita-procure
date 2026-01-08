@@ -4,6 +4,7 @@ import { PDFDocument } from 'pdf-lib';
 import { stripHtml } from './htmlUtils';
 import { supabase } from '@/integrations/supabase/client';
 import { v4 as uuidv4 } from 'uuid';
+import { valorPorExtenso } from './valorPorExtenso';
 
 interface ItemProposta {
   numero_item: number;
@@ -875,7 +876,53 @@ export async function gerarPropostaSelecaoPDF(
       const valorWidth = doc.getTextWidth(valorTexto);
       doc.text(valorTexto, margemEsquerda + larguraUtil - valorWidth - 2, y + 5);
       
-      y += 12;
+      y += 10;
+      
+      // Valor por extenso em quadro
+      const extenso = valorPorExtenso(valorTotal).toUpperCase();
+      const extensoTexto = `(${extenso})`;
+      
+      // Calcular altura do quadro baseado no texto
+      doc.setFontSize(9);
+      doc.setFont('helvetica', 'normal');
+      const extensoLines = doc.splitTextToSize(extensoTexto, larguraUtil - 10);
+      const alturaQuadroExtenso = extensoLines.length * 4 + 6;
+      
+      // Desenhar quadro
+      doc.setDrawColor(30, 159, 204);
+      doc.setLineWidth(0.5);
+      doc.rect(margemEsquerda, y, larguraUtil, alturaQuadroExtenso, 'S');
+      
+      // Renderizar texto justificado
+      doc.setTextColor(0, 0, 0);
+      let yExtenso = y + 4;
+      extensoLines.forEach((linha: string, index: number) => {
+        const isUltimaLinha = index === extensoLines.length - 1;
+        const palavras = linha.trim().split(/\s+/).filter((p: string) => p.length > 0);
+        
+        if (!isUltimaLinha && palavras.length > 1) {
+          // Justificar
+          let larguraPalavras = 0;
+          palavras.forEach((palavra: string) => {
+            larguraPalavras += doc.getTextWidth(palavra);
+          });
+          const espacoDisponivel = (larguraUtil - 10) - larguraPalavras;
+          const espacoEntrePalavras = espacoDisponivel / (palavras.length - 1);
+          
+          let xAtual = margemEsquerda + 5;
+          palavras.forEach((palavra: string, idx: number) => {
+            doc.text(palavra, xAtual, yExtenso);
+            if (idx < palavras.length - 1) {
+              xAtual += doc.getTextWidth(palavra) + espacoEntrePalavras;
+            }
+          });
+        } else {
+          doc.text(linha.trim(), margemEsquerda + 5, yExtenso);
+        }
+        yExtenso += 4;
+      });
+      
+      y += alturaQuadroExtenso + 5;
     }
     } // Fim do else (outros critérios)
 
