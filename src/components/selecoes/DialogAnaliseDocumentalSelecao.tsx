@@ -410,6 +410,9 @@ export function DialogAnaliseDocumentalSelecao({
       
       // Buscar estimativas para validar classificação
       let estimativasPorItem = new Map<number | string, number>();
+      const estimativaSubtotalPorLote = new Map<number, number>();
+      let estimativaTotalGlobal = 0;
+
       if (cotacaoId) {
         const { data: planilhas } = await supabase
           .from("planilhas_consolidadas")
@@ -417,11 +420,53 @@ export function DialogAnaliseDocumentalSelecao({
           .eq("cotacao_id", cotacaoId)
           .order("data_geracao", { ascending: false })
           .limit(1);
-        
+
         if (planilhas && planilhas.length > 0 && planilhas[0].estimativas_itens) {
           const estimativas = planilhas[0].estimativas_itens as Record<string, number>;
+
+          // Mapa bruto (compatível com por_item)
           Object.entries(estimativas).forEach(([key, value]) => {
-            estimativasPorItem.set(key.includes('_') ? key : parseInt(key), value);
+            estimativasPorItem.set(key.includes("_") ? key : parseInt(key, 10), value);
+          });
+
+          // Para por_lote e global precisamos de estimativa TOTAL (considerando quantidade)
+          const [{ data: itensCotacaoEst }, { data: lotesCotacaoEst }] = await Promise.all([
+            supabase
+              .from("itens_cotacao")
+              .select("numero_item, quantidade, lote_id")
+              .eq("cotacao_id", cotacaoId),
+            supabase
+              .from("lotes_cotacao")
+              .select("id, numero_lote")
+              .eq("cotacao_id", cotacaoId),
+          ]);
+
+          const loteIdToNumero = new Map<string, number>();
+          (lotesCotacaoEst || []).forEach((l: any) => loteIdToNumero.set(l.id, l.numero_lote));
+
+          (itensCotacaoEst || []).forEach((item: any) => {
+            const quantidade = Number(item.quantidade || 1);
+            const numeroItem = Number(item.numero_item);
+            const numeroLote = item.lote_id ? loteIdToNumero.get(item.lote_id) : undefined;
+
+            // Planilha pode vir com chave composta "{numero_lote}_{numero_item}" para por_lote
+            const chaveComposta = numeroLote ? `${numeroLote}_${numeroItem}` : null;
+            const estimativaUnit =
+              (chaveComposta ? Number(estimativas[chaveComposta] || 0) : 0) ||
+              Number(estimativas[String(numeroItem)] || 0);
+
+            const subtotal = estimativaUnit * quantidade;
+
+            // Global (somatório total)
+            estimativaTotalGlobal += subtotal;
+
+            // Por lote (subtotal por lote)
+            if (numeroLote !== undefined) {
+              estimativaSubtotalPorLote.set(
+                numeroLote,
+                (estimativaSubtotalPorLote.get(numeroLote) || 0) + subtotal
+              );
+            }
           });
         }
       }
@@ -603,18 +648,18 @@ export function DialogAnaliseDocumentalSelecao({
       propostaPorChave.forEach((propostas, numeroItem) => {
         console.log(`📊 [ANÁLISE DOC] Processando ${isPorLote ? 'lote' : 'item'} ${numeroItem} SEM LANCES - verificando propostas originais (${propostas.length})`);
         
-        // Buscar estimativa
-        let estimativa = 0;
-        if (isPorLote) {
-          // Para por_lote, buscar estimativa do lote (subtotal)
-          estimativasPorItem.forEach((valor, key) => {
-            if (typeof key === 'string' && key.startsWith(`${numeroItem}_`)) {
-              estimativa += valor;
-            }
-          });
-        } else {
-          estimativa = estimativasPorItem.get(numeroItem) as number || 0;
-        }
+         // Buscar estimativa
+         let estimativa = 0;
+         if (isPorLote) {
+           // Para por_lote, comparar com o subtotal estimado do lote (considerando quantidade)
+           estimativa = estimativaSubtotalPorLote.get(numeroItem) || 0;
+         } else if (selecaoData?.criterios_julgamento === 'global' && numeroItem === 0) {
+           // Para global, comparar com o total estimado global (considerando quantidade)
+           estimativa = estimativaTotalGlobal || 0;
+         } else {
+           // Para por_item, a estimativa é unitária
+           estimativa = (estimativasPorItem.get(numeroItem) as number).0 || 0;
+         }
         
         // Filtrar propostas classificadas (valor <= estimativa ou desconto >= estimativa)
         const propostasClassificadas = propostas.filter((p: any) => {
