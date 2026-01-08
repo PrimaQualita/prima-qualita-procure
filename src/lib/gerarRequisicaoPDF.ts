@@ -171,7 +171,18 @@ export const gerarRequisicaoPDF = async (dados: DadosRequisicao): Promise<Blob> 
 
   // Texto da justificativa - usando o ente federativo formatado
   const enteFederativoFormatado = formatarNomeProprio(dados.enteFederativo);
-  const paragrafo2 = `A presente aquisição se faz necessária, para atender ao Contrato de Gestão Nº ${dados.numeroContrato} firmado com o município de ${enteFederativoFormatado}, por intermédio da Secretaria Municipal de Saúde.`;
+  
+  // Texto específico para contratos especiais
+  let paragrafo2: string;
+  const nomeContratoNormalizado = dados.numeroContrato.toLowerCase().trim();
+  
+  if (nomeContratoNormalizado === 'rateio de despesas de gestão') {
+    paragrafo2 = 'A presente aquisição se faz necessária, para atender "Despesas de gestão compartilhadas e vinculadas aos contratos de gestão" firmado com os entes federativos, por intermédio das Secretarias Municipais de Saúde.';
+  } else if (nomeContratoNormalizado === 'processos unificados') {
+    paragrafo2 = 'A presente aquisição se faz necessária, para atender "aos contratos de gestão especificados no termo de referência" firmado com os entes federativos, por intermédio das Secretarias Municipais de Saúde.';
+  } else {
+    paragrafo2 = `A presente aquisição se faz necessária, para atender ao Contrato de Gestão Nº ${dados.numeroContrato} firmado com o município de ${enteFederativoFormatado}, por intermédio da Secretaria Municipal de Saúde.`;
+  }
   
   const linhasParagrafo2 = doc.splitTextToSize(paragrafo2, 170);
   doc.text(linhasParagrafo2, 20, yPos, { align: 'justify', maxWidth: 170 });
