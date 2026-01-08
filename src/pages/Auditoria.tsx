@@ -124,9 +124,9 @@ const Auditoria = () => {
         </Badge>
       );
     }
-    if (acaoLower.includes("editar") || acaoLower.includes("update") || acaoLower.includes("atualização")) {
+    if (acaoLower.includes("editar") || acaoLower.includes("update") || acaoLower.includes("atualização") || acaoLower.includes("edição")) {
       return (
-        <Badge className="bg-amber-500 hover:bg-amber-600 text-white gap-1">
+        <Badge className="bg-blue-500 hover:bg-blue-600 text-white gap-1">
           <Edit className="h-3 w-3" />
           Edição
         </Badge>
