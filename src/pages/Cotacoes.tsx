@@ -29,6 +29,7 @@ import DOMPurify from "dompurify";
 import { gerarAutorizacaoCompraDireta, gerarAutorizacaoSelecao } from "@/lib/gerarAutorizacaoPDF";
 import { useCanEdit, useUserContext } from "@/hooks/useUserContext";
 import { registrarAuditoria } from "@/lib/registrarAuditoria";
+import { compararAlteracoes } from "@/lib/compararAlteracoes";
 
 // Cache global para evitar recarregamentos desnecessários
 let cachedContratos: Contrato[] | null = null;
@@ -118,7 +119,7 @@ const Cotacoes = () => {
   const [dialogCriarSelecaoOpen, setDialogCriarSelecaoOpen] = useState(false);
   const [dialogEditarCotacaoOpen, setDialogEditarCotacaoOpen] = useState(false);
   const [cotacaoEditando, setCotacaoEditando] = useState<Cotacao | null>(null);
-  
+  const [cotacaoOriginal, setCotacaoOriginal] = useState<Cotacao | null>(null);
   const [dialogImportarOpen, setDialogImportarOpen] = useState(false);
   const [confirmDeleteAllOpen, setConfirmDeleteAllOpen] = useState(false);
   const [confirmDeleteCotacaoOpen, setConfirmDeleteCotacaoOpen] = useState(false);
@@ -865,6 +866,26 @@ const Cotacoes = () => {
     if (!cotacaoSelecionada) return;
 
     if (itemEditando) {
+      // Comparar alterações antes de atualizar
+      const alteracoes = compararAlteracoes(
+        {
+          numero_item: itemEditando.numero_item,
+          descricao: itemEditando.descricao,
+          quantidade: itemEditando.quantidade,
+          unidade: itemEditando.unidade,
+          valor_unitario_estimado: itemEditando.valor_unitario_estimado,
+          marca: itemEditando.marca,
+        },
+        {
+          numero_item: itemData.numero_item,
+          descricao: itemData.descricao,
+          quantidade: itemData.quantidade,
+          unidade: itemData.unidade,
+          valor_unitario_estimado: itemData.valor_unitario_estimado,
+          marca: itemData.marca,
+        }
+      );
+
       const { error } = await supabase
         .from("itens_cotacao")
         .update(itemData)
@@ -885,6 +906,7 @@ const Cotacoes = () => {
             contrato_gestao: contratoSelecionado?.nome_contrato || 'N/A',
             numero_processo: processoSelecionado?.numero_processo_interno || 'N/A',
             titulo_cotacao: cotacaoSelecionada?.titulo_cotacao || 'N/A',
+            alteracoes: alteracoes.length > 0 ? alteracoes : undefined,
           },
         });
         toast.success("Item atualizado com sucesso");
@@ -1458,6 +1480,18 @@ const Cotacoes = () => {
     if (!cotacaoSelecionada) return;
 
     if (loteEditando) {
+      // Comparar alterações antes de atualizar
+      const alteracoes = compararAlteracoes(
+        {
+          numero_lote: loteEditando.numero_lote,
+          descricao_lote: loteEditando.descricao_lote,
+        },
+        {
+          numero_lote: loteData.numero_lote,
+          descricao_lote: loteData.descricao_lote,
+        }
+      );
+
       const { error } = await supabase
         .from("lotes_cotacao")
         .update(loteData)
@@ -1478,6 +1512,7 @@ const Cotacoes = () => {
             contrato_gestao: contratoSelecionado?.nome_contrato || 'N/A',
             numero_processo: processoSelecionado?.numero_processo_interno || 'N/A',
             titulo_cotacao: cotacaoSelecionada?.titulo_cotacao || 'N/A',
+            alteracoes: alteracoes.length > 0 ? alteracoes : undefined,
           },
         });
         toast.success("Lote atualizado com sucesso");
@@ -1924,6 +1959,7 @@ const Cotacoes = () => {
                                   size="sm"
                                   onClick={() => {
                                     setCotacaoEditando(cotacao);
+                                    setCotacaoOriginal({ ...cotacao }); // Guardar original para comparação
                                     setDialogEditarCotacaoOpen(true);
                                   }}
                                   title="Editar cotação"
@@ -3003,7 +3039,10 @@ const Cotacoes = () => {
       {/* Dialog de edição de cotação */}
       <Dialog open={dialogEditarCotacaoOpen} onOpenChange={(open) => {
         setDialogEditarCotacaoOpen(open);
-        if (!open) setCotacaoEditando(null);
+        if (!open) {
+          setCotacaoEditando(null);
+          setCotacaoOriginal(null);
+        }
       }}>
         <DialogContent>
           <DialogHeader>
@@ -3040,6 +3079,7 @@ const Cotacoes = () => {
             <Button variant="outline" onClick={() => {
               setDialogEditarCotacaoOpen(false);
               setCotacaoEditando(null);
+              setCotacaoOriginal(null);
             }}>
               Cancelar
             </Button>
@@ -3070,6 +3110,18 @@ const Cotacoes = () => {
                 
                 if (error) throw error;
                 
+                // Comparar alterações
+                const alteracoes = cotacaoOriginal ? compararAlteracoes(
+                  {
+                    titulo_cotacao: cotacaoOriginal.titulo_cotacao,
+                    data_limite_resposta: cotacaoOriginal.data_limite_resposta,
+                  },
+                  {
+                    titulo_cotacao: cotacaoEditando.titulo_cotacao,
+                    data_limite_resposta: dataISO,
+                  }
+                ) : [];
+                
                 // Registrar auditoria de edição de cotação
                 await registrarAuditoria({
                   acao: 'edição',
@@ -3080,6 +3132,7 @@ const Cotacoes = () => {
                     titulo_cotacao: cotacaoEditando.titulo_cotacao,
                     contrato_gestao: contratoSelecionado?.nome_contrato || 'N/A',
                     numero_processo: processoSelecionado?.numero_processo_interno || 'N/A',
+                    alteracoes: alteracoes.length > 0 ? alteracoes : undefined,
                   },
                 });
                 
@@ -3093,6 +3146,7 @@ const Cotacoes = () => {
                 toast.success("Cotação atualizada com sucesso!");
                 setDialogEditarCotacaoOpen(false);
                 setCotacaoEditando(null);
+                setCotacaoOriginal(null);
               } catch (error: any) {
                 toast.error("Erro ao atualizar cotação: " + error.message);
               }
