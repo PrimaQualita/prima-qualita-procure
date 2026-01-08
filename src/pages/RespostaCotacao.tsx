@@ -11,7 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import primaLogo from "@/assets/prima-qualita-logo.png";
 import { toast } from "sonner";
 import { z } from "zod";
-import { Upload, FileText, X } from "lucide-react";
+import { Upload, FileText, X, Download, Eye } from "lucide-react";
 import { gerarPropostaFornecedorPDF } from "@/lib/gerarPropostaFornecedorPDF";
 import * as XLSX from 'xlsx';
 import ExcelJS from 'exceljs';
@@ -122,6 +122,7 @@ const RespostaCotacao = () => {
   const [processoCompra, setProcessoCompra] = useState<any>(null);
   const [itensCotacao, setItensCotacao] = useState<ItemCotacao[]>([]);
   const [lotes, setLotes] = useState<Lote[]>([]);
+  const [termoReferencia, setTermoReferencia] = useState<{nome_arquivo: string; url_arquivo: string} | null>(null);
   
   const [dadosEmpresa, setDadosEmpresa] = useState({
     razao_social: "",
@@ -292,6 +293,20 @@ const RespostaCotacao = () => {
         .single();
 
       setProcessoCompra(processoData);
+
+      // Buscar termo de referência do processo
+      if (processoData?.id) {
+        const { data: termoData } = await supabaseAnon
+          .from("anexos_processo_compra")
+          .select("nome_arquivo, url_arquivo")
+          .eq("processo_compra_id", processoData.id)
+          .eq("tipo_anexo", "termo_referencia")
+          .maybeSingle();
+
+        if (termoData) {
+          setTermoReferencia(termoData);
+        }
+      }
 
       // Carregar lotes se for por lote
       if (cotacaoData.criterio_julgamento === 'por_lote') {
@@ -1113,6 +1128,52 @@ const RespostaCotacao = () => {
       </div>
 
       <div className="container mx-auto px-4 py-8 space-y-6">
+        {/* Termo de Referência */}
+        {termoReferencia && (
+          <Card className="border-blue-200 bg-blue-50/50 dark:border-blue-800 dark:bg-blue-950/50">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-lg flex items-center gap-2">
+                <FileText className="h-5 w-5 text-blue-600" />
+                Termo de Referência
+              </CardTitle>
+              <CardDescription>
+                Documento com as especificações técnicas e condições desta cotação
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="flex items-center gap-3">
+                <span className="text-sm font-medium">{termoReferencia.nome_arquivo}</span>
+                <div className="flex gap-2 ml-auto">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      const url = `${import.meta.env.VITE_SUPABASE_URL}/storage/v1/object/public/anexos-processo/${termoReferencia.url_arquivo}`;
+                      window.open(url, '_blank');
+                    }}
+                  >
+                    <Eye className="h-4 w-4 mr-2" />
+                    Visualizar
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      const url = `${import.meta.env.VITE_SUPABASE_URL}/storage/v1/object/public/anexos-processo/${termoReferencia.url_arquivo}`;
+                      const link = document.createElement('a');
+                      link.href = url;
+                      link.download = termoReferencia.nome_arquivo;
+                      link.click();
+                    }}
+                  >
+                    <Download className="h-4 w-4 mr-2" />
+                    Baixar
+                  </Button>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        )}
         {/* Dados da Empresa */}
         <Card>
           <CardHeader>
