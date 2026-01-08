@@ -383,7 +383,7 @@ export const gerarRelatorioFinal = async (dados: DadosRelatorioFinal): Promise<R
   yPos += linhas4.length * 3.5 + 5;
   
   // Parágrafo 5
-  const texto5 = 'Sendo assim, encaminha-se ao Responsável Legal para autorização do procedimento.';
+  const texto5 = 'Sendo assim, encaminha-se ao Departamento de Contabilidade para determinação de qual será o tipo de operação a ser utilizada para o lançamento no sistema ERP CIGAM e posteriormente ao Responsável Legal para autorização do procedimento.';
   const linhas5 = doc.splitTextToSize(texto5, 170);
   
   // Verificar espaço antes de adicionar
