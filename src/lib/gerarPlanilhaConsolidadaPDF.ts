@@ -560,7 +560,10 @@ export async function gerarPlanilhaConsolidadaPDF(
           loteData.fornecedores[resposta.fornecedor.cnpj] = (loteData.fornecedores[resposta.fornecedor.cnpj] || 0) + valorTotal;
         }
         
-        valoresItem.push(valorParaCalculo);
+        // IMPORTANTE: Só adicionar valores > 0 para cálculo de estimativa (ignorar itens não cotados)
+        if (valorParaCalculo > 0) {
+          valoresItem.push(valorParaCalculo);
+        }
       } else {
         linha[`fornecedor_${resposta.fornecedor.cnpj}`] = '-';
       }
