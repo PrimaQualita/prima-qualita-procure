@@ -2292,14 +2292,25 @@ const SistemaLancesFornecedor = () => {
     return itensVencidos.sort((a, b) => a - b);
   };
 
-  const getValorVencedorItem = (numeroItem: number): number | null => {
+  // Retorna { valor: number | null, status: 'vencedor' | 'deserto' | 'fracassado' }
+  const getStatusVencedorItem = (numeroItem: number): { valor: number | null, status: 'vencedor' | 'deserto' | 'fracassado' } => {
     const valorEstimado = itensEstimados.get(numeroItem) || 0;
     const lancesDoItem = getLancesDoItem(numeroItem);
     const isDesconto = selecao?.processos_compras?.criterio_julgamento === "desconto";
-    const isPorLote = selecao?.processos_compras?.criterio_julgamento === "por_lote";
-    const isGlobal = selecao?.processos_compras?.criterio_julgamento === "global";
     
-    // Filtrar conforme critério
+    // Verificar se houve lances
+    const teveAlgumLance = lancesDoItem.length > 0;
+    
+    // Verificar se houve proposta
+    const melhorValorProposta = menorValorPropostas.get(numeroItem);
+    const teveAlgumaProposta = melhorValorProposta && melhorValorProposta > 0;
+    
+    // Se não há nenhum lance e nenhuma proposta = DESERTO
+    if (!teveAlgumLance && !teveAlgumaProposta) {
+      return { valor: null, status: 'deserto' };
+    }
+    
+    // Filtrar lances classificados conforme critério
     const lancesClassificados = isDesconto
       ? lancesDoItem.filter(l => l.valor_lance >= valorEstimado)
       : lancesDoItem.filter(l => l.valor_lance <= valorEstimado);
@@ -2324,17 +2335,15 @@ const SistemaLancesFornecedor = () => {
         // PRIORIDADE 3: Desempate por data
         return new Date(a.data_hora_lance).getTime() - new Date(b.data_hora_lance).getTime();
       });
-      return lancesOrdenados[0]?.valor_lance || 0;
+      return { valor: lancesOrdenados[0]?.valor_lance || 0, status: 'vencedor' };
     }
     
-    // Se não há lances, verificar se há proposta classificada
-    const melhorValorProposta = menorValorPropostas.get(numeroItem);
-    
-    if (melhorValorProposta && melhorValorProposta > 0) {
+    // Se não há lances classificados, verificar se há proposta classificada
+    if (teveAlgumaProposta) {
       // Verificar se a melhor proposta está classificada (valor <= estimado ou desconto >= estimado)
       if (valorEstimado === 0) {
         // Se não há estimativa, considerar como classificada
-        return melhorValorProposta;
+        return { valor: melhorValorProposta, status: 'vencedor' };
       }
       
       const propostaClassificada = isDesconto
@@ -2342,12 +2351,18 @@ const SistemaLancesFornecedor = () => {
         : melhorValorProposta <= valorEstimado;
       
       if (propostaClassificada) {
-        return melhorValorProposta;
+        return { valor: melhorValorProposta, status: 'vencedor' };
       }
     }
     
-    // Nenhum lance ou proposta classificada - item FRACASSADO
-    return null;
+    // Teve propostas/lances mas todos foram desclassificados = FRACASSADO
+    return { valor: null, status: 'fracassado' };
+  };
+  
+  // Wrapper para compatibilidade
+  const getValorVencedorItem = (numeroItem: number): number | null => {
+    const result = getStatusVencedorItem(numeroItem);
+    return result.valor;
   };
 
   const handleUpdateItem = (itemId: string, field: string, value: any) => {
@@ -3326,23 +3341,31 @@ const SistemaLancesFornecedor = () => {
                                   {item?.descricao || ""}
                                 </div>
                                 
-                                <div className={valorVencedor !== null ? "bg-green-100 rounded px-2 py-1.5" : "bg-red-100 rounded px-2 py-1.5"}>
-                                  <div className={`text-[10px] mb-0.5 ${valorVencedor !== null ? "text-green-600" : "text-red-600"}`}>
-                                    {valorVencedor !== null 
-                                      ? (selecao?.processos_compras?.criterio_julgamento === "desconto" ? "Desconto Vencedor" : "Valor Vencedor")
-                                      : "Status"
-                                    }
+                              {(() => {
+                                const statusResult = getStatusVencedorItem(numeroItem);
+                                const isVencedor = statusResult.status === 'vencedor';
+                                const isDeserto = statusResult.status === 'deserto';
+                                
+                                return (
+                                  <div className={isVencedor ? "bg-green-100 rounded px-2 py-1.5" : (isDeserto ? "bg-amber-100 rounded px-2 py-1.5" : "bg-red-100 rounded px-2 py-1.5")}>
+                                    <div className={`text-[10px] mb-0.5 ${isVencedor ? "text-green-600" : (isDeserto ? "text-amber-600" : "text-red-600")}`}>
+                                      {isVencedor 
+                                        ? (selecao?.processos_compras?.criterio_julgamento === "desconto" ? "Desconto Vencedor" : "Valor Vencedor")
+                                        : "Status"
+                                      }
+                                    </div>
+                                    <p className={`font-bold text-sm ${isVencedor ? "text-green-700" : (isDeserto ? "text-amber-700" : "text-red-700")}`}>
+                                      {isVencedor 
+                                        ? (selecao?.processos_compras?.criterio_julgamento === "desconto" 
+                                            ? `${formatarMoeda(statusResult.valor!)}%`
+                                            : formatarMoeda(statusResult.valor!)
+                                          )
+                                        : (isDeserto ? "DESERTO" : "FRACASSADO")
+                                      }
+                                    </p>
                                   </div>
-                                  <p className={`font-bold text-sm ${valorVencedor !== null ? "text-green-700" : "text-red-700"}`}>
-                                    {valorVencedor !== null 
-                                      ? (selecao?.processos_compras?.criterio_julgamento === "desconto" 
-                                          ? `${formatarMoeda(valorVencedor)}%`
-                                          : formatarMoeda(valorVencedor)
-                                        )
-                                      : "FRACASSADO"
-                                    }
-                                  </p>
-                                </div>
+                                );
+                              })()}
                               </div>
                             );
                           })}
@@ -3373,23 +3396,31 @@ const SistemaLancesFornecedor = () => {
                                 {item?.descricao || ""}
                               </div>
                               
-                              <div className={valorVencedor !== null ? "bg-muted/50 rounded px-2 py-1.5" : "bg-red-100 rounded px-2 py-1.5"}>
-                                <div className={`text-[10px] mb-0.5 ${valorVencedor !== null ? "text-muted-foreground" : "text-red-600"}`}>
-                                  {valorVencedor !== null 
-                                    ? (selecao?.processos_compras?.criterio_julgamento === "desconto" ? "Desconto Vencedor" : "Valor Vencedor")
-                                    : "Status"
-                                  }
-                                </div>
-                                <p className={`font-bold text-sm ${valorVencedor !== null ? "text-muted-foreground" : "text-red-700"}`}>
-                                  {valorVencedor !== null 
-                                    ? (selecao?.processos_compras?.criterio_julgamento === "desconto" 
-                                        ? `${formatarMoeda(valorVencedor)}%`
-                                        : formatarMoeda(valorVencedor)
-                                      )
-                                    : "FRACASSADO"
-                                  }
-                                </p>
-                              </div>
+                              {(() => {
+                                const statusResult = getStatusVencedorItem(numeroItem);
+                                const isVencedor = statusResult.status === 'vencedor';
+                                const isDeserto = statusResult.status === 'deserto';
+                                
+                                return (
+                                  <div className={isVencedor ? "bg-muted/50 rounded px-2 py-1.5" : (isDeserto ? "bg-amber-100 rounded px-2 py-1.5" : "bg-red-100 rounded px-2 py-1.5")}>
+                                    <div className={`text-[10px] mb-0.5 ${isVencedor ? "text-muted-foreground" : (isDeserto ? "text-amber-600" : "text-red-600")}`}>
+                                      {isVencedor 
+                                        ? (selecao?.processos_compras?.criterio_julgamento === "desconto" ? "Desconto Vencedor" : "Valor Vencedor")
+                                        : "Status"
+                                      }
+                                    </div>
+                                    <p className={`font-bold text-sm ${isVencedor ? "text-muted-foreground" : (isDeserto ? "text-amber-700" : "text-red-700")}`}>
+                                      {isVencedor 
+                                        ? (selecao?.processos_compras?.criterio_julgamento === "desconto" 
+                                            ? `${formatarMoeda(statusResult.valor!)}%`
+                                            : formatarMoeda(statusResult.valor!)
+                                          )
+                                        : (isDeserto ? "DESERTO" : "FRACASSADO")
+                                      }
+                                    </p>
+                                  </div>
+                                );
+                              })()}
                             </div>
                           );
                         })}
