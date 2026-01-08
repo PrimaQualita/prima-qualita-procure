@@ -1196,6 +1196,9 @@ export function DialogSessaoLances({
   const handleReabrirParaNegociacao = async (numeroItem: number, fornecedorId: string) => {
     setSalvando(true);
     try {
+      const TEMPO_NEGOCIACAO = 120;
+      const agora = new Date().toISOString();
+
       const { error } = await supabase
         .from("itens_abertos_lances")
         .update({
@@ -1205,9 +1208,9 @@ export function DialogSessaoLances({
           negociacao_concluida: false,
           data_fechamento: null,
           fornecedor_negociacao_id: fornecedorId,
-          iniciando_fechamento: false,
-          data_inicio_fechamento: null,
-          segundos_para_fechar: null
+          iniciando_fechamento: true,
+          data_inicio_fechamento: agora,
+          segundos_para_fechar: TEMPO_NEGOCIACAO,
         })
         .eq("selecao_id", selecaoId)
         .eq("numero_item", numeroItem);
