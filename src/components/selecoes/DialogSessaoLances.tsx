@@ -3926,6 +3926,8 @@ export function DialogSessaoLances({
                 .sort((a, b) => a.numero_item - b.numero_item);
 
               if (itensConcluidos.length === 0) return null;
+
+              return (
                 <Card className="bg-gray-50 dark:bg-gray-900 border-gray-200 flex-shrink-0">
                   <CardHeader className="py-2">
                     <CardTitle className="text-xs flex items-center gap-2 text-gray-600 dark:text-gray-400">
