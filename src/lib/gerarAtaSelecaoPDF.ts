@@ -996,7 +996,7 @@ export async function gerarAtaSelecaoPDF(selecaoId: string): Promise<{ url: stri
   // ============= 5 - VENCEDORES NOS LANCES (antes da habilitação) =============
   // OMITIR se todos os itens forem desertos
   if (!todosItensDesertos) {
-    checkNewPage(50); // Espaço para título + pelo menos uma linha de tabela
+    checkNewPage(25); // Espaço para título + pelo menos uma linha de tabela
     doc.setFontSize(11);
     doc.setFont("helvetica", "bold");
     doc.text(`${secaoNumero}. VENCEDORES NOS LANCES`, marginLeft, currentY);
@@ -1096,7 +1096,7 @@ export async function gerarAtaSelecaoPDF(selecaoId: string): Promise<{ url: stri
   // ============= 6 - HABILITAÇÃO =============
   // OMITIR se todos os itens forem desertos
   if (!todosItensDesertos) {
-    checkNewPage(50); // Espaço para título + subtítulo + pelo menos uma entrada
+    checkNewPage(25); // Espaço para título + subtítulo + pelo menos uma entrada
     doc.setFontSize(11);
     doc.setFont("helvetica", "bold");
     doc.text(`${secaoNumero}. HABILITAÇÃO`, marginLeft, currentY);
@@ -1190,7 +1190,7 @@ export async function gerarAtaSelecaoPDF(selecaoId: string): Promise<{ url: stri
   // ============= 7 - VENCEDOR(ES) APÓS HABILITAÇÃO =============
   // OMITIR se todos os itens forem desertos
   if (!todosItensDesertos) {
-    checkNewPage(50); // Espaço para título + introdução + pelo menos uma entrada de tabela
+    checkNewPage(25); // Espaço para título + introdução + pelo menos uma entrada de tabela
     doc.setFontSize(11);
     doc.setFont("helvetica", "bold");
     doc.text(`${secaoNumero}. VENCEDOR(ES)`, marginLeft, currentY);
@@ -1515,7 +1515,7 @@ export async function gerarAtaSelecaoPDF(selecaoId: string): Promise<{ url: stri
   // ============= 8 - NEGOCIAÇÕES =============
   // OMITIR se todos os itens forem desertos
   if (!todosItensDesertos) {
-    checkNewPage(40); // Espaço para título + pelo menos um parágrafo de conteúdo
+    checkNewPage(20); // Espaço para título + pelo menos um parágrafo de conteúdo
     doc.setFontSize(11);
     doc.setFont("helvetica", "bold");
     doc.text(`${secaoNumero}. NEGOCIAÇÕES`, marginLeft, currentY);
@@ -1547,7 +1547,7 @@ export async function gerarAtaSelecaoPDF(selecaoId: string): Promise<{ url: stri
   // ============= 9 - INTENÇÃO DE RECURSOS =============
   // OMITIR se todos os itens forem desertos
   if (!todosItensDesertos) {
-    checkNewPage(40); // Espaço para título + pelo menos um parágrafo de conteúdo
+    checkNewPage(20); // Espaço para título + pelo menos um parágrafo de conteúdo
     doc.setFontSize(11);
     doc.setFont("helvetica", "bold");
     doc.text(`${secaoNumero}. INTENÇÃO DE RECURSOS`, marginLeft, currentY);
@@ -1667,7 +1667,7 @@ export async function gerarAtaSelecaoPDF(selecaoId: string): Promise<{ url: stri
   // ============= 11 - PRAZO DE ENVIO DA PROPOSTA REALINHADA =============
   // OMITIR se todos os itens forem desertos
   if (!todosItensDesertos) {
-    checkNewPage(50); // Espaço para título + texto de prazo completo
+    checkNewPage(20); // Espaço para título + texto de prazo completo
     doc.setFontSize(11);
     doc.setFont("helvetica", "bold");
     doc.text(`${secaoNumero}. PRAZO DE ENVIO DA PROPOSTA REALINHADA`, marginLeft, currentY);
@@ -1694,7 +1694,7 @@ export async function gerarAtaSelecaoPDF(selecaoId: string): Promise<{ url: stri
 
   // ============= 12 - REGISTROS DO CHAT =============
   if (mensagensChat.length > 0) {
-    checkNewPage(50); // Espaço para título + introdução + pelo menos uma mensagem
+    checkNewPage(25); // Espaço para título + introdução + pelo menos uma mensagem
     doc.setFontSize(11);
     doc.setFont("helvetica", "bold");
     doc.text(`${secaoNumero}. REGISTROS DO CHAT`, marginLeft, currentY);
