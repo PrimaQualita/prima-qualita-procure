@@ -2374,6 +2374,7 @@ export function DialogSessaoLances({
             ],
             body: tableData.map(row => row.data),
             theme: "striped",
+            showHead: 'firstPage', // Não repetir cabeçalho (descrição) nas páginas seguintes
             styles: { 
               fontSize: 8, 
               cellPadding: 1.5,
