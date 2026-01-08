@@ -171,8 +171,10 @@ export default function RespostasCotacao() {
   const gerarEncaminhamento = async () => {
     try {
       setGerandoEncaminhamento(true);
-      
-      const { data: { user } } = await supabase.auth.getUser();
+
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
       if (!user) throw new Error("Usuário não autenticado");
 
       const { data: perfil } = await supabase
@@ -190,24 +192,39 @@ export default function RespostasCotacao() {
         perfil.cpf
       );
 
-      const { error: dbError } = await supabase
-        .from('encaminhamentos_processo')
-        .insert({
-          cotacao_id: cotacaoId,
-          processo_numero: processoNumero,
-          protocolo: resultado.protocolo,
-          storage_path: resultado.storagePath,
-          url: resultado.url,
-          gerado_por: user.id,
-          nome_arquivo: resultado.fileName
-        });
+      const encaminhamentoId = uuidv4();
+
+      const { error: dbError } = await supabase.from("encaminhamentos_processo").insert({
+        id: encaminhamentoId,
+        cotacao_id: cotacaoId,
+        processo_numero: processoNumero,
+        protocolo: resultado.protocolo,
+        storage_path: resultado.storagePath,
+        url: resultado.url,
+        gerado_por: user.id,
+        nome_arquivo: resultado.fileName,
+      });
 
       if (dbError) throw dbError;
+
+      await registrarAuditoria({
+        acao: "criação",
+        entidade: "encaminhamentos_processo",
+        entidade_id: encaminhamentoId,
+        detalhes: {
+          tipo: "Encaminhamento ao Compliance",
+          nome_arquivo: resultado.fileName,
+          protocolo: resultado.protocolo,
+          contrato_gestao: cotacao?.processos_compras?.contratos_gestao?.nome_contrato || "",
+          numero_processo: processoNumero,
+          titulo_cotacao: cotacao?.titulo_cotacao || "",
+        },
+      });
 
       toast.success("Encaminhamento gerado com sucesso!");
       loadEncaminhamento();
     } catch (error) {
-      console.error('Erro ao gerar encaminhamento:', error);
+      console.error("Erro ao gerar encaminhamento:", error);
       toast.error("Erro ao gerar encaminhamento");
     } finally {
       setGerandoEncaminhamento(false);
@@ -216,20 +233,36 @@ export default function RespostasCotacao() {
 
   const excluirEncaminhamento = async () => {
     if (!encaminhamentoParaExcluir) return;
-    
+
+    const alvo = encaminhamentoParaExcluir;
+
     try {
       const { error: storageError } = await supabase.storage
         .from("processo-anexos")
-        .remove([encaminhamentoParaExcluir.storage_path]);
+        .remove([alvo.storage_path]);
 
       if (storageError) throw storageError;
 
       const { error: dbError } = await supabase
         .from("encaminhamentos_processo")
         .delete()
-        .eq("id", encaminhamentoParaExcluir.id);
+        .eq("id", alvo.id);
 
       if (dbError) throw dbError;
+
+      await registrarAuditoria({
+        acao: "exclusão",
+        entidade: "encaminhamentos_processo",
+        entidade_id: alvo.id,
+        detalhes: {
+          tipo: "Encaminhamento ao Compliance",
+          nome_arquivo: alvo.nome_arquivo || "",
+          protocolo: alvo.protocolo || "",
+          contrato_gestao: cotacao?.processos_compras?.contratos_gestao?.nome_contrato || "",
+          numero_processo: processoNumero,
+          titulo_cotacao: cotacao?.titulo_cotacao || "",
+        },
+      });
 
       setEncaminhamentoParaExcluir(null);
       setConfirmDeleteEncaminhamentoOpen(false);
@@ -289,31 +322,31 @@ export default function RespostasCotacao() {
   
   const excluirPlanilha = async () => {
     if (!planilhaParaExcluir) return;
-    
+
+    const alvo = planilhaParaExcluir;
+
     try {
-      const raw = (planilhaParaExcluir.url_arquivo || "").split("?")[0];
+      const raw = (alvo.url_arquivo || "").split("?")[0];
       const match = raw.match(/processo-anexos\/(.+)$/);
       const filePath = decodeURIComponent(match ? match[1] : raw.replace(/^processo-anexos\//, ""));
       if (!filePath) throw new Error("Caminho do arquivo inválido");
 
-      const { error: storageError } = await supabase.storage
-        .from("processo-anexos")
-        .remove([filePath]);
+      const { error: storageError } = await supabase.storage.from("processo-anexos").remove([filePath]);
 
       if (storageError) throw storageError;
 
       const { error: dbError } = await supabase
         .from("planilhas_consolidadas")
         .delete()
-        .eq("id", planilhaParaExcluir.id);
+        .eq("id", alvo.id);
 
       if (dbError) throw dbError;
 
       const { error: clearDocsError } = await supabase
         .from("campos_documentos_finalizacao")
-        .update({ 
+        .update({
           status_solicitacao: "pendente",
-          data_aprovacao: null 
+          data_aprovacao: null,
         })
         .eq("cotacao_id", cotacaoId)
         .in("status_solicitacao", ["aprovado", "em_analise"]);
@@ -321,6 +354,20 @@ export default function RespostasCotacao() {
       if (clearDocsError) {
         console.error("Erro ao limpar aprovações:", clearDocsError);
       }
+
+      await registrarAuditoria({
+        acao: "exclusão",
+        entidade: "planilhas_consolidadas",
+        entidade_id: alvo.id,
+        detalhes: {
+          tipo: "Planilha Consolidada",
+          nome_arquivo: alvo.nome_arquivo || "",
+          protocolo: alvo.protocolo || "",
+          contrato_gestao: cotacao?.processos_compras?.contratos_gestao?.nome_contrato || "",
+          numero_processo: processoNumero,
+          titulo_cotacao: cotacao?.titulo_cotacao || "",
+        },
+      });
 
       setPlanilhaParaExcluir(null);
       setConfirmDeletePlanilhaOpen(false);
@@ -334,15 +381,17 @@ export default function RespostasCotacao() {
 
   const excluirAnalise = async () => {
     if (!analiseParaExcluir) return;
-    
+
+    const alvo = analiseParaExcluir;
+
     try {
       console.log("🗑️ [RespostasCotacao] Excluindo análise para cotação:", cotacaoId);
-      
+
       // Buscar URL do documento antes de deletar
       const { data: analise, error: fetchError } = await supabase
         .from("analises_compliance")
         .select("url_documento")
-        .eq("id", analiseParaExcluir.id)
+        .eq("id", alvo.id)
         .single();
 
       if (fetchError) throw fetchError;
@@ -354,7 +403,7 @@ export default function RespostasCotacao() {
           const { error: storageError } = await supabase.storage
             .from("documents")
             .remove([path]);
-          
+
           if (storageError) {
             console.error("❌ [RespostasCotacao] Erro ao deletar arquivo do storage:", storageError);
           } else {
@@ -369,7 +418,7 @@ export default function RespostasCotacao() {
       const { error: dbError } = await supabase
         .from("analises_compliance")
         .delete()
-        .eq("id", analiseParaExcluir.id);
+        .eq("id", alvo.id);
 
       if (dbError) throw dbError;
 
@@ -395,7 +444,7 @@ export default function RespostasCotacao() {
           .update({
             respondido_compliance: false,
             enviado_compliance: false,
-            data_resposta_compliance: null
+            data_resposta_compliance: null,
           })
           .eq("id", cotacaoId);
 
@@ -408,6 +457,20 @@ export default function RespostasCotacao() {
       } else {
         console.log("📝 [RespostasCotacao] Ainda existem análises, mantendo status");
       }
+
+      await registrarAuditoria({
+        acao: "exclusão",
+        entidade: "analises_compliance",
+        entidade_id: alvo.id,
+        detalhes: {
+          tipo: "Análise de Compliance",
+          nome_arquivo: alvo.nome_arquivo || "",
+          status: alvo.status_aprovacao || "",
+          contrato_gestao: cotacao?.processos_compras?.contratos_gestao?.nome_contrato || "",
+          numero_processo: processoNumero,
+          titulo_cotacao: cotacao?.titulo_cotacao || "",
+        },
+      });
 
       setAnaliseParaExcluir(null);
       setConfirmDeleteAnaliseOpen(false);
