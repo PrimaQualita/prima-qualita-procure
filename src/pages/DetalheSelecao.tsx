@@ -1908,16 +1908,32 @@ const [itens, setItens] = useState<Item[]>([]);
             <AlertDialogCancel>Cancelar</AlertDialogCancel>
             <AlertDialogAction
               onClick={async () => {
-                const { error } = await supabase
-                  .from("anexos_selecao")
-                  .delete()
-                  .eq("id", avisoAnexado.id);
-                
-                if (error) {
-                  toast.error("Erro ao excluir documento");
-                } else {
+                try {
+                  // 1. Extrair caminho do storage
+                  let storagePath = avisoAnexado.url_arquivo;
+                  if (storagePath.includes('https://')) {
+                    const urlParts = storagePath.split('/processo-anexos/');
+                    storagePath = urlParts[1] || storagePath;
+                    // Remover query strings
+                    storagePath = storagePath.split('?')[0];
+                  }
+                  
+                  // 2. Deletar arquivo do storage
+                  await supabase.storage.from('processo-anexos').remove([storagePath]);
+                  
+                  // 3. Deletar registro do banco
+                  const { error } = await supabase
+                    .from("anexos_selecao")
+                    .delete()
+                    .eq("id", avisoAnexado.id);
+                  
+                  if (error) throw error;
+                  
                   toast.success("Documento excluído com sucesso");
                   loadDocumentosAnexados();
+                } catch (error) {
+                  console.error("Erro ao excluir documento:", error);
+                  toast.error("Erro ao excluir documento");
                 }
               }}
             >
@@ -1940,16 +1956,32 @@ const [itens, setItens] = useState<Item[]>([]);
             <AlertDialogCancel>Cancelar</AlertDialogCancel>
             <AlertDialogAction
               onClick={async () => {
-                const { error } = await supabase
-                  .from("anexos_selecao")
-                  .delete()
-                  .eq("id", editalAnexado.id);
-                
-                if (error) {
-                  toast.error("Erro ao excluir documento");
-                } else {
+                try {
+                  // 1. Extrair caminho do storage
+                  let storagePath = editalAnexado.url_arquivo;
+                  if (storagePath.includes('https://')) {
+                    const urlParts = storagePath.split('/processo-anexos/');
+                    storagePath = urlParts[1] || storagePath;
+                    // Remover query strings
+                    storagePath = storagePath.split('?')[0];
+                  }
+                  
+                  // 2. Deletar arquivo do storage
+                  await supabase.storage.from('processo-anexos').remove([storagePath]);
+                  
+                  // 3. Deletar registro do banco
+                  const { error } = await supabase
+                    .from("anexos_selecao")
+                    .delete()
+                    .eq("id", editalAnexado.id);
+                  
+                  if (error) throw error;
+                  
                   toast.success("Documento excluído com sucesso");
                   loadDocumentosAnexados();
+                } catch (error) {
+                  console.error("Erro ao excluir documento:", error);
+                  toast.error("Erro ao excluir documento");
                 }
               }}
             >
