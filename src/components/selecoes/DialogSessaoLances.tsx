@@ -2507,9 +2507,12 @@ export function DialogSessaoLances({
 
       // Criar mapa de marcas por item/fornecedor
       let marcasPorItemFornecedor: Record<string, string> = {};
-      // Criar Set de itens que receberam proposta (com valor > 0 e não desclassificado)
-      const itensComProposta = new Set<number>();
-      const lotesComProposta = new Set<number>();
+      // Criar Set de itens que receberam proposta ENVIADA (para distinguir DESERTO)
+      const itensComPropostaEnviada = new Set<number>();
+      const lotesComPropostaEnviada = new Set<number>();
+      // Criar Set de itens que têm proposta CLASSIFICADA (não desclassificada, valor <= estimado, fornecedor habilitado)
+      const itensComPropostaClassificada = new Set<number>();
+      const lotesComPropostaClassificada = new Set<number>();
 
       if (todasPropostasItens) {
         // Buscar lotes para mapeamento lote_id -> numero_lote (se por_lote)
@@ -2524,18 +2527,61 @@ export function DialogSessaoLances({
           }
         }
 
+        // Para lote: agrupar totais por lote/fornecedor para verificar desclassificação
+        const totaisPorLoteFornecedor = new Map<number, Map<string, number>>();
+
         todasPropostasItens.forEach((ip: any) => {
-          const key = `${ip.numero_item}-${ip.selecao_propostas_fornecedor?.fornecedor_id}`;
+          const fornecedorId = ip.selecao_propostas_fornecedor?.fornecedor_id;
+          const key = `${ip.numero_item}-${fornecedorId}`;
           marcasPorItemFornecedor[key] = ip.marca || "-";
           
-          // Verificar se é proposta válida (valor > 0 e não desclassificado)
           const valorOfertado = Number(ip.valor_unitario_ofertado) || 0;
-          if (valorOfertado > 0 && !ip.desclassificado) {
-            itensComProposta.add(ip.numero_item);
-            // Para lotes, adicionar o número do lote
-            if (isPorLoteLocal && ip.lote_id) {
-              const numeroLote = loteIdToNumero.get(ip.lote_id);
-              if (numeroLote) lotesComProposta.add(numeroLote);
+          if (valorOfertado <= 0) return;
+
+          // Registrar proposta enviada (para DESERTO)
+          itensComPropostaEnviada.add(ip.numero_item);
+          if (isPorLoteLocal && ip.lote_id) {
+            const numeroLote = loteIdToNumero.get(ip.lote_id);
+            if (numeroLote) lotesComPropostaEnviada.add(numeroLote);
+          }
+          
+          // Verificar se proposta está desclassificada pelo banco
+          if (ip.desclassificado) return;
+
+          // Verificar se fornecedor está inabilitado
+          const itensInabilitados = inabilitacoesPorFornecedor.get(fornecedorId);
+          
+          if (isPorLoteLocal && ip.lote_id) {
+            const numeroLote = loteIdToNumero.get(ip.lote_id);
+            if (!numeroLote) return;
+            
+            // Verificar inabilitação para o lote
+            if (itensInabilitados && itensInabilitados.includes(numeroLote)) return;
+            
+            // Acumular total do lote para este fornecedor
+            const valorTotalItem = Number(ip.valor_total_item) || 0;
+            if (!totaisPorLoteFornecedor.has(numeroLote)) {
+              totaisPorLoteFornecedor.set(numeroLote, new Map());
+            }
+            const mapFornecedor = totaisPorLoteFornecedor.get(numeroLote)!;
+            mapFornecedor.set(fornecedorId, (mapFornecedor.get(fornecedorId) || 0) + valorTotalItem);
+          } else {
+            // Verificar inabilitação para o item
+            if (itensInabilitados && itensInabilitados.includes(ip.numero_item)) return;
+            
+            // Verificar se valor está acima do estimado (desclassificação por preço)
+            if (!isLanceDesclassificadoPorPreco(ip.numero_item, valorOfertado)) {
+              itensComPropostaClassificada.add(ip.numero_item);
+            }
+          }
+        });
+
+        // Para lotes: verificar se há pelo menos um fornecedor com total <= estimado
+        totaisPorLoteFornecedor.forEach((fornecedores, numeroLote) => {
+          for (const [_, total] of fornecedores) {
+            if (!isLanceDesclassificadoPorPreco(numeroLote, total)) {
+              lotesComPropostaClassificada.add(numeroLote);
+              break; // Basta um fornecedor classificado
             }
           }
         });
@@ -2591,22 +2637,30 @@ export function DialogSessaoLances({
         let statusSemVencedor = "DESERTO";
         let vencedorEfetivo = vencedor;
         
-        // Verificar se houve proposta para este item/lote
-        const teveProposta = elemento.isLote 
-          ? lotesComProposta.has(elemento.numero)
-          : itensComProposta.has(elemento.numero);
+        // Verificar se houve proposta ENVIADA para este item/lote (para distinguir DESERTO)
+        const tevePropostaEnviada = elemento.isLote 
+          ? lotesComPropostaEnviada.has(elemento.numero)
+          : itensComPropostaEnviada.has(elemento.numero);
+        
+        // Verificar se há proposta CLASSIFICADA (não desclassificada, valor <= estimado, fornecedor habilitado)
+        const tevePropostaClassificada = elemento.isLote
+          ? lotesComPropostaClassificada.has(elemento.numero)
+          : itensComPropostaClassificada.has(elemento.numero);
         
         // Verificar se todos os lances estão desclassificados por preço
         const todosDesclassificados = todosLancesDesclassificadosPorPreco(elemento.numero);
         
         if (!vencedor) {
-          // Se houve proposta mas não há vencedor, é FRACASSADO (todos desclassificados/inabilitados)
-          if (teveProposta) {
+          // Se houve proposta ENVIADA mas nenhuma CLASSIFICADA, é FRACASSADO
+          if (tevePropostaEnviada && !tevePropostaClassificada) {
+            statusSemVencedor = "FRACASSADO";
+          } else if (tevePropostaEnviada) {
+            // Houve proposta classificada mas não há vencedor (caso estranho, mas tratamos)
             statusSemVencedor = "FRACASSADO";
           }
           // Se não houve proposta, permanece DESERTO
-        } else if (todosDesclassificados) {
-          // Há um vencedor potencial, mas todos os lances excedem o valor estimado
+        } else if (todosDesclassificados && !tevePropostaClassificada) {
+          // Há um vencedor potencial, mas todos os lances e propostas excedem o valor estimado
           vencedorEfetivo = null;
           statusSemVencedor = "FRACASSADO";
         }
