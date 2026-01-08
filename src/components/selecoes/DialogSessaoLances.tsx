@@ -2045,11 +2045,6 @@ export function DialogSessaoLances({
     if (gerandoPlanilha) return; // Evitar cliques duplos
     
     try {
-      if (lancesCompletos.length === 0) {
-        toast.error("Nenhum lance registrado para gerar planilha");
-        return;
-      }
-      
       setGerandoPlanilha(true);
 
       const doc = new jsPDF("portrait");
