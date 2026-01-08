@@ -631,34 +631,52 @@ export default function PortalFornecedor() {
           .select("id, numero_item, fornecedor_id, valor_lance")
           .eq("selecao_id", selecaoId);
         
-        if (!todosLances || todosLances.length === 0) {
-          console.log(`⚠️ Nenhum lance na seleção ${selecaoId} - ignorando`);
-          continue;
-        }
-        
-        // Agrupar lances por item e identificar vencedor dinamicamente
-        const lancesPorItem = new Map<number, typeof todosLances>();
-        for (const lance of todosLances) {
-          const numItem = lance.numero_item || 0;
-          if (!lancesPorItem.has(numItem)) {
-            lancesPorItem.set(numItem, []);
-          }
-          lancesPorItem.get(numItem)!.push(lance);
-        }
-        
-        // Verificar se o fornecedor é vencedor em algum item
         let fornecedorVenceuAlgumItem = false;
         
-        for (const [_numItem, lancesItem] of lancesPorItem) {
-          // Ordenar: desconto = descendente (maior vence), preço = ascendente (menor vence)
-          const lancesOrdenados = [...lancesItem].sort((a, b) => 
-            ehDesconto ? b.valor_lance - a.valor_lance : a.valor_lance - b.valor_lance
-          );
+        if (!todosLances || todosLances.length === 0) {
+          // SEM LANCES: verificar vitória pela proposta inicial
+          console.log(`ℹ️ Nenhum lance na seleção ${selecaoId} - verificando propostas iniciais...`);
           
-          const vencedor = lancesOrdenados[0];
-          if (vencedor && vencedor.fornecedor_id === fornecedorId) {
-            fornecedorVenceuAlgumItem = true;
-            break;
+          // Buscar todas as propostas da seleção
+          const { data: todasPropostas } = await supabase
+            .from("selecao_propostas_fornecedor")
+            .select("id, fornecedor_id, valor_total_proposta")
+            .eq("selecao_id", selecaoId);
+          
+          if (todasPropostas && todasPropostas.length > 0) {
+            // Ordenar: desconto = descendente (maior vence), preço = ascendente (menor vence)
+            const propostasOrdenadas = [...todasPropostas].sort((a, b) => 
+              ehDesconto ? (b.valor_total_proposta || 0) - (a.valor_total_proposta || 0) : (a.valor_total_proposta || 0) - (b.valor_total_proposta || 0)
+            );
+            
+            const vencedor = propostasOrdenadas[0];
+            if (vencedor && vencedor.fornecedor_id === fornecedorId) {
+              fornecedorVenceuAlgumItem = true;
+            }
+          }
+        } else {
+          // COM LANCES: verificar vitória pelos lances
+          // Agrupar lances por item e identificar vencedor dinamicamente
+          const lancesPorItem = new Map<number, typeof todosLances>();
+          for (const lance of todosLances) {
+            const numItem = lance.numero_item || 0;
+            if (!lancesPorItem.has(numItem)) {
+              lancesPorItem.set(numItem, []);
+            }
+            lancesPorItem.get(numItem)!.push(lance);
+          }
+          
+          for (const [_numItem, lancesItem] of lancesPorItem) {
+            // Ordenar: desconto = descendente (maior vence), preço = ascendente (menor vence)
+            const lancesOrdenados = [...lancesItem].sort((a, b) => 
+              ehDesconto ? b.valor_lance - a.valor_lance : a.valor_lance - b.valor_lance
+            );
+            
+            const vencedor = lancesOrdenados[0];
+            if (vencedor && vencedor.fornecedor_id === fornecedorId) {
+              fornecedorVenceuAlgumItem = true;
+              break;
+            }
           }
         }
         
