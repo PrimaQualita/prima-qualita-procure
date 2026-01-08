@@ -1049,6 +1049,9 @@ export function DialogSessaoLances({
 
     setSalvando(true);
     try {
+      const TEMPO_NEGOCIACAO = 120; // 2 minutos igual ao fechamento automático
+      const agora = new Date().toISOString();
+      
       const { data: existente } = await supabase
         .from("itens_abertos_lances")
         .select("id")
@@ -1063,7 +1066,10 @@ export function DialogSessaoLances({
             em_negociacao: true,
             fornecedor_negociacao_id: vencedor.fornecedorId,
             aberto: true,
-            data_fechamento: null
+            data_fechamento: null,
+            iniciando_fechamento: true,
+            data_inicio_fechamento: agora,
+            segundos_para_fechar: TEMPO_NEGOCIACAO
           })
           .eq("id", existente.id);
 
@@ -1076,7 +1082,10 @@ export function DialogSessaoLances({
             numero_item: numeroItem,
             aberto: true,
             em_negociacao: true,
-            fornecedor_negociacao_id: vencedor.fornecedorId
+            fornecedor_negociacao_id: vencedor.fornecedorId,
+            iniciando_fechamento: true,
+            data_inicio_fechamento: agora,
+            segundos_para_fechar: TEMPO_NEGOCIACAO
           });
 
         if (error) throw error;
