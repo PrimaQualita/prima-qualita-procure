@@ -30,6 +30,7 @@ import { DialogContrato } from "@/components/contratos/DialogContrato";
 import { DialogProcesso } from "@/components/processos/DialogProcesso";
 import { DialogAnexosProcesso } from "@/components/processos/DialogAnexosProcesso";
 import { stripHtml, truncateText } from "@/lib/htmlUtils";
+import { registrarAuditoria } from "@/lib/registrarAuditoria";
 
 interface Contrato {
   id: string;
@@ -221,10 +222,36 @@ const ProcessosCompras = () => {
           .eq("id", contratoParaEditar.id);
 
         if (error) throw error;
+        
+        // Auditoria de edição
+        await registrarAuditoria({
+          acao: "edição",
+          entidade: "contratos_gestao",
+          entidade_id: contratoParaEditar.id,
+          detalhes: {
+            tipo: "Contrato de Gestão",
+            nome_contrato: contrato.nome_contrato,
+            ente_federativo: contrato.ente_federativo,
+          },
+        });
+        
         toast({ title: "Contrato atualizado com sucesso!" });
       } else {
-        const { error } = await supabase.from("contratos_gestao").insert([contrato]);
+        const { data, error } = await supabase.from("contratos_gestao").insert([contrato]).select().single();
         if (error) throw error;
+        
+        // Auditoria de criação
+        await registrarAuditoria({
+          acao: "criação",
+          entidade: "contratos_gestao",
+          entidade_id: data.id,
+          detalhes: {
+            tipo: "Contrato de Gestão",
+            nome_contrato: contrato.nome_contrato,
+            ente_federativo: contrato.ente_federativo,
+          },
+        });
+        
         toast({ title: "Contrato criado com sucesso!" });
       }
       loadContratos();
@@ -243,12 +270,30 @@ const ProcessosCompras = () => {
     if (!contratoParaExcluir) return;
 
     try {
+      // Buscar dados do contrato antes de deletar para auditoria
+      const contratoParaLog = contratos.find(c => c.id === contratoParaExcluir);
+      
       const { error } = await supabase
         .from("contratos_gestao")
         .delete()
         .eq("id", contratoParaExcluir);
 
       if (error) throw error;
+      
+      // Auditoria de exclusão
+      if (contratoParaLog) {
+        await registrarAuditoria({
+          acao: "exclusão",
+          entidade: "contratos_gestao",
+          entidade_id: contratoParaExcluir,
+          detalhes: {
+            tipo: "Contrato de Gestão",
+            nome_contrato: contratoParaLog.nome_contrato,
+            ente_federativo: contratoParaLog.ente_federativo,
+          },
+        });
+      }
+      
       toast({ title: "Contrato excluído com sucesso!" });
       loadContratos();
       if (contratoSelecionado?.id === contratoParaExcluir) {
@@ -274,10 +319,38 @@ const ProcessosCompras = () => {
           .eq("id", processoParaEditar.id);
 
         if (error) throw error;
+        
+        // Auditoria de edição
+        await registrarAuditoria({
+          acao: "edição",
+          entidade: "processos_compras",
+          entidade_id: processoParaEditar.id,
+          detalhes: {
+            tipo: "Processo de Compra",
+            numero_processo: processo.numero_processo_interno,
+            objeto: stripHtml(processo.objeto_resumido).substring(0, 100),
+            contrato_gestao: contratoSelecionado?.nome_contrato || "N/A",
+          },
+        });
+        
         toast({ title: "Processo atualizado com sucesso!" });
       } else {
-        const { error } = await supabase.from("processos_compras").insert([processo]);
+        const { data, error } = await supabase.from("processos_compras").insert([processo]).select().single();
         if (error) throw error;
+        
+        // Auditoria de criação
+        await registrarAuditoria({
+          acao: "criação",
+          entidade: "processos_compras",
+          entidade_id: data.id,
+          detalhes: {
+            tipo: "Processo de Compra",
+            numero_processo: processo.numero_processo_interno,
+            objeto: stripHtml(processo.objeto_resumido).substring(0, 100),
+            contrato_gestao: contratoSelecionado?.nome_contrato || "N/A",
+          },
+        });
+        
         toast({ title: "Processo criado com sucesso!" });
       }
       if (contratoSelecionado) {
@@ -298,6 +371,9 @@ const ProcessosCompras = () => {
     if (!processoParaExcluir) return;
 
     try {
+      // Buscar dados do processo antes de deletar para auditoria
+      const processoParaLog = processos.find(p => p.id === processoParaExcluir);
+      
       // 1. Deletar todos os arquivos relacionados ao processo
       const { data: resultDeletar, error: errorDeletar } = await supabase.functions.invoke(
         'deletar-processo',
@@ -325,6 +401,21 @@ const ProcessosCompras = () => {
         .eq("id", processoParaExcluir);
 
       if (error) throw error;
+      
+      // Auditoria de exclusão
+      if (processoParaLog) {
+        await registrarAuditoria({
+          acao: "exclusão",
+          entidade: "processos_compras",
+          entidade_id: processoParaExcluir,
+          detalhes: {
+            tipo: "Processo de Compra",
+            numero_processo: processoParaLog.numero_processo_interno,
+            objeto: stripHtml(processoParaLog.objeto_resumido).substring(0, 100),
+            contrato_gestao: contratoSelecionado?.nome_contrato || "N/A",
+          },
+        });
+      }
       
       toast({ 
         title: "Processo excluído com sucesso!",
