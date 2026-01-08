@@ -3845,8 +3845,19 @@ export function DialogSessaoLances({
                 const vencedor = vencedoresPorItem.get(numero);
                 if (!vencedor?.fornecedorId) return false;
 
-                // Não permitir reabrir negociação para itens/lotes FRACASSADOS
-                // (ex.: quando todos os lances ficam acima do valor estimado)
+                // Se fornecedor vencedor está inabilitado (inclui inabilitação total com itens_afetados vazio), não pode reabrir
+                const itensInabilitados = inabilitacoesPorFornecedor.get(vencedor.fornecedorId);
+                if (itensInabilitados && (itensInabilitados.length === 0 || itensInabilitados.includes(numero))) {
+                  return false;
+                }
+
+                // Se o vencedor (lance ou proposta original) está acima do estimado, é FRACASSADO e NÃO pode reabrir
+                const vencedorEfetivo = getVencedorItem(numero);
+                if (vencedorEfetivo && isLanceDesclassificadoPorPreco(numero, vencedorEfetivo.valor_lance)) {
+                  return false;
+                }
+
+                // Caso existam lances e TODOS estejam desclassificados por preço, também é FRACASSADO
                 if (todosLancesDesclassificadosPorPreco(numero)) return false;
 
                 return true;
