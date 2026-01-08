@@ -6,6 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { registrarAuditoria } from "@/lib/registrarAuditoria";
 import { Upload, Save, FileText, Trash2, Download } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { formatarCNPJ } from "@/lib/validators";
@@ -285,13 +286,38 @@ export function DialogAnaliseCompliance({
           .eq("id", analiseId);
 
         if (error) throw error;
+        
+        await registrarAuditoria({
+          acao: 'edição',
+          entidade: 'analises_compliance',
+          entidade_id: analiseId,
+          detalhes: {
+            tipo: 'Análise de Compliance',
+            numero_processo: numeroProcesso,
+            status: statusAprovacao,
+          },
+        });
+        
         toast.success("Análise de Compliance atualizada com sucesso!");
       } else {
-        const { error } = await supabase
+        const { data: insertData, error } = await supabase
           .from("analises_compliance" as any)
-          .insert(analiseData);
+          .insert(analiseData)
+          .select();
 
         if (error) throw error;
+        
+        await registrarAuditoria({
+          acao: 'criação',
+          entidade: 'analises_compliance',
+          entidade_id: insertData?.[0]?.id,
+          detalhes: {
+            tipo: 'Análise de Compliance',
+            numero_processo: numeroProcesso,
+            status: statusAprovacao,
+          },
+        });
+        
         toast.success("Nova análise de Compliance criada com sucesso!");
       }
 
@@ -338,6 +364,16 @@ export function DialogAnaliseCompliance({
           .eq("id", analiseId);
 
         if (error) throw error;
+
+        await registrarAuditoria({
+          acao: 'exclusão',
+          entidade: 'analises_compliance',
+          entidade_id: analiseId,
+          detalhes: {
+            tipo: 'Análise de Compliance',
+            numero_processo: numeroProcesso,
+          },
+        });
 
         await supabase
           .from("cotacoes_precos")

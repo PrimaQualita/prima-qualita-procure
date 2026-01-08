@@ -28,6 +28,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import DOMPurify from "dompurify";
 import { gerarAutorizacaoCompraDireta, gerarAutorizacaoSelecao } from "@/lib/gerarAutorizacaoPDF";
 import { useCanEdit, useUserContext } from "@/hooks/useUserContext";
+import { registrarAuditoria } from "@/lib/registrarAuditoria";
 
 // Cache global para evitar recarregamentos desnecessários
 let cachedContratos: Contrato[] | null = null;
@@ -692,6 +693,17 @@ const Cotacoes = () => {
           });
 
         if (saveError) throw saveError;
+
+        // Registrar auditoria de anexação de email
+        await registrarAuditoria({
+          acao: 'criação',
+          entidade: 'emails_cotacao_anexados',
+          detalhes: {
+            tipo: 'E-mail de Fornecedor Anexado',
+            nome_arquivo: file.name,
+            cotacao_id: cotacaoSelecionada.id,
+          },
+        });
       }
 
       await loadEmailsAnexados(cotacaoSelecionada.id);
@@ -712,10 +724,10 @@ const Cotacoes = () => {
     if (!emailParaExcluir) return;
     
     try {
-      // Buscar o email para pegar a URL antes de deletar
+      // Buscar o email para pegar a URL e nome antes de deletar
       const { data: email, error: fetchError } = await (supabase as any)
         .from("emails_cotacao_anexados")
-        .select("url_arquivo")
+        .select("url_arquivo, nome_arquivo")
         .eq("id", emailParaExcluir)
         .single();
 
@@ -740,6 +752,17 @@ const Cotacoes = () => {
         .eq("id", emailParaExcluir);
 
       if (error) throw error;
+
+      // Registrar auditoria de exclusão de email
+      await registrarAuditoria({
+        acao: 'exclusão',
+        entidade: 'emails_cotacao_anexados',
+        entidade_id: emailParaExcluir,
+        detalhes: {
+          tipo: 'E-mail de Fornecedor Anexado',
+          nome_arquivo: email?.nome_arquivo || 'N/A',
+        },
+      });
 
       if (cotacaoSelecionada) {
         await loadEmailsAnexados(cotacaoSelecionada.id);
@@ -805,6 +828,17 @@ const Cotacoes = () => {
 
       if (error) throw error;
 
+      // Registrar auditoria de criação
+      await registrarAuditoria({
+        acao: 'criação',
+        entidade: 'cotacoes_precos',
+        detalhes: {
+          tipo: 'Cotação de Preços',
+          titulo: novaCotacao.titulo_cotacao,
+          numero_processo: processoSelecionado.numero_processo_interno,
+        },
+      });
+
       toast.success("Cotação criada com sucesso!");
       setDialogCotacaoOpen(false);
       setNovaCotacao({
@@ -834,6 +868,16 @@ const Cotacoes = () => {
         toast.error("Erro ao atualizar item");
         console.error(error);
       } else {
+        await registrarAuditoria({
+          acao: 'edição',
+          entidade: 'itens_cotacao',
+          entidade_id: itemEditando.id,
+          detalhes: {
+            tipo: 'Item de Cotação',
+            numero_item: itemData.numero_item,
+            descricao: itemData.descricao?.substring(0, 50) || 'N/A',
+          },
+        });
         toast.success("Item atualizado com sucesso");
         loadItens(cotacaoSelecionada.id);
       }
@@ -849,6 +893,15 @@ const Cotacoes = () => {
         toast.error("Erro ao criar item");
         console.error(error);
       } else {
+        await registrarAuditoria({
+          acao: 'criação',
+          entidade: 'itens_cotacao',
+          detalhes: {
+            tipo: 'Item de Cotação',
+            numero_item: itemData.numero_item,
+            descricao: itemData.descricao?.substring(0, 50) || 'N/A',
+          },
+        });
         toast.success("Item criado com sucesso");
         loadItens(cotacaoSelecionada.id);
       }
@@ -867,6 +920,13 @@ const Cotacoes = () => {
     setItemParaExcluir(null);
 
     try {
+      // Buscar dados do item antes de excluir
+      const { data: itemData } = await supabase
+        .from("itens_cotacao")
+        .select("numero_item, descricao")
+        .eq("id", id)
+        .single();
+
       // Primeiro, deletar todas as respostas de fornecedores da cotação
       const { error: respostasItensError } = await supabase
         .from("respostas_itens_fornecedor")
@@ -882,6 +942,17 @@ const Cotacoes = () => {
         .eq("id", id);
 
       if (error) throw error;
+
+      await registrarAuditoria({
+        acao: 'exclusão',
+        entidade: 'itens_cotacao',
+        entidade_id: id,
+        detalhes: {
+          tipo: 'Item de Cotação',
+          numero_item: itemData?.numero_item || 'N/A',
+          descricao: itemData?.descricao?.substring(0, 50) || 'N/A',
+        },
+      });
 
       toast.success("Item excluído com sucesso");
       await renumerarItens();
@@ -1102,6 +1173,13 @@ const Cotacoes = () => {
 
   const handleDeleteCotacao = async () => {
     if (!cotacaoParaExcluir || !processoSelecionado) return;
+
+    // Buscar dados da cotação antes de excluir
+    const { data: cotacaoData } = await supabase
+      .from("cotacoes_precos")
+      .select("titulo_cotacao")
+      .eq("id", cotacaoParaExcluir)
+      .single();
 
     try {
       console.log("🗑️ Iniciando deleção em cascata da cotação...");
@@ -1338,6 +1416,18 @@ const Cotacoes = () => {
 
       if (cotacaoError) throw cotacaoError;
 
+      // Registrar auditoria de exclusão de cotação
+      await registrarAuditoria({
+        acao: 'exclusão',
+        entidade: 'cotacoes_precos',
+        entidade_id: cotacaoParaExcluir,
+        detalhes: {
+          tipo: 'Cotação de Preços',
+          titulo: cotacaoData?.titulo_cotacao || 'N/A',
+          numero_processo: processoSelecionado.numero_processo_interno,
+        },
+      });
+
       toast.success("Cotação e todos os arquivos relacionados foram excluídos com sucesso!");
       setCotacaoParaExcluir(null);
       setConfirmDeleteCotacaoOpen(false);
@@ -1361,6 +1451,16 @@ const Cotacoes = () => {
         toast.error("Erro ao atualizar lote");
         console.error(error);
       } else {
+        await registrarAuditoria({
+          acao: 'edição',
+          entidade: 'lotes_cotacao',
+          entidade_id: loteEditando.id,
+          detalhes: {
+            tipo: 'Lote de Cotação',
+            numero_lote: loteData.numero_lote,
+            descricao_lote: loteData.descricao_lote?.substring(0, 50) || 'N/A',
+          },
+        });
         toast.success("Lote atualizado com sucesso");
         loadLotes(cotacaoSelecionada.id);
       }
@@ -1376,6 +1476,15 @@ const Cotacoes = () => {
         toast.error("Erro ao criar lote");
         console.error(error);
       } else {
+        await registrarAuditoria({
+          acao: 'criação',
+          entidade: 'lotes_cotacao',
+          detalhes: {
+            tipo: 'Lote de Cotação',
+            numero_lote: loteData.numero_lote,
+            descricao_lote: loteData.descricao_lote?.substring(0, 50) || 'N/A',
+          },
+        });
         toast.success("Lote criado com sucesso");
         loadLotes(cotacaoSelecionada.id);
       }
@@ -1394,6 +1503,13 @@ const Cotacoes = () => {
     setLoteParaExcluir(null);
 
     try {
+      // Buscar dados do lote antes de excluir
+      const { data: loteData } = await supabase
+        .from("lotes_cotacao")
+        .select("numero_lote, descricao_lote")
+        .eq("id", id)
+        .single();
+
       // Buscar itens do lote
       const { data: itensLote } = await supabase
         .from("itens_cotacao")
@@ -1463,6 +1579,18 @@ const Cotacoes = () => {
           }
         }
       }
+
+      // Registrar auditoria de exclusão de lote
+      await registrarAuditoria({
+        acao: 'exclusão',
+        entidade: 'lotes_cotacao',
+        entidade_id: id,
+        detalhes: {
+          tipo: 'Lote de Cotação',
+          numero_lote: loteData?.numero_lote || 'N/A',
+          descricao_lote: loteData?.descricao_lote?.substring(0, 50) || 'N/A',
+        },
+      });
 
       toast.success("Lote e todos os itens vinculados excluídos com sucesso");
       if (cotacaoSelecionada) {
@@ -2916,6 +3044,18 @@ const Cotacoes = () => {
                   .eq("id", cotacaoEditando.id);
                 
                 if (error) throw error;
+                
+                // Registrar auditoria de edição de cotação
+                await registrarAuditoria({
+                  acao: 'edição',
+                  entidade: 'cotacoes_precos',
+                  entidade_id: cotacaoEditando.id,
+                  detalhes: {
+                    tipo: 'Cotação de Preços',
+                    titulo: cotacaoEditando.titulo_cotacao,
+                    numero_processo: processoSelecionado?.numero_processo_interno || 'N/A',
+                  },
+                });
                 
                 // Atualizar lista de cotações
                 setCotacoes(prev => prev.map(c => 
