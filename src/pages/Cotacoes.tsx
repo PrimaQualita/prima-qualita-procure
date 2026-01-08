@@ -661,8 +661,15 @@ const Cotacoes = () => {
       if (!session) return;
 
       for (const file of files) {
+        // Sanitizar nome do arquivo removendo acentos e caracteres especiais
+        const sanitizedName = file.name
+          .normalize('NFD')
+          .replace(/[\u0300-\u036f]/g, '') // Remove acentos
+          .replace(/[^a-zA-Z0-9._-]/g, '_') // Substitui caracteres especiais por _
+          .replace(/_+/g, '_'); // Remove underscores duplicados
+        
         // Upload para storage
-        const fileName = `emails/${cotacaoSelecionada.id}/${Date.now()}-${file.name}`;
+        const fileName = `emails/${cotacaoSelecionada.id}/${Date.now()}-${sanitizedName}`;
         const { error: uploadError } = await supabase.storage
           .from('processo-anexos')
           .upload(fileName, file, {
