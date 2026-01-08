@@ -68,7 +68,7 @@ export async function gerarPropostaHTML(
     .autenticidade { margin-top: 15px; font-size: 12px; font-style: italic; color: #64748b; border-top: 1px solid #cbd5e1; padding-top: 15px; }
     .text-right { text-align: right; }
     .total { font-weight: bold; background-color: #f0f9ff; }
-    .valor-extenso { margin-top: 15px; padding: 10px 15px; border: 2px solid #0ea5e9; text-align: justify; font-size: 12px; text-transform: uppercase; }
+    .valor-extenso { padding: 5px 12px; background-color: #f0f9ff; text-align: justify; font-size: 11px; text-transform: uppercase; border-top: none; }
     .observacoes { margin-top: 20px; padding: 15px; background-color: #f8f9fa; border-left: 4px solid #0ea5e9; }
   </style>
 </head>
@@ -120,12 +120,11 @@ export async function gerarPropostaHTML(
           <td colspan="6" class="text-right"><strong>VALOR TOTAL DA PROPOSTA:</strong></td>
           <td class="text-right"><strong>R$ ${formatarMoeda(valorTotal)}</strong></td>
         </tr>
+        <tr class="valor-extenso">
+          <td colspan="7">(${valorPorExtenso(valorTotal).toUpperCase()})</td>
+        </tr>
       </tbody>
     </table>
-
-  <div class="valor-extenso">
-    (${valorPorExtenso(valorTotal).toUpperCase()})
-  </div>
 
   <div class="observacoes">
     <h3>Observações:</h3>
