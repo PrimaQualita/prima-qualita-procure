@@ -344,6 +344,22 @@ export function DialogRespostasCotacao({
 
       console.log('📄 PDF gerado:', resultado);
 
+      // Buscar contrato de gestão para auditoria
+      const { data: cotacaoData } = await supabase
+        .from("cotacoes_precos")
+        .select(`
+          titulo_cotacao,
+          processos_compras:processo_compra_id (
+            contratos_gestao:contrato_gestao_id (
+              nome_contrato
+            )
+          )
+        `)
+        .eq("id", cotacaoId)
+        .single();
+
+      const contratoGestaoNome = (cotacaoData?.processos_compras as any)?.contratos_gestao?.nome_contrato || "";
+
       // Salvar no banco
       const { data: insertData, error: dbError } = await supabase
         .from('encaminhamentos_processo')
@@ -365,6 +381,21 @@ export function DialogRespostasCotacao({
         throw dbError;
       }
 
+      // Registrar auditoria de criação de encaminhamento
+      await registrarAuditoria({
+        acao: 'criação',
+        entidade: 'encaminhamentos_processo',
+        entidade_id: insertData?.[0]?.id,
+        detalhes: {
+          tipo: 'Encaminhamento de Processo',
+          protocolo: resultado.protocolo,
+          contrato_gestao: contratoGestaoNome,
+          numero_processo: processoNumero,
+          titulo_cotacao: cotacaoData?.titulo_cotacao || tituloCotacao,
+          nome_arquivo: resultado.fileName,
+        },
+      });
+
       console.log('✅ Encaminhamento salvo no banco, recarregando lista...');
       toast.success("Encaminhamento gerado com sucesso!");
       await loadEncaminhamento();
@@ -381,6 +412,24 @@ export function DialogRespostasCotacao({
     if (!encaminhamentoParaExcluir) return;
     
     try {
+      // Buscar informações para auditoria ANTES de deletar
+      const { data: cotacaoData } = await supabase
+        .from("cotacoes_precos")
+        .select(`
+          titulo_cotacao,
+          processos_compras:processo_compra_id (
+            numero_processo_interno,
+            contratos_gestao:contrato_gestao_id (
+              nome_contrato
+            )
+          )
+        `)
+        .eq("id", cotacaoId)
+        .single();
+
+      const contratoGestaoNome = (cotacaoData?.processos_compras as any)?.contratos_gestao?.nome_contrato || "";
+      const numeroProcesso = (cotacaoData?.processos_compras as any)?.numero_processo_interno || processoNumero;
+
       const { error: storageError } = await supabase.storage
         .from("processo-anexos")
         .remove([encaminhamentoParaExcluir.storage_path]);
@@ -393,6 +442,21 @@ export function DialogRespostasCotacao({
         .eq("id", encaminhamentoParaExcluir.id);
 
       if (dbError) throw dbError;
+
+      // Registrar auditoria de exclusão de encaminhamento
+      await registrarAuditoria({
+        acao: 'exclusão',
+        entidade: 'encaminhamentos_processo',
+        entidade_id: encaminhamentoParaExcluir.id,
+        detalhes: {
+          tipo: 'Encaminhamento de Processo',
+          protocolo: encaminhamentoParaExcluir.protocolo,
+          contrato_gestao: contratoGestaoNome,
+          numero_processo: numeroProcesso,
+          titulo_cotacao: cotacaoData?.titulo_cotacao || tituloCotacao,
+          nome_arquivo: encaminhamentoParaExcluir.nome_arquivo,
+        },
+      });
 
       console.log('✅ Encaminhamento excluído, recarregando lista...');
       setEncaminhamentoParaExcluir(null);
@@ -437,6 +501,24 @@ export function DialogRespostasCotacao({
     if (!planilhaParaExcluir) return;
     
     try {
+      // Buscar informações para auditoria ANTES de deletar
+      const { data: cotacaoData } = await supabase
+        .from("cotacoes_precos")
+        .select(`
+          titulo_cotacao,
+          processos_compras:processo_compra_id (
+            numero_processo_interno,
+            contratos_gestao:contrato_gestao_id (
+              nome_contrato
+            )
+          )
+        `)
+        .eq("id", cotacaoId)
+        .single();
+
+      const contratoGestaoNome = (cotacaoData?.processos_compras as any)?.contratos_gestao?.nome_contrato || "";
+      const numeroProcesso = (cotacaoData?.processos_compras as any)?.numero_processo_interno || processoNumero;
+
       const filePath = planilhaParaExcluir.url_arquivo;
 
       const { error: storageError } = await supabase.storage
@@ -451,6 +533,21 @@ export function DialogRespostasCotacao({
         .eq("id", planilhaParaExcluir.id);
 
       if (dbError) throw dbError;
+
+      // Registrar auditoria de exclusão de planilha consolidada
+      await registrarAuditoria({
+        acao: 'exclusão',
+        entidade: 'planilhas_consolidadas',
+        entidade_id: planilhaParaExcluir.id,
+        detalhes: {
+          tipo: 'Planilha Consolidada',
+          protocolo: planilhaParaExcluir.protocolo,
+          contrato_gestao: contratoGestaoNome,
+          numero_processo: numeroProcesso,
+          titulo_cotacao: cotacaoData?.titulo_cotacao || tituloCotacao,
+          nome_arquivo: planilhaParaExcluir.nome_arquivo,
+        },
+      });
 
       // Limpar aprovações de documentos quando a planilha é excluída
       // Isso força nova verificação de documentos quando uma nova planilha for gerada
@@ -482,6 +579,24 @@ export function DialogRespostasCotacao({
     if (!analiseParaExcluir) return;
     
     try {
+      // Buscar informações para auditoria ANTES de deletar
+      const { data: cotacaoData } = await supabase
+        .from("cotacoes_precos")
+        .select(`
+          titulo_cotacao,
+          processos_compras:processo_compra_id (
+            numero_processo_interno,
+            contratos_gestao:contrato_gestao_id (
+              nome_contrato
+            )
+          )
+        `)
+        .eq("id", cotacaoId)
+        .single();
+
+      const contratoGestaoNome = (cotacaoData?.processos_compras as any)?.contratos_gestao?.nome_contrato || "";
+      const numeroProcesso = (cotacaoData?.processos_compras as any)?.numero_processo_interno || processoNumero;
+
       // Remover arquivo do storage
       const fileName = analiseParaExcluir.url_documento?.split('/').pop();
       if (fileName) {
@@ -498,6 +613,21 @@ export function DialogRespostasCotacao({
         .eq("id", analiseParaExcluir.id);
 
       if (dbError) throw dbError;
+
+      // Registrar auditoria de exclusão de análise de compliance
+      await registrarAuditoria({
+        acao: 'exclusão',
+        entidade: 'analises_compliance',
+        entidade_id: analiseParaExcluir.id,
+        detalhes: {
+          tipo: 'Análise de Compliance',
+          protocolo: analiseParaExcluir.protocolo,
+          contrato_gestao: contratoGestaoNome,
+          numero_processo: numeroProcesso,
+          titulo_cotacao: cotacaoData?.titulo_cotacao || tituloCotacao,
+          nome_arquivo: analiseParaExcluir.nome_arquivo,
+        },
+      });
 
       console.log("✅ [DialogRespostasCotacao] Análise deletada, resetando status...");
 
