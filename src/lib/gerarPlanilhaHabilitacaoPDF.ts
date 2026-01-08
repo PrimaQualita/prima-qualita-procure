@@ -423,6 +423,11 @@ export async function gerarPlanilhaHabilitacaoPDF(
           ? (itemResposta.percentual_desconto || itemResposta.valor_unitario_ofertado)
           : itemResposta.valor_unitario_ofertado;
 
+        // IMPORTANTE: para MENOR PREÇO, valor 0 significa “não cotado” e não pode entrar como vencedor
+        if (!isDesconto && valor <= 0) {
+          return;
+        }
+
         if (melhorValor === null) {
           melhorValor = valor;
           empresaVencedora = resposta.fornecedor.razao_social;
@@ -515,16 +520,21 @@ export async function gerarPlanilhaHabilitacaoPDF(
           linha[`fornecedor_${idx}`] = formatarPercentual(itemResposta.percentual_desconto || itemResposta.valor_unitario_ofertado);
         } else {
           const valorUnitario = itemResposta.valor_unitario_ofertado;
-          const valorTotal = valorUnitario * item.quantidade;
-          linha[`fornecedor_${idx}`] = `${formatarMoeda(valorUnitario)}\n(Total: ${formatarMoeda(valorTotal)})`;
-          totaisPorFornecedor[idx] += valorTotal;
-          
-          // Acumular para subtotal do lote
-          if (loteNumero) {
-            if (!totaisPorLote.has(loteNumero)) {
-              totaisPorLote.set(loteNumero, { fornecedores: new Array(respostas.length).fill(0), vencedor: 0 });
+          // IMPORTANTE: valor 0 significa “não cotado” — não exibir e não somar
+          if (valorUnitario > 0) {
+            const valorTotal = valorUnitario * item.quantidade;
+            linha[`fornecedor_${idx}`] = `${formatarMoeda(valorUnitario)}\n(Total: ${formatarMoeda(valorTotal)})`;
+            totaisPorFornecedor[idx] += valorTotal;
+            
+            // Acumular para subtotal do lote
+            if (loteNumero) {
+              if (!totaisPorLote.has(loteNumero)) {
+                totaisPorLote.set(loteNumero, { fornecedores: new Array(respostas.length).fill(0), vencedor: 0 });
+              }
+              totaisPorLote.get(loteNumero)!.fornecedores[idx] += valorTotal;
             }
-            totaisPorLote.get(loteNumero)!.fornecedores[idx] += valorTotal;
+          } else {
+            linha[`fornecedor_${idx}`] = "-";
           }
         }
       } else {
