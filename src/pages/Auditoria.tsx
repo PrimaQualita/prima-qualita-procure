@@ -132,7 +132,7 @@ const Auditoria = () => {
         </Badge>
       );
     }
-    if (acaoLower.includes("excluir") || acaoLower.includes("delete") || acaoLower.includes("deleção")) {
+    if (acaoLower.includes("excluir") || acaoLower.includes("delete") || acaoLower.includes("deleção") || acaoLower.includes("exclusão")) {
       return (
         <Badge className="bg-red-500 hover:bg-red-600 text-white gap-1">
           <Trash2 className="h-3 w-3" />
