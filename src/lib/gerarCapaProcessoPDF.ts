@@ -147,7 +147,7 @@ export const gerarCapaProcessoPDF = async (dados: DadosCapaProcesso) => {
   doc.setFontSize(18);
   doc.setFont('helvetica', 'bold');
   doc.setTextColor(0, 0, 0);
-  const dataTexto = `RIO DE JANEIRO, ${new Date().toLocaleDateString('pt-BR', { 
+  const dataTexto = `RIO BONITO, ${new Date().toLocaleDateString('pt-BR', { 
     day: '2-digit', 
     month: 'long', 
     year: 'numeric' 
