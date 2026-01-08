@@ -1927,10 +1927,8 @@ export function DialogSessaoLances({
         onVencedoresAtualizados();
       }
 
-      // Chamar callback de finalização
-      if (onFinalizarSessao) {
-        onFinalizarSessao();
-      }
+      // Chamar callback de finalização (garantir que conclua antes de fechar o diálogo)
+      await Promise.resolve(onFinalizarSessao?.());
 
       toast.success("Sessão finalizada! Análise Documental disponível.");
       onOpenChange(false);
