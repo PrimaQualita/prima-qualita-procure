@@ -181,20 +181,22 @@ const Auditoria = () => {
   const formatarDetalhes = (detalhes: any): string => {
     if (!detalhes) return "-";
     
+    // Priorizar nome_documento que é mais descritivo
+    if (detalhes.nome_documento) {
+      return detalhes.nome_documento;
+    }
+    
     const partes: string[] = [];
     
-    if (detalhes.numero) partes.push(`Nº: ${detalhes.numero}`);
-    if (detalhes.protocolo) partes.push(`Protocolo: ${detalhes.protocolo}`);
-    if (detalhes.titulo) partes.push(`Título: ${detalhes.titulo}`);
-    if (detalhes.nome) partes.push(`Nome: ${detalhes.nome}`);
-    if (detalhes.razao_social) partes.push(`Razão Social: ${detalhes.razao_social}`);
-    if (detalhes.cnpj) partes.push(`CNPJ: ${detalhes.cnpj}`);
+    // Número do processo primeiro se existir
+    if (detalhes.numero_processo) partes.push(`Processo: ${detalhes.numero_processo}`);
+    if (detalhes.titulo) partes.push(detalhes.titulo);
+    if (detalhes.nome) partes.push(detalhes.nome);
+    if (detalhes.razao_social) partes.push(detalhes.razao_social);
+    if (detalhes.fornecedor) partes.push(`Fornecedor: ${detalhes.fornecedor}`);
+    if (detalhes.selecao) partes.push(`Seleção: ${detalhes.selecao}`);
     if (detalhes.objeto) partes.push(`Objeto: ${detalhes.objeto.substring(0, 50)}...`);
-    if (detalhes.nome_arquivo) partes.push(`Arquivo: ${detalhes.nome_arquivo}`);
-    if (detalhes.tipo) partes.push(`Tipo: ${detalhes.tipo}`);
-    if (detalhes.processo_numero) partes.push(`Processo: ${detalhes.processo_numero}`);
-    if (detalhes.ente) partes.push(`Ente: ${detalhes.ente}`);
-    if (detalhes.email) partes.push(`Email: ${detalhes.email}`);
+    if (detalhes.protocolo) partes.push(`Protocolo: ${detalhes.protocolo}`);
     
     return partes.length > 0 ? partes.join(" | ") : "-";
   };
