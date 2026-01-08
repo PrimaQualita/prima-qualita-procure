@@ -63,6 +63,7 @@ const SistemaLancesFornecedor = () => {
   const [selecao, setSelecao] = useState<any>(null);
   const [itens, setItens] = useState<Item[]>([]);
   const [itensCotacao, setItensCotacao] = useState<CotacaoItemLote[]>([]);
+  const [descricoesLotes, setDescricoesLotes] = useState<Map<number, string>>(new Map());
   const [editavel, setEditavel] = useState(true);
   const [salvando, setSalvando] = useState(false);
   const [itensAbertos, setItensAbertos] = useState<Set<number>>(new Set());
@@ -1219,7 +1220,7 @@ const SistemaLancesFornecedor = () => {
       // por_lote: carregar itens da cotação (mapeamento lote→itens) para permitir subtotal por lote
       if (criterioJulgamento === "por_lote" && cotacaoId) {
         const [{ data: lotesData, error: lotesError }, { data: itensData, error: itensError }] = await Promise.all([
-          supabase.from("lotes_cotacao").select("id, numero_lote").eq("cotacao_id", cotacaoId),
+          supabase.from("lotes_cotacao").select("id, numero_lote, descricao_lote").eq("cotacao_id", cotacaoId),
           supabase
             .from("itens_cotacao")
             .select("lote_id, numero_item, quantidade, unidade, descricao")
@@ -1234,9 +1235,12 @@ const SistemaLancesFornecedor = () => {
         }
 
         const mapaLotes = new Map<string, number>();
+        const mapaDescricoesLotes = new Map<number, string>();
         (lotesData || []).forEach((l: any) => {
           mapaLotes.set(String(l.id), Number(l.numero_lote));
+          mapaDescricoesLotes.set(Number(l.numero_lote), String(l.descricao_lote || ""));
         });
+        setDescricoesLotes(mapaDescricoesLotes);
 
         itensCotacaoLocal = (itensData || [])
           .map((it: any) => ({
@@ -3338,7 +3342,9 @@ const SistemaLancesFornecedor = () => {
                                 </div>
                                 
                                 <div className="text-xs text-muted-foreground line-clamp-2">
-                                  {item?.descricao || ""}
+                                  {selecao?.processos_compras?.criterio_julgamento === "por_lote" 
+                                    ? (descricoesLotes.get(numeroItem) || "")
+                                    : (item?.descricao || "")}
                                 </div>
                                 
                               {(() => {
@@ -3393,7 +3399,9 @@ const SistemaLancesFornecedor = () => {
                               </div>
                               
                               <div className="text-xs text-muted-foreground line-clamp-2">
-                                {item?.descricao || ""}
+                                {selecao?.processos_compras?.criterio_julgamento === "por_lote" 
+                                  ? (descricoesLotes.get(numeroItem) || "")
+                                  : (item?.descricao || "")}
                               </div>
                               
                               {(() => {
