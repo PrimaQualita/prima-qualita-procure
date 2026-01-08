@@ -3,6 +3,7 @@ import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { v4 as uuidv4 } from 'uuid';
 import { gerarPlanilhaConsolidadaPDF } from "@/lib/gerarPlanilhaConsolidadaPDF";
+import { registrarAuditoria } from "@/lib/registrarAuditoria";
 import {
   Dialog,
   DialogContent,
@@ -786,6 +787,19 @@ export function DialogPlanilhaConsolidada({
       console.log('✅ PLANILHA SALVA COM SUCESSO!');
       console.log('✅ Dados retornados do insert:', insertData);
       console.log('✅ Estimativas salvas:', insertData?.[0]?.estimativas_itens);
+
+      // Registrar auditoria de geração de planilha consolidada
+      await registrarAuditoria({
+        acao: 'criação',
+        entidade: 'planilhas_consolidadas',
+        entidade_id: insertData?.[0]?.id,
+        detalhes: {
+          tipo: 'Planilha Consolidada',
+          protocolo: dadosProtocolo.protocolo,
+          numero_processo: processo.numero,
+          fornecedores_incluidos: fornecedoresIncluidos.length,
+        },
+      });
 
       // CRÍTICO: Ao gerar nova planilha, apenas INVALIDAR aprovações
       // NÃO deletar arquivos físicos nem registros - manter para re-análise
