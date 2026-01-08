@@ -108,7 +108,7 @@ export default function PropostasSelecao() {
         .from("propostas_realinhadas")
         .select(`
           *,
-          fornecedor:fornecedores(razao_social, cnpj, email, endereco_comercial),
+          fornecedor:fornecedores(razao_social, cnpj, email, telefone, endereco_comercial),
           propostas_realinhadas_itens(*)
         `)
         .eq("selecao_id", selecaoId)
@@ -148,7 +148,7 @@ export default function PropostasSelecao() {
         .from("selecao_propostas_fornecedor")
         .select(`
           *,
-          fornecedor:fornecedores(razao_social, cnpj, email, endereco_comercial)
+          fornecedor:fornecedores(razao_social, cnpj, email, telefone, endereco_comercial)
         `)
         .eq("selecao_id", selecaoId)
         .order("data_envio_proposta", { ascending: false });
@@ -649,6 +649,7 @@ export default function PropostasSelecao() {
           razao_social: proposta.fornecedor?.razao_social,
           cnpj: proposta.fornecedor?.cnpj,
           email: proposta.fornecedor?.email,
+          telefone: proposta.fornecedor?.telefone,
           endereco_comercial: proposta.fornecedor?.endereco_comercial,
         },
         {

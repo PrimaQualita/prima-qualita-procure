@@ -18,7 +18,14 @@ interface DadosFornecedor {
   razao_social: string;
   cnpj: string;
   email?: string;
+  telefone?: string;
   endereco_comercial?: string | null;
+  logradouro?: string;
+  numero?: string;
+  bairro?: string;
+  municipio?: string;
+  uf?: string;
+  cep?: string;
 }
 
 interface DadosProcesso {
@@ -177,9 +184,19 @@ export const gerarPropostaRealinhadaPDF = async (
 
   yPos += alturaBox + 7;
 
-  // Dados do Fornecedor
+  // Dados do Fornecedor - agora com todos os campos
+  const temEndereco = fornecedor.logradouro || fornecedor.endereco_comercial;
+  const temLocalidade = fornecedor.municipio || fornecedor.uf;
+  
+  // Calcular altura do box baseada nos campos disponíveis
+  let alturaBoxFornecedor = 20; // Base para título + razão social + cnpj
+  if (fornecedor.email) alturaBoxFornecedor += 6;
+  if (temEndereco) alturaBoxFornecedor += 6;
+  if (temLocalidade) alturaBoxFornecedor += 6;
+  if (fornecedor.telefone) alturaBoxFornecedor += 6;
+  
   doc.setFillColor(240, 240, 240);
-  doc.rect(margin, yPos, pageWidth - margin * 2, 20, 'F');
+  doc.rect(margin, yPos, pageWidth - margin * 2, alturaBoxFornecedor, 'F');
   
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(10);
@@ -187,10 +204,45 @@ export const gerarPropostaRealinhadaPDF = async (
   
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(9);
-  doc.text(`Razão Social: ${fornecedor.razao_social}`, margin + 5, yPos + 13);
-  doc.text(`CNPJ: ${formatarCNPJ(fornecedor.cnpj)}`, pageWidth - margin - 60, yPos + 13);
   
-  yPos += 27;
+  let yFornecedor = yPos + 13;
+  
+  // Razão Social e CNPJ na mesma linha
+  doc.text(`Razão Social: ${fornecedor.razao_social}`, margin + 5, yFornecedor);
+  doc.text(`CNPJ: ${formatarCNPJ(fornecedor.cnpj)}`, pageWidth - margin - 60, yFornecedor);
+  yFornecedor += 6;
+  
+  // E-mail
+  if (fornecedor.email) {
+    doc.text(`E-mail: ${fornecedor.email}`, margin + 5, yFornecedor);
+    yFornecedor += 6;
+  }
+  
+  // Telefone
+  if (fornecedor.telefone) {
+    doc.text(`Telefone: ${fornecedor.telefone}`, margin + 5, yFornecedor);
+    yFornecedor += 6;
+  }
+  
+  // Endereço
+  if (temEndereco) {
+    let enderecoCompleto = '';
+    if (fornecedor.logradouro) {
+      enderecoCompleto = `${fornecedor.logradouro}${fornecedor.numero ? ', ' + fornecedor.numero : ''}${fornecedor.bairro ? ', ' + fornecedor.bairro : ''}`;
+    } else if (fornecedor.endereco_comercial) {
+      enderecoCompleto = fornecedor.endereco_comercial;
+    }
+    doc.text(`Endereço: ${enderecoCompleto}`, margin + 5, yFornecedor);
+    yFornecedor += 6;
+  }
+  
+  // Município/UF/CEP
+  if (temLocalidade) {
+    const localidade = `${fornecedor.municipio || ''}${fornecedor.uf ? ' - ' + fornecedor.uf : ''}${fornecedor.cep ? ', CEP: ' + fornecedor.cep : ''}`;
+    doc.text(localidade, margin + 5, yFornecedor);
+  }
+  
+  yPos += alturaBoxFornecedor + 7;
 
   // Verificar se tem lotes (critério por_lote)
   const temLotes = itens.some(item => item.numero_lote && item.numero_lote > 0);
@@ -629,6 +681,34 @@ export const gerarPropostaRealinhadaPDF = async (
     
     finalY += alturaBox + 3;
   }
+
+  // Declarações obrigatórias (igual às propostas de seleção e cotação)
+  const larguraDeclaracao = pageWidth - margin * 2;
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(10);
+  doc.setTextColor(0, 0, 0);
+  doc.text('Observações:', margin, finalY);
+  finalY += 5;
+  
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(9);
+  
+  const declaracao1 = 'Declaramos estar ciente e concordar integralmente com os termos e condições contidas no Termo de Referência e/ou Instrumento Convocatório.';
+  const declaracao2 = 'Validade da proposta: 60 dias.';
+  
+  const decl1Lines = doc.splitTextToSize(declaracao1, larguraDeclaracao) as string[];
+  
+  // Verificar se cabe na página
+  if (finalY + (decl1Lines.length * 5) + 15 > pageHeight - 20) {
+    doc.addPage();
+    finalY = margin;
+  }
+  
+  doc.text(decl1Lines, margin, finalY);
+  finalY += decl1Lines.length * 5 + 3;
+  
+  doc.text(declaracao2, margin, finalY);
+  finalY += 8;
 
   // Certificação Digital Simplificada
   const totalPages = doc.getNumberOfPages();
