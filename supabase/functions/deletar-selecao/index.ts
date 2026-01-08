@@ -5,11 +5,29 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
+function decodePathFully(path: string): string {
+  let decoded = path;
+  try {
+    // Decodificar recursivamente até estabilizar
+    let prev = "";
+    while (decoded !== prev) {
+      prev = decoded;
+      decoded = decodeURIComponent(decoded);
+    }
+  } catch {
+    // Já decodificado ou inválido
+  }
+  return decoded;
+}
+
 function extractPath(urlOrPath: string | null, bucket: string): string | null {
   if (!urlOrPath) return null;
 
   // Remove query params
   let clean = urlOrPath.split("?")[0];
+  
+  // Decodificar URL completamente
+  clean = decodePathFully(clean);
 
   // If already saved as "bucket/path"
   if (clean.startsWith(`${bucket}/`)) {
@@ -105,7 +123,10 @@ Deno.serve(async (req) => {
       .select("url_arquivo, url_arquivo_original")
       .eq("selecao_id", selecaoId);
 
+    console.log(`📄 Atas encontradas: ${atas?.length || 0}`);
     atas?.forEach((a: any) => {
+      console.log(`   - url_arquivo: ${a.url_arquivo}`);
+      console.log(`   - url_arquivo_original: ${a.url_arquivo_original}`);
       pushFile(arquivosProcessoAnexos, a.url_arquivo, "processo-anexos");
       pushFile(arquivosProcessoAnexos, a.url_arquivo_original, "processo-anexos");
     });
@@ -116,7 +137,11 @@ Deno.serve(async (req) => {
       .select("url_arquivo")
       .eq("selecao_id", selecaoId);
 
-    homologacoes?.forEach((h: any) => pushFile(arquivosProcessoAnexos, h.url_arquivo, "processo-anexos"));
+    console.log(`📄 Homologações encontradas: ${homologacoes?.length || 0}`);
+    homologacoes?.forEach((h: any) => {
+      console.log(`   - url_arquivo: ${h.url_arquivo}`);
+      pushFile(arquivosProcessoAnexos, h.url_arquivo, "processo-anexos");
+    });
 
     // 5) selecao_propostas_fornecedor
     const { data: propostasSelecao } = await sb
@@ -180,6 +205,9 @@ Deno.serve(async (req) => {
     const uniqDocs = [...new Set(arquivosDocuments)];
 
     console.log(`📦 processo-anexos: ${uniqProcesso.length} arquivo(s)`);
+    if (uniqProcesso.length > 0) {
+      console.log(`   Caminhos a deletar:`, uniqProcesso.slice(0, 5)); // Mostrar primeiros 5
+    }
     console.log(`📦 documents: ${uniqDocs.length} arquivo(s)`);
 
     let deletados = 0;
@@ -187,9 +215,14 @@ Deno.serve(async (req) => {
 
     for (let i = 0; i < uniqProcesso.length; i += batchSize) {
       const batch = uniqProcesso.slice(i, i + batchSize);
-      const { error } = await sb.storage.from("processo-anexos").remove(batch);
-      if (error) console.error("❌ Erro ao deletar processo-anexos:", error);
-      else deletados += batch.length;
+      console.log(`🗑️ Deletando batch de ${batch.length} arquivos de processo-anexos...`);
+      const { data, error } = await sb.storage.from("processo-anexos").remove(batch);
+      if (error) {
+        console.error("❌ Erro ao deletar processo-anexos:", error);
+      } else {
+        console.log(`✅ Deletados ${data?.length || 0} arquivos`);
+        deletados += data?.length || batch.length;
+      }
     }
 
     for (let i = 0; i < uniqDocs.length; i += batchSize) {
