@@ -26,6 +26,7 @@ import { stripHtml } from "@/lib/htmlUtils";
 import { DialogPlanilhaConsolidada } from "@/components/cotacoes/DialogPlanilhaConsolidada";
 import { v4 as uuidv4 } from 'uuid';
 import logoHorizontal from "@/assets/prima-qualita-logo-horizontal.png";
+import { registrarAuditoria } from "@/lib/registrarAuditoria";
 
 interface ItemResposta {
   numero_item: number;
@@ -783,6 +784,23 @@ export default function RespostasCotacao() {
     if (!respostaParaExcluir) return;
     
     try {
+      // Buscar dados do fornecedor e cotação para o log ANTES de deletar
+      const { data: respostaCompleta } = await supabase
+        .from('cotacao_respostas_fornecedor')
+        .select(`
+          valor_total_anual_ofertado,
+          fornecedores:fornecedor_id (
+            razao_social,
+            cnpj
+          )
+        `)
+        .eq('id', respostaParaExcluir)
+        .single();
+
+      const fornecedorNome = (respostaCompleta?.fornecedores as any)?.razao_social || "Não identificado";
+      const fornecedorCnpj = (respostaCompleta?.fornecedores as any)?.cnpj || "";
+      const valorTotal = respostaCompleta?.valor_total_anual_ofertado || 0;
+
       // 1. Buscar TODOS os anexos (PDF proposta + comprovantes) e comprovantes_urls
       const { data: respostaData, error: fetchError } = await supabase
         .from('cotacao_respostas_fornecedor')
@@ -855,6 +873,21 @@ export default function RespostasCotacao() {
 
       if (error) throw error;
 
+      // Registrar auditoria de exclusão de proposta
+      await registrarAuditoria({
+        acao: 'exclusão',
+        entidade: 'Proposta Cotação',
+        entidade_id: respostaParaExcluir,
+        detalhes: {
+          contrato_gestao: cotacao?.processos_compras?.contratos_gestao?.nome_contrato || "",
+          numero_processo: processoNumero,
+          titulo_cotacao: cotacao?.titulo_cotacao || "",
+          fornecedor: fornecedorNome,
+          cnpj: fornecedorCnpj,
+          valor_total: valorTotal,
+        },
+      });
+
       toast.success("Fornecedor excluído com sucesso! Todos os arquivos e dados foram removidos.");
       setConfirmDeleteRespostaOpen(false);
       setRespostaParaExcluir(null);
@@ -905,7 +938,12 @@ export default function RespostasCotacao() {
         .from("cotacoes_precos")
         .select(`
           *,
-          processos_compras!inner(numero_processo_interno, objeto_resumido)
+          processos_compras!inner(
+            numero_processo_interno, 
+            objeto_resumido,
+            contrato_gestao_id,
+            contratos_gestao:contrato_gestao_id(nome_contrato)
+          )
         `)
         .eq("id", cotacaoId)
         .single();
