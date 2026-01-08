@@ -3146,24 +3146,31 @@ const SistemaLancesFornecedor = () => {
                           }`}
                         >
                           {/* Header do Item */}
-                          <div className="flex items-center justify-between">
-                            <div className="flex items-center gap-1.5">
-                              {emNegociacao ? (
-                                <Trophy className="h-3.5 w-3.5 text-amber-600" />
-                              ) : (
-                                <Unlock className="h-3.5 w-3.5 text-primary" />
-                              )}
-                              <span className="font-semibold text-sm">{labelItem}</span>
+                          <div className="flex flex-col gap-1">
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center gap-1.5">
+                                {emNegociacao ? (
+                                  <Trophy className="h-3.5 w-3.5 text-amber-600" />
+                                ) : (
+                                  <Unlock className="h-3.5 w-3.5 text-primary" />
+                                )}
+                                <span className="font-semibold text-sm">{labelItem}</span>
+                              </div>
                             </div>
-                            {emFechamento && (
-                              <Badge variant="outline" className="text-[10px] px-1.5 py-0 border-orange-400 text-orange-600 bg-orange-100">
-                                {segundosRestantes}s
-                              </Badge>
-                            )}
-                            {emNegociacao && negociacaoParaMim && (
-                              <Badge variant="outline" className="text-[10px] px-1.5 py-0 border-amber-400 text-amber-600 bg-amber-100">
-                                Negociação
-                              </Badge>
+                            {/* Badges em linha separada */}
+                            {(emFechamento || (emNegociacao && negociacaoParaMim)) && (
+                              <div className="flex items-center gap-1.5 flex-wrap">
+                                {emFechamento && (
+                                  <Badge variant="outline" className="text-[10px] px-1.5 py-0 border-orange-400 text-orange-600 bg-orange-100">
+                                    {segundosRestantes}s
+                                  </Badge>
+                                )}
+                                {emNegociacao && negociacaoParaMim && (
+                                  <Badge variant="outline" className="text-[10px] px-1.5 py-0 border-amber-400 text-amber-600 bg-amber-100">
+                                    Negociação
+                                  </Badge>
+                                )}
+                              </div>
                             )}
                           </div>
                           
