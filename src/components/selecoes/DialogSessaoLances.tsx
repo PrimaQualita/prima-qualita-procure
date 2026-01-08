@@ -177,6 +177,9 @@ export function DialogSessaoLances({
   // Estado - Fornecedores online (Presença em tempo real)
   const [fornecedoresOnline, setFornecedoresOnline] = useState<{ fornecedor_id: string; razao_social: string; online_at: string }[]>([]);
 
+  // Estado - Estimativas para verificação de desclassificação por preço
+  const [estimativasItens, setEstimativasItens] = useState<Map<number, number>>(new Map());
+
   // Carregar dados iniciais
   useEffect(() => {
     if (open) {
@@ -186,6 +189,7 @@ export function DialogSessaoLances({
       loadMensagens();
       loadVencedoresPorItem();
       loadPlanilhasGeradas();
+      loadEstimativas();
     }
   }, [open, selecaoId]);
 
@@ -757,6 +761,123 @@ export function DialogSessaoLances({
     } catch (error) {
       console.error("Erro ao carregar vencedores:", error);
     }
+  };
+
+
+  // Carregar estimativas da planilha consolidada para verificação de desclassificação por preço
+  const loadEstimativas = async () => {
+    try {
+      // Buscar cotação relacionada à seleção
+      const { data: selecaoData } = await supabase
+        .from("selecoes_fornecedores")
+        .select("cotacao_relacionada_id")
+        .eq("id", selecaoId)
+        .single();
+
+      if (!selecaoData?.cotacao_relacionada_id) return;
+
+      // Buscar planilha consolidada mais recente
+      const { data: planilhaData } = await supabase
+        .from("planilhas_consolidadas")
+        .select("estimativas_itens")
+        .eq("cotacao_id", selecaoData.cotacao_relacionada_id)
+        .order("data_geracao", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (!planilhaData?.estimativas_itens) return;
+
+      const estimativas = planilhaData.estimativas_itens as Record<string, number>;
+      const novoMapa = new Map<number, number>();
+
+      // Para por_lote, calcular subtotal por lote
+      if (isPorLote) {
+        // Buscar itens da cotação com seus lotes
+        const { data: itensCotacao } = await supabase
+          .from("itens_cotacao")
+          .select("numero_item, quantidade, lote_id")
+          .eq("cotacao_id", selecaoData.cotacao_relacionada_id);
+
+        const { data: lotesCotacao } = await supabase
+          .from("lotes_cotacao")
+          .select("id, numero_lote")
+          .eq("cotacao_id", selecaoData.cotacao_relacionada_id);
+
+        if (itensCotacao && lotesCotacao) {
+          const loteIdToNumero = new Map(lotesCotacao.map(l => [l.id, l.numero_lote]));
+          const subtotaisPorLote = new Map<number, number>();
+
+          itensCotacao.forEach(item => {
+            const numeroLote = item.lote_id ? loteIdToNumero.get(item.lote_id) : null;
+            if (numeroLote) {
+              const chaveComposta = `${numeroLote}_${item.numero_item}`;
+              const valorEstimado = estimativas[chaveComposta] || 0;
+              const subtotalItem = valorEstimado * (item.quantidade || 1);
+              const subtotalAtual = subtotaisPorLote.get(numeroLote) || 0;
+              subtotaisPorLote.set(numeroLote, subtotalAtual + subtotalItem);
+            }
+          });
+
+          subtotaisPorLote.forEach((valor, lote) => novoMapa.set(lote, valor));
+        }
+      } else if (isGlobal) {
+        // Para global, somar todos os itens
+        const { data: itensCotacao } = await supabase
+          .from("itens_cotacao")
+          .select("numero_item, quantidade")
+          .eq("cotacao_id", selecaoData.cotacao_relacionada_id);
+
+        let totalGlobal = 0;
+        if (itensCotacao) {
+          itensCotacao.forEach(item => {
+            const valorEstimado = estimativas[String(item.numero_item)] || 0;
+            totalGlobal += valorEstimado * (item.quantidade || 1);
+          });
+        }
+        novoMapa.set(0, totalGlobal); // Item 0 representa o global
+      } else {
+        // Para por_item e desconto, usar diretamente
+        Object.entries(estimativas).forEach(([key, value]) => {
+          const numeroItem = parseInt(key, 10);
+          if (!isNaN(numeroItem)) {
+            novoMapa.set(numeroItem, value);
+          }
+        });
+      }
+
+      setEstimativasItens(novoMapa);
+      console.log("📊 Estimativas carregadas:", Array.from(novoMapa.entries()));
+    } catch (error) {
+      console.error("Erro ao carregar estimativas:", error);
+    }
+  };
+
+  // Verificar se um lance está desclassificado por preço
+  const isLanceDesclassificadoPorPreco = (numeroItem: number, valorLance: number): boolean => {
+    const valorEstimado = estimativasItens.get(numeroItem);
+    if (!valorEstimado || valorEstimado === 0) return false;
+
+    if (criterioJulgamento === "desconto") {
+      // Para desconto: desclassifica se desconto ofertado for MENOR que o estimado
+      const tolerancia = 0.001;
+      return valorLance < valorEstimado - tolerancia;
+    }
+
+    // Para preço: desclassifica se valor > estimado (comparação em centavos)
+    const toCents = (v: number) => Math.round((Number(v) + Number.EPSILON) * 100);
+    return toCents(valorLance) > toCents(valorEstimado);
+  };
+
+  // Verificar se TODOS os lances de um item estão desclassificados por preço
+  const todosLancesDesclassificadosPorPreco = (numeroItem: number): boolean => {
+    const lancesDoItem = getLancesCompletosDoItem(numeroItem);
+    if (lancesDoItem.length === 0) return false;
+
+    const valorEstimado = estimativasItens.get(numeroItem);
+    if (!valorEstimado || valorEstimado === 0) return false;
+
+    // Verificar cada lance
+    return lancesDoItem.every(lance => isLanceDesclassificadoPorPreco(numeroItem, lance.valor_lance));
   };
 
   const handleAbrirNegociacao = async (numeroItem: number) => {
@@ -2256,13 +2377,23 @@ export function DialogSessaoLances({
         
         // Determinar status quando não há vencedor:
         // DESERTO = nenhum lance foi recebido para o item/lote
-        // FRACASSADO = houve lances, mas todos os fornecedores foram inabilitados
+        // FRACASSADO = houve lances, mas todos os fornecedores foram inabilitados OU desclassificados por preço
         let statusSemVencedor = "DESERTO";
+        let vencedorEfetivo = vencedor;
+        
+        // Verificar se todos os lances estão desclassificados por preço
+        const todosDesclassificados = todosLancesDesclassificadosPorPreco(elemento.numero);
+        
         if (!vencedor) {
           const lancesDoElemento = getLancesCompletosDoItem(elemento.numero);
           if (lancesDoElemento.length > 0) {
+            // Houve lances - verificar se é por inabilitação ou desclassificação por preço
             statusSemVencedor = "FRACASSADO";
           }
+        } else if (todosDesclassificados) {
+          // Há um vencedor potencial, mas todos os lances excedem o valor estimado
+          vencedorEfetivo = null;
+          statusSemVencedor = "FRACASSADO";
         }
         
         // Para critério global, retornar colunas com Vencedor entre Descrição e Unidade
@@ -2271,7 +2402,7 @@ export function DialogSessaoLances({
           return [
             identificador,
             descricaoLimpaResumo,
-            vencedor?.fornecedores?.razao_social || statusSemVencedor,
+            vencedorEfetivo?.fornecedores?.razao_social || statusSemVencedor,
             elemento.unidade && elemento.unidade.trim() !== "" ? elemento.unidade : "-",
             elemento.quantidade && elemento.quantidade > 0 ? quantidade.toString() : "-",
           ];
@@ -2280,7 +2411,7 @@ export function DialogSessaoLances({
         return [
           identificador,
           descricaoLimpaResumo, // Descrição sem duplicação
-          vencedor?.fornecedores?.razao_social || statusSemVencedor,
+          vencedorEfetivo?.fornecedores?.razao_social || statusSemVencedor,
           marca,
           (elemento.isLote) ? "-" : quantidade.toString(),
           (elemento.isLote) ? "LOTE" : (elemento.unidade || "UN"),

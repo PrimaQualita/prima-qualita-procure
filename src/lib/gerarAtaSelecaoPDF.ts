@@ -1239,7 +1239,7 @@ export async function gerarAtaSelecaoPDF(selecaoId: string): Promise<{ url: stri
       
       if (itensFracassados.length > 0) {
         const itensStr = itensFracassados.sort((a, b) => a - b).join(', ');
-        const textoFracassado = `${termoItens} declarado(s) FRACASSADO(S) - teve proposta, porém todos os fornecedores foram inabilitados: ${itensStr}.`;
+        const textoFracassado = `${termoItens} declarado(s) FRACASSADO(S) - teve proposta, porém todos os fornecedores foram inabilitados e/ou desclassificados por preço acima do estimado: ${itensStr}.`;
         doc.setTextColor(128, 0, 0); // Vermelho escuro
         currentY = drawJustifiedText(doc, textoFracassado, marginLeft, currentY, contentWidth, lineHeight);
         doc.setTextColor(0, 0, 0);
