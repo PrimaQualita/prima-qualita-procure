@@ -1158,12 +1158,23 @@ const RespostaCotacao = () => {
                   <Button
                     variant="outline"
                     size="sm"
-                    onClick={() => {
+                    onClick={async () => {
                       const url = `${import.meta.env.VITE_SUPABASE_URL}/storage/v1/object/public/processo-anexos/${termoReferencia.url_arquivo}`;
-                      const link = document.createElement('a');
-                      link.href = url;
-                      link.download = termoReferencia.nome_arquivo;
-                      link.click();
+                      try {
+                        const response = await fetch(url);
+                        const blob = await response.blob();
+                        const blobUrl = window.URL.createObjectURL(blob);
+                        const link = document.createElement('a');
+                        link.href = blobUrl;
+                        link.download = termoReferencia.nome_arquivo;
+                        document.body.appendChild(link);
+                        link.click();
+                        document.body.removeChild(link);
+                        window.URL.revokeObjectURL(blobUrl);
+                      } catch (error) {
+                        console.error('Erro ao baixar arquivo:', error);
+                        toast.error('Erro ao baixar o arquivo');
+                      }
                     }}
                   >
                     <Download className="h-4 w-4 mr-2" />
