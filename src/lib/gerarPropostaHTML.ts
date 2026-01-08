@@ -121,11 +121,12 @@ export async function gerarPropostaHTML(
       </tbody>
     </table>
 
-  ${observacoes ? `
   <div class="observacoes">
     <h3>Observações:</h3>
-    <p>${observacoes}</p>
-  </div>` : ''}
+    ${observacoes ? `<p>${observacoes}</p>` : ''}
+    <p>Declaramos estar ciente e concordar integralmente com os termos e condições contidas no Termo de Referência e/ou Instrumento Convocatório.</p>
+    <p><strong>Validade da proposta: 60 dias.</strong></p>
+  </div>
 
   <div class="certificacao">
     <h3>🔒 CERTIFICAÇÃO DIGITAL</h3>

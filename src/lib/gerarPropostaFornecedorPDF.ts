@@ -123,6 +123,7 @@ interface DadosFornecedor {
   razao_social: string;
   cnpj: string;
   endereco_comercial: string;
+  email?: string;
 }
 
 export async function gerarPropostaFornecedorPDF(
@@ -530,23 +531,36 @@ export async function gerarPropostaFornecedorPDF(
     }
 
     // Observações
-    if (observacoes) {
-      doc.setFont('helvetica', 'bold');
-      doc.setFontSize(11);
-      doc.setTextColor(corPrimaria[0], corPrimaria[1], corPrimaria[2]);
-      doc.text('OBSERVAÇÕES:', 20, y);
-      y += 7;
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(11);
+    doc.setTextColor(corPrimaria[0], corPrimaria[1], corPrimaria[2]);
+    doc.text('OBSERVAÇÕES:', 20, y);
+    y += 7;
 
-      doc.setFont('helvetica', 'normal');
-      doc.setFontSize(9);
-      doc.setTextColor(corTexto[0], corTexto[1], corTexto[2]);
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(9);
+    doc.setTextColor(corTexto[0], corTexto[1], corTexto[2]);
+    
+    // Observações do fornecedor (se houver)
+    if (observacoes) {
       const obsLines = doc.splitTextToSize(observacoes, 170);
       doc.text(obsLines, 20, y);
-      y += obsLines.length * 5;
+      y += obsLines.length * 5 + 3;
     }
+    
+    // Declarações obrigatórias
+    const declaracao1 = 'Declaramos estar ciente e concordar integralmente com os termos e condicoes contidas no Termo de Referencia e/ou Instrumento Convocatorio.';
+    const declaracao2 = 'Validade da proposta: 60 dias.';
+    
+    const decl1Lines = doc.splitTextToSize(declaracao1, 170);
+    doc.text(decl1Lines, 20, y);
+    y += decl1Lines.length * 5 + 3;
+    
+    doc.text(declaracao2, 20, y);
+    y += 8;
 
-    // Adicionar espaço extra após observações ou valor total
-    y += 10;
+    // Adicionar espaço extra após observações
+    y += 5;
 
     // Gerar protocolo
     const protocolo = gerarProtocolo();
