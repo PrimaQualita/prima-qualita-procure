@@ -898,6 +898,9 @@ export function DialogControleItensLances({
 
     setSalvando(true);
     try {
+      const TEMPO_NEGOCIACAO = 120; // 2 minutos
+      const agora = new Date().toISOString();
+
       // Verificar se já existe registro do item
       const { data: existente } = await supabase
         .from("itens_abertos_lances")
@@ -907,7 +910,7 @@ export function DialogControleItensLances({
         .single();
 
       if (existente) {
-        // Atualizar para abrir negociação - LIMPAR TODOS OS CAMPOS DE FECHAMENTO
+        // Atualizar para abrir negociação + iniciar cronômetro de fechamento automático
         const { error } = await supabase
           .from("itens_abertos_lances")
           .update({
@@ -915,9 +918,9 @@ export function DialogControleItensLances({
             em_negociacao: true,
             fornecedor_negociacao_id: vencedor.fornecedorId,
             data_fechamento: null,
-            iniciando_fechamento: false,
-            data_inicio_fechamento: null,
-            segundos_para_fechar: null
+            iniciando_fechamento: true,
+            data_inicio_fechamento: agora,
+            segundos_para_fechar: TEMPO_NEGOCIACAO,
           })
           .eq("id", existente.id);
 
@@ -931,7 +934,10 @@ export function DialogControleItensLances({
             numero_item: numeroItem,
             aberto: true,
             em_negociacao: true,
-            fornecedor_negociacao_id: vencedor.fornecedorId
+            fornecedor_negociacao_id: vencedor.fornecedorId,
+            iniciando_fechamento: true,
+            data_inicio_fechamento: agora,
+            segundos_para_fechar: TEMPO_NEGOCIACAO,
           });
 
         if (error) throw error;

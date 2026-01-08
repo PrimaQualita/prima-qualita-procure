@@ -1825,18 +1825,22 @@ const [itens, setItens] = useState<Item[]>([]);
                 .eq("numero_item", item)
                 .maybeSingle();
 
+              const TEMPO_NEGOCIACAO = 120;
+              const agora = new Date().toISOString();
+
               if (existing) {
-                // Atualizar item existente para reabrir
+                // Atualizar item existente para reabrir + iniciar cronômetro de fechamento automático
                 await supabase
                   .from("itens_abertos_lances")
                   .update({
                     aberto: true,
                     em_negociacao: true,
                     fornecedor_negociacao_id: fornecedorId || null,
-                    data_abertura: new Date().toISOString(),
+                    data_abertura: agora,
                     data_fechamento: null,
-                    iniciando_fechamento: false,
-                    data_inicio_fechamento: null,
+                    iniciando_fechamento: true,
+                    data_inicio_fechamento: agora,
+                    segundos_para_fechar: TEMPO_NEGOCIACAO,
                   })
                   .eq("id", existing.id);
               } else {
@@ -1849,6 +1853,9 @@ const [itens, setItens] = useState<Item[]>([]);
                     aberto: true,
                     em_negociacao: true,
                     fornecedor_negociacao_id: fornecedorId || null,
+                    iniciando_fechamento: true,
+                    data_inicio_fechamento: agora,
+                    segundos_para_fechar: TEMPO_NEGOCIACAO,
                   });
               }
             }
