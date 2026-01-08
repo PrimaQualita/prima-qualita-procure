@@ -237,8 +237,8 @@ const Auditoria = () => {
                       <TableHead className="w-[160px]">Data/Hora</TableHead>
                       <TableHead className="w-[120px]">Ação</TableHead>
                       <TableHead>Arquivo/Documento</TableHead>
-                      <TableHead>Usuário</TableHead>
-                      <TableHead className="w-[80px]">Tipo</TableHead>
+                      <TableHead>Processo</TableHead>
+                      <TableHead>Contrato de Gestão</TableHead>
                       <TableHead className="w-[60px] text-center">Detalhes</TableHead>
                     </TableRow>
                   </TableHeader>
@@ -257,11 +257,11 @@ const Auditoria = () => {
                             </span>
                           </div>
                         </TableCell>
-                        <TableCell>{log.usuario_nome || "Sistema"}</TableCell>
-                        <TableCell>
-                          <Badge variant="outline" className="text-xs">
-                            {log.usuario_tipo || "interno"}
-                          </Badge>
+                        <TableCell className="text-sm">
+                          {log.detalhes?.numero_processo || "-"}
+                        </TableCell>
+                        <TableCell className="text-sm truncate max-w-[200px]" title={log.detalhes?.contrato_gestao || ""}>
+                          {log.detalhes?.contrato_gestao || "-"}
                         </TableCell>
                         <TableCell className="text-center">
                           <Button
