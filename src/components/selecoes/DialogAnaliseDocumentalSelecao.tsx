@@ -352,6 +352,9 @@ export function DialogAnaliseDocumentalSelecao({
       console.log(`📊 [ANÁLISE DOC] Buscando vencedores DINAMICAMENTE (sem usar indicativo_lance_vencedor)...`);
       console.log(`🎯 [ANÁLISE DOC] Critério de julgamento:`, selecaoData?.criterios_julgamento);
       
+      const isDesconto = selecaoData?.criterios_julgamento === 'desconto';
+      const isPorLote = selecaoData?.criterios_julgamento === 'por_lote';
+      
       // Buscar TODOS os lances com fornecedores
       const { data: todosLancesData, error: todosLancesError } = await supabase
         .from("lances_fornecedores")
@@ -377,6 +380,46 @@ export function DialogAnaliseDocumentalSelecao({
       
       console.log(`🔍 [ANÁLISE DOC] Total de lances encontrados:`, todosLancesData?.length || 0);
       
+      // Buscar propostas originais (para itens sem lances)
+      const { data: propostasOriginais } = await supabase
+        .from("selecao_respostas_itens_fornecedor")
+        .select(`
+          numero_item,
+          valor_unitario,
+          valor_total_item,
+          lote_id,
+          selecao_propostas_fornecedor!inner (
+            fornecedor_id,
+            fornecedores!inner (
+              id,
+              razao_social,
+              cnpj,
+              email
+            )
+          )
+        `)
+        .eq("selecao_propostas_fornecedor.selecao_id", selecaoId);
+      
+      console.log(`🔍 [ANÁLISE DOC] Total de propostas originais encontradas:`, propostasOriginais?.length || 0);
+      
+      // Buscar estimativas para validar classificação
+      let estimativasPorItem = new Map<number | string, number>();
+      if (cotacaoId) {
+        const { data: planilhas } = await supabase
+          .from("planilhas_consolidadas")
+          .select("estimativas_itens")
+          .eq("cotacao_id", cotacaoId)
+          .order("data_geracao", { ascending: false })
+          .limit(1);
+        
+        if (planilhas && planilhas.length > 0 && planilhas[0].estimativas_itens) {
+          const estimativas = planilhas[0].estimativas_itens as Record<string, number>;
+          Object.entries(estimativas).forEach(([key, value]) => {
+            estimativasPorItem.set(key.includes('_') ? key : parseInt(key), value);
+          });
+        }
+      }
+      
       // Agrupar lances por item
       const lancePorItem = new Map<number, any[]>();
       (todosLancesData || []).forEach((lance: any) => {
@@ -387,35 +430,93 @@ export function DialogAnaliseDocumentalSelecao({
         lancePorItem.get(item)!.push(lance);
       });
       
+      // Agrupar propostas por item (apenas itens que não têm lances)
+      const propostaPorItem = new Map<number, any[]>();
+      (propostasOriginais || []).forEach((proposta: any) => {
+        const item = proposta.numero_item;
+        // Só adicionar se não houver lances para este item
+        if (!lancePorItem.has(item)) {
+          if (!propostaPorItem.has(item)) {
+            propostaPorItem.set(item, []);
+          }
+          propostaPorItem.get(item)!.push(proposta);
+        }
+      });
+      
       // Para cada item, ordenar e pegar o vencedor
       const vencedoresData: any[] = [];
-      const isDesconto = selecaoData?.criterios_julgamento === 'desconto';
-      const isPorLote = selecaoData?.criterios_julgamento === 'por_lote';
       
       console.log(`🎯 [ANÁLISE DOC] Critério é desconto?`, isDesconto);
       
+      // Processar itens com lances
       lancePorItem.forEach((lances, numeroItem) => {
         console.log(`📊 [ANÁLISE DOC] Processando item ${numeroItem} com ${lances.length} lances`);
         
         // Ordenar: DESCRESCENTE para desconto (maior primeiro), ASCENDENTE para preço (menor primeiro)
         const lancesOrdenados = [...lances].sort((a, b) => {
           if (isDesconto) {
-            // Para desconto: maior é melhor
             return b.valor_lance - a.valor_lance;
           } else {
-            // Para preço: menor é melhor
             return a.valor_lance - b.valor_lance;
           }
         });
         
-        // Priorizar lances de negociação
-        // CRÍTICO: O vencedor é SEMPRE o primeiro da lista ordenada (menor preço ou maior desconto)
-        // Lance de negociação NÃO tem prioridade automática - deve vencer apenas se tiver o melhor valor
         const vencedor = lancesOrdenados[0];
         const tipoVencedor = vencedor.tipo_lance === 'negociacao' ? 'NEGOCIAÇÃO' : 'LANCE';
         console.log(`🏆 [ANÁLISE DOC] ${isPorLote ? 'Lote' : 'Item'} ${numeroItem}: Vencedor por ${tipoVencedor} -`, vencedor.fornecedores?.razao_social, `- valor:`, vencedor.valor_lance);
         
         vencedoresData.push(vencedor);
+      });
+      
+      // Processar itens SEM lances (mas com propostas classificadas)
+      propostaPorItem.forEach((propostas, numeroItem) => {
+        console.log(`📊 [ANÁLISE DOC] Processando item ${numeroItem} SEM LANCES - verificando propostas originais (${propostas.length})`);
+        
+        // Buscar estimativa para o item
+        let estimativa = 0;
+        if (isPorLote) {
+          // Para por_lote, buscar pela chave composta
+          const loteId = propostas[0]?.lote_id;
+          if (loteId) {
+            // Tentar buscar o numero_lote correspondente
+            const keyComposta = `${loteId}_${numeroItem}`;
+            estimativa = estimativasPorItem.get(keyComposta) as number || 0;
+          }
+        } else {
+          estimativa = estimativasPorItem.get(numeroItem) as number || 0;
+        }
+        
+        // Filtrar propostas classificadas (valor <= estimativa ou desconto >= estimativa)
+        const propostasClassificadas = propostas.filter((p: any) => {
+          const valor = p.valor_unitario || 0;
+          if (estimativa === 0) return valor > 0; // Se não há estimativa, qualquer valor válido é aceito
+          return isDesconto ? valor >= estimativa : valor <= estimativa;
+        });
+        
+        if (propostasClassificadas.length > 0) {
+          // Ordenar conforme critério
+          const propostasOrdenadas = [...propostasClassificadas].sort((a, b) => {
+            const valorA = a.valor_unitario || 0;
+            const valorB = b.valor_unitario || 0;
+            return isDesconto ? valorB - valorA : valorA - valorB;
+          });
+          
+          const melhorProposta = propostasOrdenadas[0];
+          const fornecedor = (melhorProposta.selecao_propostas_fornecedor as any)?.fornecedores;
+          const fornecedorId = (melhorProposta.selecao_propostas_fornecedor as any)?.fornecedor_id;
+          
+          console.log(`🏆 [ANÁLISE DOC] ${isPorLote ? 'Lote' : 'Item'} ${numeroItem}: Vencedor por PROPOSTA ORIGINAL -`, fornecedor?.razao_social, `- valor:`, melhorProposta.valor_unitario);
+          
+          vencedoresData.push({
+            numero_item: numeroItem,
+            valor_lance: melhorProposta.valor_unitario,
+            fornecedor_id: fornecedorId,
+            tipo_lance: 'proposta_original',
+            fornecedores: fornecedor
+          });
+        } else {
+          console.log(`⚠️ [ANÁLISE DOC] Item ${numeroItem}: Nenhuma proposta classificada encontrada`);
+        }
       });
       
       console.log(`✅ [ANÁLISE DOC] Vencedores dinâmicos identificados:`, vencedoresData.length);
@@ -521,7 +622,7 @@ export function DialogAnaliseDocumentalSelecao({
         }
       }
 
-      // Criar mapa de itens licitados por fornecedor (TODOS os itens onde deu lance)
+      // Criar mapa de itens licitados por fornecedor (TODOS os itens onde deu lance ou proposta)
       const itensLicitadosPorFornecedor = new Map<string, Set<number>>();
       (todosLancesData || []).forEach((lance: any) => {
         const fornId = lance.fornecedor_id;
@@ -529,6 +630,17 @@ export function DialogAnaliseDocumentalSelecao({
           itensLicitadosPorFornecedor.set(fornId, new Set());
         }
         itensLicitadosPorFornecedor.get(fornId)!.add(lance.numero_item);
+      });
+      
+      // Adicionar também itens das propostas originais
+      (propostasOriginais || []).forEach((proposta: any) => {
+        const fornId = (proposta.selecao_propostas_fornecedor as any)?.fornecedor_id;
+        if (fornId) {
+          if (!itensLicitadosPorFornecedor.has(fornId)) {
+            itensLicitadosPorFornecedor.set(fornId, new Set());
+          }
+          itensLicitadosPorFornecedor.get(fornId)!.add(proposta.numero_item);
+        }
       });
 
       // Agrupar por fornecedor
