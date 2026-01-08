@@ -683,11 +683,13 @@ export function DialogSessaoLances({
   const loadVencedoresPorItem = async () => {
     try {
       // Buscar fornecedores inabilitados da seleção COM itens_afetados
-      const { data: inabilitados } = await supabase
+      const { data: inabilitados, error: inabilitadosError } = await supabase
         .from("fornecedores_inabilitados_selecao")
         .select("fornecedor_id, itens_afetados")
         .eq("selecao_id", selecaoId)
         .eq("revertido", false);
+
+      if (inabilitadosError) throw inabilitadosError;
 
       // Criar mapa de fornecedor -> itens inabilitados
       const inabilitacoesPorFornecedor = new Map<string, number[]>();
@@ -697,8 +699,24 @@ export function DialogSessaoLances({
 
       // Determinar ordem baseada no critério
       const isDesconto = criterioJulgamento === "desconto";
-      
-      // Buscar lances - INCLUIR tipo_lance para priorizar negociação
+
+      // Helper local: desclassificação por preço/estimativa
+      const isDesclassificadoPorPreco = (numero: number, valor: number): boolean => {
+        const valorEstimado = estimativasItens.get(numero);
+        if (!valorEstimado || valorEstimado === 0) return false;
+
+        if (criterioJulgamento === "desconto") {
+          // Para desconto: desclassifica se desconto ofertado for MENOR que o estimado
+          const tolerancia = 0.001;
+          return valor < valorEstimado - tolerancia;
+        }
+
+        // Para preço: desclassifica se valor > estimado (comparação em centavos)
+        const toCents = (v: number) => Math.round((Number(v) + Number.EPSILON) * 100);
+        return toCents(valor) > toCents(valorEstimado);
+      };
+
+      // Buscar lances
       const { data: lancesData, error: lancesError } = await supabase
         .from("lances_fornecedores")
         .select("fornecedor_id, numero_item, valor_lance, tipo_lance")
@@ -707,56 +725,198 @@ export function DialogSessaoLances({
 
       if (lancesError) throw lancesError;
 
-      // Filtrar lances onde o fornecedor está inabilitado PARA AQUELE ITEM ESPECÍFICO
+      // Filtrar lances onde o fornecedor está inabilitado PARA AQUELE ITEM/LOTE ESPECÍFICO
       const lancesFiltrados = (lancesData || []).filter((lance) => {
         const itensInabilitados = inabilitacoesPorFornecedor.get(lance.fornecedor_id);
         if (!itensInabilitados) return true; // Não está inabilitado
-        return !itensInabilitados.includes(lance.numero_item); // Verificar se o item específico está inabilitado
+        return !itensInabilitados.includes(lance.numero_item);
       });
 
-      // Buscar fornecedores
-      const fornecedorIds = [...new Set(lancesFiltrados.map(l => l.fornecedor_id))];
-      
-      const { data: fornecedoresData, error: fornecedoresError } = await supabase
+      // Buscar fornecedores (dos lances)
+      const fornecedorIdsLances = [...new Set(lancesFiltrados.map((l) => l.fornecedor_id))];
+
+      const { data: fornecedoresDataLances, error: fornecedoresErrorLances } = await supabase
         .from("fornecedores")
         .select("id, razao_social")
-        .in("id", fornecedorIds.length > 0 ? fornecedorIds : ['00000000-0000-0000-0000-000000000000']);
+        .in(
+          "id",
+          fornecedorIdsLances.length > 0 ? fornecedorIdsLances : ["00000000-0000-0000-0000-000000000000"]
+        );
 
-      if (fornecedoresError) throw fornecedoresError;
+      if (fornecedoresErrorLances) throw fornecedoresErrorLances;
 
-      const fornecedoresMap = new Map(fornecedoresData?.map(f => [f.id, f.razao_social]) || []);
+      const fornecedoresMap = new Map(fornecedoresDataLances?.map((f) => [f.id, f.razao_social]) || []);
 
-      // Identificar vencedor por item baseado no MELHOR VALOR (não priorizar negociação)
-      // CRÍTICO: Lance de negociação NÃO tem prioridade automática - vence quem tem o melhor valor
+      // Identificar vencedor por item baseado no MELHOR VALOR
       const vencedores = new Map<number, { fornecedorId: string; razaoSocial: string; valorLance: number }>();
-      
+
       lancesFiltrados.forEach((lance) => {
         const vencedorAtual = vencedores.get(lance.numero_item);
-        
-        // Se não tem vencedor ainda, definir este lance
+
         if (!vencedorAtual) {
           vencedores.set(lance.numero_item, {
             fornecedorId: lance.fornecedor_id,
-            razaoSocial: fornecedoresMap.get(lance.fornecedor_id) || 'Fornecedor',
-            valorLance: lance.valor_lance
+            razaoSocial: fornecedoresMap.get(lance.fornecedor_id) || "Fornecedor",
+            valorLance: lance.valor_lance,
           });
-        } else {
-          // Substituir se este lance for MELHOR que o atual (independente do tipo)
-          const valorMelhor = isDesconto 
-            ? lance.valor_lance > vencedorAtual.valorLance  // Desconto: maior é melhor
-            : lance.valor_lance < vencedorAtual.valorLance; // Preço: menor é melhor
-            
-          if (valorMelhor) {
-            vencedores.set(lance.numero_item, {
-              fornecedorId: lance.fornecedor_id,
-              razaoSocial: fornecedoresMap.get(lance.fornecedor_id) || 'Fornecedor',
-              valorLance: lance.valor_lance
-            });
-          }
+          return;
+        }
+
+        const valorMelhor = isDesconto
+          ? lance.valor_lance > vencedorAtual.valorLance // Desconto: maior é melhor
+          : lance.valor_lance < vencedorAtual.valorLance; // Preço: menor é melhor
+
+        if (valorMelhor) {
+          vencedores.set(lance.numero_item, {
+            fornecedorId: lance.fornecedor_id,
+            razaoSocial: fornecedoresMap.get(lance.fornecedor_id) || "Fornecedor",
+            valorLance: lance.valor_lance,
+          });
         }
       });
 
-      console.log("🏆 Vencedores carregados:", Array.from(vencedores.entries()));
+      // FALLBACK: itens/lotes sem lances vencedores devem considerar o valor da proposta original
+      // (para que apareçam para negociação)
+      const isGlobal = criterioJulgamento === "global";
+      const numerosBase = isPorLote
+        ? lotes.map((l) => l.numero_lote)
+        : (isGlobal ? itensParaControle : itens).map((i) => i.numero_item);
+
+      const numerosSemVencedor = numerosBase.filter((n) => !vencedores.has(n));
+
+      if (numerosSemVencedor.length > 0) {
+        const { data: propostas, error: propostasError } = await supabase
+          .from("selecao_propostas_fornecedor")
+          .select("id, fornecedor_id")
+          .eq("selecao_id", selecaoId);
+
+        if (propostasError) throw propostasError;
+
+        const propostaIds = (propostas || []).map((p: any) => p.id);
+        const fornecedorIdsPropostas = [...new Set((propostas || []).map((p: any) => p.fornecedor_id))];
+
+        const { data: fornecedoresDataPropostas, error: fornecedoresErrorPropostas } = await supabase
+          .from("fornecedores")
+          .select("id, razao_social")
+          .in(
+            "id",
+            fornecedorIdsPropostas.length > 0 ? fornecedorIdsPropostas : ["00000000-0000-0000-0000-000000000000"]
+          );
+
+        if (fornecedoresErrorPropostas) throw fornecedoresErrorPropostas;
+
+        const fornecedoresMapPropostas = new Map(
+          fornecedoresDataPropostas?.map((f) => [f.id, f.razao_social]) || []
+        );
+
+        const { data: itensPropostas, error: itensPropostasError } = propostaIds.length
+          ? await supabase
+              .from("selecao_respostas_itens_fornecedor")
+              .select("proposta_id, numero_item, lote_id, valor_unitario_ofertado, valor_total_item, desclassificado")
+              .in("proposta_id", propostaIds)
+          : { data: [], error: null };
+
+        if (itensPropostasError) throw itensPropostasError;
+
+        const propostaToFornecedor = new Map<string, string>();
+        (propostas || []).forEach((p: any) => {
+          propostaToFornecedor.set(p.id, p.fornecedor_id);
+        });
+
+        if (isPorLote) {
+          // === CRITÉRIO POR LOTE: vencedor é pelo menor VALOR TOTAL DO LOTE (soma dos itens do lote) ===
+          const loteIdToNumero = new Map(lotes.map((l) => [l.id, l.numero_lote]));
+
+          // totalPorLoteFornecedor: Map<numeroLote, Map<fornecedorId, total>>
+          const totalPorLoteFornecedor = new Map<number, Map<string, number>>();
+
+          (itensPropostas || []).forEach((ip: any) => {
+            const numeroLote = ip.lote_id ? loteIdToNumero.get(ip.lote_id) : undefined;
+            if (!numeroLote) return;
+            if (!numerosSemVencedor.includes(numeroLote)) return;
+
+            if (ip.desclassificado) return;
+
+            const fornecedorId = propostaToFornecedor.get(ip.proposta_id);
+            if (!fornecedorId) return;
+
+            // inabilitação no nível do lote
+            const itensInabilitados = inabilitacoesPorFornecedor.get(fornecedorId);
+            if (itensInabilitados && itensInabilitados.includes(numeroLote)) return;
+
+            const totalItem = Number(ip.valor_total_item) || 0;
+
+            const mapFornecedor = totalPorLoteFornecedor.get(numeroLote) || new Map<string, number>();
+            mapFornecedor.set(fornecedorId, (mapFornecedor.get(fornecedorId) || 0) + totalItem);
+            totalPorLoteFornecedor.set(numeroLote, mapFornecedor);
+          });
+
+          numerosSemVencedor.forEach((numeroLote) => {
+            const totals = totalPorLoteFornecedor.get(numeroLote);
+            if (!totals) return;
+
+            // Remover fornecedores desclassificados por estimativa, quando disponível
+            const totaisValidos: Array<{ fornecedorId: string; total: number }> = [];
+            totals.forEach((total, fornecedorId) => {
+              if (!isDesclassificadoPorPreco(numeroLote, total)) {
+                totaisValidos.push({ fornecedorId, total });
+              }
+            });
+
+            if (totaisValidos.length === 0) return;
+
+            totaisValidos.sort((a, b) => (isDesconto ? b.total - a.total : a.total - b.total));
+            const melhor = totaisValidos[0];
+
+            vencedores.set(numeroLote, {
+              fornecedorId: melhor.fornecedorId,
+              razaoSocial: fornecedoresMapPropostas.get(melhor.fornecedorId) || "Fornecedor",
+              valorLance: melhor.total,
+            });
+          });
+        } else {
+          // === CRITÉRIOS POR ITEM / GLOBAL / DESCONTO: vencedor por item no melhor valor ===
+          const melhoresPorItem = new Map<number, { fornecedorId: string; valor: number }>();
+
+          (itensPropostas || []).forEach((ip: any) => {
+            const numeroItem = ip.numero_item;
+            if (!numerosSemVencedor.includes(numeroItem)) return;
+            if (ip.desclassificado) return;
+
+            const fornecedorId = propostaToFornecedor.get(ip.proposta_id);
+            if (!fornecedorId) return;
+
+            const itensInabilitados = inabilitacoesPorFornecedor.get(fornecedorId);
+            if (itensInabilitados && itensInabilitados.includes(numeroItem)) return;
+
+            const valor = Number(ip.valor_unitario_ofertado) || 0;
+            if (valor <= 0) return;
+
+            if (isDesclassificadoPorPreco(numeroItem, valor)) return;
+
+            const atual = melhoresPorItem.get(numeroItem);
+            if (!atual) {
+              melhoresPorItem.set(numeroItem, { fornecedorId, valor });
+              return;
+            }
+
+            const melhor = isDesconto ? valor > atual.valor : valor < atual.valor;
+            if (melhor) {
+              melhoresPorItem.set(numeroItem, { fornecedorId, valor });
+            }
+          });
+
+          melhoresPorItem.forEach((melhor, numeroItem) => {
+            vencedores.set(numeroItem, {
+              fornecedorId: melhor.fornecedorId,
+              razaoSocial: fornecedoresMapPropostas.get(melhor.fornecedorId) || "Fornecedor",
+              valorLance: melhor.valor,
+            });
+          });
+        }
+      }
+
+      console.log("🏆 Vencedores carregados (lances + proposta original):", Array.from(vencedores.entries()));
       setVencedoresPorItem(vencedores);
     } catch (error) {
       console.error("Erro ao carregar vencedores:", error);
