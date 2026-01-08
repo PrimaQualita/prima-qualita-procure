@@ -8,6 +8,15 @@ interface RegistroAuditoria {
 }
 
 /**
+ * Valida se uma string é um UUID válido
+ */
+function isValidUUID(str: string | undefined | null): boolean {
+  if (!str) return false;
+  const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+  return uuidRegex.test(str);
+}
+
+/**
  * Registra uma ação no log de auditoria
  * Esta função é segura e não bloqueia a operação principal em caso de erro
  */
@@ -36,6 +45,9 @@ export async function registrarAuditoria({
       }
     }
 
+    // Validar entidade_id - só passa se for UUID válido, senão passa null
+    const entidadeIdValido = isValidUUID(entidade_id) ? entidade_id : null;
+
     // Inserir log de auditoria
     const { error } = await supabase
       .from('audit_logs')
@@ -45,7 +57,7 @@ export async function registrarAuditoria({
         usuario_tipo: 'interno',
         acao,
         entidade,
-        entidade_id: entidade_id || null,
+        entidade_id: entidadeIdValido,
         detalhes,
       });
 
