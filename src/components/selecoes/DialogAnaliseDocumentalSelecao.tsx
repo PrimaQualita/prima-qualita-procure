@@ -420,7 +420,7 @@ export function DialogAnaliseDocumentalSelecao({
         }
       }
       
-      // Agrupar lances por item
+      // Agrupar lances por item/lote
       const lancePorItem = new Map<number, any[]>();
       (todosLancesData || []).forEach((lance: any) => {
         const item = lance.numero_item;
@@ -430,27 +430,131 @@ export function DialogAnaliseDocumentalSelecao({
         lancePorItem.get(item)!.push(lance);
       });
       
-      // Agrupar propostas por item (apenas itens que não têm lances)
-      const propostaPorItem = new Map<number, any[]>();
-      (propostasOriginais || []).forEach((proposta: any) => {
-        const item = proposta.numero_item;
-        // Só adicionar se não houver lances para este item
-        if (!lancePorItem.has(item)) {
-          if (!propostaPorItem.has(item)) {
-            propostaPorItem.set(item, []);
+      // Para critério por_lote: agrupar propostas por lote (somando valor_total_item de todos os itens do lote)
+      // Para critério global: agrupar propostas por fornecedor (Item 0 = soma total)
+      // Para outros critérios: agrupar por numero_item
+      const propostaPorChave = new Map<number, any[]>();
+      
+      if (isPorLote) {
+        // Agrupar propostas por numero do lote, somando valor total do lote por fornecedor
+        const propostaPorLoteFornecedor = new Map<string, { lote: number; fornecedor: any; fornecedorId: string; valorTotal: number }>();
+        
+        (propostasOriginais || []).forEach((proposta: any) => {
+          // Extrair numero_lote a partir do lote_id ou do numero_item
+          // No critério por_lote, o numero_item nos lances representa o numero_lote
+          const loteId = proposta.lote_id;
+          if (!loteId) return;
+          
+          const fornecedorId = (proposta.selecao_propostas_fornecedor as any)?.fornecedor_id;
+          const fornecedor = (proposta.selecao_propostas_fornecedor as any)?.fornecedores;
+          const valorItem = proposta.valor_total_item || 0;
+          
+          // Precisamos descobrir o numero_lote a partir do lote_id
+          // Por enquanto, vamos usar uma abordagem diferente: buscar lotes diretamente
+          const key = `${loteId}_${fornecedorId}`;
+          
+          if (!propostaPorLoteFornecedor.has(key)) {
+            propostaPorLoteFornecedor.set(key, {
+              lote: 0, // Será preenchido depois
+              fornecedor,
+              fornecedorId,
+              valorTotal: 0
+            });
           }
-          propostaPorItem.get(item)!.push(proposta);
+          propostaPorLoteFornecedor.get(key)!.valorTotal += valorItem;
+        });
+        
+        // Buscar lotes para mapear lote_id -> numero_lote
+        if (cotacaoId) {
+          const { data: lotesData } = await supabase
+            .from("lotes_cotacao")
+            .select("id, numero_lote")
+            .eq("cotacao_id", cotacaoId);
+          
+          const loteIdToNumero = new Map<string, number>();
+          (lotesData || []).forEach((l: any) => loteIdToNumero.set(l.id, l.numero_lote));
+          
+          // Reagrupar por numero_lote
+          propostaPorLoteFornecedor.forEach((dados, key) => {
+            const [loteId] = key.split('_');
+            const numeroLote = loteIdToNumero.get(loteId);
+            if (numeroLote !== undefined) {
+              dados.lote = numeroLote;
+              
+              // Só adicionar se não houver lances para este lote
+              if (!lancePorItem.has(numeroLote)) {
+                if (!propostaPorChave.has(numeroLote)) {
+                  propostaPorChave.set(numeroLote, []);
+                }
+                propostaPorChave.get(numeroLote)!.push({
+                  numero_item: numeroLote,
+                  valor_unitario: dados.valorTotal,
+                  selecao_propostas_fornecedor: {
+                    fornecedor_id: dados.fornecedorId,
+                    fornecedores: dados.fornecedor
+                  }
+                });
+              }
+            }
+          });
         }
-      });
+      } else if (selecaoData?.criterios_julgamento === 'global') {
+        // Para global: agrupar por fornecedor, somar todos os itens, usar como Item 0
+        const propostaPorFornecedor = new Map<string, { fornecedor: any; fornecedorId: string; valorTotal: number }>();
+        
+        (propostasOriginais || []).forEach((proposta: any) => {
+          const fornecedorId = (proposta.selecao_propostas_fornecedor as any)?.fornecedor_id;
+          const fornecedor = (proposta.selecao_propostas_fornecedor as any)?.fornecedores;
+          const valorItem = proposta.valor_total_item || 0;
+          
+          if (!propostaPorFornecedor.has(fornecedorId)) {
+            propostaPorFornecedor.set(fornecedorId, {
+              fornecedor,
+              fornecedorId,
+              valorTotal: 0
+            });
+          }
+          propostaPorFornecedor.get(fornecedorId)!.valorTotal += valorItem;
+        });
+        
+        // Se não houver lances para Item 0, adicionar propostas
+        if (!lancePorItem.has(0)) {
+          propostaPorFornecedor.forEach((dados) => {
+            if (!propostaPorChave.has(0)) {
+              propostaPorChave.set(0, []);
+            }
+            propostaPorChave.get(0)!.push({
+              numero_item: 0,
+              valor_unitario: dados.valorTotal,
+              selecao_propostas_fornecedor: {
+                fornecedor_id: dados.fornecedorId,
+                fornecedores: dados.fornecedor
+              }
+            });
+          });
+        }
+      } else {
+        // Critério por_item: agrupar por numero_item normalmente
+        (propostasOriginais || []).forEach((proposta: any) => {
+          const item = proposta.numero_item;
+          // Só adicionar se não houver lances para este item
+          if (!lancePorItem.has(item)) {
+            if (!propostaPorChave.has(item)) {
+              propostaPorChave.set(item, []);
+            }
+            propostaPorChave.get(item)!.push(proposta);
+          }
+        });
+      }
       
       // Para cada item, ordenar e pegar o vencedor
       const vencedoresData: any[] = [];
       
-      console.log(`🎯 [ANÁLISE DOC] Critério é desconto?`, isDesconto);
+      console.log(`🎯 [ANÁLISE DOC] Critério é desconto?`, isDesconto, `| isPorLote?`, isPorLote, `| isGlobal?`, selecaoData?.criterios_julgamento === 'global');
       
       // Processar itens com lances
       lancePorItem.forEach((lances, numeroItem) => {
-        console.log(`📊 [ANÁLISE DOC] Processando item ${numeroItem} com ${lances.length} lances`);
+        console.log(`📊 [ANÁLISE DOC] Processando ${isPorLote ? 'lote' : 'item'} ${numeroItem} com ${lances.length} lances`);
         
         // Ordenar: DESCRESCENTE para desconto (maior primeiro), ASCENDENTE para preço (menor primeiro)
         const lancesOrdenados = [...lances].sort((a, b) => {
@@ -468,20 +572,19 @@ export function DialogAnaliseDocumentalSelecao({
         vencedoresData.push(vencedor);
       });
       
-      // Processar itens SEM lances (mas com propostas classificadas)
-      propostaPorItem.forEach((propostas, numeroItem) => {
-        console.log(`📊 [ANÁLISE DOC] Processando item ${numeroItem} SEM LANCES - verificando propostas originais (${propostas.length})`);
+      // Processar itens/lotes SEM lances (mas com propostas classificadas)
+      propostaPorChave.forEach((propostas, numeroItem) => {
+        console.log(`📊 [ANÁLISE DOC] Processando ${isPorLote ? 'lote' : 'item'} ${numeroItem} SEM LANCES - verificando propostas originais (${propostas.length})`);
         
-        // Buscar estimativa para o item
+        // Buscar estimativa
         let estimativa = 0;
         if (isPorLote) {
-          // Para por_lote, buscar pela chave composta
-          const loteId = propostas[0]?.lote_id;
-          if (loteId) {
-            // Tentar buscar o numero_lote correspondente
-            const keyComposta = `${loteId}_${numeroItem}`;
-            estimativa = estimativasPorItem.get(keyComposta) as number || 0;
-          }
+          // Para por_lote, buscar estimativa do lote (subtotal)
+          estimativasPorItem.forEach((valor, key) => {
+            if (typeof key === 'string' && key.startsWith(`${numeroItem}_`)) {
+              estimativa += valor;
+            }
+          });
         } else {
           estimativa = estimativasPorItem.get(numeroItem) as number || 0;
         }
@@ -515,7 +618,7 @@ export function DialogAnaliseDocumentalSelecao({
             fornecedores: fornecedor
           });
         } else {
-          console.log(`⚠️ [ANÁLISE DOC] Item ${numeroItem}: Nenhuma proposta classificada encontrada`);
+          console.log(`⚠️ [ANÁLISE DOC] ${isPorLote ? 'Lote' : 'Item'} ${numeroItem}: Nenhuma proposta classificada encontrada`);
         }
       });
       
