@@ -1299,17 +1299,17 @@ const RespostaCotacao = () => {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead className="w-16">Item</TableHead>
-                  <TableHead>Descrição</TableHead>
-                  <TableHead className="text-center">Qtd</TableHead>
-                  <TableHead className="text-center">Unid.</TableHead>
-                  {processoCompra?.tipo === "material" && <TableHead className="text-center">Marca *</TableHead>}
+                  <TableHead className="w-14">Item</TableHead>
+                  <TableHead className="w-[30%]">Descrição</TableHead>
+                  <TableHead className="text-center w-16">Qtd</TableHead>
+                  <TableHead className="text-center w-14">Unid.</TableHead>
+                  {processoCompra?.tipo === "material" && <TableHead className="text-center w-[150px]">Marca *</TableHead>}
                   {processoCompra?.criterio_julgamento === "desconto" ? (
-                    <TableHead className="text-center">Percentual de Desconto Ofertado (%) *</TableHead>
+                    <TableHead className="text-center w-[160px]">Percentual de Desconto Ofertado (%) *</TableHead>
                   ) : (
                     <>
-                      <TableHead className="text-center">Valor Unitário (R$) *</TableHead>
-                      <TableHead className="text-right">Valor Total</TableHead>
+                      <TableHead className="text-center w-[140px]">Valor Unitário (R$) *</TableHead>
+                      <TableHead className="text-right w-[120px]">Valor Total</TableHead>
                     </>
                   )}
                 </TableRow>
