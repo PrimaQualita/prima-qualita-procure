@@ -188,13 +188,16 @@ export const gerarRequisicaoPDF = async (dados: DadosRequisicao): Promise<Blob> 
   doc.text(linhasParagrafo2, 20, yPos, { align: 'justify', maxWidth: 170 });
   yPos += linhasParagrafo2.length * 5 + 15;
 
-  // Local e data
+  // Local e data - usar "Rio Bonito" para contratos especiais
   const dataAtual = new Date().toLocaleDateString('pt-BR', {
     day: '2-digit',
     month: 'long',
     year: 'numeric'
   });
-  doc.text(`${enteFederativoFormatado}, ${dataAtual}`, pageWidth / 2, yPos, { align: 'center' });
+  const localDocumento = (nomeContratoNormalizado === 'rateio de despesas de gestão' || nomeContratoNormalizado === 'processos unificados') 
+    ? 'Rio Bonito' 
+    : enteFederativoFormatado;
+  doc.text(`${localDocumento}, ${dataAtual}`, pageWidth / 2, yPos, { align: 'center' });
 
   // Posicionar certificação acima do rodapé (rodapeHeight já definido = 25)
   const alturaCertificacao = 45; // altura aproximada da certificação
