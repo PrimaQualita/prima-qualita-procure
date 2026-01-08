@@ -180,43 +180,102 @@ const PropostaRealinhada = () => {
           .eq("selecao_id", selecaoId)
           .order("data_hora_lance", { ascending: false });
 
-        // Identificar vencedores dinamicamente
-        const vencedoresPorItem = new Map<number, any>();
-        todosLances?.forEach((lance: any) => {
-          const key = lance.numero_item;
-          if (!vencedoresPorItem.has(key)) {
-            vencedoresPorItem.set(key, lance);
-          } else {
-            const atual = vencedoresPorItem.get(key);
-            if (criterio === "desconto") {
-              if (lance.valor_lance > atual.valor_lance) {
-                vencedoresPorItem.set(key, lance);
-              }
+        // Se há lances, identificar vencedores dinamicamente
+        if (todosLances && todosLances.length > 0) {
+          const vencedoresPorItem = new Map<number, any>();
+          todosLances.forEach((lance: any) => {
+            const key = lance.numero_item;
+            if (!vencedoresPorItem.has(key)) {
+              vencedoresPorItem.set(key, lance);
             } else {
-              if (lance.valor_lance < atual.valor_lance) {
-                vencedoresPorItem.set(key, lance);
+              const atual = vencedoresPorItem.get(key);
+              if (criterio === "desconto" || criterio === "maior_percentual_desconto") {
+                if (lance.valor_lance > atual.valor_lance) {
+                  vencedoresPorItem.set(key, lance);
+                }
+              } else {
+                if (lance.valor_lance < atual.valor_lance) {
+                  vencedoresPorItem.set(key, lance);
+                }
               }
             }
+          });
+
+          // Filtrar apenas os que o fornecedor ganhou
+          const meusLancesVencedores: any[] = [];
+          vencedoresPorItem.forEach((lance) => {
+            if (lance.fornecedor_id === fornecedorId) {
+              meusLancesVencedores.push(lance);
+            }
+          });
+
+          // Remover itens/lotes inabilitados
+          const lancesValidos = filtrarInabilitados(meusLancesVencedores);
+
+          if (lancesValidos.length === 0) {
+            toast.error("Você não tem itens vencedores nesta seleção");
+            return;
           }
-        });
 
-        // Filtrar apenas os que o fornecedor ganhou
-        const meusLancesVencedores: any[] = [];
-        vencedoresPorItem.forEach((lance) => {
-          if (lance.fornecedor_id === fornecedorId) {
-            meusLancesVencedores.push(lance);
+          await processarItensVencedores(selecaoId, lancesValidos, criterio, fornecedorData);
+        } else {
+          // SEM LANCES: Identificar vencedor pela proposta original (menor valor_total_proposta)
+          console.log("📄 Sem lances registrados, identificando vencedor pelas propostas originais");
+          
+          const { data: todasPropostas } = await supabase
+            .from("selecao_propostas_fornecedor")
+            .select("id, fornecedor_id, valor_total_proposta")
+            .eq("selecao_id", selecaoId);
+
+          if (!todasPropostas || todasPropostas.length === 0) {
+            toast.error("Nenhuma proposta encontrada para esta seleção");
+            return;
           }
-        });
 
-        // Remover itens/lotes inabilitados
-        const lancesValidos = filtrarInabilitados(meusLancesVencedores);
+          // Filtrar propostas de fornecedores não inabilitados globalmente
+          const { data: inabilitadosGlobais } = await supabase
+            .from("fornecedores_inabilitados_selecao")
+            .select("fornecedor_id, itens_afetados")
+            .eq("selecao_id", selecaoId)
+            .eq("revertido", false);
 
-        if (lancesValidos.length === 0) {
-          toast.error("Você não tem itens vencedores nesta seleção");
-          return;
+          const fornecedoresInabilitadosGlobalmente = new Set<string>();
+          inabilitadosGlobais?.forEach((inab: any) => {
+            // Inabilitação global = itens_afetados vazio ou null
+            if (!inab.itens_afetados || inab.itens_afetados.length === 0) {
+              fornecedoresInabilitadosGlobalmente.add(inab.fornecedor_id);
+            }
+          });
+
+          const propostasValidas = todasPropostas.filter(
+            (p: any) => !fornecedoresInabilitadosGlobalmente.has(p.fornecedor_id)
+          );
+
+          if (propostasValidas.length === 0) {
+            toast.error("Não há propostas válidas (todos os fornecedores foram inabilitados)");
+            return;
+          }
+
+          // Ordenar por valor: desconto = maior vence, preço = menor vence
+          const ehDesconto = criterio === "desconto" || criterio === "maior_percentual_desconto";
+          propostasValidas.sort((a: any, b: any) => {
+            if (ehDesconto) {
+              return (b.valor_total_proposta || 0) - (a.valor_total_proposta || 0);
+            }
+            return (a.valor_total_proposta || 0) - (b.valor_total_proposta || 0);
+          });
+
+          const propostaVencedora = propostasValidas[0];
+
+          // Verificar se este fornecedor é o vencedor
+          if (propostaVencedora.fornecedor_id !== fornecedorId) {
+            toast.error("Você não é o vencedor desta seleção");
+            return;
+          }
+
+          // Carregar itens da proposta vencedora para mostrar na tela
+          await processarItensVencedoresSemLances(selecaoId, fornecedorId, criterio, fornecedorData, propostaVencedora);
         }
-
-        await processarItensVencedores(selecaoId, lancesValidos, criterio, fornecedorData);
       } else {
         // Remover itens/lotes inabilitados
         const lancesValidos = filtrarInabilitados(lancesVencedores);
@@ -534,6 +593,183 @@ const PropostaRealinhada = () => {
     });
 
     setRespostas(respostasIniciais);
+  };
+
+  // Nova função para processar itens quando não há lances (vencedor pela proposta original)
+  const processarItensVencedoresSemLances = async (
+    selecaoId: string,
+    fornecedorId: string,
+    criterio: string,
+    fornecedorData: any,
+    propostaVencedora: any
+  ) => {
+    try {
+      console.log("📄 processarItensVencedoresSemLances iniciado", { selecaoId, fornecedorId, criterio });
+      
+      // Buscar a cotação relacionada para obter descrições dos itens
+      const { data: selecaoData } = await supabase
+        .from("selecoes_fornecedores")
+        .select("cotacao_relacionada_id")
+        .eq("id", selecaoId)
+        .single();
+
+      if (!selecaoData?.cotacao_relacionada_id) {
+        toast.error("Cotação relacionada não encontrada");
+        return;
+      }
+
+      const { data: itensCotacao } = await supabase
+        .from("itens_cotacao")
+        .select("*, lotes_cotacao(numero_lote, descricao_lote)")
+        .eq("cotacao_id", selecaoData.cotacao_relacionada_id);
+
+      if (!itensCotacao) {
+        toast.error("Itens da cotação não encontrados");
+        return;
+      }
+
+      // Buscar proposta do fornecedor para esta seleção
+      const { data: propostaFornecedor } = await supabase
+        .from("selecao_propostas_fornecedor")
+        .select("id, valor_total_proposta")
+        .eq("selecao_id", selecaoId)
+        .eq("fornecedor_id", fornecedorId)
+        .maybeSingle();
+
+      if (!propostaFornecedor) {
+        toast.error("Proposta do fornecedor não encontrada");
+        return;
+      }
+
+      // Buscar itens da proposta original do fornecedor
+      const { data: itensPropostaOriginal } = await supabase
+        .from("selecao_respostas_itens_fornecedor")
+        .select("numero_item, lote_id, marca, descricao, valor_unitario_ofertado, valor_total_item, quantidade, unidade")
+        .eq("proposta_id", propostaFornecedor.id);
+
+      if (!itensPropostaOriginal || itensPropostaOriginal.length === 0) {
+        toast.error("Itens da proposta original não encontrados");
+        return;
+      }
+
+      const itensProcessados: ItemVencedor[] = [];
+      const lotesMap = new Map<number, number>();
+      let totalGanho = 0;
+
+      if (criterio === "por_lote") {
+        // Agrupar por lote usando os itens da proposta original
+        const lotesPorNumero = new Map<number, { itens: any[], valorTotal: number }>();
+
+        for (const itemProposta of itensPropostaOriginal) {
+          // Encontrar item correspondente na cotação para obter numero_lote
+          const itemCotacao = itensCotacao.find((ic: any) => 
+            ic.lote_id === itemProposta.lote_id && ic.numero_item === itemProposta.numero_item
+          ) || itensCotacao.find((ic: any) => ic.numero_item === itemProposta.numero_item);
+          
+          const numeroLote = itemCotacao?.lotes_cotacao?.numero_lote || 0;
+          if (numeroLote === 0) continue;
+
+          if (!lotesPorNumero.has(numeroLote)) {
+            lotesPorNumero.set(numeroLote, { itens: [], valorTotal: 0 });
+          }
+          const loteInfo = lotesPorNumero.get(numeroLote)!;
+          loteInfo.itens.push(itemProposta);
+          loteInfo.valorTotal += Number(itemProposta.valor_total_item || 0);
+        }
+
+        lotesPorNumero.forEach((loteInfo, numeroLote) => {
+          lotesMap.set(numeroLote, loteInfo.valorTotal);
+          totalGanho += loteInfo.valorTotal;
+
+          loteInfo.itens.forEach((itemProposta: any) => {
+            itensProcessados.push({
+              numero_item: itemProposta.numero_item,
+              numero_lote: numeroLote,
+              lote_id: itemProposta.lote_id || null,
+              descricao: itemProposta.descricao,
+              quantidade: Number(itemProposta.quantidade),
+              unidade: itemProposta.unidade || "",
+              valor_total_ganho: loteInfo.valorTotal,
+              marca: itemProposta.marca || "",
+              valor_unitario_proposta_original: Number(itemProposta.valor_unitario_ofertado || 0),
+            });
+          });
+        });
+
+        setLotesGanhos(lotesMap);
+      } else if (criterio === "global") {
+        // Global: todos os itens com valor total da proposta
+        totalGanho = Number(propostaFornecedor.valor_total_proposta || 0);
+
+        for (const itemProposta of itensPropostaOriginal) {
+          itensProcessados.push({
+            numero_item: itemProposta.numero_item,
+            descricao: itemProposta.descricao,
+            quantidade: Number(itemProposta.quantidade),
+            unidade: itemProposta.unidade || "",
+            valor_total_ganho: totalGanho,
+            marca: itemProposta.marca || "",
+            valor_unitario_proposta_original: Number(itemProposta.valor_unitario_ofertado || 0),
+          });
+        }
+      } else {
+        // Por item ou desconto - usar valores da proposta original
+        for (const itemProposta of itensPropostaOriginal) {
+          const itemCotacao = itensCotacao.find((ic: any) => ic.numero_item === itemProposta.numero_item);
+          const valorUnitario = Number(itemProposta.valor_unitario_ofertado || 0);
+          const quantidade = Number(itemProposta.quantidade || itemCotacao?.quantidade || 1);
+          const valorTotal = valorUnitario * quantidade;
+          totalGanho += valorTotal;
+
+          itensProcessados.push({
+            numero_item: itemProposta.numero_item,
+            numero_lote: itemCotacao?.lotes_cotacao?.numero_lote,
+            lote_id: itemProposta.lote_id || null,
+            descricao: itemProposta.descricao || itemCotacao?.descricao || "",
+            quantidade: quantidade,
+            unidade: itemProposta.unidade || itemCotacao?.unidade || "",
+            valor_total_ganho: valorTotal,
+            marca: itemProposta.marca || "",
+            valor_unitario_lance: valorUnitario, // Usar valor da proposta como "lance" 
+            valor_unitario_proposta_original: valorUnitario,
+          });
+        }
+      }
+
+      // Ordenar itens por numero_item
+      itensProcessados.sort((a, b) => a.numero_item - b.numero_item);
+
+      setItensVencedores(itensProcessados);
+      setValorTotalGanho(totalGanho);
+
+      // Inicializar respostas baseado no critério
+      const respostasIniciais: RespostaItem = {};
+      const preencherValoresAutomaticamente = criterio === "por_item" || criterio === "desconto" || criterio === "maior_percentual_desconto";
+
+      itensProcessados.forEach((item) => {
+        const key = buildRespostaKey(criterio, item);
+
+        if (preencherValoresAutomaticamente && item.valor_unitario_proposta_original) {
+          respostasIniciais[key] = {
+            valor_unitario: item.valor_unitario_proposta_original,
+            marca: item.marca || "",
+            valor_display: item.valor_unitario_proposta_original.toFixed(2).replace(".", ","),
+          };
+        } else {
+          respostasIniciais[key] = {
+            valor_unitario: 0,
+            marca: item.marca || "",
+            valor_display: "",
+          };
+        }
+      });
+
+      setRespostas(respostasIniciais);
+      console.log("✅ processarItensVencedoresSemLances concluído", { itensProcessados: itensProcessados.length, totalGanho });
+    } catch (error) {
+      console.error("Erro ao processar itens vencedores sem lances:", error);
+      toast.error("Erro ao carregar itens da proposta");
+    }
   };
 
   const handleValorChange = (item: ItemVencedor, valor: string) => {
