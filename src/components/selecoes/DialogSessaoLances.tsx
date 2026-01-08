@@ -2826,24 +2826,45 @@ export function DialogSessaoLances({
       if (criterioJulgamento !== "desconto") {
         const totaisPorFornecedor: Record<string, { nome: string; total: number }> = {};
         
-        // Usar elementos preparados (lotes ou itens)
+        // Usar elementos preparados (lotes ou itens) - aplicar mesma lógica de FRACASSADO/DESERTO
         elementosParaIterar.forEach(elemento => {
           const vencedor = getVencedorItem(elemento.numero);
-          if (vencedor && vencedor.fornecedores?.razao_social) {
-            const fornecedorId = vencedor.fornecedor_id;
+          
+          // Verificar se houve proposta ENVIADA e CLASSIFICADA (mesma lógica do resumoData)
+          const tevePropostaEnviada = elemento.isLote 
+            ? lotesComPropostaEnviada.has(elemento.numero)
+            : itensComPropostaEnviada.has(elemento.numero);
+          const tevePropostaClassificada = elemento.isLote
+            ? lotesComPropostaClassificada.has(elemento.numero)
+            : itensComPropostaClassificada.has(elemento.numero);
+          const todosDesclassificados = todosLancesDesclassificadosPorPreco(elemento.numero);
+          
+          // Aplicar mesma lógica do mapa superior - se é FRACASSADO/DESERTO, não conta
+          let vencedorEfetivo = vencedor;
+          if (elemento.isLote && tevePropostaEnviada && !tevePropostaClassificada) {
+            vencedorEfetivo = null;
+          } else if (!vencedor) {
+            vencedorEfetivo = null;
+          } else if (todosDesclassificados && !tevePropostaClassificada) {
+            vencedorEfetivo = null;
+          }
+          
+          // Somente contabilizar se há vencedor efetivo
+          if (vencedorEfetivo && vencedorEfetivo.fornecedores?.razao_social) {
+            const fornecedorId = vencedorEfetivo.fornecedor_id;
             
             // Para lote, o valor do lance já é o total; para item, multiplicar pela quantidade
             let valorTotal: number;
             if (elemento.isLote) {
-              valorTotal = vencedor.valor_lance; // Lance do lote já é o valor total
+              valorTotal = vencedorEfetivo.valor_lance; // Lance do lote já é o valor total
             } else {
               const quantidade = elemento.quantidade || 1;
-              valorTotal = vencedor.valor_lance * quantidade;
+              valorTotal = vencedorEfetivo.valor_lance * quantidade;
             }
             
             if (!totaisPorFornecedor[fornecedorId]) {
               totaisPorFornecedor[fornecedorId] = {
-                nome: vencedor.fornecedores.razao_social,
+                nome: vencedorEfetivo.fornecedores.razao_social,
                 total: 0
               };
             }
