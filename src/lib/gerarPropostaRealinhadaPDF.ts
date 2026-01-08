@@ -683,6 +683,8 @@ export const gerarPropostaRealinhadaPDF = async (
   }
 
   // Declarações obrigatórias (igual às propostas de seleção e cotação)
+  finalY += 8; // Espaço adicional após o valor por extenso
+  
   const larguraDeclaracao = pageWidth - margin * 2;
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(10);
