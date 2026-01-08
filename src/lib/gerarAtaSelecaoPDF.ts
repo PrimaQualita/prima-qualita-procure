@@ -293,13 +293,139 @@ export async function gerarAtaSelecaoPDF(selecaoId: string): Promise<{ url: stri
     }
   });
 
-  // Identificar vencedores: primeiro lance de cada item
+  // Identificar vencedores: primeiro lance de cada item (pelos lances)
   const vencedoresPorItem = new Map<number, any>();
   lancesOrdenados.forEach(lance => {
     if (!vencedoresPorItem.has(lance.numero_item || 0)) {
       vencedoresPorItem.set(lance.numero_item || 0, lance);
     }
   });
+
+  // FALLBACK: Para itens/lotes SEM LANCES, buscar vencedor pela PROPOSTA ORIGINAL classificada
+  // Buscar propostas com valores para identificar vencedores por proposta
+  const { data: propostasComValores } = await supabase
+    .from('selecao_respostas_itens_fornecedor')
+    .select(`
+      numero_item,
+      lote_id,
+      valor_unitario_ofertado,
+      valor_total_item,
+      desclassificado,
+      proposta_id,
+      selecao_propostas_fornecedor!inner (
+        id,
+        fornecedor_id,
+        fornecedores (
+          razao_social,
+          cnpj
+        )
+      )
+    `)
+    .eq('selecao_propostas_fornecedor.selecao_id', selecaoId);
+
+  // Buscar lotes para mapeamento lote_id -> numero_lote
+  let loteIdToNumeroGlobal = new Map<string, number>();
+  if (criterioJulgamento === 'por_lote' && selecao.cotacao_relacionada_id) {
+    const { data: lotesData } = await supabase
+      .from('lotes_cotacao')
+      .select('id, numero_lote')
+      .eq('cotacao_id', selecao.cotacao_relacionada_id);
+    if (lotesData) {
+      loteIdToNumeroGlobal = new Map(lotesData.map(l => [l.id, l.numero_lote]));
+    }
+  }
+
+  // Identificar vencedores por proposta para itens/lotes sem lances
+  if (propostasComValores) {
+    if (criterioJulgamento === 'por_lote') {
+      // Para critério por lote: calcular total por lote e identificar menor/maior
+      const totalPorLoteFornecedor = new Map<number, Map<string, { total: number; fornecedor: any }>>();
+
+      propostasComValores.forEach((ip: any) => {
+        const numeroLote = ip.lote_id ? loteIdToNumeroGlobal.get(ip.lote_id) : undefined;
+        if (!numeroLote) return;
+        if (ip.desclassificado) return;
+
+        const fornecedorId = ip.selecao_propostas_fornecedor?.fornecedor_id;
+        if (!fornecedorId) return;
+
+        // Verificar inabilitação granular para o lote
+        const itensInabilitados = inabilitacoesPorFornecedor.get(fornecedorId);
+        if (itensInabilitados && itensInabilitados.includes(numeroLote)) return;
+
+        const totalItem = Number(ip.valor_total_item) || 0;
+        if (totalItem <= 0) return;
+
+        const mapFornecedor = totalPorLoteFornecedor.get(numeroLote) || new Map();
+        const atual = mapFornecedor.get(fornecedorId) || { total: 0, fornecedor: ip.selecao_propostas_fornecedor };
+        mapFornecedor.set(fornecedorId, { 
+          total: atual.total + totalItem, 
+          fornecedor: ip.selecao_propostas_fornecedor 
+        });
+        totalPorLoteFornecedor.set(numeroLote, mapFornecedor);
+      });
+
+      // Para cada lote sem vencedor por lance, identificar vencedor por proposta
+      totalPorLoteFornecedor.forEach((totais, numeroLote) => {
+        if (vencedoresPorItem.has(numeroLote)) return; // Já tem vencedor por lance
+
+        const entries = Array.from(totais.entries());
+        if (entries.length === 0) return;
+
+        entries.sort((a, b) => isDesconto ? b[1].total - a[1].total : a[1].total - b[1].total);
+        const [vencedorId, vencedorData] = entries[0];
+
+        vencedoresPorItem.set(numeroLote, {
+          numero_item: numeroLote,
+          valor_lance: vencedorData.total,
+          fornecedor_id: vencedorId,
+          tipo_lance: 'proposta_original',
+          fornecedores: vencedorData.fornecedor?.fornecedores || {}
+        });
+      });
+    } else {
+      // Para critério por item / global / desconto
+      const melhoresPorItem = new Map<number, { fornecedorId: string; valor: number; fornecedor: any }>();
+
+      propostasComValores.forEach((ip: any) => {
+        const numeroItem = ip.numero_item;
+        if (vencedoresPorItem.has(numeroItem)) return; // Já tem vencedor por lance
+        if (ip.desclassificado) return;
+
+        const fornecedorId = ip.selecao_propostas_fornecedor?.fornecedor_id;
+        if (!fornecedorId) return;
+
+        // Verificar inabilitação granular para o item
+        const itensInabilitados = inabilitacoesPorFornecedor.get(fornecedorId);
+        if (itensInabilitados && itensInabilitados.includes(numeroItem)) return;
+
+        const valor = Number(ip.valor_unitario_ofertado) || 0;
+        if (valor <= 0) return;
+
+        const atual = melhoresPorItem.get(numeroItem);
+        if (!atual) {
+          melhoresPorItem.set(numeroItem, { fornecedorId, valor, fornecedor: ip.selecao_propostas_fornecedor });
+          return;
+        }
+
+        const melhor = isDesconto ? valor > atual.valor : valor < atual.valor;
+        if (melhor) {
+          melhoresPorItem.set(numeroItem, { fornecedorId, valor, fornecedor: ip.selecao_propostas_fornecedor });
+        }
+      });
+
+      // Adicionar vencedores por proposta ao mapa
+      melhoresPorItem.forEach((melhor, numeroItem) => {
+        vencedoresPorItem.set(numeroItem, {
+          numero_item: numeroItem,
+          valor_lance: melhor.valor,
+          fornecedor_id: melhor.fornecedorId,
+          tipo_lance: 'proposta_original',
+          fornecedores: melhor.fornecedor?.fornecedores || {}
+        });
+      });
+    }
+  }
 
   const lancesVencedores = Array.from(vencedoresPorItem.values());
 
