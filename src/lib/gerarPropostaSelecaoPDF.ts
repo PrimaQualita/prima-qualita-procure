@@ -866,8 +866,18 @@ export async function gerarPropostaSelecaoPDF(
 
     // Valor Total - apenas para critérios que não são desconto
     if (!isDesconto) {
+      // Calcular valor por extenso primeiro para determinar altura do quadro
+      const extenso = valorPorExtenso(valorTotal).toUpperCase();
+      const extensoTexto = `(${extenso})`;
+      
+      doc.setFontSize(9);
+      doc.setFont('helvetica', 'normal');
+      const extensoLines = doc.splitTextToSize(extensoTexto, larguraUtil - 10);
+      const alturaExtenso = extensoLines.length * 4;
+      const alturaQuadro = 8 + alturaExtenso + 4;
+      
       doc.setFillColor(240, 240, 240);
-      doc.rect(margemEsquerda, y, larguraUtil, 8, 'F');
+      doc.rect(margemEsquerda, y, larguraUtil, alturaQuadro, 'F');
       
       doc.setFont('helvetica', 'bold');
       doc.setFontSize(11);
@@ -876,32 +886,16 @@ export async function gerarPropostaSelecaoPDF(
       const valorWidth = doc.getTextWidth(valorTexto);
       doc.text(valorTexto, margemEsquerda + larguraUtil - valorWidth - 2, y + 5);
       
-      y += 10;
-      
-      // Valor por extenso em quadro
-      const extenso = valorPorExtenso(valorTotal).toUpperCase();
-      const extensoTexto = `(${extenso})`;
-      
-      // Calcular altura do quadro baseado no texto
+      // Valor por extenso justificado abaixo
       doc.setFontSize(9);
       doc.setFont('helvetica', 'normal');
-      const extensoLines = doc.splitTextToSize(extensoTexto, larguraUtil - 10);
-      const alturaQuadroExtenso = extensoLines.length * 4 + 6;
-      
-      // Desenhar quadro
-      doc.setDrawColor(30, 159, 204);
-      doc.setLineWidth(0.5);
-      doc.rect(margemEsquerda, y, larguraUtil, alturaQuadroExtenso, 'S');
-      
-      // Renderizar texto justificado
       doc.setTextColor(0, 0, 0);
-      let yExtenso = y + 4;
+      let yExtenso = y + 10;
       extensoLines.forEach((linha: string, index: number) => {
         const isUltimaLinha = index === extensoLines.length - 1;
         const palavras = linha.trim().split(/\s+/).filter((p: string) => p.length > 0);
         
         if (!isUltimaLinha && palavras.length > 1) {
-          // Justificar
           let larguraPalavras = 0;
           palavras.forEach((palavra: string) => {
             larguraPalavras += doc.getTextWidth(palavra);
@@ -909,7 +903,7 @@ export async function gerarPropostaSelecaoPDF(
           const espacoDisponivel = (larguraUtil - 10) - larguraPalavras;
           const espacoEntrePalavras = espacoDisponivel / (palavras.length - 1);
           
-          let xAtual = margemEsquerda + 5;
+          let xAtual = margemEsquerda + 2;
           palavras.forEach((palavra: string, idx: number) => {
             doc.text(palavra, xAtual, yExtenso);
             if (idx < palavras.length - 1) {
@@ -917,12 +911,12 @@ export async function gerarPropostaSelecaoPDF(
             }
           });
         } else {
-          doc.text(linha.trim(), margemEsquerda + 5, yExtenso);
+          doc.text(linha.trim(), margemEsquerda + 2, yExtenso);
         }
         yExtenso += 4;
       });
       
-      y += alturaQuadroExtenso + 5;
+      y += alturaQuadro + 5;
     }
     } // Fim do else (outros critérios)
 

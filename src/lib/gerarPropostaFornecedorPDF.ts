@@ -517,8 +517,18 @@ export async function gerarPropostaFornecedorPDF(
 
     // Valor total com destaque (APENAS quando não for desconto)
     if (!ehDesconto) {
+      // Calcular valor por extenso primeiro para determinar altura do quadro
+      const extenso = valorPorExtenso(valorTotal).toUpperCase();
+      const extensoTexto = `(${extenso})`;
+      
+      doc.setFontSize(9);
+      doc.setFont('helvetica', 'normal');
+      const extensoLines = doc.splitTextToSize(extensoTexto, 170);
+      const alturaExtenso = extensoLines.length * 4;
+      const alturaQuadro = 12 + alturaExtenso + 4;
+      
       doc.setFillColor(corPrimaria[0], corPrimaria[1], corPrimaria[2]);
-      doc.rect(120, y - 6, 75, 12, 'F');
+      doc.rect(15, y - 6, 180, alturaQuadro, 'F');
       
       doc.setTextColor(255, 255, 255);
       doc.setFont('helvetica', 'bold');
@@ -527,33 +537,15 @@ export async function gerarPropostaFornecedorPDF(
       const valorTotalFormatted = valorTotal.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
       doc.text(`VALOR TOTAL: ${valorTotalFormatted}`, 193, y, { align: 'right' });
       
-      doc.setTextColor(corTexto[0], corTexto[1], corTexto[2]);
-      y += 10;
-      
-      // Valor por extenso em quadro
-      const extenso = valorPorExtenso(valorTotal).toUpperCase();
-      const extensoTexto = `(${extenso})`;
-      
-      // Calcular altura do quadro baseado no texto
+      // Valor por extenso justificado abaixo
       doc.setFontSize(9);
       doc.setFont('helvetica', 'normal');
-      const extensoLines = doc.splitTextToSize(extensoTexto, 170);
-      const alturaQuadroExtenso = extensoLines.length * 4 + 6;
-      
-      // Desenhar quadro
-      doc.setDrawColor(corPrimaria[0], corPrimaria[1], corPrimaria[2]);
-      doc.setLineWidth(0.5);
-      doc.rect(15, y, 180, alturaQuadroExtenso, 'S');
-      
-      // Renderizar texto justificado
-      doc.setTextColor(corTexto[0], corTexto[1], corTexto[2]);
-      let yExtenso = y + 4;
+      let yExtenso = y + 6;
       extensoLines.forEach((linha: string, index: number) => {
         const isUltimaLinha = index === extensoLines.length - 1;
         const palavras = linha.trim().split(/\s+/).filter((p: string) => p.length > 0);
         
         if (!isUltimaLinha && palavras.length > 1) {
-          // Justificar
           let larguraPalavras = 0;
           palavras.forEach((palavra: string) => {
             larguraPalavras += doc.getTextWidth(palavra);
@@ -574,7 +566,8 @@ export async function gerarPropostaFornecedorPDF(
         yExtenso += 4;
       });
       
-      y += alturaQuadroExtenso + 8;
+      doc.setTextColor(corTexto[0], corTexto[1], corTexto[2]);
+      y += alturaQuadro + 8;
     }
 
     // Observações
