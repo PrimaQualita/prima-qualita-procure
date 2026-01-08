@@ -2448,12 +2448,13 @@ export function DialogSessaoLances({
       // Buscar dados da seleção e processo para títulos
       const { data: selecaoData } = await supabase
         .from("selecoes_fornecedores")
-        .select("numero_selecao, processo_compra_id, processos_compras(numero_processo_interno)")
+        .select("numero_selecao, processo_compra_id, cotacao_relacionada_id, processos_compras(numero_processo_interno)")
         .eq("id", selecaoId)
         .single();
 
       const numeroSelecao = selecaoData?.numero_selecao || "-";
       const numeroProcesso = (selecaoData?.processos_compras as any)?.numero_processo_interno || "-";
+      const cotacaoRelacionadaId = selecaoData?.cotacao_relacionada_id || "";
 
       // Título principal - verde do logo
       doc.setTextColor(0, 128, 128);
@@ -2475,20 +2476,46 @@ export function DialogSessaoLances({
         if (vencedor) vencedoresIds.add(vencedor.fornecedor_id);
       });
 
-      // Buscar itens das propostas para obter marcas
-      let marcasPorItemFornecedor: Record<string, string> = {};
-      if (vencedoresIds.size > 0) {
-        const { data: itensPropostas } = await supabase
-          .from("selecao_respostas_itens_fornecedor")
-          .select("numero_item, marca, proposta_id, selecao_propostas_fornecedor!inner(fornecedor_id)")
-          .eq("selecao_propostas_fornecedor.selecao_id", selecaoId);
+      // Buscar TODAS as propostas para determinar marcas e quais itens receberam proposta
+      const { data: todasPropostasItens } = await supabase
+        .from("selecao_respostas_itens_fornecedor")
+        .select("numero_item, lote_id, marca, valor_unitario_ofertado, desclassificado, proposta_id, selecao_propostas_fornecedor!inner(fornecedor_id)")
+        .eq("selecao_propostas_fornecedor.selecao_id", selecaoId);
 
-        if (itensPropostas) {
-          itensPropostas.forEach((ip: any) => {
-            const key = `${ip.numero_item}-${ip.selecao_propostas_fornecedor?.fornecedor_id}`;
-            marcasPorItemFornecedor[key] = ip.marca || "-";
-          });
+      // Criar mapa de marcas por item/fornecedor
+      let marcasPorItemFornecedor: Record<string, string> = {};
+      // Criar Set de itens que receberam proposta (com valor > 0 e não desclassificado)
+      const itensComProposta = new Set<number>();
+      const lotesComProposta = new Set<number>();
+
+      if (todasPropostasItens) {
+        // Buscar lotes para mapeamento lote_id -> numero_lote (se por_lote)
+        let loteIdToNumero = new Map<string, number>();
+        if (isPorLoteLocal) {
+          const { data: lotesCotacao } = await supabase
+            .from("lotes_cotacao")
+            .select("id, numero_lote")
+            .eq("cotacao_id", cotacaoRelacionadaId || "");
+          if (lotesCotacao) {
+            loteIdToNumero = new Map(lotesCotacao.map(l => [l.id, l.numero_lote]));
+          }
         }
+
+        todasPropostasItens.forEach((ip: any) => {
+          const key = `${ip.numero_item}-${ip.selecao_propostas_fornecedor?.fornecedor_id}`;
+          marcasPorItemFornecedor[key] = ip.marca || "-";
+          
+          // Verificar se é proposta válida (valor > 0 e não desclassificado)
+          const valorOfertado = Number(ip.valor_unitario_ofertado) || 0;
+          if (valorOfertado > 0 && !ip.desclassificado) {
+            itensComProposta.add(ip.numero_item);
+            // Para lotes, adicionar o número do lote
+            if (isPorLoteLocal && ip.lote_id) {
+              const numeroLote = loteIdToNumero.get(ip.lote_id);
+              if (numeroLote) lotesComProposta.add(numeroLote);
+            }
+          }
+        });
       }
 
       let valorTotalGeral = 0;
@@ -2536,20 +2563,25 @@ export function DialogSessaoLances({
           : elemento.descricao;
         
         // Determinar status quando não há vencedor:
-        // DESERTO = nenhum lance foi recebido para o item/lote
-        // FRACASSADO = houve lances, mas todos os fornecedores foram inabilitados OU desclassificados por preço
+        // DESERTO = nenhuma proposta classificada foi recebida para o item/lote
+        // FRACASSADO = houve proposta(s), mas todas foram desclassificadas (preço > estimado) ou inabilitadas
         let statusSemVencedor = "DESERTO";
         let vencedorEfetivo = vencedor;
+        
+        // Verificar se houve proposta para este item/lote
+        const teveProposta = elemento.isLote 
+          ? lotesComProposta.has(elemento.numero)
+          : itensComProposta.has(elemento.numero);
         
         // Verificar se todos os lances estão desclassificados por preço
         const todosDesclassificados = todosLancesDesclassificadosPorPreco(elemento.numero);
         
         if (!vencedor) {
-          const lancesDoElemento = getLancesCompletosDoItem(elemento.numero);
-          if (lancesDoElemento.length > 0) {
-            // Houve lances - verificar se é por inabilitação ou desclassificação por preço
+          // Se houve proposta mas não há vencedor, é FRACASSADO (todos desclassificados/inabilitados)
+          if (teveProposta) {
             statusSemVencedor = "FRACASSADO";
           }
+          // Se não houve proposta, permanece DESERTO
         } else if (todosDesclassificados) {
           // Há um vencedor potencial, mas todos os lances excedem o valor estimado
           vencedorEfetivo = null;
