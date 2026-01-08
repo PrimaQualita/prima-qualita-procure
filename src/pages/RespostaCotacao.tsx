@@ -75,6 +75,7 @@ const dadosEmpresaSchema = z.object({
   cnpj: z.string().trim().min(1, "CNPJ é obrigatório").refine((val) => validarCNPJ(val), {
     message: "CNPJ inválido",
   }),
+  email: z.string().trim().min(1, "E-mail é obrigatório").email("E-mail inválido"),
   logradouro: z.string().trim().min(1, "Logradouro é obrigatório").max(255),
   numero: z.string().trim().min(1, "Número é obrigatório").max(20),
   bairro: z.string().trim().min(1, "Bairro é obrigatório").max(100),
@@ -125,6 +126,7 @@ const RespostaCotacao = () => {
   const [dadosEmpresa, setDadosEmpresa] = useState({
     razao_social: "",
     cnpj: "",
+    email: "",
     logradouro: "",
     numero: "",
     bairro: "",
@@ -158,7 +160,7 @@ const RespostaCotacao = () => {
     try {
       const { data: fornecedor, error } = await supabaseAnon
         .from("fornecedores")
-        .select("razao_social, endereco_comercial, cnpj")
+        .select("razao_social, endereco_comercial, cnpj, email")
         .eq("cnpj", cnpjLimpo)
         .maybeSingle();
       
@@ -214,6 +216,7 @@ const RespostaCotacao = () => {
           ...dadosEmpresa,
           razao_social: fornecedor.razao_social || '',
           cnpj: cnpj,
+          email: fornecedor.email || '',
           logradouro: logradouro,
           numero: numero,
           bairro: bairro,
@@ -902,7 +905,7 @@ const RespostaCotacao = () => {
         const dadosFornecedor = {
           razao_social: dadosEmpresa.razao_social,
           cnpj: cnpjLimpo,
-          email: `cotacao-${cnpjLimpo}@temporario.com`,
+          email: dadosEmpresa.email || `cotacao-${cnpjLimpo}@temporario.com`,
           telefone: "00000000000",
           endereco_comercial: enderecoCompleto,
           status_aprovacao: "pendente",
@@ -1039,6 +1042,7 @@ const RespostaCotacao = () => {
           razao_social: dadosEmpresa.razao_social,
           cnpj: dadosEmpresa.cnpj,
           endereco_comercial: enderecoCompleto,
+          email: dadosEmpresa.email,
         },
         valorTotal,
         observacoes,
@@ -1156,6 +1160,21 @@ const RespostaCotacao = () => {
                 />
                 {errors.razao_social && (
                   <p className="text-sm text-destructive">{errors.razao_social}</p>
+                )}
+              </div>
+
+              <div className="grid gap-2">
+                <Label htmlFor="email">E-mail *</Label>
+                <Input
+                  id="email"
+                  type="email"
+                  value={dadosEmpresa.email}
+                  onChange={(e) => setDadosEmpresa({ ...dadosEmpresa, email: e.target.value })}
+                  placeholder="email@empresa.com.br"
+                  className={errors.email ? "border-destructive" : ""}
+                />
+                {errors.email && (
+                  <p className="text-sm text-destructive">{errors.email}</p>
                 )}
               </div>
 
@@ -1665,6 +1684,16 @@ const RespostaCotacao = () => {
                   </div>
                 </div>
               )}
+            </div>
+            
+            {/* Informações importantes antes do botão */}
+            <div className="space-y-2 text-sm text-muted-foreground bg-muted/50 p-4 rounded-lg border">
+              <p>
+                <strong>1.</strong> Ao clicar em ENVIAR PROPOSTA, você concorda que o prazo de validade mínimo da sua proposta será de <strong>60 dias</strong>.
+              </p>
+              <p>
+                <strong>2.</strong> Ao clicar em ENVIAR PROPOSTA, você declara estar ciente e concordar integralmente com os termos e condições contidas no Termo de Referência e/ou Instrumento Convocatório.
+              </p>
             </div>
             
             <Button 

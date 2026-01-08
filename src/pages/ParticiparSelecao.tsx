@@ -1931,6 +1931,16 @@ const ParticiparSelecao = () => {
                     )}
                   </div>
 
+                  {/* Informações importantes antes do botão */}
+                  <div className="space-y-2 text-sm text-muted-foreground bg-muted/50 p-4 rounded-lg border">
+                    <p>
+                      <strong>1.</strong> Ao clicar em ENVIAR PROPOSTA, você concorda que o prazo de validade mínimo da sua proposta será de <strong>60 dias</strong>.
+                    </p>
+                    <p>
+                      <strong>2.</strong> Ao clicar em ENVIAR PROPOSTA, você declara estar ciente e concordar integralmente com os termos e condições contidas no Termo de Referência e/ou Instrumento Convocatório.
+                    </p>
+                  </div>
+
                   <Button onClick={handleSubmit} disabled={submitting} className="w-full" size="lg">
                     <Send className="h-4 w-4 mr-2" />
                     {submitting ? "Enviando..." : "Enviar Proposta"}

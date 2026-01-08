@@ -880,18 +880,31 @@ export async function gerarPropostaSelecaoPDF(
     } // Fim do else (outros critérios)
 
     // Observações
+    doc.setFontSize(10);
+    doc.setFont('helvetica', 'bold');
+    doc.text('Observacoes:', margemEsquerda, y);
+    y += 5;
+    
+    doc.setFont('helvetica', 'normal');
+    
+    // Observações do fornecedor (se houver)
     if (observacoes && observacoes.trim()) {
-      doc.setFontSize(10);
-      doc.setFont('helvetica', 'bold');
-      doc.text('Observações:', margemEsquerda, y);
-      y += 5;
-      
-      doc.setFont('helvetica', 'normal');
       const obsLimpa = stripHtml(observacoes);
       const obsLines = doc.splitTextToSize(obsLimpa, larguraUtil);
       doc.text(obsLines, margemEsquerda, y);
-      y += obsLines.length * 5 + 5;
+      y += obsLines.length * 5 + 3;
     }
+    
+    // Declarações obrigatórias
+    const declaracao1 = 'Declaramos estar ciente e concordar integralmente com os termos e condicoes contidas no Termo de Referencia e/ou Instrumento Convocatorio.';
+    const declaracao2 = 'Validade da proposta: 60 dias.';
+    
+    const decl1Lines = doc.splitTextToSize(declaracao1, larguraUtil);
+    doc.text(decl1Lines, margemEsquerda, y);
+    y += decl1Lines.length * 5 + 3;
+    
+    doc.text(declaracao2, margemEsquerda, y);
+    y += 8;
 
     // Certificação Digital (espaçamento uniforme 1.15)
     if (y > 220) {
