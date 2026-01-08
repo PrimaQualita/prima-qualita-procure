@@ -658,7 +658,7 @@ export function DialogAnaliseDocumentalSelecao({
            estimativa = estimativaTotalGlobal || 0;
          } else {
            // Para por_item, a estimativa é unitária
-           estimativa = (estimativasPorItem.get(numeroItem) as number).0 || 0;
+           estimativa = (estimativasPorItem.get(numeroItem) as number) || 0;
          }
         
         // Filtrar propostas classificadas (valor <= estimativa ou desconto >= estimativa)
