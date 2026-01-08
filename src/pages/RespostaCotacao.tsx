@@ -1148,7 +1148,7 @@ const RespostaCotacao = () => {
                     variant="outline"
                     size="sm"
                     onClick={() => {
-                      const url = `${import.meta.env.VITE_SUPABASE_URL}/storage/v1/object/public/anexos-processo/${termoReferencia.url_arquivo}`;
+                      const url = `${import.meta.env.VITE_SUPABASE_URL}/storage/v1/object/public/processo-anexos/${termoReferencia.url_arquivo}`;
                       window.open(url, '_blank');
                     }}
                   >
@@ -1159,7 +1159,7 @@ const RespostaCotacao = () => {
                     variant="outline"
                     size="sm"
                     onClick={() => {
-                      const url = `${import.meta.env.VITE_SUPABASE_URL}/storage/v1/object/public/anexos-processo/${termoReferencia.url_arquivo}`;
+                      const url = `${import.meta.env.VITE_SUPABASE_URL}/storage/v1/object/public/processo-anexos/${termoReferencia.url_arquivo}`;
                       const link = document.createElement('a');
                       link.href = url;
                       link.download = termoReferencia.nome_arquivo;
