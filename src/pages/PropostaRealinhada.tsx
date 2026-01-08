@@ -618,70 +618,149 @@ const PropostaRealinhada = () => {
         return;
       }
 
+      const cotacaoId = selecaoData.cotacao_relacionada_id;
+
+      // Buscar estimativas da planilha consolidada mais recente
+      const { data: planilhaData } = await supabase
+        .from("planilhas_consolidadas")
+        .select("estimativas_itens")
+        .eq("cotacao_id", cotacaoId)
+        .order("data_geracao", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      const estimativas = (planilhaData?.estimativas_itens || {}) as Record<string, number>;
+
       const { data: itensCotacao } = await supabase
         .from("itens_cotacao")
         .select("*, lotes_cotacao(numero_lote, descricao_lote)")
-        .eq("cotacao_id", selecaoData.cotacao_relacionada_id);
+        .eq("cotacao_id", cotacaoId);
 
       if (!itensCotacao) {
         toast.error("Itens da cotação não encontrados");
         return;
       }
 
-      // Buscar proposta do fornecedor para esta seleção
-      const { data: propostaFornecedor } = await supabase
+      // Buscar TODAS as propostas de TODOS os fornecedores para identificar vencedor real por item
+      const { data: todasPropostas } = await supabase
         .from("selecao_propostas_fornecedor")
-        .select("id, valor_total_proposta")
-        .eq("selecao_id", selecaoId)
-        .eq("fornecedor_id", fornecedorId)
-        .maybeSingle();
+        .select(`
+          id, fornecedor_id, valor_total_proposta,
+          selecao_respostas_itens_fornecedor (
+            numero_item, lote_id, valor_unitario_ofertado, valor_total_item, marca, descricao, quantidade, unidade
+          )
+        `)
+        .eq("selecao_id", selecaoId);
 
-      if (!propostaFornecedor) {
+      if (!todasPropostas || todasPropostas.length === 0) {
+        toast.error("Nenhuma proposta encontrada");
+        return;
+      }
+
+      // Buscar inabilitações para excluir fornecedores inabilitados
+      const { data: inabilitacoes } = await supabase
+        .from("fornecedores_inabilitados_selecao")
+        .select("fornecedor_id, itens_afetados")
+        .eq("selecao_id", selecaoId)
+        .eq("revertido", false);
+
+      const fornecedoresInabilitadosGlobalmente = new Set<string>();
+      const inabilitacoesPorFornecedor = new Map<string, Set<number>>();
+      
+      inabilitacoes?.forEach((inab: any) => {
+        if (!inab.itens_afetados || inab.itens_afetados.length === 0) {
+          fornecedoresInabilitadosGlobalmente.add(inab.fornecedor_id);
+        } else {
+          if (!inabilitacoesPorFornecedor.has(inab.fornecedor_id)) {
+            inabilitacoesPorFornecedor.set(inab.fornecedor_id, new Set());
+          }
+          inab.itens_afetados.forEach((item: number) => {
+            inabilitacoesPorFornecedor.get(inab.fornecedor_id)!.add(item);
+          });
+        }
+      });
+
+      // Proposta do fornecedor atual
+      const minhaPropostaData = todasPropostas.find((p: any) => p.fornecedor_id === fornecedorId);
+      if (!minhaPropostaData) {
         toast.error("Proposta do fornecedor não encontrada");
         return;
       }
 
-      // Buscar itens da proposta original do fornecedor
-      const { data: itensPropostaOriginal } = await supabase
-        .from("selecao_respostas_itens_fornecedor")
-        .select("numero_item, lote_id, marca, descricao, valor_unitario_ofertado, valor_total_item, quantidade, unidade")
-        .eq("proposta_id", propostaFornecedor.id);
-
-      if (!itensPropostaOriginal || itensPropostaOriginal.length === 0) {
-        toast.error("Itens da proposta original não encontrados");
-        return;
-      }
+      const meusItens = minhaPropostaData.selecao_respostas_itens_fornecedor || [];
 
       const itensProcessados: ItemVencedor[] = [];
       const lotesMap = new Map<number, number>();
       let totalGanho = 0;
 
+      const ehDesconto = criterio === "desconto" || criterio === "maior_percentual_desconto";
+
+      // ======= LÓGICA POR CRITÉRIO =======
       if (criterio === "por_lote") {
-        // Agrupar por lote usando os itens da proposta original
-        const lotesPorNumero = new Map<number, { itens: any[], valorTotal: number }>();
+        // Calcular totais por lote para cada fornecedor válido
+        const totaisPorLotePorFornecedor = new Map<number, Map<string, number>>();
 
-        for (const itemProposta of itensPropostaOriginal) {
-          // Encontrar item correspondente na cotação para obter numero_lote
-          const itemCotacao = itensCotacao.find((ic: any) => 
-            ic.lote_id === itemProposta.lote_id && ic.numero_item === itemProposta.numero_item
-          ) || itensCotacao.find((ic: any) => ic.numero_item === itemProposta.numero_item);
-          
-          const numeroLote = itemCotacao?.lotes_cotacao?.numero_lote || 0;
-          if (numeroLote === 0) continue;
+        for (const proposta of todasPropostas) {
+          if (fornecedoresInabilitadosGlobalmente.has(proposta.fornecedor_id)) continue;
 
-          if (!lotesPorNumero.has(numeroLote)) {
-            lotesPorNumero.set(numeroLote, { itens: [], valorTotal: 0 });
+          const itens = proposta.selecao_respostas_itens_fornecedor || [];
+          for (const item of itens) {
+            const itemCotacao = itensCotacao.find((ic: any) =>
+              (ic.lote_id === item.lote_id && ic.numero_item === item.numero_item) ||
+              ic.numero_item === item.numero_item
+            );
+            const numeroLote = itemCotacao?.lotes_cotacao?.numero_lote || 0;
+            if (numeroLote === 0) continue;
+
+            // Verificar inabilitação granular por lote
+            if (inabilitacoesPorFornecedor.get(proposta.fornecedor_id)?.has(numeroLote)) continue;
+
+            if (!totaisPorLotePorFornecedor.has(numeroLote)) {
+              totaisPorLotePorFornecedor.set(numeroLote, new Map());
+            }
+            const mapaFornecedores = totaisPorLotePorFornecedor.get(numeroLote)!;
+            mapaFornecedores.set(
+              proposta.fornecedor_id,
+              (mapaFornecedores.get(proposta.fornecedor_id) || 0) + Number(item.valor_total_item || 0)
+            );
           }
-          const loteInfo = lotesPorNumero.get(numeroLote)!;
-          loteInfo.itens.push(itemProposta);
-          loteInfo.valorTotal += Number(itemProposta.valor_total_item || 0);
         }
 
-        lotesPorNumero.forEach((loteInfo, numeroLote) => {
-          lotesMap.set(numeroLote, loteInfo.valorTotal);
-          totalGanho += loteInfo.valorTotal;
+        // Identificar vencedor de cada lote e verificar se é este fornecedor
+        totaisPorLotePorFornecedor.forEach((mapaFornecedores, numeroLote) => {
+          // Calcular estimativa do lote
+          let estimativaLote = 0;
+          itensCotacao.forEach((ic: any) => {
+            if (ic.lotes_cotacao?.numero_lote === numeroLote) {
+              const key = `${numeroLote}_${ic.numero_item}`;
+              const estimUnit = Number(estimativas[key] || 0);
+              estimativaLote += estimUnit * Number(ic.quantidade);
+            }
+          });
 
-          loteInfo.itens.forEach((itemProposta: any) => {
+          // Ordenar fornecedores pelo valor (desconto = maior, preço = menor)
+          const fornecedoresOrdenados = Array.from(mapaFornecedores.entries())
+            .filter(([, valor]) => estimativaLote === 0 || valor <= estimativaLote) // Excluir FRACASSADO
+            .sort((a, b) => ehDesconto ? b[1] - a[1] : a[1] - b[1]);
+
+          if (fornecedoresOrdenados.length === 0) return; // Lote fracassado
+
+          const [vencedorId, valorVencedor] = fornecedoresOrdenados[0];
+          if (vencedorId !== fornecedorId) return; // Este fornecedor não venceu este lote
+
+          lotesMap.set(numeroLote, valorVencedor);
+          totalGanho += valorVencedor;
+
+          // Adicionar itens deste lote
+          const meusItensLote = meusItens.filter((item: any) => {
+            const itemCotacao = itensCotacao.find((ic: any) =>
+              (ic.lote_id === item.lote_id && ic.numero_item === item.numero_item) ||
+              ic.numero_item === item.numero_item
+            );
+            return itemCotacao?.lotes_cotacao?.numero_lote === numeroLote;
+          });
+
+          meusItensLote.forEach((itemProposta: any) => {
             itensProcessados.push({
               numero_item: itemProposta.numero_item,
               numero_lote: numeroLote,
@@ -689,7 +768,7 @@ const PropostaRealinhada = () => {
               descricao: itemProposta.descricao,
               quantidade: Number(itemProposta.quantidade),
               unidade: itemProposta.unidade || "",
-              valor_total_ganho: loteInfo.valorTotal,
+              valor_total_ganho: valorVencedor,
               marca: itemProposta.marca || "",
               valor_unitario_proposta_original: Number(itemProposta.valor_unitario_ofertado || 0),
             });
@@ -697,11 +776,44 @@ const PropostaRealinhada = () => {
         });
 
         setLotesGanhos(lotesMap);
-      } else if (criterio === "global") {
-        // Global: todos os itens com valor total da proposta
-        totalGanho = Number(propostaFornecedor.valor_total_proposta || 0);
 
-        for (const itemProposta of itensPropostaOriginal) {
+      } else if (criterio === "global") {
+        // Calcular total global de cada fornecedor válido
+        const totaisPorFornecedor: { fornecedorId: string; total: number }[] = [];
+
+        for (const proposta of todasPropostas) {
+          if (fornecedoresInabilitadosGlobalmente.has(proposta.fornecedor_id)) continue;
+          totaisPorFornecedor.push({
+            fornecedorId: proposta.fornecedor_id,
+            total: Number(proposta.valor_total_proposta || 0)
+          });
+        }
+
+        // Calcular estimativa global
+        let estimativaGlobal = 0;
+        itensCotacao.forEach((ic: any) => {
+          const estimUnit = Number(estimativas[String(ic.numero_item)] || 0);
+          estimativaGlobal += estimUnit * Number(ic.quantidade);
+        });
+
+        // Filtrar por estimativa e ordenar
+        const validos = totaisPorFornecedor
+          .filter(f => estimativaGlobal === 0 || f.total <= estimativaGlobal)
+          .sort((a, b) => ehDesconto ? b.total - a.total : a.total - b.total);
+
+        if (validos.length === 0) {
+          toast.error("Seleção fracassada - nenhuma proposta válida");
+          return;
+        }
+
+        if (validos[0].fornecedorId !== fornecedorId) {
+          toast.error("Você não é o vencedor desta seleção");
+          return;
+        }
+
+        totalGanho = validos[0].total;
+
+        for (const itemProposta of meusItens) {
           itensProcessados.push({
             numero_item: itemProposta.numero_item,
             descricao: itemProposta.descricao,
@@ -712,28 +824,68 @@ const PropostaRealinhada = () => {
             valor_unitario_proposta_original: Number(itemProposta.valor_unitario_ofertado || 0),
           });
         }
+
       } else {
-        // Por item ou desconto - usar valores da proposta original
-        for (const itemProposta of itensPropostaOriginal) {
-          const itemCotacao = itensCotacao.find((ic: any) => ic.numero_item === itemProposta.numero_item);
-          const valorUnitario = Number(itemProposta.valor_unitario_ofertado || 0);
-          const quantidade = Number(itemProposta.quantidade || itemCotacao?.quantidade || 1);
-          const valorTotal = valorUnitario * quantidade;
+        // Por item ou desconto - identificar vencedor de cada item separadamente
+        const itensPorNumero = new Map<number, { fornecedorId: string; valor: number; itemProposta: any }[]>();
+
+        for (const proposta of todasPropostas) {
+          if (fornecedoresInabilitadosGlobalmente.has(proposta.fornecedor_id)) continue;
+
+          const itens = proposta.selecao_respostas_itens_fornecedor || [];
+          for (const item of itens) {
+            // Verificar inabilitação granular por item
+            if (inabilitacoesPorFornecedor.get(proposta.fornecedor_id)?.has(item.numero_item)) continue;
+
+            if (!itensPorNumero.has(item.numero_item)) {
+              itensPorNumero.set(item.numero_item, []);
+            }
+            itensPorNumero.get(item.numero_item)!.push({
+              fornecedorId: proposta.fornecedor_id,
+              valor: Number(item.valor_unitario_ofertado || 0),
+              itemProposta: item
+            });
+          }
+        }
+
+        // Para cada item, identificar vencedor
+        itensPorNumero.forEach((propostas, numeroItem) => {
+          const itemCotacao = itensCotacao.find((ic: any) => ic.numero_item === numeroItem);
+          const estimativaUnit = Number(estimativas[String(numeroItem)] || 0);
+
+          // Filtrar propostas acima do estimado (FRACASSADO)
+          const validas = propostas.filter(p => estimativaUnit === 0 || p.valor <= estimativaUnit);
+
+          if (validas.length === 0) return; // Item fracassado
+
+          // Ordenar por valor
+          validas.sort((a, b) => ehDesconto ? b.valor - a.valor : a.valor - b.valor);
+
+          const vencedor = validas[0];
+          if (vencedor.fornecedorId !== fornecedorId) return; // Este fornecedor não venceu este item
+
+          const quantidade = Number(vencedor.itemProposta.quantidade || itemCotacao?.quantidade || 1);
+          const valorTotal = vencedor.valor * quantidade;
           totalGanho += valorTotal;
 
           itensProcessados.push({
-            numero_item: itemProposta.numero_item,
+            numero_item: numeroItem,
             numero_lote: itemCotacao?.lotes_cotacao?.numero_lote,
-            lote_id: itemProposta.lote_id || null,
-            descricao: itemProposta.descricao || itemCotacao?.descricao || "",
+            lote_id: vencedor.itemProposta.lote_id || null,
+            descricao: vencedor.itemProposta.descricao || itemCotacao?.descricao || "",
             quantidade: quantidade,
-            unidade: itemProposta.unidade || itemCotacao?.unidade || "",
+            unidade: vencedor.itemProposta.unidade || itemCotacao?.unidade || "",
             valor_total_ganho: valorTotal,
-            marca: itemProposta.marca || "",
-            valor_unitario_lance: valorUnitario, // Usar valor da proposta como "lance" 
-            valor_unitario_proposta_original: valorUnitario,
+            marca: vencedor.itemProposta.marca || "",
+            valor_unitario_lance: vencedor.valor,
+            valor_unitario_proposta_original: vencedor.valor,
           });
-        }
+        });
+      }
+
+      if (itensProcessados.length === 0) {
+        toast.error("Você não tem itens vencedores nesta seleção");
+        return;
       }
 
       // Ordenar itens por numero_item
