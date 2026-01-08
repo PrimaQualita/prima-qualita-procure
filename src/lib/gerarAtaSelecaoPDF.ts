@@ -1213,16 +1213,36 @@ export async function gerarAtaSelecaoPDF(selecaoId: string): Promise<{ url: stri
   const ehGlobalCriterio = criterioJulgamento === 'global';
   const ehLoteCriterio = criterioJulgamento === 'por_lote';
   
-  // Agrupar propostas por item
-  const propostasPorItem = new Map<number, Set<string>>();
+  // Agrupar propostas por item (independente de classificação - para identificar DESERTO)
+  const propostasEnviadasPorItem = new Map<number, Set<string>>();
+  // Agrupar propostas CLASSIFICADAS e HABILITADAS por item (para identificar FRACASSADO vs VENCEDOR)
+  const propostasClassificadasPorItem = new Map<number, Set<string>>();
+  
   (propostasItens || []).forEach((pi: any) => {
     const item = pi.numero_item;
     const fornecedorId = pi.selecao_propostas_fornecedor?.fornecedor_id;
-    if (item && fornecedorId) {
-      if (!propostasPorItem.has(item)) {
-        propostasPorItem.set(item, new Set());
+    const desclassificado = pi.desclassificado === true;
+    const valorOfertado = Number(pi.valor_unitario_ofertado) || 0;
+    
+    if (item && fornecedorId && valorOfertado > 0) {
+      // Registrar proposta enviada (para detectar DESERTO)
+      if (!propostasEnviadasPorItem.has(item)) {
+        propostasEnviadasPorItem.set(item, new Set());
       }
-      propostasPorItem.get(item)!.add(fornecedorId);
+      propostasEnviadasPorItem.get(item)!.add(fornecedorId);
+      
+      // Só registrar como classificada se não estiver desclassificada E não inabilitada
+      if (!desclassificado) {
+        const itensInabilitados = inabilitacoesPorFornecedor.get(fornecedorId);
+        const estaInabilitadoParaItem = itensInabilitados && itensInabilitados.includes(item);
+        
+        if (!estaInabilitadoParaItem) {
+          if (!propostasClassificadasPorItem.has(item)) {
+            propostasClassificadasPorItem.set(item, new Set());
+          }
+          propostasClassificadasPorItem.get(item)!.add(fornecedorId);
+        }
+      }
     }
   });
   
@@ -1241,8 +1261,8 @@ export async function gerarAtaSelecaoPDF(selecaoId: string): Promise<{ url: stri
   let itensFracassados: number[] = [];
   
   if (ehGlobalCriterio) {
-    // Para critério global: verificar se houve qualquer proposta
-    const teveProposta = propostasPorItem.size > 0;
+    // Para critério global: verificar se houve qualquer proposta enviada
+    const teveProposta = propostasEnviadasPorItem.size > 0;
     
     // Não há deserto nem fracassado se houver vencedores habilitados
     const temVencedoresHabilitados = lancesFiltrados.length > 0 || vencedoresPorItem.size > 0;
@@ -1274,7 +1294,7 @@ export async function gerarAtaSelecaoPDF(selecaoId: string): Promise<{ url: stri
         .filter(([_, numLote]) => numLote === lote)
         .map(([numItem, _]) => parseInt(numItem, 10));
       
-      const tevePropostaLote = itensDoLote.some(itemNum => propostasPorItem.has(itemNum));
+      const tevePropostaLote = itensDoLote.some(itemNum => propostasEnviadasPorItem.has(itemNum));
       
       if (!tevePropostaLote) {
         // Deserto: nenhum fornecedor apresentou proposta para o lote
@@ -1297,7 +1317,7 @@ export async function gerarAtaSelecaoPDF(selecaoId: string): Promise<{ url: stri
       }
       
       // Verificar se houve PROPOSTA para este item (não apenas lance)
-      const tevePropostaItem = propostasPorItem.has(item);
+      const tevePropostaItem = propostasEnviadasPorItem.has(item);
       
       if (!tevePropostaItem) {
         // Deserto: nenhum fornecedor apresentou proposta para o item
