@@ -3841,14 +3841,27 @@ export function DialogSessaoLances({
 
             {/* Itens/Lotes Concluídos - Podem ser Reabertos */}
             {(() => {
+              const podeReabrirNegociacao = (numero: number) => {
+                const vencedor = vencedoresPorItem.get(numero);
+                if (!vencedor?.fornecedorId) return false;
+
+                // Não permitir reabrir negociação para itens/lotes FRACASSADOS
+                // (ex.: quando todos os lances ficam acima do valor estimado)
+                if (todosLancesDesclassificadosPorPreco(numero)) return false;
+
+                return true;
+              };
+
               if (isPorLote) {
                 const lotesConcluidos = lotes
-                  .filter(
-                    (lote) =>
-                      itensNegociacaoConcluida.has(lote.numero_lote) &&
-                      vencedoresPorItem.has(lote.numero_lote) &&
-                      !itensEmNegociacao.has(lote.numero_lote)
-                  )
+                  .filter((lote) => {
+                    const numeroLote = lote.numero_lote;
+                    return (
+                      itensNegociacaoConcluida.has(numeroLote) &&
+                      podeReabrirNegociacao(numeroLote) &&
+                      !itensEmNegociacao.has(numeroLote)
+                    );
+                  })
                   .sort((a, b) => a.numero_lote - b.numero_lote);
 
                 if (lotesConcluidos.length === 0) return null;
@@ -3903,19 +3916,16 @@ export function DialogSessaoLances({
 
               // Para critério global, usar itensParaControle (item virtual 0), senão usar itens normais
               const itensBaseConc = isGlobal ? itensParaControle : itens;
-              
+
               const itensConcluidos = itensBaseConc
-                .filter(
-                  (item) =>
-                    itensNegociacaoConcluida.has(item.numero_item) &&
-                    vencedoresPorItem.has(item.numero_item) &&
-                    !itensEmNegociacao.has(item.numero_item)
+                .filter((item) =>
+                  itensNegociacaoConcluida.has(item.numero_item) &&
+                  podeReabrirNegociacao(item.numero_item) &&
+                  !itensEmNegociacao.has(item.numero_item)
                 )
                 .sort((a, b) => a.numero_item - b.numero_item);
 
               if (itensConcluidos.length === 0) return null;
-
-              return (
                 <Card className="bg-gray-50 dark:bg-gray-900 border-gray-200 flex-shrink-0">
                   <CardHeader className="py-2">
                     <CardTitle className="text-xs flex items-center gap-2 text-gray-600 dark:text-gray-400">
