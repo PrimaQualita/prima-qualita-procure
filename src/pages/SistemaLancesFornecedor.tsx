@@ -1503,10 +1503,11 @@ const SistemaLancesFornecedor = () => {
       const emNegociacao = new Map<number, string>();
       const now = Date.now();
 
-      // Apenas processar itens que estão REALMENTE abertos
-      itensAbertosFiltrados.forEach((item: any) => {
-        // Itens em processo de fechamento
-        if (item.iniciando_fechamento && item.data_inicio_fechamento && item.segundos_para_fechar !== null) {
+      // Processar TODOS os itens (não só abertos) para detectar negociação
+      // A negociação acontece com aberto=false e em_negociacao=true
+      (data || []).forEach((item: any) => {
+        // Itens em processo de fechamento (para lances - quando aberto=true)
+        if (item.aberto === true && item.iniciando_fechamento && item.data_inicio_fechamento && item.segundos_para_fechar !== null) {
           const inicioFechamento = new Date(item.data_inicio_fechamento).getTime();
           const tempoExpiracao = inicioFechamento + (item.segundos_para_fechar * 1000);
 
@@ -1515,11 +1516,20 @@ const SistemaLancesFornecedor = () => {
           }
         }
 
-        // Itens em negociação
-        if (item.em_negociacao) {
+        // Itens em negociação (pode estar com aberto=false)
+        if (item.em_negociacao && !item.negociacao_concluida) {
           // Quando vem via SELECT direto (interno), teremos o fornecedor_negociacao_id
           if (item.fornecedor_negociacao_id) {
             emNegociacao.set(item.numero_item, item.fornecedor_negociacao_id);
+            
+            // Se negociação está iniciando (timer de 120s), adicionar ao mapa de fechamento
+            if (item.iniciando_fechamento && item.data_inicio_fechamento && item.segundos_para_fechar !== null) {
+              const inicioFechamento = new Date(item.data_inicio_fechamento).getTime();
+              const tempoExpiracao = inicioFechamento + (item.segundos_para_fechar * 1000);
+              if (tempoExpiracao > now) {
+                emFechamento.set(item.numero_item, tempoExpiracao);
+              }
+            }
           }
 
           // Quando vem via RPC (fornecedor), temos apenas o flag `negociacao_para_mim`
@@ -1528,6 +1538,15 @@ const SistemaLancesFornecedor = () => {
               item.numero_item,
               item.negociacao_para_mim ? String(proposta?.fornecedor_id) : "__OUTRO__"
             );
+            
+            // Se negociação está iniciando (timer de 120s), adicionar ao mapa de fechamento
+            if (item.iniciando_fechamento && item.data_inicio_fechamento && item.segundos_para_fechar !== null) {
+              const inicioFechamento = new Date(item.data_inicio_fechamento).getTime();
+              const tempoExpiracao = inicioFechamento + (item.segundos_para_fechar * 1000);
+              if (tempoExpiracao > now) {
+                emFechamento.set(item.numero_item, tempoExpiracao);
+              }
+            }
           }
         }
       });

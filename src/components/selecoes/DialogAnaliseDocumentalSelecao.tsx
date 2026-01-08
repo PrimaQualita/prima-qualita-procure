@@ -1991,27 +1991,57 @@ export function DialogAnaliseDocumentalSelecao({
 
       if (removeVencedorError) throw removeVencedorError;
 
+      // CRÍTICO: Definir tempo de negociação e timestamp para iniciar cronômetro
+      const TEMPO_NEGOCIACAO = 120;
+      const agora = new Date().toISOString();
+
       if (reabrirParaNegociacao && onReabrirNegociacao) {
         // Reabrir itens APENAS para negociação com o segundo colocado (NÃO reabrir lances)
+        // APENAS para itens onde há segundo colocado
         for (const item of itensAfetados) {
           const segundoColocado = segundosAtualizados.find(s => s.numero_item === item);
-          console.log(`Item ${item}: segundo colocado = `, segundoColocado);
+          console.log(`[INAB+REABRIR] Item ${item}: segundo colocado = `, segundoColocado);
           
-          await supabase
-            .from("itens_abertos_lances")
-            .update({
-              // CRÍTICO: NÃO reabrir para lances (aberto: false), apenas para negociação
-              aberto: false,
-              em_negociacao: segundoColocado ? true : false,
-              nao_negociar: !segundoColocado,
-              data_fechamento: segundoColocado ? null : new Date().toISOString(),
-              negociacao_concluida: !segundoColocado,
-              fornecedor_negociacao_id: segundoColocado?.fornecedor_id || null,
-            })
-            .eq("selecao_id", selecaoId)
-            .eq("numero_item", item);
+          if (segundoColocado) {
+            // Só abre negociação se tem segundo colocado
+            await supabase
+              .from("itens_abertos_lances")
+              .update({
+                // CRÍTICO: NÃO reabrir para lances (aberto: false), apenas para negociação
+                aberto: false,
+                em_negociacao: true,
+                nao_negociar: false,
+                data_fechamento: null,
+                negociacao_concluida: false,
+                fornecedor_negociacao_id: segundoColocado.fornecedor_id,
+                // CRÍTICO: Iniciar timer de 120s para o cronômetro aparecer
+                iniciando_fechamento: true,
+                data_inicio_fechamento: agora,
+                segundos_para_fechar: TEMPO_NEGOCIACAO,
+              })
+              .eq("selecao_id", selecaoId)
+              .eq("numero_item", item);
+          } else {
+            // Sem segundo colocado - fechar o item
+            await supabase
+              .from("itens_abertos_lances")
+              .update({
+                aberto: false,
+                em_negociacao: false,
+                nao_negociar: true,
+                data_fechamento: agora,
+                negociacao_concluida: true,
+                fornecedor_negociacao_id: null,
+              })
+              .eq("selecao_id", selecaoId)
+              .eq("numero_item", item);
+          }
         }
-        toast.success(`Fornecedor inabilitado. ${UnidadePlural} reabertos para negociação com os segundos colocados.`);
+        
+        const itensReabertos = segundosAtualizados.filter(s => itensAfetados.includes(s.numero_item)).length;
+        toast.success(itensReabertos > 0
+          ? `Fornecedor inabilitado. ${itensReabertos} ${itensReabertos === 1 ? unidadeSingular + ' reaberto' : unidadePlural + ' reabertos'} para negociação.`
+          : `Fornecedor inabilitado. Nenhum ${unidadeSingular} teve segundo colocado para negociar.`);
         // NÃO chamar onReabrirNegociacao aqui pois já fizemos o update com o segundo colocado correto
         // A callback em DetalheSelecao.tsx sobrescreveria com o fornecedor errado
       } else {
@@ -2050,6 +2080,10 @@ export function DialogAnaliseDocumentalSelecao({
                   negociacao_concluida: false,
                   aberto: false, // Mantém fechado para lances, apenas negociação
                   data_fechamento: null,
+                  // CRÍTICO: Iniciar timer de 120s para o cronômetro aparecer
+                  iniciando_fechamento: true,
+                  data_inicio_fechamento: agora,
+                  segundos_para_fechar: TEMPO_NEGOCIACAO,
                 })
                 .eq("selecao_id", selecaoId)
                 .eq("numero_item", item);
@@ -2069,7 +2103,7 @@ export function DialogAnaliseDocumentalSelecao({
                   negociacao_concluida: true,
                   nao_negociar: true,
                   aberto: false,
-                  data_fechamento: new Date().toISOString(),
+                  data_fechamento: agora,
                 })
                 .eq("selecao_id", selecaoId)
                 .eq("numero_item", item);
@@ -2084,7 +2118,7 @@ export function DialogAnaliseDocumentalSelecao({
                 negociacao_concluida: true,
                 nao_negociar: true,
                 aberto: false,
-                data_fechamento: new Date().toISOString(),
+                data_fechamento: agora,
               })
               .eq("selecao_id", selecaoId)
               .eq("numero_item", item);
