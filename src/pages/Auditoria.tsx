@@ -181,6 +181,17 @@ const Auditoria = () => {
       protocolo: "Protocolo",
       tipo_autorizacao: "Tipo de Autorização",
       contrato_gestao: "Contrato de Gestão",
+      numero_item: "Número do Item",
+      numero_lote: "Número do Lote",
+      descricao: "Descrição",
+      descricao_lote: "Descrição do Lote",
+      cotacao_id: "ID da Cotação",
+      fornecedores_incluidos: "Fornecedores Incluídos",
+      status: "Status",
+      alteracoes: "Alterações Realizadas",
+      campo_alterado: "Campo Alterado",
+      valor_anterior: "Valor Anterior",
+      valor_novo: "Novo Valor",
     };
     return traducoes[chave] || chave;
   };
