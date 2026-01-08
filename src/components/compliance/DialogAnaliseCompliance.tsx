@@ -7,6 +7,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { registrarAuditoria } from "@/lib/registrarAuditoria";
+import { compararAlteracoes } from "@/lib/compararAlteracoes";
 import { Upload, Save, FileText, Trash2, Download } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { formatarCNPJ } from "@/lib/validators";
@@ -51,6 +52,7 @@ export function DialogAnaliseCompliance({
   const [uploadedFile, setUploadedFile] = useState<File | null>(null);
   const [contratoGestaoNome, setContratoGestaoNome] = useState<string>("");
   const [tituloCotacao, setTituloCotacao] = useState<string>("");
+  const [statusOriginal, setStatusOriginal] = useState<string>("");
 
   useEffect(() => {
     if (open) {
@@ -199,6 +201,7 @@ export function DialogAnaliseCompliance({
         setUrlDocumento(data.url_documento);
         setNomeArquivo(data.nome_arquivo);
         setStatusAprovacao(data.status_aprovacao || "pendente");
+        setStatusOriginal(data.status_aprovacao || "pendente");
       }
     } catch (error: any) {
       console.error("Erro ao carregar análise:", error);
@@ -307,6 +310,12 @@ export function DialogAnaliseCompliance({
 
       // Se existe analiseId, fazer UPDATE, senão fazer INSERT
       if (analiseId) {
+        // Comparar alterações antes de atualizar
+        const alteracoes = compararAlteracoes(
+          { status_aprovacao: statusOriginal },
+          { status_aprovacao: statusAprovacao }
+        );
+
         const { error } = await supabase
           .from("analises_compliance" as any)
           .update(analiseData)
@@ -324,6 +333,7 @@ export function DialogAnaliseCompliance({
             numero_processo: numeroProcesso,
             titulo_cotacao: tituloCotacao || 'N/A',
             status: statusAprovacao,
+            alteracoes: alteracoes.length > 0 ? alteracoes : undefined,
           },
         });
         

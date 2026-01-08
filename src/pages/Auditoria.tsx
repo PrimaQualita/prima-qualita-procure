@@ -321,7 +321,9 @@ const Auditoria = () => {
                 <div className="space-y-2">
                   <h4 className="font-semibold text-sm">Informações do Documento</h4>
                   <div className="border rounded-lg divide-y">
-                    {Object.entries(logSelecionado.detalhes).map(([chave, valor]) => (
+                    {Object.entries(logSelecionado.detalhes)
+                      .filter(([chave]) => chave !== 'alteracoes')
+                      .map(([chave, valor]) => (
                       <div key={chave} className="flex justify-between py-2 px-3">
                         <span className="text-sm text-muted-foreground">
                           {traduzirChave(chave)}
@@ -329,6 +331,31 @@ const Auditoria = () => {
                         <span className="text-sm font-medium text-right max-w-[200px] truncate" title={formatarDetalhe(chave, valor)}>
                           {formatarDetalhe(chave, valor)}
                         </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Alterações realizadas (apenas para edições) */}
+              {logSelecionado.detalhes?.alteracoes && 
+               Array.isArray(logSelecionado.detalhes.alteracoes) && 
+               logSelecionado.detalhes.alteracoes.length > 0 && (
+                <div className="space-y-2">
+                  <h4 className="font-semibold text-sm text-blue-600">Alterações Realizadas</h4>
+                  <div className="border border-blue-200 rounded-lg divide-y bg-blue-50/50">
+                    {logSelecionado.detalhes.alteracoes.map((alt: any, index: number) => (
+                      <div key={index} className="py-2 px-3">
+                        <p className="text-sm font-medium text-foreground">{alt.campo}</p>
+                        <div className="flex items-center gap-2 mt-1">
+                          <span className="text-xs bg-red-100 text-red-700 px-2 py-0.5 rounded">
+                            {alt.de || "(vazio)"}
+                          </span>
+                          <span className="text-xs text-muted-foreground">→</span>
+                          <span className="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded">
+                            {alt.para || "(vazio)"}
+                          </span>
+                        </div>
                       </div>
                     ))}
                   </div>
