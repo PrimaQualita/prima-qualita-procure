@@ -285,10 +285,13 @@ const RespostaCotacao = () => {
 
       setCotacao(cotacaoData);
 
-      // Buscar processo
+      // Buscar processo com contrato de gestão
       const { data: processoData } = await supabaseAnon
         .from("processos_compras")
-        .select("*")
+        .select(`
+          *,
+          contratos_gestao:contrato_gestao_id(nome_contrato)
+        `)
         .eq("id", cotacaoData.processo_compra_id)
         .single();
 
@@ -1082,6 +1085,21 @@ const RespostaCotacao = () => {
 
       if (finalizarError) {
         throw finalizarError;
+      }
+
+      // Registrar auditoria de envio de proposta (via RPC para funcionar com cliente anônimo)
+      try {
+        await supabaseAnon.rpc('registrar_auditoria_proposta_fornecedor', {
+          p_entidade_id: respostaCriada.id,
+          p_fornecedor_nome: dadosEmpresa.razao_social,
+          p_fornecedor_cnpj: cnpjLimpo,
+          p_valor_total: valorTotal,
+          p_contrato_gestao: processoCompra?.contratos_gestao?.nome_contrato || "",
+          p_numero_processo: processoCompra?.numero_processo_interno || "",
+          p_titulo_cotacao: cotacao.titulo_cotacao
+        });
+      } catch (auditError) {
+        console.error("Erro ao registrar auditoria (não bloqueia):", auditError);
       }
 
       toast.success("Resposta enviada com sucesso!");
