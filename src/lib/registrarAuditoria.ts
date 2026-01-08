@@ -1,7 +1,7 @@
 import { supabase } from "@/integrations/supabase/client";
 
 interface RegistroAuditoria {
-  acao: 'criação' | 'deleção' | 'atualização';
+  acao: 'criação' | 'deleção' | 'atualização' | 'edição' | 'exclusão';
   entidade: string;
   entidade_id?: string;
   detalhes: Record<string, any>;
