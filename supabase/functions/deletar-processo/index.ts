@@ -11,6 +11,20 @@ function extractPath(url: string | null, bucket: string = 'processo-anexos'): st
   // Remover query params primeiro
   let cleanUrl = url.split('?')[0];
   
+  // Decodificar URL encoding (para lidar com caracteres especiais como espaços e barras)
+  try {
+    // Decodificar múltiplas vezes até estabilizar (para URLs duplamente encodadas)
+    let decoded = cleanUrl;
+    let prev = '';
+    while (decoded !== prev) {
+      prev = decoded;
+      decoded = decodeURIComponent(decoded);
+    }
+    cleanUrl = decoded;
+  } catch (e) {
+    // Se falhar decodificação, continuar com URL original
+  }
+  
   // Se a URL começa com o prefixo do bucket (formato incorreto salvo no banco), remover
   if (cleanUrl.startsWith(`${bucket}/`)) {
     cleanUrl = cleanUrl.substring(bucket.length + 1);
@@ -405,11 +419,19 @@ Deno.serve(async (req) => {
         .in('selecao_id', selecaoIds);
 
       if (atas) {
+        console.log(`📜 Atas de seleção encontradas: ${atas.length}`);
         atas.forEach(a => {
+          console.log(`   URL ata: ${a.url_arquivo}`);
           const path1 = extractPath(a.url_arquivo, 'processo-anexos');
-          if (path1) arquivosProcessoAnexos.push(path1);
+          if (path1) {
+            console.log(`   Path extraído: ${path1}`);
+            arquivosProcessoAnexos.push(path1);
+          }
           const path2 = extractPath(a.url_arquivo_original, 'processo-anexos');
-          if (path2) arquivosProcessoAnexos.push(path2);
+          if (path2 && path2 !== path1) {
+            console.log(`   Path original: ${path2}`);
+            arquivosProcessoAnexos.push(path2);
+          }
         });
       }
 
