@@ -2602,24 +2602,7 @@ export function DialogSessaoLances({
       // Usar elementos preparados anteriormente (lotes ou itens conforme critério)
       const resumoData = elementosParaIterar.map(elemento => {
         const vencedor = getVencedorItem(elemento.numero);
-        const isNegociacao = vencedor?.tipo_lance === "negociacao";
-        const valorUnitarioFormatado = vencedor ? formatValorLance(vencedor.valor_lance) : "-";
         const quantidade = elemento.quantidade || 1;
-        
-        // Para desconto, não faz sentido calcular valor total (desconto não se multiplica por quantidade)
-        // Para lote, o valor do lance já é o valor total do lote
-        let valorTotal: number;
-        if (criterioJulgamento === "desconto") {
-          valorTotal = 0;
-        } else if (elemento.isLote) {
-          valorTotal = vencedor ? vencedor.valor_lance : 0; // Lance do lote já é o valor total
-        } else {
-          valorTotal = vencedor ? vencedor.valor_lance * quantidade : 0;
-        }
-        const valorTotalFormatado = criterioJulgamento === "desconto" ? "-" : (vencedor ? formatCurrency(valorTotal) : "-");
-        
-        // Somar ao valor total geral
-        valorTotalGeral += valorTotal;
         
         // Buscar marca da proposta do fornecedor vencedor (não aplicável para lotes ou global)
         const marcaKey = vencedor ? `${elemento.numero}-${vencedor.fornecedor_id}` : "";
@@ -2677,6 +2660,29 @@ export function DialogSessaoLances({
           // Há um vencedor potencial, mas todos os lances e propostas excedem o valor estimado
           vencedorEfetivo = null;
           statusSemVencedor = "FRACASSADO";
+        }
+
+        // Calcular valores SOMENTE se há vencedor efetivo (não para FRACASSADO/DESERTO)
+        const isNegociacao = vencedorEfetivo?.tipo_lance === "negociacao";
+        const valorUnitarioFormatado = vencedorEfetivo ? formatValorLance(vencedorEfetivo.valor_lance) : "-";
+        
+        // Para desconto, não faz sentido calcular valor total (desconto não se multiplica por quantidade)
+        // Para lote, o valor do lance já é o valor total do lote
+        let valorTotal: number;
+        if (!vencedorEfetivo) {
+          valorTotal = 0; // Sem vencedor efetivo = sem valor
+        } else if (criterioJulgamento === "desconto") {
+          valorTotal = 0;
+        } else if (elemento.isLote) {
+          valorTotal = vencedorEfetivo.valor_lance; // Lance do lote já é o valor total
+        } else {
+          valorTotal = vencedorEfetivo.valor_lance * quantidade;
+        }
+        const valorTotalFormatado = (!vencedorEfetivo || criterioJulgamento === "desconto") ? "-" : formatCurrency(valorTotal);
+        
+        // Somar ao valor total geral SOMENTE se há vencedor efetivo
+        if (vencedorEfetivo) {
+          valorTotalGeral += valorTotal;
         }
         
         // Para critério global, retornar colunas com Vencedor entre Descrição e Unidade
