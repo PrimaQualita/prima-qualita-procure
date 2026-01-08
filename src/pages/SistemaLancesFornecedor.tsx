@@ -737,66 +737,86 @@ const SistemaLancesFornecedor = () => {
         .eq("selecao_id", selecao.id)
         .order("data_hora_lance", { ascending: false });
       
-      if (!todosLances || todosLances.length === 0) {
-        setEhVencedor(false);
-        return;
-      }
-      
       // Buscar critério de julgamento
       const criterio = selecao?.criterios_julgamento || "por_item";
+      const ehDesconto = criterio === "desconto" || criterio === "maior_percentual_desconto";
       
-      // Agrupar por item/lote e identificar vencedor de cada
-      const vencedoresPorItem = new Map<number, string>();
-      const itensPorFornecedor = new Map<number, { fornecedor_id: string; valor: number }[]>();
+      let fornecedorEhVencedor = false;
       
-      todosLances.forEach((lance: any) => {
-        const key = lance.numero_item;
-        if (!itensPorFornecedor.has(key)) {
-          itensPorFornecedor.set(key, []);
+      if (!todosLances || todosLances.length === 0) {
+        // SEM LANCES: verificar vitória pela proposta inicial
+        console.log("ℹ️ Nenhum lance registrado - verificando propostas iniciais...");
+        
+        const { data: todasPropostas } = await supabase
+          .from("selecao_propostas_fornecedor")
+          .select("id, fornecedor_id, valor_total_proposta")
+          .eq("selecao_id", selecao.id);
+        
+        if (todasPropostas && todasPropostas.length > 0) {
+          // Ordenar: desconto = descendente (maior vence), preço = ascendente (menor vence)
+          const propostasOrdenadas = [...todasPropostas].sort((a, b) => 
+            ehDesconto ? (b.valor_total_proposta || 0) - (a.valor_total_proposta || 0) : (a.valor_total_proposta || 0) - (b.valor_total_proposta || 0)
+          );
+          
+          const vencedor = propostasOrdenadas[0];
+          if (vencedor && vencedor.fornecedor_id === proposta.fornecedor_id) {
+            fornecedorEhVencedor = true;
+          }
         }
+      } else {
+        // COM LANCES: calcular vencedores pelos lances
+        // Agrupar por item/lote e identificar vencedor de cada
+        const vencedoresPorItem = new Map<number, string>();
+        const itensPorFornecedor = new Map<number, { fornecedor_id: string; valor: number }[]>();
         
-        // Verificar se já existe lance deste fornecedor para este item
-        const lancesItem = itensPorFornecedor.get(key)!;
-        const existente = lancesItem.find(l => l.fornecedor_id === lance.fornecedor_id);
-        
-        if (!existente) {
-          lancesItem.push({ fornecedor_id: lance.fornecedor_id, valor: lance.valor_lance });
-        } else {
-          // Atualizar se for melhor lance
-          if (criterio === "desconto") {
-            if (lance.valor_lance > existente.valor) {
-              existente.valor = lance.valor_lance;
-            }
+        todosLances.forEach((lance: any) => {
+          const key = lance.numero_item;
+          if (!itensPorFornecedor.has(key)) {
+            itensPorFornecedor.set(key, []);
+          }
+          
+          // Verificar se já existe lance deste fornecedor para este item
+          const lancesItem = itensPorFornecedor.get(key)!;
+          const existente = lancesItem.find(l => l.fornecedor_id === lance.fornecedor_id);
+          
+          if (!existente) {
+            lancesItem.push({ fornecedor_id: lance.fornecedor_id, valor: lance.valor_lance });
           } else {
-            if (lance.valor_lance < existente.valor) {
-              existente.valor = lance.valor_lance;
+            // Atualizar se for melhor lance
+            if (ehDesconto) {
+              if (lance.valor_lance > existente.valor) {
+                existente.valor = lance.valor_lance;
+              }
+            } else {
+              if (lance.valor_lance < existente.valor) {
+                existente.valor = lance.valor_lance;
+              }
             }
           }
-        }
-      });
-      
-      // Identificar vencedor de cada item
-      itensPorFornecedor.forEach((lances, numeroItem) => {
-        if (lances.length === 0) return;
-        
-        // Ordenar: desconto = maior vence, preço = menor vence
-        const ordenado = [...lances].sort((a, b) => {
-          if (criterio === "desconto") {
-            return b.valor - a.valor; // Maior primeiro
-          }
-          return a.valor - b.valor; // Menor primeiro
         });
         
-        vencedoresPorItem.set(numeroItem, ordenado[0].fornecedor_id);
-      });
-      
-      // Verificar se o fornecedor atual é vencedor em algum item
-      let fornecedorEhVencedor = false;
-      vencedoresPorItem.forEach((vencedorId) => {
-        if (vencedorId === proposta.fornecedor_id) {
-          fornecedorEhVencedor = true;
-        }
-      });
+        // Identificar vencedor de cada item
+        itensPorFornecedor.forEach((lances, numeroItem) => {
+          if (lances.length === 0) return;
+          
+          // Ordenar: desconto = maior vence, preço = menor vence
+          const ordenado = [...lances].sort((a, b) => {
+            if (ehDesconto) {
+              return b.valor - a.valor; // Maior primeiro
+            }
+            return a.valor - b.valor; // Menor primeiro
+          });
+          
+          vencedoresPorItem.set(numeroItem, ordenado[0].fornecedor_id);
+        });
+        
+        // Verificar se o fornecedor atual é vencedor em algum item
+        vencedoresPorItem.forEach((vencedorId) => {
+          if (vencedorId === proposta.fornecedor_id) {
+            fornecedorEhVencedor = true;
+          }
+        });
+      }
       
       setEhVencedor(fornecedorEhVencedor);
       
