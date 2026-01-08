@@ -381,12 +381,14 @@ export function DialogAnaliseDocumentalSelecao({
       console.log(`🔍 [ANÁLISE DOC] Total de lances encontrados:`, todosLancesData?.length || 0);
       
       // Buscar propostas originais (para itens sem lances)
-      const { data: propostasOriginais } = await supabase
+      const { data: propostasOriginais, error: propostasOriginaisError } = await supabase
         .from("selecao_respostas_itens_fornecedor")
         .select(`
           numero_item,
-          valor_unitario,
+          quantidade,
+          valor_unitario_ofertado,
           valor_total_item,
+          desclassificado,
           lote_id,
           selecao_propostas_fornecedor!inner (
             fornecedor_id,
@@ -399,6 +401,10 @@ export function DialogAnaliseDocumentalSelecao({
           )
         `)
         .eq("selecao_propostas_fornecedor.selecao_id", selecaoId);
+
+      if (propostasOriginaisError) {
+        console.error("❌ [ANÁLISE DOC] Erro ao buscar propostas originais:", propostasOriginaisError);
+      }
       
       console.log(`🔍 [ANÁLISE DOC] Total de propostas originais encontradas:`, propostasOriginais?.length || 0);
       
@@ -434,23 +440,30 @@ export function DialogAnaliseDocumentalSelecao({
       // Para critério global: agrupar propostas por fornecedor (Item 0 = soma total)
       // Para outros critérios: agrupar por numero_item
       const propostaPorChave = new Map<number, any[]>();
+      let loteIdToNumeroGlobal = new Map<string, number>();
       
       if (isPorLote) {
         // Agrupar propostas por numero do lote, somando valor total do lote por fornecedor
         const propostaPorLoteFornecedor = new Map<string, { lote: number; fornecedor: any; fornecedorId: string; valorTotal: number }>();
         
         (propostasOriginais || []).forEach((proposta: any) => {
-          // Extrair numero_lote a partir do lote_id ou do numero_item
-          // No critério por_lote, o numero_item nos lances representa o numero_lote
+          if (proposta?.desclassificado) return;
+
           const loteId = proposta.lote_id;
           if (!loteId) return;
           
           const fornecedorId = (proposta.selecao_propostas_fornecedor as any)?.fornecedor_id;
+          if (!fornecedorId) return;
+
           const fornecedor = (proposta.selecao_propostas_fornecedor as any)?.fornecedores;
-          const valorItem = proposta.valor_total_item || 0;
+
+          const totalItem =
+            Number(proposta.valor_total_item) > 0
+              ? Number(proposta.valor_total_item)
+              : Number(proposta.valor_unitario_ofertado || 0) * Number(proposta.quantidade || 0);
+
+          if (totalItem <= 0) return;
           
-          // Precisamos descobrir o numero_lote a partir do lote_id
-          // Por enquanto, vamos usar uma abordagem diferente: buscar lotes diretamente
           const key = `${loteId}_${fornecedorId}`;
           
           if (!propostaPorLoteFornecedor.has(key)) {
@@ -461,7 +474,7 @@ export function DialogAnaliseDocumentalSelecao({
               valorTotal: 0
             });
           }
-          propostaPorLoteFornecedor.get(key)!.valorTotal += valorItem;
+          propostaPorLoteFornecedor.get(key)!.valorTotal += totalItem;
         });
         
         // Buscar lotes para mapear lote_id -> numero_lote
@@ -471,13 +484,13 @@ export function DialogAnaliseDocumentalSelecao({
             .select("id, numero_lote")
             .eq("cotacao_id", cotacaoId);
           
-          const loteIdToNumero = new Map<string, number>();
-          (lotesData || []).forEach((l: any) => loteIdToNumero.set(l.id, l.numero_lote));
+          loteIdToNumeroGlobal = new Map<string, number>();
+          (lotesData || []).forEach((l: any) => loteIdToNumeroGlobal.set(l.id, l.numero_lote));
           
           // Reagrupar por numero_lote
           propostaPorLoteFornecedor.forEach((dados, key) => {
             const [loteId] = key.split('_');
-            const numeroLote = loteIdToNumero.get(loteId);
+            const numeroLote = loteIdToNumeroGlobal.get(loteId);
             if (numeroLote !== undefined) {
               dados.lote = numeroLote;
               
@@ -488,7 +501,8 @@ export function DialogAnaliseDocumentalSelecao({
                 }
                 propostaPorChave.get(numeroLote)!.push({
                   numero_item: numeroLote,
-                  valor_unitario: dados.valorTotal,
+                  // No critério por_lote, usamos o total do lote como base de comparação
+                  valor_unitario_ofertado: dados.valorTotal,
                   selecao_propostas_fornecedor: {
                     fornecedor_id: dados.fornecedorId,
                     fornecedores: dados.fornecedor
@@ -503,9 +517,19 @@ export function DialogAnaliseDocumentalSelecao({
         const propostaPorFornecedor = new Map<string, { fornecedor: any; fornecedorId: string; valorTotal: number }>();
         
         (propostasOriginais || []).forEach((proposta: any) => {
+          if (proposta?.desclassificado) return;
+
           const fornecedorId = (proposta.selecao_propostas_fornecedor as any)?.fornecedor_id;
+          if (!fornecedorId) return;
+
           const fornecedor = (proposta.selecao_propostas_fornecedor as any)?.fornecedores;
-          const valorItem = proposta.valor_total_item || 0;
+
+          const totalItem =
+            Number(proposta.valor_total_item) > 0
+              ? Number(proposta.valor_total_item)
+              : Number(proposta.valor_unitario_ofertado || 0) * Number(proposta.quantidade || 0);
+
+          if (totalItem <= 0) return;
           
           if (!propostaPorFornecedor.has(fornecedorId)) {
             propostaPorFornecedor.set(fornecedorId, {
@@ -514,7 +538,7 @@ export function DialogAnaliseDocumentalSelecao({
               valorTotal: 0
             });
           }
-          propostaPorFornecedor.get(fornecedorId)!.valorTotal += valorItem;
+          propostaPorFornecedor.get(fornecedorId)!.valorTotal += totalItem;
         });
         
         // Se não houver lances para Item 0, adicionar propostas
@@ -525,7 +549,8 @@ export function DialogAnaliseDocumentalSelecao({
             }
             propostaPorChave.get(0)!.push({
               numero_item: 0,
-              valor_unitario: dados.valorTotal,
+              // No critério global, usamos o total global como base de comparação
+              valor_unitario_ofertado: dados.valorTotal,
               selecao_propostas_fornecedor: {
                 fornecedor_id: dados.fornecedorId,
                 fornecedores: dados.fornecedor
@@ -536,6 +561,8 @@ export function DialogAnaliseDocumentalSelecao({
       } else {
         // Critério por_item: agrupar por numero_item normalmente
         (propostasOriginais || []).forEach((proposta: any) => {
+          if (proposta?.desclassificado) return;
+
           const item = proposta.numero_item;
           // Só adicionar se não houver lances para este item
           if (!lancePorItem.has(item)) {
@@ -591,7 +618,7 @@ export function DialogAnaliseDocumentalSelecao({
         
         // Filtrar propostas classificadas (valor <= estimativa ou desconto >= estimativa)
         const propostasClassificadas = propostas.filter((p: any) => {
-          const valor = p.valor_unitario || 0;
+          const valor = Number(p.valor_unitario_ofertado) || 0;
           if (estimativa === 0) return valor > 0; // Se não há estimativa, qualquer valor válido é aceito
           return isDesconto ? valor >= estimativa : valor <= estimativa;
         });
@@ -599,8 +626,8 @@ export function DialogAnaliseDocumentalSelecao({
         if (propostasClassificadas.length > 0) {
           // Ordenar conforme critério
           const propostasOrdenadas = [...propostasClassificadas].sort((a, b) => {
-            const valorA = a.valor_unitario || 0;
-            const valorB = b.valor_unitario || 0;
+            const valorA = Number(a.valor_unitario_ofertado) || 0;
+            const valorB = Number(b.valor_unitario_ofertado) || 0;
             return isDesconto ? valorB - valorA : valorA - valorB;
           });
           
@@ -608,11 +635,11 @@ export function DialogAnaliseDocumentalSelecao({
           const fornecedor = (melhorProposta.selecao_propostas_fornecedor as any)?.fornecedores;
           const fornecedorId = (melhorProposta.selecao_propostas_fornecedor as any)?.fornecedor_id;
           
-          console.log(`🏆 [ANÁLISE DOC] ${isPorLote ? 'Lote' : 'Item'} ${numeroItem}: Vencedor por PROPOSTA ORIGINAL -`, fornecedor?.razao_social, `- valor:`, melhorProposta.valor_unitario);
+          console.log(`🏆 [ANÁLISE DOC] ${isPorLote ? 'Lote' : 'Item'} ${numeroItem}: Vencedor por PROPOSTA ORIGINAL -`, fornecedor?.razao_social, `- valor:`, melhorProposta.valor_unitario_ofertado);
           
           vencedoresData.push({
             numero_item: numeroItem,
-            valor_lance: melhorProposta.valor_unitario,
+            valor_lance: Number(melhorProposta.valor_unitario_ofertado) || 0,
             fornecedor_id: fornecedorId,
             tipo_lance: 'proposta_original',
             fornecedores: fornecedor
@@ -738,10 +765,20 @@ export function DialogAnaliseDocumentalSelecao({
       // Adicionar também itens das propostas originais
       (propostasOriginais || []).forEach((proposta: any) => {
         const fornId = (proposta.selecao_propostas_fornecedor as any)?.fornecedor_id;
-        if (fornId) {
-          if (!itensLicitadosPorFornecedor.has(fornId)) {
-            itensLicitadosPorFornecedor.set(fornId, new Set());
+        if (!fornId) return;
+
+        if (!itensLicitadosPorFornecedor.has(fornId)) {
+          itensLicitadosPorFornecedor.set(fornId, new Set());
+        }
+
+        if (isPorLote) {
+          const numeroLote = loteIdToNumeroGlobal.get(proposta.lote_id);
+          if (numeroLote !== undefined) {
+            itensLicitadosPorFornecedor.get(fornId)!.add(numeroLote);
           }
+        } else if (selecaoData?.criterios_julgamento === 'global') {
+          itensLicitadosPorFornecedor.get(fornId)!.add(0);
+        } else {
           itensLicitadosPorFornecedor.get(fornId)!.add(proposta.numero_item);
         }
       });
