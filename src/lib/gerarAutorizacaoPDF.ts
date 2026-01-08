@@ -319,7 +319,7 @@ export const gerarAutorizacaoCompraDireta = async (
   // Encaminhamento
   doc.setFontSize(11);
   doc.setFont('helvetica', 'normal');
-  const texto2 = 'Encaminha-se ao Departamento Financeiro, para as providências cabíveis.';
+  const texto2 = 'Encaminha-se ao Departamento de Contratos, para as providências cabíveis.';
   const linhas2 = doc.splitTextToSize(texto2, 170);
   doc.text(linhas2, 20, yPos, { align: 'justify', maxWidth: 170 });
   yPos += 10;
