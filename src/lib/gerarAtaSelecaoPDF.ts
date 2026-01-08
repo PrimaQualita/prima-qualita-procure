@@ -1115,21 +1115,17 @@ export async function gerarAtaSelecaoPDF(selecaoId: string): Promise<{ url: stri
   let itensFracassados: number[] = [];
   
   if (ehGlobalCriterio) {
-    // Para critério global: verificar se houve qualquer proposta/lance
-    const teveProposta = propostasPorItem.size > 0 || lancesPorItemMap.size > 0;
-    const todosInabilitados = empresasParticipantes.every(emp => 
-      fornecedoresInabilitados.some(f => f.cnpj === emp.cnpj)
-    );
+    // Para critério global: verificar se houve qualquer proposta
+    const teveProposta = propostasPorItem.size > 0;
     
-    // Não há deserto nem fracassado se houver lances vencedores habilitados
-    // Usamos lancesFiltrados (já exclui inabilitados) para verificar se há vencedores
-    const temVencedoresHabilitados = lancesFiltrados.length > 0;
+    // Não há deserto nem fracassado se houver vencedores habilitados
+    const temVencedoresHabilitados = lancesFiltrados.length > 0 || vencedoresPorItem.size > 0;
     
     if (!temVencedoresHabilitados) {
-      if (!teveProposta || lancesPorItemMap.size === 0) {
-        itensDesertos = [0]; // Marcador para indicar seleção deserta
-      } else if (todosInabilitados || (lancesPorItemMap.size > 0 && lancesFiltrados.length === 0)) {
-        itensFracassados = [0]; // Marcador para indicar seleção fracassada
+      if (!teveProposta) {
+        itensDesertos = [0]; // Marcador para indicar seleção deserta - nenhuma proposta
+      } else {
+        itensFracassados = [0]; // Marcador para indicar seleção fracassada - teve proposta mas todos desclassificados/inabilitados
       }
     }
   } else if (ehLoteCriterio) {
@@ -1146,23 +1142,20 @@ export async function gerarAtaSelecaoPDF(selecaoId: string): Promise<{ url: stri
         if (!vencedorInabilitado) return; // Tem vencedor habilitado, pular
       }
       
-      // Verificar se houve lance para este lote
-      const teveLanceLote = lancesPorItemMap.has(lote);
+      // Verificar se houve PROPOSTA para este lote (não apenas lance)
+      // Buscar itens do lote e verificar se algum teve proposta
+      const itensDoLote = Object.entries(lotesPorItem)
+        .filter(([_, numLote]) => numLote === lote)
+        .map(([numItem, _]) => parseInt(numItem, 10));
       
-      if (!teveLanceLote) {
-        // Deserto: nenhum fornecedor deu lance
+      const tevePropostaLote = itensDoLote.some(itemNum => propostasPorItem.has(itemNum));
+      
+      if (!tevePropostaLote) {
+        // Deserto: nenhum fornecedor apresentou proposta para o lote
         itensDesertos.push(lote);
       } else {
-        // Verificar se todos os fornecedores que deram lance foram inabilitados
-        const fornecedoresQueLancaramLote = lancesPorItemMap.get(lote) || new Set();
-        const todosInabilitadosLote = [...fornecedoresQueLancaramLote].every(fornId => {
-          const inab = inabilitacoesData?.find(i => i.fornecedor_id === fornId && !i.revertido);
-          return inab && (inab.itens_afetados || []).includes(lote);
-        });
-        
-        if (todosInabilitadosLote && fornecedoresQueLancaramLote.size > 0) {
-          itensFracassados.push(lote);
-        }
+        // Houve proposta mas não há vencedor - é fracassado
+        itensFracassados.push(lote);
       }
     });
   } else {
@@ -1177,23 +1170,15 @@ export async function gerarAtaSelecaoPDF(selecaoId: string): Promise<{ url: stri
         if (!vencedorInabilitado) return; // Tem vencedor habilitado, pular
       }
       
-      // Verificar se houve lance para este item
-      const teveLanceItem = lancesPorItemMap.has(item);
+      // Verificar se houve PROPOSTA para este item (não apenas lance)
+      const tevePropostaItem = propostasPorItem.has(item);
       
-      if (!teveLanceItem) {
-        // Deserto: nenhum fornecedor deu lance
+      if (!tevePropostaItem) {
+        // Deserto: nenhum fornecedor apresentou proposta para o item
         itensDesertos.push(item);
       } else {
-        // Verificar se todos os fornecedores que deram lance foram inabilitados
-        const fornecedoresQueLancaramItem = lancesPorItemMap.get(item) || new Set();
-        const todosInabilitadosItem = [...fornecedoresQueLancaramItem].every(fornId => {
-          const inab = inabilitacoesData?.find(i => i.fornecedor_id === fornId && !i.revertido);
-          return inab && (inab.itens_afetados || []).includes(item);
-        });
-        
-        if (todosInabilitadosItem && fornecedoresQueLancaramItem.size > 0) {
-          itensFracassados.push(item);
-        }
+        // Houve proposta mas não há vencedor - é fracassado (desclassificado/inabilitado)
+        itensFracassados.push(item);
       }
     });
   }
