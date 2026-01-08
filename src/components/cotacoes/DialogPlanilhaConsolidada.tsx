@@ -69,6 +69,8 @@ export function DialogPlanilhaConsolidada({
   const [todosItens, setTodosItens] = useState<any[]>([]);
   const [tipoProcesso, setTipoProcesso] = useState<string>("");
   const [empresasSelecionadas, setEmpresasSelecionadas] = useState<Set<string>>(new Set());
+  const [contratoGestaoNome, setContratoGestaoNome] = useState<string>("");
+  const [tituloCotacao, setTituloCotacao] = useState<string>("");
 
   useEffect(() => {
     if (open && cotacaoId) {
@@ -83,9 +85,13 @@ export function DialogPlanilhaConsolidada({
       const { data: cotacaoData } = await supabase
         .from("cotacoes_precos")
         .select(`
+          titulo_cotacao,
           processo_compra_id,
           processos_compras!inner (
-            tipo
+            tipo,
+            contratos_gestao!inner (
+              nome_contrato
+            )
           )
         `)
         .eq("id", cotacaoId)
@@ -93,6 +99,10 @@ export function DialogPlanilhaConsolidada({
 
       if (cotacaoData?.processos_compras) {
         setTipoProcesso(cotacaoData.processos_compras.tipo);
+        setContratoGestaoNome((cotacaoData.processos_compras as any)?.contratos_gestao?.nome_contrato || "");
+      }
+      if (cotacaoData?.titulo_cotacao) {
+        setTituloCotacao(cotacaoData.titulo_cotacao);
       }
 
       // Buscar APENAS a análise de compliance mais recente
@@ -796,7 +806,9 @@ export function DialogPlanilhaConsolidada({
         detalhes: {
           tipo: 'Planilha Consolidada',
           protocolo: dadosProtocolo.protocolo,
+          contrato_gestao: contratoGestaoNome || 'N/A',
           numero_processo: processo.numero,
+          titulo_cotacao: tituloCotacao || 'N/A',
           fornecedores_incluidos: fornecedoresIncluidos.length,
         },
       });

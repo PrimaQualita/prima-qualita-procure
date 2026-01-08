@@ -701,7 +701,9 @@ const Cotacoes = () => {
           detalhes: {
             tipo: 'E-mail de Fornecedor Anexado',
             nome_arquivo: file.name,
-            cotacao_id: cotacaoSelecionada.id,
+            contrato_gestao: contratoSelecionado?.nome_contrato || 'N/A',
+            numero_processo: processoSelecionado?.numero_processo_interno || 'N/A',
+            titulo_cotacao: cotacaoSelecionada.titulo_cotacao,
           },
         });
       }
@@ -761,6 +763,9 @@ const Cotacoes = () => {
         detalhes: {
           tipo: 'E-mail de Fornecedor Anexado',
           nome_arquivo: email?.nome_arquivo || 'N/A',
+          contrato_gestao: contratoSelecionado?.nome_contrato || 'N/A',
+          numero_processo: processoSelecionado?.numero_processo_interno || 'N/A',
+          titulo_cotacao: cotacaoSelecionada?.titulo_cotacao || 'N/A',
         },
       });
 
@@ -834,7 +839,8 @@ const Cotacoes = () => {
         entidade: 'cotacoes_precos',
         detalhes: {
           tipo: 'Cotação de Preços',
-          titulo: novaCotacao.titulo_cotacao,
+          titulo_cotacao: novaCotacao.titulo_cotacao,
+          contrato_gestao: contratoSelecionado?.nome_contrato || 'N/A',
           numero_processo: processoSelecionado.numero_processo_interno,
         },
       });
@@ -876,6 +882,9 @@ const Cotacoes = () => {
             tipo: 'Item de Cotação',
             numero_item: itemData.numero_item,
             descricao: itemData.descricao?.substring(0, 50) || 'N/A',
+            contrato_gestao: contratoSelecionado?.nome_contrato || 'N/A',
+            numero_processo: processoSelecionado?.numero_processo_interno || 'N/A',
+            titulo_cotacao: cotacaoSelecionada?.titulo_cotacao || 'N/A',
           },
         });
         toast.success("Item atualizado com sucesso");
@@ -900,6 +909,9 @@ const Cotacoes = () => {
             tipo: 'Item de Cotação',
             numero_item: itemData.numero_item,
             descricao: itemData.descricao?.substring(0, 50) || 'N/A',
+            contrato_gestao: contratoSelecionado?.nome_contrato || 'N/A',
+            numero_processo: processoSelecionado?.numero_processo_interno || 'N/A',
+            titulo_cotacao: cotacaoSelecionada?.titulo_cotacao || 'N/A',
           },
         });
         toast.success("Item criado com sucesso");
@@ -951,6 +963,9 @@ const Cotacoes = () => {
           tipo: 'Item de Cotação',
           numero_item: itemData?.numero_item || 'N/A',
           descricao: itemData?.descricao?.substring(0, 50) || 'N/A',
+          contrato_gestao: contratoSelecionado?.nome_contrato || 'N/A',
+          numero_processo: processoSelecionado?.numero_processo_interno || 'N/A',
+          titulo_cotacao: cotacaoSelecionada?.titulo_cotacao || 'N/A',
         },
       });
 
@@ -1423,7 +1438,8 @@ const Cotacoes = () => {
         entidade_id: cotacaoParaExcluir,
         detalhes: {
           tipo: 'Cotação de Preços',
-          titulo: cotacaoData?.titulo_cotacao || 'N/A',
+          titulo_cotacao: cotacaoData?.titulo_cotacao || 'N/A',
+          contrato_gestao: contratoSelecionado?.nome_contrato || 'N/A',
           numero_processo: processoSelecionado.numero_processo_interno,
         },
       });
@@ -1459,6 +1475,9 @@ const Cotacoes = () => {
             tipo: 'Lote de Cotação',
             numero_lote: loteData.numero_lote,
             descricao_lote: loteData.descricao_lote?.substring(0, 50) || 'N/A',
+            contrato_gestao: contratoSelecionado?.nome_contrato || 'N/A',
+            numero_processo: processoSelecionado?.numero_processo_interno || 'N/A',
+            titulo_cotacao: cotacaoSelecionada?.titulo_cotacao || 'N/A',
           },
         });
         toast.success("Lote atualizado com sucesso");
@@ -1483,6 +1502,9 @@ const Cotacoes = () => {
             tipo: 'Lote de Cotação',
             numero_lote: loteData.numero_lote,
             descricao_lote: loteData.descricao_lote?.substring(0, 50) || 'N/A',
+            contrato_gestao: contratoSelecionado?.nome_contrato || 'N/A',
+            numero_processo: processoSelecionado?.numero_processo_interno || 'N/A',
+            titulo_cotacao: cotacaoSelecionada?.titulo_cotacao || 'N/A',
           },
         });
         toast.success("Lote criado com sucesso");
@@ -1589,6 +1611,9 @@ const Cotacoes = () => {
           tipo: 'Lote de Cotação',
           numero_lote: loteData?.numero_lote || 'N/A',
           descricao_lote: loteData?.descricao_lote?.substring(0, 50) || 'N/A',
+          contrato_gestao: contratoSelecionado?.nome_contrato || 'N/A',
+          numero_processo: processoSelecionado?.numero_processo_interno || 'N/A',
+          titulo_cotacao: cotacaoSelecionada?.titulo_cotacao || 'N/A',
         },
       });
 
@@ -3052,7 +3077,8 @@ const Cotacoes = () => {
                   entidade_id: cotacaoEditando.id,
                   detalhes: {
                     tipo: 'Cotação de Preços',
-                    titulo: cotacaoEditando.titulo_cotacao,
+                    titulo_cotacao: cotacaoEditando.titulo_cotacao,
+                    contrato_gestao: contratoSelecionado?.nome_contrato || 'N/A',
                     numero_processo: processoSelecionado?.numero_processo_interno || 'N/A',
                   },
                 });

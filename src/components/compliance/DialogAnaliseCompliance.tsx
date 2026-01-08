@@ -49,13 +49,40 @@ export function DialogAnaliseCompliance({
   const [nomeArquivo, setNomeArquivo] = useState<string | null>(null);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [uploadedFile, setUploadedFile] = useState<File | null>(null);
+  const [contratoGestaoNome, setContratoGestaoNome] = useState<string>("");
+  const [tituloCotacao, setTituloCotacao] = useState<string>("");
 
   useEffect(() => {
     if (open) {
       loadExistingAnalise();
       loadFornecedoresPropostas();
+      loadContextoAuditoria();
     }
   }, [open, cotacaoId]);
+
+  const loadContextoAuditoria = async () => {
+    try {
+      const { data } = await supabase
+        .from("cotacoes_precos")
+        .select(`
+          titulo_cotacao,
+          processos_compras!inner (
+            contratos_gestao!inner (
+              nome_contrato
+            )
+          )
+        `)
+        .eq("id", cotacaoId)
+        .single();
+
+      if (data) {
+        setTituloCotacao(data.titulo_cotacao || "");
+        setContratoGestaoNome((data.processos_compras as any)?.contratos_gestao?.nome_contrato || "");
+      }
+    } catch (error) {
+      console.error("Erro ao carregar contexto de auditoria:", error);
+    }
+  };
 
   const loadFornecedoresPropostas = async () => {
     try {
@@ -293,7 +320,9 @@ export function DialogAnaliseCompliance({
           entidade_id: analiseId,
           detalhes: {
             tipo: 'Análise de Compliance',
+            contrato_gestao: contratoGestaoNome || 'N/A',
             numero_processo: numeroProcesso,
+            titulo_cotacao: tituloCotacao || 'N/A',
             status: statusAprovacao,
           },
         });
@@ -313,7 +342,9 @@ export function DialogAnaliseCompliance({
           entidade_id: insertData?.[0]?.id,
           detalhes: {
             tipo: 'Análise de Compliance',
+            contrato_gestao: contratoGestaoNome || 'N/A',
             numero_processo: numeroProcesso,
+            titulo_cotacao: tituloCotacao || 'N/A',
             status: statusAprovacao,
           },
         });
@@ -371,7 +402,9 @@ export function DialogAnaliseCompliance({
           entidade_id: analiseId,
           detalhes: {
             tipo: 'Análise de Compliance',
+            contrato_gestao: contratoGestaoNome || 'N/A',
             numero_processo: numeroProcesso,
+            titulo_cotacao: tituloCotacao || 'N/A',
           },
         });
 
