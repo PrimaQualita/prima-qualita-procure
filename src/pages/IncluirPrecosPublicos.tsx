@@ -12,6 +12,7 @@ import { toast } from "sonner";
 import { Upload, FileText, X } from "lucide-react";
 import { gerarPropostaFornecedorPDF } from "@/lib/gerarPropostaFornecedorPDF";
 import ExcelJS from 'exceljs';
+import { registrarAuditoria } from "@/lib/registrarAuditoria";
 
 interface ItemCotacao {
   id: string;
@@ -895,6 +896,32 @@ const IncluirPrecosPublicos = () => {
         tipo_anexo: "PROPOSTA",
         nome_arquivo: nomeProposta,
         url_arquivo: pathProposta, // Usar PATH, não URL pública
+      });
+
+      // Buscar dados do contrato de gestão para o log
+      let contratoGestaoNome = "";
+      if (processoCompra?.contrato_gestao_id) {
+        const { data: contrato } = await supabase
+          .from("contratos_gestao")
+          .select("nome_contrato")
+          .eq("id", processoCompra.contrato_gestao_id)
+          .single();
+        contratoGestaoNome = contrato?.nome_contrato || "";
+      }
+
+      // Registrar auditoria de inclusão de preços públicos
+      await registrarAuditoria({
+        acao: 'criação',
+        entidade: 'Preços Públicos',
+        entidade_id: respostaCotacao.id,
+        detalhes: {
+          contrato_gestao: contratoGestaoNome,
+          numero_processo: processoCompra?.numero_processo_interno || "",
+          titulo_cotacao: cotacao.titulo_cotacao,
+          nome_fonte: nomeFonte,
+          valor_total: valorTotal,
+          quantidade_itens: itensResposta.length,
+        },
       });
 
       toast.success("Preços públicos incluídos com sucesso!");
