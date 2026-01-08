@@ -25,6 +25,7 @@ import { Label } from "@/components/ui/label";
 import { gerarCapaProcessoPDF } from "@/lib/gerarCapaProcessoPDF";
 import { gerarRequisicaoPDF } from "@/lib/gerarRequisicaoPDF";
 import { gerarAutorizacaoDespesaPDF } from "@/lib/gerarAutorizacaoDespesaPDF";
+import { registrarAuditoria } from "@/lib/registrarAuditoria";
 
 interface AnexoProcesso {
   id: string;
@@ -199,6 +200,20 @@ export function DialogAnexosProcesso({
 
       if (dbError) throw dbError;
 
+      // Registrar auditoria
+      await registrarAuditoria({
+        acao: 'criação',
+        entidade: 'anexos_processo_compra',
+        detalhes: {
+          tipo: 'Anexo do Processo',
+          numero_processo: processoNumero,
+          nome_documento: tipo === 'capa_processo' ? 'Capa do Processo' : 
+                          tipo === 'requisicao' ? 'Requisição' : 
+                          tipo === 'termo_referencia' ? 'Termo de Referência' : tipo,
+          nome_arquivo: file.name,
+        },
+      });
+
       toast({ title: "Anexo enviado com sucesso!" });
       await loadAnexos();
     } catch (error: any) {
@@ -351,6 +366,27 @@ export function DialogAnexosProcesso({
         console.log("✅ Processo completo deletado, status revertido");
       }
 
+      // Registrar auditoria
+      const nomeDocumento = anexo.tipo_anexo === 'capa_processo' ? 'Capa do Processo' : 
+                            anexo.tipo_anexo === 'requisicao' ? 'Requisição' : 
+                            anexo.tipo_anexo === 'termo_referencia' ? 'Termo de Referência' :
+                            anexo.tipo_anexo === 'autorizacao_despesa' ? 'Autorização de Despesa' :
+                            anexo.tipo_anexo === 'PROCESSO_COMPLETO' ? 'Processo Completo (Mesclado)' :
+                            anexo.tipo_anexo === 'PROCESSO_COMPLETO_SELECAO' ? 'Processo Completo Seleção (Mesclado)' :
+                            anexo.tipo_anexo;
+      
+      await registrarAuditoria({
+        acao: 'deleção',
+        entidade: 'anexos_processo_compra',
+        entidade_id: anexo.id,
+        detalhes: {
+          tipo: 'Anexo do Processo',
+          numero_processo: processoNumero,
+          nome_documento: nomeDocumento,
+          nome_arquivo: anexo.nome_arquivo,
+        },
+      });
+
       toast({ title: "Anexo excluído com sucesso!" });
       setAnexoToDelete(null);
       await loadAnexos();
@@ -443,6 +479,19 @@ export function DialogAnexosProcesso({
         });
 
       if (dbError) throw dbError;
+
+      // Registrar auditoria
+      await registrarAuditoria({
+        acao: 'criação',
+        entidade: 'anexos_processo_compra',
+        detalhes: {
+          tipo: 'Anexo do Processo',
+          numero_processo: processo.numero_processo_interno,
+          nome_documento: 'Capa do Processo',
+          nome_arquivo: `Capa_Processo_${processo.numero_processo_interno}.pdf`,
+          gerado_automaticamente: true,
+        },
+      });
 
       toast({ 
         title: "Capa do Processo gerada com sucesso!",
@@ -563,6 +612,20 @@ export function DialogAnexosProcesso({
 
       if (protocoloError) throw protocoloError;
 
+      // Registrar auditoria
+      await registrarAuditoria({
+        acao: 'criação',
+        entidade: 'anexos_processo_compra',
+        detalhes: {
+          tipo: 'Anexo do Processo',
+          numero_processo: processo.numero_processo_interno,
+          nome_documento: 'Requisição',
+          nome_arquivo: `Requisicao_${processo.numero_processo_interno}.pdf`,
+          protocolo: protocolo,
+          gerado_automaticamente: true,
+        },
+      });
+
       toast({ 
         title: "Requisição gerada com sucesso!",
         description: "O documento foi criado e anexado ao processo."
@@ -677,6 +740,20 @@ export function DialogAnexosProcesso({
         });
 
       if (protocoloError) throw protocoloError;
+
+      // Registrar auditoria
+      await registrarAuditoria({
+        acao: 'criação',
+        entidade: 'anexos_processo_compra',
+        detalhes: {
+          tipo: 'Anexo do Processo',
+          numero_processo: processo.numero_processo_interno,
+          nome_documento: 'Autorização de Despesa',
+          nome_arquivo: `Autorizacao_Despesa_${processo.numero_processo_interno}.pdf`,
+          protocolo: protocolo,
+          gerado_automaticamente: true,
+        },
+      });
 
       toast({ 
         title: "Autorização de Despesa gerada com sucesso!",
