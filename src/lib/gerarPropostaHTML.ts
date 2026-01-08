@@ -1,4 +1,5 @@
 import { gerarHashDocumento } from './certificacaoDigital';
+import { valorPorExtenso } from './valorPorExtenso';
 
 interface ItemProposta {
   numero_item: number;
@@ -67,7 +68,8 @@ export async function gerarPropostaHTML(
     .autenticidade { margin-top: 15px; font-size: 12px; font-style: italic; color: #64748b; border-top: 1px solid #cbd5e1; padding-top: 15px; }
     .text-right { text-align: right; }
     .total { font-weight: bold; background-color: #f0f9ff; }
-    .observacoes { margin-top: 30px; padding: 15px; background-color: #f8f9fa; border-left: 4px solid #0ea5e9; }
+    .valor-extenso { margin-top: 15px; padding: 10px 15px; border: 2px solid #0ea5e9; text-align: justify; font-size: 12px; text-transform: uppercase; }
+    .observacoes { margin-top: 20px; padding: 15px; background-color: #f8f9fa; border-left: 4px solid #0ea5e9; }
   </style>
 </head>
 <body>
@@ -120,6 +122,10 @@ export async function gerarPropostaHTML(
         </tr>
       </tbody>
     </table>
+
+  <div class="valor-extenso">
+    (${valorPorExtenso(valorTotal).toUpperCase()})
+  </div>
 
   <div class="observacoes">
     <h3>Observações:</h3>

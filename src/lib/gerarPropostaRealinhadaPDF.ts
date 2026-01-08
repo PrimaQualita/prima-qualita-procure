@@ -1,6 +1,7 @@
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { supabase } from '@/integrations/supabase/client';
+import { valorPorExtenso } from './valorPorExtenso';
 
 interface ItemPropostaRealinhada {
   numero_item: number;
@@ -279,6 +280,9 @@ export const gerarPropostaRealinhadaPDF = async (
     { content: 'VALOR TOTAL DA PROPOSTA', colSpan: 6, styles: { fontStyle: 'bold', fillColor: [0, 75, 140], textColor: [255, 255, 255], halign: 'right' } },
     { content: `R$ ${formatarMoeda(valorTotal)}`, styles: { fontStyle: 'bold', fillColor: [0, 75, 140], textColor: [255, 255, 255], halign: 'right' } }
   ]);
+  
+  // Armazenar valor total para uso após a tabela
+  const valorTotalFinal = valorTotal;
 
   // Gerar tabela com descrição justificada e colunas centralizadas verticalmente
   // Observação importante: quando uma linha “quebra” para a próxima página, o autoTable pode entregar
@@ -541,9 +545,58 @@ export const gerarPropostaRealinhadaPDF = async (
     }
   });
 
-  // Observações (se houver) - logo abaixo da tabela
+  // Valor por extenso - logo abaixo da tabela
   let finalY = (doc as any).lastAutoTable?.finalY || yPos + 50;
+  finalY += 5;
   
+  // Valor por extenso em quadro
+  const extenso = valorPorExtenso(valorTotalFinal).toUpperCase();
+  const extensoTexto = `(${extenso})`;
+  
+  // Calcular altura do quadro baseado no texto
+  doc.setFontSize(9);
+  doc.setFont('helvetica', 'normal');
+  const extensoLines = doc.splitTextToSize(extensoTexto, pageWidth - margin * 2 - 10);
+  const alturaQuadroExtenso = extensoLines.length * 4 + 6;
+  
+  // Desenhar quadro
+  doc.setDrawColor(0, 75, 140);
+  doc.setLineWidth(0.5);
+  doc.rect(margin, finalY, pageWidth - margin * 2, alturaQuadroExtenso, 'S');
+  
+  // Renderizar texto justificado
+  doc.setTextColor(0, 0, 0);
+  let yExtenso = finalY + 4;
+  const larguraTextoExtenso = pageWidth - margin * 2 - 10;
+  extensoLines.forEach((linha: string, index: number) => {
+    const isUltimaLinha = index === extensoLines.length - 1;
+    const palavras = linha.trim().split(/\s+/).filter((p: string) => p.length > 0);
+    
+    if (!isUltimaLinha && palavras.length > 1) {
+      // Justificar
+      let larguraPalavras = 0;
+      palavras.forEach((palavra: string) => {
+        larguraPalavras += doc.getTextWidth(palavra);
+      });
+      const espacoDisponivel = larguraTextoExtenso - larguraPalavras;
+      const espacoEntrePalavras = espacoDisponivel / (palavras.length - 1);
+      
+      let xAtual = margin + 5;
+      palavras.forEach((palavra: string, idx: number) => {
+        doc.text(palavra, xAtual, yExtenso);
+        if (idx < palavras.length - 1) {
+          xAtual += doc.getTextWidth(palavra) + espacoEntrePalavras;
+        }
+      });
+    } else {
+      doc.text(linha.trim(), margin + 5, yExtenso);
+    }
+    yExtenso += 4;
+  });
+  
+  finalY += alturaQuadroExtenso + 5;
+  
+  // Observações (se houver)
   if (observacoes && observacoes.trim()) {
     const textoObservacoes = sanitizarTexto(observacoes);
     const larguraTextoObs = pageWidth - margin * 2 - 10; // Padding interno do box
