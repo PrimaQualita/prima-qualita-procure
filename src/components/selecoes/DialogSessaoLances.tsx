@@ -1645,9 +1645,34 @@ export function DialogSessaoLances({
   };
 
   const getVencedorItem = (numeroItem: number) => {
-    // Vencedor é apenas entre lances de fornecedores não inabilitados
+    // Primeiro, verificar lances válidos
     const lancesItem = getLancesValidosDoItem(numeroItem);
-    return lancesItem.length > 0 ? lancesItem[0] : null;
+    if (lancesItem.length > 0) {
+      return lancesItem[0];
+    }
+    
+    // FALLBACK: Se não há lances, usar vencedor identificado pela proposta original (vencedoresPorItem)
+    // Este Map já inclui fallback para propostas classificadas sem lances (calculado em loadVencedoresPorItem)
+    const vencedorPorProposta = vencedoresPorItem.get(numeroItem);
+    if (vencedorPorProposta) {
+      // Retornar objeto compatível com interface do lance para uso consistente
+      return {
+        id: `proposta-${numeroItem}-${vencedorPorProposta.fornecedorId}`,
+        fornecedor_id: vencedorPorProposta.fornecedorId,
+        valor_lance: vencedorPorProposta.valorLance,
+        data_hora_lance: new Date().toISOString(),
+        indicativo_lance_vencedor: true,
+        numero_item: numeroItem,
+        numero_rodada: 0,
+        tipo_lance: "proposta_original", // Marcador para indicar que veio da proposta
+        fornecedores: {
+          razao_social: vencedorPorProposta.razaoSocial,
+          cnpj: ""
+        }
+      } as Lance;
+    }
+    
+    return null;
   };
 
   const getRodadasItem = (numeroItem: number) => {
