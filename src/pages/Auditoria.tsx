@@ -192,6 +192,10 @@ const Auditoria = () => {
       campo_alterado: "Campo Alterado",
       valor_anterior: "Valor Anterior",
       valor_novo: "Novo Valor",
+      nome_fonte: "Nome da Fonte",
+      valor_total: "Valor Total",
+      quantidade_itens: "Quantidade de Itens",
+      cnpj: "CNPJ",
     };
     return traducoes[chave] || chave;
   };

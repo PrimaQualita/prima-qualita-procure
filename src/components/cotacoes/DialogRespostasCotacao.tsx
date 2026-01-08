@@ -29,6 +29,7 @@ import {
 import { stripHtml } from "@/lib/htmlUtils";
 import { DialogPlanilhaConsolidada } from "./DialogPlanilhaConsolidada";
 import { v4 as uuidv4 } from 'uuid';
+import { registrarAuditoria } from "@/lib/registrarAuditoria";
 
 interface DialogRespostasCotacaoProps {
   open: boolean;
@@ -885,6 +886,26 @@ export function DialogRespostasCotacao({
     if (!respostaParaExcluir) return;
 
     try {
+      // Buscar dados do contrato de gestão para o log
+      const { data: cotacaoData } = await supabase
+        .from("cotacoes_precos")
+        .select(`
+          titulo_cotacao,
+          processos_compras:processo_compra_id (
+            numero_processo_interno,
+            contrato_gestao_id,
+            contratos_gestao:contrato_gestao_id (
+              nome_contrato
+            )
+          )
+        `)
+        .eq("id", cotacaoId)
+        .single();
+
+      const contratoGestaoNome = (cotacaoData?.processos_compras as any)?.contratos_gestao?.nome_contrato || "";
+      const numeroProcesso = (cotacaoData?.processos_compras as any)?.numero_processo_interno || "";
+      const tituloCotacaoLog = cotacaoData?.titulo_cotacao || "";
+
       // Excluir itens da resposta
       const { error: itensError } = await supabase
         .from("respostas_itens_fornecedor")
@@ -900,6 +921,21 @@ export function DialogRespostasCotacao({
         .eq("id", respostaParaExcluir.id);
 
       if (respostaError) throw respostaError;
+
+      // Registrar auditoria de exclusão de proposta
+      await registrarAuditoria({
+        acao: 'exclusão',
+        entidade: 'Proposta Cotação',
+        entidade_id: respostaParaExcluir.id,
+        detalhes: {
+          contrato_gestao: contratoGestaoNome,
+          numero_processo: numeroProcesso,
+          titulo_cotacao: tituloCotacaoLog,
+          fornecedor: respostaParaExcluir.fornecedor?.razao_social || "Não identificado",
+          cnpj: respostaParaExcluir.fornecedor?.cnpj || "",
+          valor_total: respostaParaExcluir.valor_total_anual_ofertado,
+        },
+      });
 
       toast.success("Resposta excluída com sucesso!");
       setConfirmDeleteOpen(false);
