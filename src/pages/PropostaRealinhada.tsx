@@ -1087,6 +1087,7 @@ const PropostaRealinhada = () => {
           razao_social: fornecedor.razao_social,
           cnpj: fornecedor.cnpj,
           email: fornecedor.email,
+          telefone: fornecedor.telefone,
           endereco_comercial: fornecedor.endereco_comercial,
         },
         {
