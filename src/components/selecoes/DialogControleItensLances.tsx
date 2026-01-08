@@ -54,6 +54,7 @@ export function DialogControleItensLances({
   
   // Estados para ITENS (critério por_item, global, desconto)
   const [itensAbertos, setItensAbertos] = useState<Set<number>>(new Set());
+  const [itensFechados, setItensFechados] = useState<Set<number>>(new Set()); // Itens explicitamente fechados
   const [itensSelecionados, setItensSelecionados] = useState<Set<number>>(new Set());
   const [itensEmNegociacao, setItensEmNegociacao] = useState<Map<number, string>>(new Map());
   const [itensNegociacaoConcluida, setItensNegociacaoConcluida] = useState<Set<number>>(new Set());
@@ -61,6 +62,7 @@ export function DialogControleItensLances({
   
   // Estados para LOTES (critério por_lote)
   const [lotesAbertos, setLotesAbertos] = useState<Set<number>>(new Set());
+  const [lotesFechados, setLotesFechados] = useState<Set<number>>(new Set()); // Lotes explicitamente fechados
   const [lotesSelecionados, setLotesSelecionados] = useState<Set<number>>(new Set());
   const [lotesEmNegociacao, setLotesEmNegociacao] = useState<Map<number, string>>(new Map());
   const [lotesNegociacaoConcluida, setLotesNegociacaoConcluida] = useState<Set<number>>(new Set());
@@ -343,6 +345,9 @@ export function DialogControleItensLances({
 
       const abertos = new Set(data?.filter((item) => item.aberto).map((item) => item.numero_item) || []);
       
+      // Itens/lotes explicitamente fechados (aberto=false, registro existe)
+      const fechados = new Set(data?.filter((item) => !item.aberto).map((item) => item.numero_item) || []);
+      
       // Mapear itens/lotes em negociação
       const emNegociacao = new Map<number, string>();
       data?.forEach((item) => {
@@ -362,10 +367,12 @@ export function DialogControleItensLances({
       // Atualizar estados apropriados baseado no critério
       if (isPorLote) {
         setLotesAbertos(abertos);
+        setLotesFechados(fechados);
         setLotesEmNegociacao(emNegociacao);
         setLotesNegociacaoConcluida(concluidos);
       } else {
         setItensAbertos(abertos);
+        setItensFechados(fechados);
         setItensEmNegociacao(emNegociacao);
         setItensNegociacaoConcluida(concluidos);
       }
@@ -1058,10 +1065,12 @@ export function DialogControleItensLances({
   };
 
   // Itens fechados com vencedor (candidatos a negociação)
+  // Só mostra se o item foi EXPLICITAMENTE FECHADO (existe registro com aberto=false)
   // Excluir itens que já tiveram negociação concluída ou foram marcados como "não negociar"
   const itensFechadosComVencedor = itens.filter(
     (item) => 
-      !itensAbertos.has(item.numero_item) && 
+      itensFechados.has(item.numero_item) && // Deve estar FECHADO (não apenas "não aberto")
+      !itensAbertos.has(item.numero_item) && // E não pode estar aberto atualmente
       vencedoresPorItem.has(item.numero_item) && 
       !itensEmNegociacao.has(item.numero_item) &&
       !itensNegociacaoConcluida.has(item.numero_item)
