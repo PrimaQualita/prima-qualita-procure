@@ -419,6 +419,33 @@ export function DialogControleItensLances({
 
       console.log("🎯 Lances ordenados com priorização de negociação:", todosLances);
 
+      // Buscar propostas originais como fallback para itens sem lances
+      const { data: propostas } = await supabase
+        .from("selecao_propostas_fornecedor")
+        .select("id, fornecedor_id, fornecedores(id, razao_social)")
+        .eq("selecao_id", selecaoId);
+
+      const propostaIds = propostas?.map(p => p.id) || [];
+      
+      // Buscar itens das propostas
+      const { data: itensPropostas } = propostaIds.length > 0 ? await supabase
+        .from("selecao_respostas_itens_fornecedor")
+        .select("proposta_id, numero_item, valor_unitario_ofertado")
+        .in("proposta_id", propostaIds)
+        .gt("valor_unitario_ofertado", 0) : { data: [] };
+
+      // Mapear proposta_id -> fornecedor info
+      const propostaFornecedorMap = new Map<string, { fornecedorId: string; razaoSocial: string }>();
+      propostas?.forEach(p => {
+        const fornecedor = p.fornecedores as { id: string; razao_social: string } | null;
+        propostaFornecedorMap.set(p.id, {
+          fornecedorId: p.fornecedor_id,
+          razaoSocial: fornecedor?.razao_social || 'Fornecedor'
+        });
+      });
+
+      console.log("📋 [LOAD VENCEDORES] Propostas originais carregadas:", itensPropostas?.length || 0);
+
       // Criar mapa de vencedores
       const vencedoresMap = new Map<number, { fornecedorId: string; razaoSocial: string; valorLance: number }>();
       
@@ -449,34 +476,76 @@ export function DialogControleItensLances({
           indicativo: l.indicativo_lance_vencedor
         })));
 
-        if (lancesValidos.length === 0) continue;
+        if (lancesValidos.length > 0) {
+          // Priorizar lances de negociação, depois buscar por indicativo_lance_vencedor
+          const lanceNegociacao = lancesValidos.find(l => l.tipo_lance === 'negociacao');
+          const lanceVencedor = lancesValidos.find(l => l.indicativo_lance_vencedor === true);
+          const vencedorFinal = lanceNegociacao || lanceVencedor || lancesValidos[0];
 
-        // Priorizar lances de negociação, depois buscar por indicativo_lance_vencedor
-        const lanceNegociacao = lancesValidos.find(l => l.tipo_lance === 'negociacao');
-        const lanceVencedor = lancesValidos.find(l => l.indicativo_lance_vencedor === true);
-        const vencedorFinal = lanceNegociacao || lanceVencedor || lancesValidos[0];
-
-        console.log(`🏆 [ITEM ${item.numero_item}] Vencedor final selecionado:`, {
-          fornecedor: vencedorFinal?.fornecedores?.razao_social,
-          valor: vencedorFinal?.valor_lance,
-          tipo: vencedorFinal?.tipo_lance,
-          indicativo: vencedorFinal?.indicativo_lance_vencedor,
-          criterio: lanceNegociacao ? 'negociacao' : lanceVencedor ? 'indicativo' : 'primeiro'
-        });
-
-        if (vencedorFinal) {
-          const fornecedorInfo = vencedorFinal.fornecedores || 
-            lancesVencedores?.find(lv => lv.fornecedor_id === vencedorFinal.fornecedor_id)?.fornecedores;
-
-          vencedoresMap.set(item.numero_item, {
-            fornecedorId: vencedorFinal.fornecedor_id,
-            razaoSocial: fornecedorInfo?.razao_social || 'Fornecedor',
-            valorLance: vencedorFinal.valor_lance
+          console.log(`🏆 [ITEM ${item.numero_item}] Vencedor final selecionado:`, {
+            fornecedor: vencedorFinal?.fornecedores?.razao_social,
+            valor: vencedorFinal?.valor_lance,
+            tipo: vencedorFinal?.tipo_lance,
+            indicativo: vencedorFinal?.indicativo_lance_vencedor,
+            criterio: lanceNegociacao ? 'negociacao' : lanceVencedor ? 'indicativo' : 'primeiro'
           });
+
+          if (vencedorFinal) {
+            const fornecedorInfo = vencedorFinal.fornecedores || 
+              lancesVencedores?.find(lv => lv.fornecedor_id === vencedorFinal.fornecedor_id)?.fornecedores;
+
+            vencedoresMap.set(item.numero_item, {
+              fornecedorId: vencedorFinal.fornecedor_id,
+              razaoSocial: fornecedorInfo?.razao_social || 'Fornecedor',
+              valorLance: vencedorFinal.valor_lance
+            });
+          }
+        } else {
+          // FALLBACK: Não tem lances - buscar vencedor pela proposta original
+          const propostasDoItem = itensPropostas?.filter(ip => ip.numero_item === item.numero_item) || [];
+          
+          // Filtrar propostas válidas (não inabilitadas e não desclassificadas)
+          const propostasValidas = propostasDoItem.filter(ip => {
+            const propostaInfo = propostaFornecedorMap.get(ip.proposta_id);
+            if (!propostaInfo) return false;
+            
+            const inabilitacoes = fornecedoresInabilitadosMap.get(propostaInfo.fornecedorId);
+            if (!inabilitacoes) return true; // Não está inabilitado
+            if (inabilitacoes.length === 0) return false; // Inabilitação geral
+            return !inabilitacoes.includes(item.numero_item); // Verificar se o item está afetado
+          });
+
+          console.log(`📋 [ITEM ${item.numero_item}] Propostas válidas (sem lances): ${propostasValidas.length}`);
+
+          if (propostasValidas.length > 0) {
+            // Ordenar por menor valor (ou maior se for desconto)
+            const isDesconto = criterioJulgamento === "desconto";
+            propostasValidas.sort((a, b) => 
+              isDesconto 
+                ? b.valor_unitario_ofertado - a.valor_unitario_ofertado  // Maior desconto primeiro
+                : a.valor_unitario_ofertado - b.valor_unitario_ofertado  // Menor preço primeiro
+            );
+
+            const propostaVencedora = propostasValidas[0];
+            const propostaInfo = propostaFornecedorMap.get(propostaVencedora.proposta_id);
+
+            if (propostaInfo) {
+              console.log(`🏆 [ITEM ${item.numero_item}] Vencedor por proposta original:`, {
+                fornecedor: propostaInfo.razaoSocial,
+                valor: propostaVencedora.valor_unitario_ofertado
+              });
+
+              vencedoresMap.set(item.numero_item, {
+                fornecedorId: propostaInfo.fornecedorId,
+                razaoSocial: propostaInfo.razaoSocial,
+                valorLance: propostaVencedora.valor_unitario_ofertado
+              });
+            }
+          }
         }
       }
 
-      console.log("🏆 Vencedores carregados (com priorização de negociação):", Array.from(vencedoresMap.entries()));
+      console.log("🏆 Vencedores carregados (com priorização de negociação e fallback para propostas):", Array.from(vencedoresMap.entries()));
       setVencedoresPorItem(vencedoresMap);
     } catch (error) {
       console.error("Erro ao carregar vencedores:", error);
