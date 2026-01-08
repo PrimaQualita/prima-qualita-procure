@@ -1,7 +1,6 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
-import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import {
@@ -13,8 +12,15 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import primaLogo from "@/assets/prima-qualita-logo.png";
-import { ArrowLeft, Shield, User, FileText, Trash2 } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Eye, FileText, Plus, Trash2, Edit } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 interface AuditLog {
@@ -35,6 +41,8 @@ const Auditoria = () => {
   const [loading, setLoading] = useState(true);
   const [logs, setLogs] = useState<AuditLog[]>([]);
   const [filtro, setFiltro] = useState("");
+  const [logSelecionado, setLogSelecionado] = useState<AuditLog | null>(null);
+  const [dialogDetalhesAberto, setDialogDetalhesAberto] = useState(false);
 
   useEffect(() => {
     checkAuth();
@@ -47,7 +55,6 @@ const Auditoria = () => {
       return;
     }
 
-    // Verificar se é gestor ou compliance
     const { data: profile } = await supabase
       .from("profiles")
       .select("compliance, superintendente_executivo")
@@ -102,32 +109,80 @@ const Auditoria = () => {
     (log) =>
       log.acao.toLowerCase().includes(filtro.toLowerCase()) ||
       log.entidade.toLowerCase().includes(filtro.toLowerCase()) ||
-      log.usuario_nome?.toLowerCase().includes(filtro.toLowerCase())
+      log.usuario_nome?.toLowerCase().includes(filtro.toLowerCase()) ||
+      log.detalhes?.nome_arquivo?.toLowerCase().includes(filtro.toLowerCase()) ||
+      log.detalhes?.numero_processo?.toLowerCase().includes(filtro.toLowerCase())
   );
 
   const getAcaoBadge = (acao: string) => {
     const acaoLower = acao.toLowerCase();
-    if (acaoLower.includes("criar") || acaoLower.includes("insert")) {
-      return <Badge variant="default">Criar</Badge>;
+    if (acaoLower.includes("criar") || acaoLower.includes("insert") || acaoLower.includes("criação")) {
+      return (
+        <Badge className="bg-emerald-500 hover:bg-emerald-600 text-white gap-1">
+          <Plus className="h-3 w-3" />
+          Criação
+        </Badge>
+      );
     }
-    if (acaoLower.includes("editar") || acaoLower.includes("update")) {
-      return <Badge variant="secondary">Editar</Badge>;
+    if (acaoLower.includes("editar") || acaoLower.includes("update") || acaoLower.includes("atualização")) {
+      return (
+        <Badge className="bg-amber-500 hover:bg-amber-600 text-white gap-1">
+          <Edit className="h-3 w-3" />
+          Edição
+        </Badge>
+      );
     }
-    if (acaoLower.includes("excluir") || acaoLower.includes("delete")) {
-      return <Badge variant="destructive">Excluir</Badge>;
+    if (acaoLower.includes("excluir") || acaoLower.includes("delete") || acaoLower.includes("deleção")) {
+      return (
+        <Badge className="bg-red-500 hover:bg-red-600 text-white gap-1">
+          <Trash2 className="h-3 w-3" />
+          Exclusão
+        </Badge>
+      );
     }
     return <Badge variant="outline">{acao}</Badge>;
   };
 
-  const getEntidadeIcon = (entidade: string) => {
-    const entidadeLower = entidade.toLowerCase();
-    if (entidadeLower.includes("usuario") || entidadeLower.includes("profile")) {
-      return <User className="h-4 w-4" />;
-    }
-    if (entidadeLower.includes("processo") || entidadeLower.includes("contrato")) {
-      return <FileText className="h-4 w-4" />;
-    }
-    return <Shield className="h-4 w-4" />;
+  const getNomeArquivo = (log: AuditLog) => {
+    const detalhes = log.detalhes;
+    if (!detalhes) return log.entidade;
+
+    // Priorizar nome do documento formatado, depois nome do arquivo
+    if (detalhes.nome_documento) return detalhes.nome_documento;
+    if (detalhes.tipo) return detalhes.tipo;
+    if (detalhes.nome_arquivo) return detalhes.nome_arquivo;
+    
+    return log.entidade;
+  };
+
+  const abrirDetalhes = (log: AuditLog) => {
+    setLogSelecionado(log);
+    setDialogDetalhesAberto(true);
+  };
+
+  const formatarDetalhe = (chave: string, valor: any): string => {
+    if (valor === null || valor === undefined) return "N/A";
+    if (typeof valor === "boolean") return valor ? "Sim" : "Não";
+    if (typeof valor === "object") return JSON.stringify(valor, null, 2);
+    return String(valor);
+  };
+
+  const traduzirChave = (chave: string): string => {
+    const traducoes: Record<string, string> = {
+      numero_processo: "Número do Processo",
+      nome_arquivo: "Nome do Arquivo",
+      nome_documento: "Tipo de Documento",
+      tipo: "Categoria",
+      objeto: "Objeto",
+      titulo: "Título",
+      titulo_cotacao: "Título da Cotação",
+      fornecedor: "Fornecedor",
+      selecao: "Seleção",
+      protocolo: "Protocolo",
+      tipo_autorizacao: "Tipo de Autorização",
+      contrato_gestao: "Contrato de Gestão",
+    };
+    return traducoes[chave] || chave;
   };
 
   if (loading) {
@@ -139,19 +194,15 @@ const Auditoria = () => {
       <div className="container mx-auto px-4 py-8">
         <Card>
           <CardHeader>
-            <div className="flex items-center justify-between">
-              <div>
-                <CardTitle>Log de Auditoria</CardTitle>
-                <CardDescription>
-                  Visualize todas as ações realizadas no sistema
-                </CardDescription>
-              </div>
-            </div>
+            <CardTitle>Log de Auditoria</CardTitle>
+            <CardDescription>
+              Visualize todas as ações realizadas no sistema
+            </CardDescription>
           </CardHeader>
           <CardContent>
             <div className="mb-4">
               <Input
-                placeholder="Buscar por ação, entidade ou usuário..."
+                placeholder="Buscar por ação, arquivo, processo ou usuário..."
                 value={filtro}
                 onChange={(e) => setFiltro(e.target.value)}
               />
@@ -168,29 +219,44 @@ const Auditoria = () => {
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead>Data/Hora</TableHead>
-                      <TableHead>Ação</TableHead>
-                      <TableHead>Entidade</TableHead>
+                      <TableHead className="w-[160px]">Data/Hora</TableHead>
+                      <TableHead className="w-[120px]">Ação</TableHead>
+                      <TableHead>Arquivo/Documento</TableHead>
                       <TableHead>Usuário</TableHead>
-                      <TableHead>Tipo</TableHead>
+                      <TableHead className="w-[80px]">Tipo</TableHead>
+                      <TableHead className="w-[60px] text-center">Detalhes</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {logsFiltrados.map((log) => (
                       <TableRow key={log.id}>
-                        <TableCell className="text-xs">
+                        <TableCell className="text-xs font-mono">
                           {new Date(log.created_at).toLocaleString("pt-BR")}
                         </TableCell>
                         <TableCell>{getAcaoBadge(log.acao)}</TableCell>
                         <TableCell>
                           <div className="flex items-center gap-2">
-                            {getEntidadeIcon(log.entidade)}
-                            <span className="font-medium">{log.entidade}</span>
+                            <FileText className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                            <span className="font-medium truncate max-w-[300px]" title={getNomeArquivo(log)}>
+                              {getNomeArquivo(log)}
+                            </span>
                           </div>
                         </TableCell>
                         <TableCell>{log.usuario_nome || "Sistema"}</TableCell>
                         <TableCell>
-                          <Badge variant="outline">{log.usuario_tipo || "interno"}</Badge>
+                          <Badge variant="outline" className="text-xs">
+                            {log.usuario_tipo || "interno"}
+                          </Badge>
+                        </TableCell>
+                        <TableCell className="text-center">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => abrirDetalhes(log)}
+                            title="Ver detalhes"
+                          >
+                            <Eye className="h-4 w-4" />
+                          </Button>
                         </TableCell>
                       </TableRow>
                     ))}
@@ -201,6 +267,75 @@ const Auditoria = () => {
           </CardContent>
         </Card>
       </div>
+
+      {/* Dialog de Detalhes */}
+      <Dialog open={dialogDetalhesAberto} onOpenChange={setDialogDetalhesAberto}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <FileText className="h-5 w-5" />
+              Detalhes do Registro
+            </DialogTitle>
+            <DialogDescription>
+              Informações completas sobre esta ação
+            </DialogDescription>
+          </DialogHeader>
+
+          {logSelecionado && (
+            <div className="space-y-4">
+              {/* Informações básicas */}
+              <div className="grid grid-cols-2 gap-3 p-3 bg-muted/50 rounded-lg">
+                <div>
+                  <p className="text-xs text-muted-foreground">Data/Hora</p>
+                  <p className="font-medium text-sm">
+                    {new Date(logSelecionado.created_at).toLocaleString("pt-BR")}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground">Ação</p>
+                  <div className="mt-0.5">{getAcaoBadge(logSelecionado.acao)}</div>
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground">Usuário</p>
+                  <p className="font-medium text-sm">{logSelecionado.usuario_nome || "Sistema"}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground">Tipo de Usuário</p>
+                  <p className="font-medium text-sm">{logSelecionado.usuario_tipo || "interno"}</p>
+                </div>
+              </div>
+
+              {/* Detalhes do documento */}
+              {logSelecionado.detalhes && Object.keys(logSelecionado.detalhes).length > 0 && (
+                <div className="space-y-2">
+                  <h4 className="font-semibold text-sm">Informações do Documento</h4>
+                  <div className="border rounded-lg divide-y">
+                    {Object.entries(logSelecionado.detalhes).map(([chave, valor]) => (
+                      <div key={chave} className="flex justify-between py-2 px-3">
+                        <span className="text-sm text-muted-foreground">
+                          {traduzirChave(chave)}
+                        </span>
+                        <span className="text-sm font-medium text-right max-w-[200px] truncate" title={formatarDetalhe(chave, valor)}>
+                          {formatarDetalhe(chave, valor)}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* IDs técnicos */}
+              <div className="text-xs text-muted-foreground border-t pt-3 space-y-1">
+                <p><span className="font-medium">ID do Log:</span> {logSelecionado.id}</p>
+                {logSelecionado.entidade_id && (
+                  <p><span className="font-medium">ID da Entidade:</span> {logSelecionado.entidade_id}</p>
+                )}
+                <p><span className="font-medium">Tabela:</span> {logSelecionado.entidade}</p>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
