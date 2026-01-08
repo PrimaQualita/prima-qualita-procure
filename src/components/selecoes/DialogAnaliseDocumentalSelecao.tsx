@@ -1964,8 +1964,16 @@ export function DialogAnaliseDocumentalSelecao({
         : fornecedorParaInabilitar.fornecedor.itensLicitados;
       const fornecedorInabId = fornecedorParaInabilitar.fornecedor.id;
 
-      // RECALCULAR segundos colocados AGORA para garantir dados frescos
-      const segundosAtualizados = await buscarSegundosColocados(itensAfetados, fornecedorInabId);
+      // CRÍTICO: Identificar quais itens o fornecedor ERA VENCEDOR (não apenas licitou)
+      // Só devemos reabrir negociação para itens onde ele era o vencedor atual
+      const itensVencedorAfetados = fornecedorParaInabilitar.fornecedor.itensVencedores.filter(
+        i => itensAfetados.includes(i)
+      );
+      console.log("[INAB] itensAfetados (todos licitados):", itensAfetados);
+      console.log("[INAB] itensVencedorAfetados (só onde era vencedor):", itensVencedorAfetados);
+
+      // RECALCULAR segundos colocados APENAS para itens onde era vencedor
+      const segundosAtualizados = await buscarSegundosColocados(itensVencedorAfetados, fornecedorInabId);
       console.log("Segundos colocados recalculados na inabilitação:", segundosAtualizados);
 
       // Registrar inabilitação
@@ -1997,8 +2005,8 @@ export function DialogAnaliseDocumentalSelecao({
 
       if (reabrirParaNegociacao && onReabrirNegociacao) {
         // Reabrir itens APENAS para negociação com o segundo colocado (NÃO reabrir lances)
-        // APENAS para itens onde há segundo colocado
-        for (const item of itensAfetados) {
+        // APENAS para itens onde o fornecedor era vencedor E há segundo colocado
+        for (const item of itensVencedorAfetados) {
           const segundoColocado = segundosAtualizados.find(s => s.numero_item === item);
           console.log(`[INAB+REABRIR] Item ${item}: segundo colocado = `, segundoColocado);
           
@@ -2038,15 +2046,15 @@ export function DialogAnaliseDocumentalSelecao({
           }
         }
         
-        const itensReabertos = segundosAtualizados.filter(s => itensAfetados.includes(s.numero_item)).length;
+        const itensReabertos = segundosAtualizados.length;
         toast.success(itensReabertos > 0
           ? `Fornecedor inabilitado. ${itensReabertos} ${itensReabertos === 1 ? unidadeSingular + ' reaberto' : unidadePlural + ' reabertos'} para negociação.`
           : `Fornecedor inabilitado. Nenhum ${unidadeSingular} teve segundo colocado para negociar.`);
         // NÃO chamar onReabrirNegociacao aqui pois já fizemos o update com o segundo colocado correto
         // A callback em DetalheSelecao.tsx sobrescreveria com o fornecedor errado
       } else {
-        // Processar cada item afetado
-        for (const item of itensAfetados) {
+        // Processar cada item onde o fornecedor era vencedor
+        for (const item of itensVencedorAfetados) {
           const segundoColocado = segundosAtualizados.find(s => s.numero_item === item);
           console.log(`Item ${item} (sem reabrir): segundo colocado = `, segundoColocado);
           
