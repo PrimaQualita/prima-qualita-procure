@@ -282,8 +282,16 @@ export function DialogAnaliseDocumentalSelecao({
   useEffect(() => {
     const fetchSegundos = async () => {
       if (dialogInabilitar && tipoInabilitacao === 'parcial' && fornecedorParaInabilitar && itensSelecionadosInabilitacao.length > 0) {
-        const segundos = await buscarSegundosColocados(itensSelecionadosInabilitacao, fornecedorParaInabilitar.fornecedor.id);
-        setSegundosColocados(segundos);
+        // CORREÇÃO: Filtrar para mostrar segundos apenas dos itens VENCIDOS que foram selecionados
+        const itensVencedoresSelecionados = itensSelecionadosInabilitacao.filter(
+          item => fornecedorParaInabilitar.fornecedor.itensVencedores.includes(item)
+        );
+        if (itensVencedoresSelecionados.length > 0) {
+          const segundos = await buscarSegundosColocados(itensVencedoresSelecionados, fornecedorParaInabilitar.fornecedor.id);
+          setSegundosColocados(segundos);
+        } else {
+          setSegundosColocados([]);
+        }
       }
     };
     fetchSegundos();
@@ -1916,8 +1924,9 @@ export function DialogAnaliseDocumentalSelecao({
     // Se critério for global, vai direto para inabilitação completa
     // Caso contrário, SEMPRE mostra opções (mesmo com 1 item vencido, pode ter outros licitados)
     if (criterioJulgamento === 'global') {
-      const segundos = await buscarSegundosColocados(data.fornecedor.itensLicitados, data.fornecedor.id);
-      console.log("Segundos colocados encontrados:", segundos);
+      // CORREÇÃO: Buscar segundos apenas para itens que o fornecedor GANHOU, não todos que licitou
+      const segundos = await buscarSegundosColocados(data.fornecedor.itensVencedores, data.fornecedor.id);
+      console.log("Segundos colocados encontrados (apenas itens vencidos):", segundos);
       setDialogInabilitar(true);
     } else {
       // Mostra diálogo de escolha primeiro - fornecedor pode ser segundo colocado em outros itens
@@ -1931,9 +1940,9 @@ export function DialogAnaliseDocumentalSelecao({
     setDialogEscolhaTipoInabilitacao(false);
     
     if (tipoInabilitacao === 'completa') {
-      // Buscar segundos colocados para TODOS os itens licitados (não só vencidos)
-      const segundos = await buscarSegundosColocados(fornecedorParaInabilitar.fornecedor.itensLicitados, fornecedorParaInabilitar.fornecedor.id);
-      console.log("Segundos colocados encontrados:", segundos);
+      // CORREÇÃO: Buscar segundos colocados apenas para itens que o fornecedor GANHOU
+      const segundos = await buscarSegundosColocados(fornecedorParaInabilitar.fornecedor.itensVencedores, fornecedorParaInabilitar.fornecedor.id);
+      console.log("Segundos colocados encontrados (apenas itens vencidos):", segundos);
       setDialogInabilitar(true);
     } else {
       // Mostra diálogo de inabilitação com seleção de itens
@@ -3421,8 +3430,8 @@ export function DialogAnaliseDocumentalSelecao({
 
       {/* Dialog para inabilitar fornecedor */}
       <AlertDialog open={dialogInabilitar} onOpenChange={setDialogInabilitar}>
-        <AlertDialogContent className="max-w-lg">
-          <AlertDialogHeader>
+        <AlertDialogContent className="max-w-lg max-h-[90vh] flex flex-col">
+          <AlertDialogHeader className="flex-shrink-0">
             <AlertDialogTitle className="flex items-center gap-2 text-destructive">
               <UserX className="h-5 w-5" />
               {tipoInabilitacao === 'parcial'
@@ -3430,6 +3439,7 @@ export function DialogAnaliseDocumentalSelecao({
                 : 'Inabilitar Fornecedor'}
             </AlertDialogTitle>
             <AlertDialogDescription asChild>
+              <ScrollArea className="max-h-[40vh] pr-4">
               <div className="space-y-4">
                 <p>
                   Você está prestes a inabilitar o fornecedor{" "}
@@ -3521,10 +3531,11 @@ export function DialogAnaliseDocumentalSelecao({
                   </div>
                 )}
               </div>
+              </ScrollArea>
             </AlertDialogDescription>
           </AlertDialogHeader>
           
-          <div className="space-y-4 py-4">
+          <div className="space-y-4 py-4 flex-shrink-0">
             <div>
               <Label>Motivo da Inabilitação *</Label>
               <Textarea
