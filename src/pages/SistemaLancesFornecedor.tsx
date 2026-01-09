@@ -426,8 +426,16 @@ const SistemaLancesFornecedor = () => {
 
       // Canal de BROADCAST para atualizações instantâneas do gestor
       // Isso garante propagação imediata para todos os fornecedores
+      // Usando nome de canal único para evitar conflitos
+      const broadcastChannelName = `broadcast_selecao_${selecao.id}`;
+      console.log(`📡 [FORNECEDOR] Conectando ao canal broadcast: ${broadcastChannelName}`);
+      
       const broadcastChannel = supabase
-        .channel(`broadcast_selecao_${selecao.id}`)
+        .channel(broadcastChannelName, {
+          config: {
+            broadcast: { self: false }
+          }
+        })
         .on('broadcast', { event: 'fechamento_iniciado' }, (payload) => {
           console.log("📡 BROADCAST recebido: fechamento_iniciado", payload);
           // Forçar reload imediato dos itens abertos
@@ -452,8 +460,15 @@ const SistemaLancesFornecedor = () => {
           loadItensAbertos();
           loadLances();
         })
-        .subscribe((status) => {
-          console.log("📡 Status canal broadcast:", status);
+        .subscribe((status, err) => {
+          console.log(`📡 [FORNECEDOR] Status canal broadcast: ${status}`, err ? `Erro: ${err}` : '');
+          if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
+            console.warn('📡 [FORNECEDOR] Erro no canal broadcast, tentando reconectar...');
+            // Reconectar após erro
+            setTimeout(() => {
+              broadcastChannel.subscribe();
+            }, 2000);
+          }
         });
 
       // Subscrição para mensagens de negociação - Realtime
@@ -501,12 +516,12 @@ const SistemaLancesFornecedor = () => {
         )
         .subscribe();
 
-      // Polling como fallback a cada 2 segundos (aumentado de 1s para reduzir carga)
-      // O broadcast agora é o canal principal para atualizações instantâneas
+      // Polling como fallback a cada 1 segundo para garantir atualizações
+      // mesmo se o broadcast falhar por problemas de rede
       const pollingInterval = setInterval(() => {
         loadItensAbertos();
         loadLances();
-      }, 2000);
+      }, 1000);
 
       // Canal de presença para rastrear fornecedores online
       const presenceChannel = supabase.channel(`presence_selecao_${selecao.id}`);
