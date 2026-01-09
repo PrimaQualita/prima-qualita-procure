@@ -108,18 +108,41 @@ export function DialogVerMensagem({
 
   const loadConversa = async () => {
     try {
+      // Se a mensagem principal (raiz) foi apagada pelo remetente, consideramos a conversa encerrada
+      const { data: rootData, error: rootErr } = await supabase
+        .from("mensagens_contato")
+        .select("id, excluida_remetente")
+        .eq("id", conversaId)
+        .limit(1);
+
+      if (rootErr) throw rootErr;
+
+      const root = rootData?.[0];
+      if (!root || root.excluida_remetente === true) {
+        toast({
+          title: "Conversa excluída",
+          description: "A mensagem principal foi apagada pelo remetente.",
+        });
+        onMessageSent?.();
+        onOpenChange(false);
+        return;
+      }
+
       const { data: mensagens, error } = await supabase
         .from("mensagens_contato")
         .select("*")
-        .eq("conversa_id", conversaId)
-        .eq("excluida_remetente", false)
+        .or(`id.eq.${conversaId},conversa_id.eq.${conversaId}`)
         .order("created_at", { ascending: true });
 
       if (error) throw error;
 
+      const mensagensFiltradas = (mensagens || []).filter(
+        (m: any) => m.excluida_remetente !== true
+      );
+
       // Processar mensagens com nomes
       const processadas = await Promise.all(
-        (mensagens || []).map(async (msg) => {
+        mensagensFiltradas.map(async (msg) => {
           let remetenteNome = "Desconhecido";
           let isCurrentUser = false;
 

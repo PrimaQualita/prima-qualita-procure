@@ -83,19 +83,41 @@ export function ChatContatosFornecedor({ fornecedorId }: ChatContatosFornecedorP
         const { data: mensagensData, error: errMsgs } = await supabase
           .from("mensagens_contato")
           .select("*")
-          .in("id", mensagemIds);
+          .in("id", mensagemIds)
+          .or("excluida_remetente.is.null,excluida_remetente.eq.false");
 
         if (errMsgs) throw errMsgs;
 
         // Buscar todas as mensagens das conversas para agrupar corretamente
         const conversaIds = [...new Set((mensagensData || []).map(m => m.conversa_id).filter(Boolean))] as string[];
+
+        // Se a mensagem raiz foi apagada (soft-delete antigo), ocultar a conversa para todos
+        let conversaIdsAtivos = conversaIds;
+        if (conversaIdsAtivos.length > 0) {
+          const { data: roots, error: errRoots } = await supabase
+            .from("mensagens_contato")
+            .select("id, excluida_remetente")
+            .in("id", conversaIdsAtivos);
+
+          if (errRoots) throw errRoots;
+
+          const conversasApagadas = new Set(
+            (roots || [])
+              .filter((r: any) => r.excluida_remetente === true)
+              .map((r: any) => r.id)
+          );
+
+          conversaIdsAtivos = conversaIdsAtivos.filter((cid) => !conversasApagadas.has(cid));
+        }
         
         // Buscar mensagem original de cada conversa (para mostrar na lista)
-        const { data: mensagensOriginais } = await supabase
-          .from("mensagens_contato")
-          .select("*")
-          .in("conversa_id", conversaIds)
-          .order("created_at", { ascending: true });
+        const { data: mensagensOriginais } = conversaIdsAtivos.length > 0
+          ? await supabase
+              .from("mensagens_contato")
+              .select("*")
+              .in("conversa_id", conversaIdsAtivos)
+              .order("created_at", { ascending: true })
+          : { data: [] as any[] };
 
         // Agrupar por conversa_id - pegar apenas a primeira mensagem de cada conversa
         const conversasMap = new Map<string, typeof mensagensOriginais[0]>();
@@ -198,53 +220,77 @@ export function ChatContatosFornecedor({ fornecedorId }: ChatContatosFornecedorP
       if (errEnviadas) throw errEnviadas;
 
       if (enviadas && enviadas.length > 0) {
-        const mensagemIds = enviadas.map(e => e.id);
-        
-        const { data: todosDestinatarios } = await supabase
-          .from("mensagens_contato_destinatarios")
-          .select("*")
-          .in("mensagem_id", mensagemIds);
+        // Se a conversa raiz foi apagada (soft-delete antigo), esconder respostas relacionadas
+        const conversaIdsEnviadas = [...new Set(enviadas.map((m) => (m.conversa_id || m.id)).filter(Boolean))] as string[];
 
-        const enviadasProcessadas = await Promise.all(
-          enviadas.map(async (msg) => {
-            const destsDaMensagem = (todosDestinatarios || []).filter(d => d.mensagem_id === msg.id);
-            
-            const destinatariosProcessados = await Promise.all(
-              destsDaMensagem.map(async (d) => {
-                let nome = "Desconhecido";
-                if (d.destinatario_tipo === "interno" && d.destinatario_interno_id) {
-                  const { data: profile } = await supabase
-                    .from("profiles")
-                    .select("nome_completo")
-                    .eq("id", d.destinatario_interno_id)
-                    .limit(1);
-                  nome = profile?.[0]?.nome_completo || "Usuário";
-                }
-                return {
-                  id: d.id,
-                  tipo: d.destinatario_tipo,
-                  nome,
-                  lida: d.lida || false,
-                };
-              })
-            );
+        const { data: rootsEnviadas, error: errRootsEnviadas } = await supabase
+          .from("mensagens_contato")
+          .select("id, excluida_remetente")
+          .in("id", conversaIdsEnviadas);
 
-            return {
-              id: msg.id,
-              assunto: msg.assunto,
-              conteudo: msg.conteudo,
-              remetente_tipo: msg.remetente_tipo as "interno" | "fornecedor",
-              remetente_interno_id: msg.remetente_interno_id,
-              remetente_fornecedor_id: msg.remetente_fornecedor_id,
-              created_at: msg.created_at,
-              excluida_remetente: msg.excluida_remetente || false,
-              destinatarios: destinatariosProcessados,
-              conversa_id: msg.conversa_id,
-            };
-          })
+        if (errRootsEnviadas) throw errRootsEnviadas;
+
+        const conversasApagadas = new Set(
+          (rootsEnviadas || [])
+            .filter((r: any) => r.excluida_remetente === true)
+            .map((r: any) => r.id)
         );
 
-        setMensagensEnviadas(enviadasProcessadas);
+        const enviadasAtivas = enviadas.filter(
+          (m) => !conversasApagadas.has(m.conversa_id || m.id)
+        );
+
+        if (enviadasAtivas.length === 0) {
+          setMensagensEnviadas([]);
+        } else {
+          const mensagemIds = enviadasAtivas.map(e => e.id);
+          
+          const { data: todosDestinatarios } = await supabase
+            .from("mensagens_contato_destinatarios")
+            .select("*")
+            .in("mensagem_id", mensagemIds);
+
+          const enviadasProcessadas = await Promise.all(
+            enviadasAtivas.map(async (msg) => {
+              const destsDaMensagem = (todosDestinatarios || []).filter(d => d.mensagem_id === msg.id);
+              
+              const destinatariosProcessados = await Promise.all(
+                destsDaMensagem.map(async (d) => {
+                  let nome = "Desconhecido";
+                  if (d.destinatario_tipo === "interno" && d.destinatario_interno_id) {
+                    const { data: profile } = await supabase
+                      .from("profiles")
+                      .select("nome_completo")
+                      .eq("id", d.destinatario_interno_id)
+                      .limit(1);
+                    nome = profile?.[0]?.nome_completo || "Usuário";
+                  }
+                  return {
+                    id: d.id,
+                    tipo: d.destinatario_tipo,
+                    nome,
+                    lida: d.lida || false,
+                  };
+                })
+              );
+
+              return {
+                id: msg.id,
+                assunto: msg.assunto,
+                conteudo: msg.conteudo,
+                remetente_tipo: msg.remetente_tipo as "interno" | "fornecedor",
+                remetente_interno_id: msg.remetente_interno_id,
+                remetente_fornecedor_id: msg.remetente_fornecedor_id,
+                created_at: msg.created_at,
+                excluida_remetente: msg.excluida_remetente || false,
+                destinatarios: destinatariosProcessados,
+                conversa_id: msg.conversa_id,
+              };
+            })
+          );
+
+          setMensagensEnviadas(enviadasProcessadas);
+        }
       } else {
         setMensagensEnviadas([]);
       }
