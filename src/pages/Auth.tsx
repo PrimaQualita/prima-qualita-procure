@@ -15,6 +15,7 @@ const Auth = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
+  const [activeTab, setActiveTab] = useState<"login" | "fornecedor">("login");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -300,7 +301,11 @@ const Auth = () => {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <Tabs defaultValue="login" className="w-full">
+          <Tabs
+            value={activeTab}
+            onValueChange={(value) => setActiveTab(value as "login" | "fornecedor")}
+            className="w-full"
+          >
             <TabsList className="grid w-full grid-cols-2">
               <TabsTrigger value="login">Login</TabsTrigger>
               <TabsTrigger value="fornecedor">Sou Fornecedor</TabsTrigger>
@@ -366,10 +371,10 @@ const Auth = () => {
                       variant="link"
                       className="p-0 h-auto text-xs"
                       onClick={() => {
-                        const tabsTrigger = document.querySelector('[data-state="inactive"][value="login"]') as HTMLElement;
-                        if (tabsTrigger) {
-                          tabsTrigger.click();
-                        }
+                        setActiveTab("login");
+                        setTimeout(() => {
+                          document.getElementById("login-identifier")?.focus();
+                        }, 0);
                       }}
                     >
                       Faça login aqui
