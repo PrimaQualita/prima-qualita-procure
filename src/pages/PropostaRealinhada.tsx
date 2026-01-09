@@ -180,10 +180,47 @@ const PropostaRealinhada = () => {
           .eq("selecao_id", selecaoId)
           .order("data_hora_lance", { ascending: false });
 
-        // Se há lances, identificar vencedores dinamicamente
+        // Se há lances, identificar vencedores dinamicamente CONSIDERANDO INABILITAÇÕES
         if (todosLances && todosLances.length > 0) {
+          // Buscar TODAS as inabilitações ativas para filtrar lances de fornecedores inabilitados
+          const { data: todasInabilitacoes } = await supabase
+            .from("fornecedores_inabilitados_selecao")
+            .select("fornecedor_id, itens_afetados")
+            .eq("selecao_id", selecaoId)
+            .eq("revertido", false);
+
+          // Mapear inabilitações: global (todos itens) vs granular (itens específicos)
+          const fornecedoresInabilitadosGlobalmente = new Set<string>();
+          const inabilitacoesPorFornecedor = new Map<string, Set<number>>();
+          
+          todasInabilitacoes?.forEach((inab: any) => {
+            if (!inab.itens_afetados || inab.itens_afetados.length === 0) {
+              // Inabilitação global
+              fornecedoresInabilitadosGlobalmente.add(inab.fornecedor_id);
+            } else {
+              // Inabilitação granular por item/lote
+              if (!inabilitacoesPorFornecedor.has(inab.fornecedor_id)) {
+                inabilitacoesPorFornecedor.set(inab.fornecedor_id, new Set());
+              }
+              inab.itens_afetados.forEach((item: number) => {
+                inabilitacoesPorFornecedor.get(inab.fornecedor_id)!.add(item);
+              });
+            }
+          });
+
+          // Filtrar lances válidos (não inabilitados)
+          const lancesValidos = todosLances.filter((lance: any) => {
+            // Excluir se fornecedor foi inabilitado globalmente
+            if (fornecedoresInabilitadosGlobalmente.has(lance.fornecedor_id)) return false;
+            // Excluir se fornecedor foi inabilitado para este item específico
+            const itensInab = inabilitacoesPorFornecedor.get(lance.fornecedor_id);
+            if (itensInab?.has(lance.numero_item)) return false;
+            return true;
+          });
+
+          // Identificar vencedor de cada item considerando apenas lances válidos
           const vencedoresPorItem = new Map<number, any>();
-          todosLances.forEach((lance: any) => {
+          lancesValidos.forEach((lance: any) => {
             const key = lance.numero_item;
             if (!vencedoresPorItem.has(key)) {
               vencedoresPorItem.set(key, lance);
@@ -201,7 +238,7 @@ const PropostaRealinhada = () => {
             }
           });
 
-          // Filtrar apenas os que o fornecedor ganhou
+          // Filtrar apenas os que o fornecedor atual ganhou (após exclusão de inabilitados)
           const meusLancesVencedores: any[] = [];
           vencedoresPorItem.forEach((lance) => {
             if (lance.fornecedor_id === fornecedorId) {
@@ -209,15 +246,15 @@ const PropostaRealinhada = () => {
             }
           });
 
-          // Remover itens/lotes inabilitados
-          const lancesValidos = filtrarInabilitados(meusLancesVencedores);
+          // Remover itens/lotes em que ESTE fornecedor foi inabilitado
+          const lancesFinais = filtrarInabilitados(meusLancesVencedores);
 
-          if (lancesValidos.length === 0) {
+          if (lancesFinais.length === 0) {
             toast.error("Você não tem itens vencedores nesta seleção");
             return;
           }
 
-          await processarItensVencedores(selecaoId, lancesValidos, criterio, fornecedorData);
+          await processarItensVencedores(selecaoId, lancesFinais, criterio, fornecedorData);
         } else {
           // SEM LANCES: Identificar vencedor pela proposta original (menor valor_total_proposta)
           console.log("📄 Sem lances registrados, identificando vencedor pelas propostas originais");
