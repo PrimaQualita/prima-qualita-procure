@@ -3543,8 +3543,9 @@ export function DialogSessaoLances({
                     if (itensEmNegociacao.has(numeroLote)) return true;
                     // Lote já negociado/concluído não aparece
                     if (itensNegociacaoConcluida.has(numeroLote)) return false;
-                    // Lote disponível para negociação: não está aberto para lances E tem vencedor identificado
-                    return !lotesAbertos.has(numeroLote) && vencedoresPorItem.has(numeroLote);
+                    // Lote disponível para negociação: DEVE ter sido fechado (passou pelo ciclo de lances) E ter vencedor identificado
+                    // Usamos itensFechados pois o loadItensAbertos armazena lotes fechados nele também
+                    return !lotesAbertos.has(numeroLote) && itensFechados.has(numeroLote) && vencedoresPorItem.has(numeroLote);
                   })
                   .sort((a, b) => a.numero_lote - b.numero_lote);
 
@@ -3707,9 +3708,9 @@ export function DialogSessaoLances({
                   if (itensEmNegociacao.has(item.numero_item)) return true;
                   // Item já negociado/concluído não aparece
                   if (itensNegociacaoConcluida.has(item.numero_item)) return false;
-                  // Item disponível para negociação: não está aberto para lances E tem vencedor identificado
-                  // Não precisa estar em itensFechados - basta não estar em itensAbertos
-                  return !itensAbertos.has(item.numero_item) && vencedoresPorItem.has(item.numero_item);
+                  // Item disponível para negociação: DEVE estar fechado (passou pelo ciclo de lances) E ter vencedor identificado
+                  // Não basta não estar em itensAbertos - precisa ter sido explicitamente fechado
+                  return itensFechados.has(item.numero_item) && vencedoresPorItem.has(item.numero_item);
                 })
                 .sort((a, b) => a.numero_item - b.numero_item);
 
