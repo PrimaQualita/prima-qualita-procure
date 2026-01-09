@@ -562,6 +562,9 @@ const PropostaRealinhada = () => {
       });
     }
 
+    // Ordenar itens por numero_item em ordem CRESCENTE
+    itensProcessados.sort((a, b) => a.numero_item - b.numero_item);
+
     setItensVencedores(itensProcessados);
     setValorTotalGanho(totalGanho);
 
