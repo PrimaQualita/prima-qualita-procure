@@ -2482,6 +2482,8 @@ Deno.serve(async (req) => {
         pathSemBucket.toLowerCase().includes('planilha_consolidada') ||
         pathSemBucket.includes('Planilha_Consolidada') ||
         pathSemBucket.includes('-EMAIL.pdf') ||
+        pathSemBucket.startsWith('emails/') ||
+        emailsCotacaoMap.has(pathSemBucket) ||
         (fileNameRaw.startsWith('proposta_') && !pathSemBucket.startsWith('propostas_realinhadas/'))
       ) {
         // Documentos de cotações - nome já foi buscado no início via nomesBonitos
@@ -2492,7 +2494,7 @@ Deno.serve(async (req) => {
         // Buscar processoId para agrupamento usando maps pré-carregados
         let cotacaoId = '';
         
-        if (pathSemBucket.includes('-EMAIL.pdf')) {
+        if (pathSemBucket.includes('-EMAIL.pdf') || pathSemBucket.startsWith('emails/') || emailsCotacaoMap.has(pathSemBucket)) {
           cotacaoId = emailsCotacaoMap.get(pathSemBucket) || '';
         } else if (pathSemBucket.toLowerCase().includes('planilha_consolidada') || pathSemBucket.includes('Planilha_Consolidada')) {
           cotacaoId = planilhasConsolidadasMap.get(pathSemBucket) || '';
