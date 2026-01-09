@@ -1022,6 +1022,29 @@ const Cotacoes = () => {
       if (respostasResult.error) throw respostasResult.error;
       if (itensResult.error) throw itensResult.error;
 
+      const itensExcluidos = itens
+        .filter((i: any) => idsArray.includes(i.id))
+        .map((i: any) => ({
+          numero_item: i.numero_item,
+          descricao: (i.descricao || "").substring(0, 80),
+        }));
+
+      await registrarAuditoria({
+        acao: "exclusão",
+        entidade: "itens_cotacao",
+        entidade_id: cotacaoSelecionada.id,
+        detalhes: {
+          tipo: "Itens de Cotação (Excluir Selecionados)",
+          modo: "selecionados",
+          quantidade_itens: idsArray.length,
+          itens: itensExcluidos.slice(0, 25),
+          criterio_julgamento: criterioJulgamento,
+          contrato_gestao: contratoSelecionado?.nome_contrato || "N/A",
+          numero_processo: processoSelecionado?.numero_processo_interno || "N/A",
+          titulo_cotacao: cotacaoSelecionada?.titulo_cotacao || "N/A",
+        },
+      });
+
       toast.success(`${itensSelecionados.size} ${itensSelecionados.size === 1 ? 'item excluído' : 'itens excluídos'} com sucesso`);
       setItensSelecionados(new Set());
       await renumerarItens();
@@ -1194,6 +1217,40 @@ const Cotacoes = () => {
           .eq("cotacao_id", cotacaoSelecionada.id);
 
         if (lotesError) throw lotesError;
+      }
+
+
+      await registrarAuditoria({
+        acao: "exclusão",
+        entidade: "itens_cotacao",
+        entidade_id: cotacaoSelecionada.id,
+        detalhes: {
+          tipo: "Itens de Cotação (Excluir Todos)",
+          modo: "todos",
+          quantidade_itens: itens.length,
+          quantidade_lotes: criterioJulgamento === "por_lote" ? lotes.length : 0,
+          respostas_fornecedores_excluidas: respostasData?.length || 0,
+          criterio_julgamento: criterioJulgamento,
+          contrato_gestao: contratoSelecionado?.nome_contrato || "N/A",
+          numero_processo: processoSelecionado?.numero_processo_interno || "N/A",
+          titulo_cotacao: cotacaoSelecionada?.titulo_cotacao || "N/A",
+        },
+      });
+
+      if (criterioJulgamento === "por_lote") {
+        await registrarAuditoria({
+          acao: "exclusão",
+          entidade: "lotes_cotacao",
+          entidade_id: cotacaoSelecionada.id,
+          detalhes: {
+            tipo: "Lotes de Cotação (Excluir Todos)",
+            modo: "todos",
+            quantidade_lotes: lotes.length,
+            contrato_gestao: contratoSelecionado?.nome_contrato || "N/A",
+            numero_processo: processoSelecionado?.numero_processo_interno || "N/A",
+            titulo_cotacao: cotacaoSelecionada?.titulo_cotacao || "N/A",
+          },
+        });
       }
 
       toast.success("Todos os itens e respostas foram excluídos com sucesso!");
