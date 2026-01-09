@@ -2982,6 +2982,9 @@ const Cotacoes = () => {
           open={dialogImportarOpen}
           onOpenChange={setDialogImportarOpen}
           cotacaoId={cotacaoSelecionada.id}
+          nomeContrato={contratoSelecionado?.nome_contrato}
+          numeroProcesso={processoSelecionado?.numero_processo_interno}
+          tituloCotacao={cotacaoSelecionada.titulo_cotacao}
           onImportSuccess={() => {
             if (cotacaoSelecionada) {
               loadItens(cotacaoSelecionada.id);

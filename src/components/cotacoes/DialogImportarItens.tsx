@@ -13,12 +13,17 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { toast } from "sonner";
 import { Upload, Download } from "lucide-react";
 import * as XLSX from 'xlsx';
+import { registrarAuditoria } from "@/lib/registrarAuditoria";
+
 
 interface DialogImportarItensProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   cotacaoId: string;
   onImportSuccess: () => void;
+  nomeContrato?: string;
+  numeroProcesso?: string;
+  tituloCotacao?: string;
 }
 
 interface ItemPlanilha {
@@ -30,9 +35,11 @@ interface ItemPlanilha {
   'Descrição do Lote'?: string;
 }
 
-export function DialogImportarItens({ open, onOpenChange, cotacaoId, onImportSuccess }: DialogImportarItensProps) {
+export function DialogImportarItens({ open, onOpenChange, cotacaoId, onImportSuccess, nomeContrato, numeroProcesso, tituloCotacao }: DialogImportarItensProps) {
   const [criterio, setCriterio] = useState<'global' | 'por_item' | 'por_lote' | ''>('');
   const [loading, setLoading] = useState(false);
+  const [qtdItensImportados, setQtdItensImportados] = useState(0);
+  const [qtdLotesImportados, setQtdLotesImportados] = useState(0);
 
   const gerarTemplateGlobal = () => {
     const dados = [
@@ -166,6 +173,37 @@ export function DialogImportarItens({ open, onOpenChange, cotacaoId, onImportSuc
         await importarSemLotes(jsonData);
       }
 
+      // Registrar auditoria de importação
+      await registrarAuditoria({
+        acao: "criação",
+        entidade: "itens_cotacao",
+        entidade_id: cotacaoId,
+        detalhes: {
+          tipo: "Importação via Planilha",
+          criterio_julgamento: criterio,
+          quantidade_itens: qtdItensImportados,
+          quantidade_lotes: criterio === "por_lote" ? qtdLotesImportados : 0,
+          contrato_gestao: nomeContrato || "N/A",
+          numero_processo: numeroProcesso || "N/A",
+          titulo_cotacao: tituloCotacao || "N/A",
+        },
+      });
+
+      if (criterio === "por_lote" && qtdLotesImportados > 0) {
+        await registrarAuditoria({
+          acao: "criação",
+          entidade: "lotes_cotacao",
+          entidade_id: cotacaoId,
+          detalhes: {
+            tipo: "Importação via Planilha",
+            quantidade_lotes: qtdLotesImportados,
+            contrato_gestao: nomeContrato || "N/A",
+            numero_processo: numeroProcesso || "N/A",
+            titulo_cotacao: tituloCotacao || "N/A",
+          },
+        });
+      }
+
       toast.success("Itens importados com sucesso!");
       onImportSuccess();
       onOpenChange(false);
@@ -202,6 +240,7 @@ export function DialogImportarItens({ open, onOpenChange, cotacaoId, onImportSuc
 
     let loteAtual: { numero: number; descricao: string; id?: string } | null = null;
     let numeroLote = 0;
+    let totalItens = 0;
 
     for (let i = 0; i < rows.length; i++) {
       const row = rows[i];
@@ -264,9 +303,13 @@ export function DialogImportarItens({ open, onOpenChange, cotacaoId, onImportSuc
             });
 
           if (itemError) throw itemError;
+          totalItens++;
         }
       }
     }
+    
+    setQtdItensImportados(totalItens);
+    setQtdLotesImportados(numeroLote);
   };
 
   const importarSemLotes = async (dados: ItemPlanilha[]) => {
@@ -301,6 +344,9 @@ export function DialogImportarItens({ open, onOpenChange, cotacaoId, onImportSuc
       .insert(itensParaInserir);
 
     if (error) throw error;
+    
+    setQtdItensImportados(itensParaInserir.length);
+    setQtdLotesImportados(0);
   };
 
   const importarComLotes = async (dados: ItemPlanilha[]) => {
@@ -325,6 +371,9 @@ export function DialogImportarItens({ open, onOpenChange, cotacaoId, onImportSuc
       loteMap.get(numeroLote)!.itens.push(item);
     });
 
+    let totalItens = 0;
+    let totalLotes = 0;
+
     // Criar lotes e itens
     for (const [numeroLote, { descricao, itens }] of loteMap.entries()) {
       // Criar lote
@@ -339,6 +388,7 @@ export function DialogImportarItens({ open, onOpenChange, cotacaoId, onImportSuc
         .single();
 
       if (loteError) throw loteError;
+      totalLotes++;
 
       // Inserir itens do lote
       const itensParaInserir = itens.map(item => ({
@@ -356,7 +406,11 @@ export function DialogImportarItens({ open, onOpenChange, cotacaoId, onImportSuc
         .insert(itensParaInserir);
 
       if (itensError) throw itensError;
+      totalItens += itensParaInserir.length;
     }
+    
+    setQtdItensImportados(totalItens);
+    setQtdLotesImportados(totalLotes);
   };
 
   return (
