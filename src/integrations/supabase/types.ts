@@ -1852,6 +1852,7 @@ export type Database = {
         Row: {
           assunto: string
           conteudo: string
+          conversa_id: string | null
           created_at: string | null
           data_exclusao_remetente: string | null
           excluida_remetente: boolean | null
@@ -1863,6 +1864,7 @@ export type Database = {
         Insert: {
           assunto: string
           conteudo: string
+          conversa_id?: string | null
           created_at?: string | null
           data_exclusao_remetente?: string | null
           excluida_remetente?: boolean | null
@@ -1874,6 +1876,7 @@ export type Database = {
         Update: {
           assunto?: string
           conteudo?: string
+          conversa_id?: string | null
           created_at?: string | null
           data_exclusao_remetente?: string | null
           excluida_remetente?: boolean | null
