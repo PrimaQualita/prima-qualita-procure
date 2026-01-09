@@ -364,12 +364,12 @@ const Auth = () => {
                 >
                   Iniciar Cadastro Completo
                 </Button>
-                <div className="pt-4 border-t">
-                  <p className="text-xs text-muted-foreground">
+                <div className="pt-4 border-t mt-2">
+                  <p className="text-sm font-medium text-foreground">
                     Já possui cadastro?{" "}
                     <Button
                       variant="link"
-                      className="p-0 h-auto text-xs"
+                      className="p-0 h-auto text-sm font-semibold text-primary underline underline-offset-2"
                       onClick={() => {
                         setActiveTab("login");
                         setTimeout(() => {
