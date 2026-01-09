@@ -61,6 +61,7 @@ export function ChatNegociacao({
   const [enviando, setEnviando] = useState(false);
   const [userProfile, setUserProfile] = useState<any>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const prevMensagensCountRef = useRef<number>(0);
   
 
   useEffect(() => {
@@ -87,9 +88,13 @@ export function ChatNegociacao({
     };
   }, [selecaoId, numeroItem, fornecedorId]);
 
-  // Auto scroll to bottom when new messages arrive
+  // Auto scroll to bottom ONLY when new messages arrive
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    if (mensagens.length > prevMensagensCountRef.current) {
+      // Usar block: "nearest" para não afetar scroll de elementos externos
+      messagesEndRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    }
+    prevMensagensCountRef.current = mensagens.length;
   }, [mensagens]);
 
 
