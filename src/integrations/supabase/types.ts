@@ -2368,6 +2368,7 @@ export type Database = {
           gerente_financeiro: boolean | null
           gestor: boolean | null
           id: string
+          last_seen: string | null
           nome_completo: string
           primeiro_acesso: boolean | null
           responsavel_legal: boolean | null
@@ -2392,6 +2393,7 @@ export type Database = {
           gerente_financeiro?: boolean | null
           gestor?: boolean | null
           id: string
+          last_seen?: string | null
           nome_completo: string
           primeiro_acesso?: boolean | null
           responsavel_legal?: boolean | null
@@ -2416,6 +2418,7 @@ export type Database = {
           gerente_financeiro?: boolean | null
           gestor?: boolean | null
           id?: string
+          last_seen?: string | null
           nome_completo?: string
           primeiro_acesso?: boolean | null
           responsavel_legal?: boolean | null
@@ -3590,6 +3593,7 @@ export type Database = {
         }
         Returns: Json
       }
+      update_user_last_seen: { Args: { p_user_id: string }; Returns: undefined }
       verificar_cnpj_existe: { Args: { p_cnpj: string }; Returns: boolean }
       verificar_fornecedor_participacao: {
         Args: { p_cnpj: string }

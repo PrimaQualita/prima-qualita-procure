@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Users, Check, Clock, Send, Trash2 } from "lucide-react";
+import { Users, Check, CheckCheck, Clock, Send, Trash2, Circle } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import {
@@ -54,6 +54,7 @@ interface MensagemConversa {
   isCurrentUser: boolean;
   remetente_interno_id?: string | null;
   remetente_fornecedor_id?: string | null;
+  leituras?: { nome: string; lida: boolean }[];
 }
 
 interface DialogVerMensagemProps {
@@ -66,6 +67,10 @@ interface DialogVerMensagemProps {
   fornecedorId?: string | null;
   onMessageSent?: () => void;
 }
+
+// Cache para nomes de usuários
+const userNamesCache = new Map<string, string>();
+const userOnlineCache = new Map<string, boolean>();
 
 export function DialogVerMensagem({
   open,
@@ -83,6 +88,7 @@ export function DialogVerMensagem({
   const [enviando, setEnviando] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [mensagemParaExcluir, setMensagemParaExcluir] = useState<string | null>(null);
+  const [usuariosOnline, setUsuariosOnline] = useState<Set<string>>(new Set());
   const scrollRef = useRef<HTMLDivElement>(null);
   
   const temDestinatarios = "destinatarios" in mensagem;
@@ -91,6 +97,57 @@ export function DialogVerMensagem({
     : (mensagem.totalDestinatarios || 1) > 1;
 
   const conversaId = mensagem.conversa_id || mensagem.id;
+
+  // Atualizar last_seen do usuário atual
+  useEffect(() => {
+    if (!open) return;
+    
+    const updateLastSeen = async () => {
+      if (userType === "interno" && userId) {
+        await supabase.rpc("update_user_last_seen", { p_user_id: userId });
+      }
+    };
+
+    updateLastSeen();
+    const interval = setInterval(updateLastSeen, 30000); // Atualizar a cada 30s
+
+    return () => clearInterval(interval);
+  }, [open, userId, userType]);
+
+  // Rastrear usuários online via Supabase Presence
+  useEffect(() => {
+    if (!open) return;
+
+    const channel = supabase.channel(`chat-presence-${conversaId}`);
+
+    channel
+      .on("presence", { event: "sync" }, () => {
+        const state = channel.presenceState();
+        const online = new Set<string>();
+        Object.values(state).forEach((presences: any[]) => {
+          presences.forEach((p) => {
+            if (p.user_id) online.add(p.user_id);
+            if (p.fornecedor_id) online.add(`f:${p.fornecedor_id}`);
+          });
+        });
+        setUsuariosOnline(online);
+      })
+      .subscribe(async (status) => {
+        if (status === "SUBSCRIBED") {
+          const presenceData: any = {};
+          if (userType === "interno" && userId) {
+            presenceData.user_id = userId;
+          } else if (userType === "fornecedor" && fornecedorId) {
+            presenceData.fornecedor_id = fornecedorId;
+          }
+          await channel.track(presenceData);
+        }
+      });
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [open, conversaId, userId, fornecedorId, userType]);
 
   // Carregar histórico da conversa
   useEffect(() => {
@@ -128,6 +185,7 @@ export function DialogVerMensagem({
         return;
       }
 
+      // Buscar mensagens da conversa: a própria mensagem raiz + respostas com conversa_id
       const { data: mensagens, error } = await supabase
         .from("mensagens_contato")
         .select("*")
@@ -140,29 +198,38 @@ export function DialogVerMensagem({
         (m: any) => m.excluida_remetente !== true
       );
 
+      // Buscar informações de leitura para cada mensagem
+      const mensagemIds = mensagensFiltradas.map((m: any) => m.id);
+      const { data: leiturasDados } = await supabase
+        .from("mensagens_contato_destinatarios")
+        .select("mensagem_id, destinatario_tipo, destinatario_interno_id, destinatario_fornecedor_id, lida")
+        .in("mensagem_id", mensagemIds);
+
       // Processar mensagens com nomes
       const processadas = await Promise.all(
-        mensagensFiltradas.map(async (msg) => {
+        mensagensFiltradas.map(async (msg: any) => {
           let remetenteNome = "Desconhecido";
           let isCurrentUser = false;
 
           if (msg.remetente_tipo === "interno" && msg.remetente_interno_id) {
-            const { data: profile } = await supabase
-              .from("profiles")
-              .select("nome_completo")
-              .eq("id", msg.remetente_interno_id)
-              .limit(1);
-            remetenteNome = profile?.[0]?.nome_completo || "Usuário";
+            remetenteNome = await getUserName("interno", msg.remetente_interno_id);
             isCurrentUser = userType === "interno" && msg.remetente_interno_id === userId;
           } else if (msg.remetente_tipo === "fornecedor" && msg.remetente_fornecedor_id) {
-            const { data: forn } = await supabase
-              .from("fornecedores")
-              .select("razao_social, nome_fantasia")
-              .eq("id", msg.remetente_fornecedor_id)
-              .limit(1);
-            remetenteNome = forn?.[0]?.nome_fantasia || forn?.[0]?.razao_social || "Fornecedor";
+            remetenteNome = await getUserName("fornecedor", msg.remetente_fornecedor_id);
             isCurrentUser = userType === "fornecedor" && msg.remetente_fornecedor_id === fornecedorId;
           }
+
+          // Processar informações de leitura para esta mensagem
+          const leiturasDestaMensagem = (leiturasDados || [])
+            .filter((l: any) => l.mensagem_id === msg.id)
+            .map(async (l: any) => {
+              const nome = l.destinatario_tipo === "interno" 
+                ? await getUserName("interno", l.destinatario_interno_id)
+                : await getUserName("fornecedor", l.destinatario_fornecedor_id);
+              return { nome, lida: l.lida };
+            });
+
+          const leituras = await Promise.all(leiturasDestaMensagem);
 
           return {
             id: msg.id,
@@ -173,6 +240,7 @@ export function DialogVerMensagem({
             isCurrentUser,
             remetente_interno_id: msg.remetente_interno_id,
             remetente_fornecedor_id: msg.remetente_fornecedor_id,
+            leituras,
           };
         })
       );
@@ -183,6 +251,47 @@ export function DialogVerMensagem({
     }
   };
 
+  // Função para buscar nome do usuário (com cache)
+  const getUserName = async (tipo: string, id: string | null): Promise<string> => {
+    if (!id) return "Desconhecido";
+    
+    const cacheKey = `${tipo}:${id}`;
+    if (userNamesCache.has(cacheKey)) {
+      return userNamesCache.get(cacheKey)!;
+    }
+
+    let nome = "Desconhecido";
+    if (tipo === "interno") {
+      const { data } = await supabase
+        .from("profiles")
+        .select("nome_completo")
+        .eq("id", id)
+        .limit(1);
+      nome = data?.[0]?.nome_completo || "Usuário";
+    } else {
+      const { data } = await supabase
+        .from("fornecedores")
+        .select("razao_social, nome_fantasia")
+        .eq("id", id)
+        .limit(1);
+      nome = data?.[0]?.nome_fantasia || data?.[0]?.razao_social || "Fornecedor";
+    }
+
+    userNamesCache.set(cacheKey, nome);
+    return nome;
+  };
+
+  // Verificar se usuário está online
+  const isUserOnline = (remetenteInternoid: string | null, remetenteFornecedorId: string | null): boolean => {
+    if (remetenteInternoid) {
+      return usuariosOnline.has(remetenteInternoid);
+    }
+    if (remetenteFornecedorId) {
+      return usuariosOnline.has(`f:${remetenteFornecedorId}`);
+    }
+    return false;
+  };
+
   const handleEnviarResposta = async () => {
     if (!novaResposta.trim()) return;
 
@@ -191,10 +300,11 @@ export function DialogVerMensagem({
       // Buscar todos os participantes da conversa (remetentes e destinatários)
       const participantes: { tipo: string; internoId?: string | null; fornecedorId?: string | null }[] = [];
       
-      // Buscar todas as mensagens da conversa para identificar participantes
+      // IMPORTANTE: Buscar a mensagem principal (conversa_id = própria id) + respostas
       const { data: todasMensagens } = await supabase
         .from("mensagens_contato")
         .select(`
+          id,
           remetente_tipo,
           remetente_interno_id,
           remetente_fornecedor_id,
@@ -204,12 +314,12 @@ export function DialogVerMensagem({
             destinatario_fornecedor_id
           )
         `)
-        .eq("conversa_id", conversaId);
+        .or(`id.eq.${conversaId},conversa_id.eq.${conversaId}`);
 
       // Coletar todos os participantes únicos
       const participantesSet = new Set<string>();
       
-      (todasMensagens || []).forEach(msg => {
+      (todasMensagens || []).forEach((msg: any) => {
         // Adicionar remetente
         if (msg.remetente_tipo === "interno" && msg.remetente_interno_id) {
           const key = `interno:${msg.remetente_interno_id}`;
@@ -265,7 +375,7 @@ export function DialogVerMensagem({
 
       if (errMsg) throw errMsg;
 
-      // Criar destinatários para todos os participantes, exceto quem está enviando
+      // Criar destinatários para TODOS os participantes, exceto quem está enviando
       const destinatariosParaInserir = participantes
         .filter(p => {
           if (userType === "interno") {
@@ -358,6 +468,39 @@ export function DialogVerMensagem({
     }
   };
 
+  // Renderizar indicador de leitura (estilo WhatsApp)
+  const renderReadReceipt = (msg: MensagemConversa) => {
+    if (!msg.isCurrentUser || !msg.leituras || msg.leituras.length === 0) {
+      return null;
+    }
+
+    const todasLidas = msg.leituras.every(l => l.lida);
+    const algumaLida = msg.leituras.some(l => l.lida);
+
+    if (todasLidas) {
+      // Double check azul - todas lidas
+      return (
+        <span className="ml-1 inline-flex items-center text-blue-400" title="Lida por todos">
+          <CheckCheck className="h-4 w-4" />
+        </span>
+      );
+    } else if (algumaLida) {
+      // Double check cinza - algumas lidas
+      return (
+        <span className="ml-1 inline-flex items-center text-primary-foreground/50" title="Lida por alguns">
+          <CheckCheck className="h-4 w-4" />
+        </span>
+      );
+    } else {
+      // Single check - enviada mas não lida
+      return (
+        <span className="ml-1 inline-flex items-center text-primary-foreground/50" title="Enviada">
+          <Check className="h-4 w-4" />
+        </span>
+      );
+    }
+  };
+
   return (
     <>
       <Dialog open={open} onOpenChange={onOpenChange}>
@@ -393,7 +536,7 @@ export function DialogVerMensagem({
                     >
                       {d.nome}
                       {d.lida ? (
-                        <Check className="h-3 w-3 text-green-600" />
+                        <CheckCheck className="h-3 w-3 text-green-600" />
                       ) : (
                         <Clock className="h-3 w-3 text-muted-foreground" />
                       )}
@@ -427,20 +570,26 @@ export function DialogVerMensagem({
                           : "bg-muted"
                       }`}
                     >
+                      {/* Nome do remetente com indicador de online - sempre mostrar para outros */}
                       {!msg.isCurrentUser && (
-                        <p className={`text-xs font-medium mb-1 ${
-                          msg.isCurrentUser ? "text-primary-foreground/80" : "text-muted-foreground"
-                        }`}>
-                          {msg.remetente_nome}
-                        </p>
+                        <div className="flex items-center gap-2 mb-1">
+                          <p className="text-xs font-semibold text-foreground">
+                            {msg.remetente_nome}
+                          </p>
+                          {isUserOnline(msg.remetente_interno_id || null, msg.remetente_fornecedor_id || null) && (
+                            <Circle className="h-2 w-2 fill-green-500 text-green-500" />
+                          )}
+                        </div>
                       )}
                       <p className="text-sm whitespace-pre-wrap">{msg.conteudo}</p>
-                      <div className="flex items-center justify-between mt-1 gap-2">
+                      <div className="flex items-center justify-end mt-1 gap-1">
                         <p className={`text-xs ${
                           msg.isCurrentUser ? "text-primary-foreground/70" : "text-muted-foreground"
                         }`}>
                           {new Date(msg.created_at).toLocaleString("pt-BR")}
                         </p>
+                        {/* Indicador de leitura para mensagens do usuário atual */}
+                        {renderReadReceipt(msg)}
                         {msg.isCurrentUser && (
                           <Button
                             variant="ghost"
@@ -494,7 +643,7 @@ export function DialogVerMensagem({
           <AlertDialogHeader>
             <AlertDialogTitle>Excluir mensagem?</AlertDialogTitle>
             <AlertDialogDescription>
-              Esta ação irá excluir sua mensagem da conversa.
+              Esta ação não pode ser desfeita. A mensagem será removida permanentemente.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
