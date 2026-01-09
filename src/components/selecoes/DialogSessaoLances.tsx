@@ -694,10 +694,21 @@ export function DialogSessaoLances({
       if (lancesError) throw lancesError;
 
       // Filtrar lances onde o fornecedor está inabilitado PARA AQUELE ITEM/LOTE ESPECÍFICO
+      // E também filtrar lances com valor acima do estimado (desclassificação por preço)
       const lancesFiltrados = (lancesData || []).filter((lance) => {
+        // Verificar inabilitação
         const itensInabilitados = inabilitacoesPorFornecedor.get(lance.fornecedor_id);
-        if (!itensInabilitados) return true; // Não está inabilitado
-        return !itensInabilitados.includes(lance.numero_item);
+        if (itensInabilitados && itensInabilitados.includes(lance.numero_item)) {
+          return false; // Inabilitado para este item
+        }
+        
+        // Verificar desclassificação por preço (valor acima do estimado)
+        if (isDesclassificadoPorPreco(lance.numero_item, lance.valor_lance)) {
+          console.log(`🚫 Lance desclassificado por preço: item ${lance.numero_item}, valor ${lance.valor_lance}`);
+          return false; // Valor acima do estimado
+        }
+        
+        return true;
       });
 
       // Buscar fornecedores (dos lances)
@@ -715,7 +726,7 @@ export function DialogSessaoLances({
 
       const fornecedoresMap = new Map(fornecedoresDataLances?.map((f) => [f.id, f.razao_social]) || []);
 
-      // Identificar vencedor por item baseado no MELHOR VALOR
+      // Identificar vencedor por item baseado no MELHOR VALOR (apenas lances classificados)
       const vencedores = new Map<number, { fornecedorId: string; razaoSocial: string; valorLance: number }>();
 
       lancesFiltrados.forEach((lance) => {
