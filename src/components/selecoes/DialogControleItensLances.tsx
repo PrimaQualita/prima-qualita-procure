@@ -563,8 +563,35 @@ export function DialogControleItensLances({
   // Função auxiliar para enviar broadcast para todos os fornecedores
   const enviarBroadcastAtualizacao = async (evento: string, dados: any) => {
     try {
-      const channel = supabase.channel(`broadcast_selecao_${selecaoId}`);
-      await channel.send({
+      const channelName = `broadcast_selecao_${selecaoId}`;
+      console.log(`📡 [GESTOR] Enviando broadcast ${evento} no canal: ${channelName}`);
+      
+      const channel = supabase.channel(channelName, {
+        config: {
+          broadcast: { self: false, ack: true }
+        }
+      });
+      
+      // Aguardar conexão ao canal antes de enviar
+      await new Promise<void>((resolve, reject) => {
+        const timeout = setTimeout(() => {
+          reject(new Error('Timeout ao conectar ao canal de broadcast'));
+        }, 5000);
+        
+        channel.subscribe((status) => {
+          console.log(`📡 [GESTOR] Status canal broadcast: ${status}`);
+          if (status === 'SUBSCRIBED') {
+            clearTimeout(timeout);
+            resolve();
+          } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
+            clearTimeout(timeout);
+            reject(new Error(`Erro ao conectar: ${status}`));
+          }
+        });
+      });
+      
+      // Enviar o broadcast com acknowledge
+      const result = await channel.send({
         type: 'broadcast',
         event: evento,
         payload: {
@@ -572,13 +599,16 @@ export function DialogControleItensLances({
           timestamp: Date.now(),
         },
       });
-      console.log(`📡 Broadcast enviado: ${evento}`, dados);
-      // Cleanup do canal após envio
+      
+      console.log(`📡 [GESTOR] Broadcast enviado: ${evento}`, { resultado: result, dados });
+      
+      // Cleanup do canal após envio (aguardar um pouco para garantir entrega)
       setTimeout(() => {
         supabase.removeChannel(channel);
-      }, 1000);
+      }, 2000);
     } catch (error) {
       console.error('Erro ao enviar broadcast:', error);
+      // Não falhar silenciosamente - o polling vai servir de fallback
     }
   };
 
