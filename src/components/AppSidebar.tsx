@@ -32,7 +32,7 @@ import {
 } from "@/components/ui/sidebar";
 import { NavLink } from "@/components/NavLink";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -71,6 +71,7 @@ export function AppSidebar({
   const { open } = useSidebar();
   const navigate = useNavigate();
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
+  const [unreadCount, setUnreadCount] = useState(0);
 
   useEffect(() => {
     if (profile?.avatar_url) {
@@ -79,6 +80,50 @@ export function AppSidebar({
       setAvatarUrl(null);
     }
   }, [profile?.avatar_url, profile?.id]);
+
+  // Carregar contagem de mensagens não lidas
+  useEffect(() => {
+    if (!profile?.id) return;
+
+    const loadUnreadCount = async () => {
+      try {
+        const { count, error } = await supabase
+          .from('mensagens_contato_destinatarios')
+          .select('*', { count: 'exact', head: true })
+          .eq('destinatario_interno_id', profile.id)
+          .eq('lida', false)
+          .eq('excluida', false);
+
+        if (!error && count !== null) {
+          setUnreadCount(count);
+        }
+      } catch (error) {
+        console.error('Erro ao carregar mensagens não lidas:', error);
+      }
+    };
+
+    loadUnreadCount();
+
+    // Subscrever para atualizações em tempo real
+    const channel = supabase
+      .channel('unread-messages')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'mensagens_contato_destinatarios'
+        },
+        () => {
+          loadUnreadCount();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [profile?.id]);
 
   const loadAvatar = async (path: string) => {
     try {
@@ -292,11 +337,30 @@ export function AppSidebar({
                     <NavLink
                       to={item.href}
                       end
-                      className="hover:bg-muted/50"
+                      className="hover:bg-muted/50 relative"
                       activeClassName="bg-muted text-primary font-medium"
                     >
-                      <item.icon className="h-4 w-4" />
-                      {open && <span>{item.title}</span>}
+                      <div className="relative">
+                        <item.icon className="h-4 w-4" />
+                        {item.href === "/contatos" && unreadCount > 0 && (
+                          <Badge 
+                            variant="destructive" 
+                            className="absolute -top-2 -right-2 h-4 min-w-4 px-1 text-[10px] flex items-center justify-center"
+                          >
+                            {unreadCount > 99 ? "99+" : unreadCount}
+                          </Badge>
+                        )}
+                      </div>
+                      {open && (
+                        <span className="flex items-center gap-2">
+                          {item.title}
+                          {item.href === "/contatos" && unreadCount > 0 && (
+                            <Badge variant="destructive" className="h-5 px-1.5 text-xs">
+                              {unreadCount > 99 ? "99+" : unreadCount}
+                            </Badge>
+                          )}
+                        </span>
+                      )}
                     </NavLink>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
