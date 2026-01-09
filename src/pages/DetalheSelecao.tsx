@@ -88,7 +88,7 @@ const [itens, setItens] = useState<Item[]>([]);
   const [gerandoHomologacao, setGerandoHomologacao] = useState(false);
   const [homologacoesGeradas, setHomologacoesGeradas] = useState<any[]>([]);
   const [confirmDeleteHomologacao, setConfirmDeleteHomologacao] = useState<string | null>(null);
-  const [dialogRegistroPrecos, setDialogRegistroPrecos] = useState(false);
+  
   const [dialogResponsavelLegal, setDialogResponsavelLegal] = useState(false);
   const [responsaveisLegais, setResponsaveisLegais] = useState<any[]>([]);
   const [responsavelSelecionado, setResponsavelSelecionado] = useState<string>("");
@@ -1590,7 +1590,19 @@ const [itens, setItens] = useState<Item[]>([]);
               size="lg"
               className="w-full mt-4"
               disabled={gerandoHomologacao}
-              onClick={() => setDialogRegistroPrecos(true)}
+              onClick={async () => {
+                setGerandoHomologacao(true);
+                try {
+                  await gerarHomologacaoSelecaoPDF(selecaoId!, false);
+                  toast.success("Homologação gerada com sucesso!");
+                  await loadHomologacoesGeradas();
+                } catch (error) {
+                  console.error("Erro ao gerar homologação:", error);
+                  toast.error("Erro ao gerar Homologação");
+                } finally {
+                  setGerandoHomologacao(false);
+                }
+              }}
             >
               <FileCheck className="h-5 w-5 mr-2" />
               {gerandoHomologacao ? "Gerando..." : "Gerar Homologação"}
@@ -2086,56 +2098,6 @@ const [itens, setItens] = useState<Item[]>([]);
       </AlertDialog>
 
 
-      {/* Dialog para perguntar se é Registro de Preços */}
-      <AlertDialog open={dialogRegistroPrecos} onOpenChange={setDialogRegistroPrecos}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Registro de Preços</AlertDialogTitle>
-            <AlertDialogDescription>
-              Esta homologação é para Registro de Preços?
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancelar</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={async () => {
-                setDialogRegistroPrecos(false);
-                setGerandoHomologacao(true);
-                try {
-                  await gerarHomologacaoSelecaoPDF(selecaoId!, false);
-                  toast.success("Homologação gerada com sucesso!");
-                  await loadHomologacoesGeradas();
-                } catch (error) {
-                  console.error("Erro ao gerar homologação:", error);
-                  toast.error("Erro ao gerar Homologação");
-                } finally {
-                  setGerandoHomologacao(false);
-                }
-              }}
-            >
-              Não
-            </AlertDialogAction>
-            <AlertDialogAction
-              onClick={async () => {
-                setDialogRegistroPrecos(false);
-                setGerandoHomologacao(true);
-                try {
-                  await gerarHomologacaoSelecaoPDF(selecaoId!, true);
-                  toast.success("Homologação gerada com sucesso!");
-                  await loadHomologacoesGeradas();
-                } catch (error) {
-                  console.error("Erro ao gerar homologação:", error);
-                  toast.error("Erro ao gerar Homologação");
-                } finally {
-                  setGerandoHomologacao(false);
-                }
-              }}
-            >
-              Sim
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
 
       {/* Confirmação de exclusão de Encaminhamento Contabilidade */}
       <AlertDialog open={!!confirmDeleteEncContab} onOpenChange={(open) => !open && setConfirmDeleteEncContab(null)}>
