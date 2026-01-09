@@ -149,12 +149,50 @@ export function DialogVerMensagem({
     };
   }, [open, conversaId, userId, fornecedorId, userType]);
 
-  // Carregar histórico da conversa
+  // Carregar histórico da conversa e marcar como lido
   useEffect(() => {
     if (open && conversaId) {
       loadConversa();
+      marcarMensagensComoLidas();
     }
   }, [open, conversaId]);
+
+  // Marcar mensagens como lidas
+  const marcarMensagensComoLidas = async () => {
+    try {
+      // Buscar todas as mensagens da conversa
+      const { data: mensagens } = await supabase
+        .from("mensagens_contato")
+        .select("id")
+        .or(`id.eq.${conversaId},conversa_id.eq.${conversaId}`);
+
+      if (!mensagens || mensagens.length === 0) return;
+
+      const mensagemIds = mensagens.map(m => m.id);
+
+      // Atualizar como lida para o usuário atual
+      if (userType === "interno" && userId) {
+        await supabase
+          .from("mensagens_contato_destinatarios")
+          .update({ lida: true, data_leitura: new Date().toISOString() })
+          .in("mensagem_id", mensagemIds)
+          .eq("destinatario_interno_id", userId)
+          .eq("lida", false);
+      } else if (userType === "fornecedor" && fornecedorId) {
+        await supabase
+          .from("mensagens_contato_destinatarios")
+          .update({ lida: true, data_leitura: new Date().toISOString() })
+          .in("mensagem_id", mensagemIds)
+          .eq("destinatario_fornecedor_id", fornecedorId)
+          .eq("lida", false);
+      }
+
+      // Notificar atualização
+      onMessageSent?.();
+    } catch (error) {
+      console.error("Erro ao marcar mensagens como lidas:", error);
+    }
+  };
 
   // Scroll automático ao final
   useEffect(() => {
