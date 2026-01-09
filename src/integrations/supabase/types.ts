@@ -3459,6 +3459,10 @@ export type Database = {
           url: string
         }[]
       }
+      get_fornecedor_id_from_user: {
+        Args: { _user_id: string }
+        Returns: string
+      }
       get_fornecedores_para_mensagem: {
         Args: never
         Returns: {
