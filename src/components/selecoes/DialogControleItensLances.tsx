@@ -560,6 +560,28 @@ export function DialogControleItensLances({
     setLotesSelecionados(novos);
   };
 
+  // Função auxiliar para enviar broadcast para todos os fornecedores
+  const enviarBroadcastAtualizacao = async (evento: string, dados: any) => {
+    try {
+      const channel = supabase.channel(`broadcast_selecao_${selecaoId}`);
+      await channel.send({
+        type: 'broadcast',
+        event: evento,
+        payload: {
+          ...dados,
+          timestamp: Date.now(),
+        },
+      });
+      console.log(`📡 Broadcast enviado: ${evento}`, dados);
+      // Cleanup do canal após envio
+      setTimeout(() => {
+        supabase.removeChannel(channel);
+      }, 1000);
+    } catch (error) {
+      console.error('Erro ao enviar broadcast:', error);
+    }
+  };
+
   const handleAbrirLotes = async () => {
     if (lotesSelecionados.size === 0) {
       toast.error("Selecione pelo menos um lote");
@@ -613,6 +635,12 @@ export function DialogControleItensLances({
         if (error) throw error;
       }
 
+      // Enviar broadcast imediato para todos os fornecedores
+      await enviarBroadcastAtualizacao('itens_atualizados', {
+        lotes: Array.from(lotesSelecionados),
+        acao: 'aberto',
+      });
+
       toast.success(`${lotesSelecionados.size} lote(s) aberto(s) para lances`);
       await loadItensAbertos();
       setLotesSelecionados(new Set());
@@ -633,13 +661,14 @@ export function DialogControleItensLances({
     setSalvando(true);
     try {
       const TEMPO_FECHAMENTO = 120; // 2 minutos
+      const dataInicio = new Date().toISOString();
       
       const updates = Array.from(lotesSelecionados).map(async (numeroLote) => {
         return supabase
           .from("itens_abertos_lances")
           .update({
             iniciando_fechamento: true,
-            data_inicio_fechamento: new Date().toISOString(),
+            data_inicio_fechamento: dataInicio,
             segundos_para_fechar: TEMPO_FECHAMENTO,
           })
           .eq("selecao_id", selecaoId)
@@ -647,6 +676,13 @@ export function DialogControleItensLances({
       });
 
       await Promise.all(updates);
+
+      // Enviar broadcast imediato para todos os fornecedores
+      await enviarBroadcastAtualizacao('fechamento_iniciado', {
+        lotes: Array.from(lotesSelecionados),
+        data_inicio_fechamento: dataInicio,
+        segundos_para_fechar: TEMPO_FECHAMENTO,
+      });
 
       // Agendar fechamento automático após 2 minutos
       Array.from(lotesSelecionados).forEach(async (numeroLote) => {
@@ -660,6 +696,11 @@ export function DialogControleItensLances({
             })
             .eq("selecao_id", selecaoId)
             .eq("numero_item", numeroLote);
+          
+          // Broadcast de fechamento efetivo
+          await enviarBroadcastAtualizacao('lote_fechado', {
+            numero_lote: numeroLote,
+          });
         }, TEMPO_FECHAMENTO * 1000);
       });
 
@@ -827,6 +868,12 @@ export function DialogControleItensLances({
         if (error) throw error;
       }
 
+      // Enviar broadcast imediato para todos os fornecedores
+      await enviarBroadcastAtualizacao('itens_atualizados', {
+        itens: Array.from(itensSelecionados),
+        acao: 'aberto',
+      });
+
       toast.success(`${itensSelecionados.size} item(ns) aberto(s) para lances`);
       await loadItensAbertos();
       setItensSelecionados(new Set());
@@ -848,13 +895,14 @@ export function DialogControleItensLances({
     try {
       // Para cada item selecionado, definir tempo fixo de 2 minutos (120 segundos)
       const TEMPO_FECHAMENTO = 120; // 2 minutos
+      const dataInicio = new Date().toISOString();
       
       const updates = Array.from(itensSelecionados).map(async (numeroItem) => {
         return supabase
           .from("itens_abertos_lances")
           .update({
             iniciando_fechamento: true,
-            data_inicio_fechamento: new Date().toISOString(),
+            data_inicio_fechamento: dataInicio,
             segundos_para_fechar: TEMPO_FECHAMENTO,
           })
           .eq("selecao_id", selecaoId)
@@ -862,6 +910,13 @@ export function DialogControleItensLances({
       });
 
       await Promise.all(updates);
+
+      // Enviar broadcast imediato para todos os fornecedores
+      await enviarBroadcastAtualizacao('fechamento_iniciado', {
+        itens: Array.from(itensSelecionados),
+        data_inicio_fechamento: dataInicio,
+        segundos_para_fechar: TEMPO_FECHAMENTO,
+      });
 
       // Agendar fechamento automático após 2 minutos
       Array.from(itensSelecionados).forEach(async (numeroItem) => {
@@ -875,6 +930,11 @@ export function DialogControleItensLances({
             })
             .eq("selecao_id", selecaoId)
             .eq("numero_item", numeroItem);
+          
+          // Broadcast de fechamento efetivo
+          await enviarBroadcastAtualizacao('item_fechado', {
+            numero_item: numeroItem,
+          });
         }, TEMPO_FECHAMENTO * 1000);
       });
 
@@ -943,6 +1003,14 @@ export function DialogControleItensLances({
         if (error) throw error;
       }
 
+      // Enviar broadcast para o fornecedor saber imediatamente
+      await enviarBroadcastAtualizacao('negociacao_iniciada', {
+        numero_item: numeroItem,
+        fornecedor_id: vencedor.fornecedorId,
+        data_inicio: agora,
+        segundos_para_fechar: TEMPO_NEGOCIACAO,
+      });
+
       toast.success(`Negociação aberta com ${vencedor.razaoSocial} para o Item ${numeroItem}`);
       await loadItensAbertos();
     } catch (error) {
@@ -968,6 +1036,12 @@ export function DialogControleItensLances({
         .eq("numero_item", numeroItem);
 
       if (error) throw error;
+
+      // Enviar broadcast de fechamento de negociação
+      await enviarBroadcastAtualizacao('item_fechado', {
+        numero_item: numeroItem,
+        tipo: 'negociacao',
+      });
 
       toast.success(`Negociação encerrada para o Item ${numeroItem}`);
       await loadItensAbertos();
@@ -1013,6 +1087,12 @@ export function DialogControleItensLances({
 
         if (error) throw error;
       }
+
+      // Enviar broadcast de atualização
+      await enviarBroadcastAtualizacao('itens_atualizados', {
+        numero_item: numeroItem,
+        acao: 'nao_negociar',
+      });
 
       toast.success(`Item ${numeroItem} marcado como "Não Negociar"`);
       await loadItensAbertos();

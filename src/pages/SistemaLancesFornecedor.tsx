@@ -424,6 +424,38 @@ const SistemaLancesFornecedor = () => {
           console.log("Status da subscrição itens_abertos:", status);
         });
 
+      // Canal de BROADCAST para atualizações instantâneas do gestor
+      // Isso garante propagação imediata para todos os fornecedores
+      const broadcastChannel = supabase
+        .channel(`broadcast_selecao_${selecao.id}`)
+        .on('broadcast', { event: 'fechamento_iniciado' }, (payload) => {
+          console.log("📡 BROADCAST recebido: fechamento_iniciado", payload);
+          // Forçar reload imediato dos itens abertos
+          loadItensAbertos();
+        })
+        .on('broadcast', { event: 'item_fechado' }, (payload) => {
+          console.log("📡 BROADCAST recebido: item_fechado", payload);
+          loadItensAbertos();
+          loadLances();
+        })
+        .on('broadcast', { event: 'lote_fechado' }, (payload) => {
+          console.log("📡 BROADCAST recebido: lote_fechado", payload);
+          loadItensAbertos();
+          loadLances();
+        })
+        .on('broadcast', { event: 'negociacao_iniciada' }, (payload) => {
+          console.log("📡 BROADCAST recebido: negociacao_iniciada", payload);
+          loadItensAbertos();
+        })
+        .on('broadcast', { event: 'itens_atualizados' }, (payload) => {
+          console.log("📡 BROADCAST recebido: itens_atualizados", payload);
+          loadItensAbertos();
+          loadLances();
+        })
+        .subscribe((status) => {
+          console.log("📡 Status canal broadcast:", status);
+        });
+
       // Subscrição para mensagens de negociação - Realtime
       const channelMensagens = supabase
         .channel(`mensagens_negociacao_${selecao.id}`)
@@ -469,11 +501,12 @@ const SistemaLancesFornecedor = () => {
         )
         .subscribe();
 
-      // Polling como fallback a cada 1 segundo para garantir sincronização de itens e lances
+      // Polling como fallback a cada 2 segundos (aumentado de 1s para reduzir carga)
+      // O broadcast agora é o canal principal para atualizações instantâneas
       const pollingInterval = setInterval(() => {
         loadItensAbertos();
         loadLances();
-      }, 1000);
+      }, 2000);
 
       // Canal de presença para rastrear fornecedores online
       const presenceChannel = supabase.channel(`presence_selecao_${selecao.id}`);
@@ -502,6 +535,7 @@ const SistemaLancesFornecedor = () => {
       return () => {
         supabase.removeChannel(channel);
         supabase.removeChannel(channelItens);
+        supabase.removeChannel(broadcastChannel);
         supabase.removeChannel(channelMensagens);
         supabase.removeChannel(channelInabilitacoes);
         supabase.removeChannel(presenceChannel);
