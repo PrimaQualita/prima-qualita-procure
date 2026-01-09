@@ -17,16 +17,6 @@ import { useToast } from "@/hooks/use-toast";
 import { DialogNovaMensagem } from "@/components/contatos/DialogNovaMensagem";
 import { DialogVerMensagem } from "@/components/contatos/DialogVerMensagem";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
 
 interface Mensagem {
   id: string;
@@ -67,8 +57,6 @@ export function ChatContatosFornecedor({ fornecedorId }: ChatContatosFornecedorP
   const [dialogVerOpen, setDialogVerOpen] = useState(false);
   const [mensagemSelecionada, setMensagemSelecionada] = useState<Mensagem | MensagemComDestinatarios | null>(null);
   const [tipoVisualizacao, setTipoVisualizacao] = useState<"recebida" | "enviada">("recebida");
-  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
-  const [mensagemParaExcluir, setMensagemParaExcluir] = useState<{ id: string; tipo: "recebida" | "enviada"; destinatarioId?: string } | null>(null);
 
   useEffect(() => {
     if (fornecedorId) {
@@ -99,20 +87,53 @@ export function ChatContatosFornecedor({ fornecedorId }: ChatContatosFornecedorP
 
         if (errMsgs) throw errMsgs;
 
+        // Buscar todas as mensagens das conversas para agrupar corretamente
+        const conversaIds = [...new Set((mensagensData || []).map(m => m.conversa_id).filter(Boolean))] as string[];
+        
+        // Buscar mensagem original de cada conversa (para mostrar na lista)
+        const { data: mensagensOriginais } = await supabase
+          .from("mensagens_contato")
+          .select("*")
+          .in("conversa_id", conversaIds)
+          .order("created_at", { ascending: true });
+
+        // Agrupar por conversa_id - pegar apenas a primeira mensagem de cada conversa
+        const conversasMap = new Map<string, typeof mensagensOriginais[0]>();
+        const ultimaMensagemConversa = new Map<string, string>(); // conversa_id -> última data
+        
+        (mensagensOriginais || []).forEach(msg => {
+          const cid = msg.conversa_id;
+          if (!conversasMap.has(cid)) {
+            conversasMap.set(cid, msg);
+          }
+          // Rastrear última mensagem da conversa
+          const ultimaData = ultimaMensagemConversa.get(cid);
+          if (!ultimaData || new Date(msg.created_at) > new Date(ultimaData)) {
+            ultimaMensagemConversa.set(cid, msg.created_at);
+          }
+        });
+
+        // Contar total de destinatários por mensagem original
+        const mensagensOriginaisIds = [...conversasMap.values()].map(m => m.id);
         const { data: contagens } = await supabase
           .from("mensagens_contato_destinatarios")
           .select("mensagem_id")
-          .in("mensagem_id", mensagemIds);
+          .in("mensagem_id", mensagensOriginaisIds);
 
         const contagemPorMensagem = (contagens || []).reduce((acc: Record<string, number>, d) => {
           acc[d.mensagem_id] = (acc[d.mensagem_id] || 0) + 1;
           return acc;
         }, {});
 
+        // Processar apenas a primeira mensagem de cada conversa
         const mensagensProcessadas = await Promise.all(
-          destinatariosData.map(async (destRow) => {
-            const msg = mensagensData?.find(m => m.id === destRow.mensagem_id);
-            if (!msg) return null;
+          [...conversasMap.values()].map(async (msg) => {
+            // Verificar se o fornecedor é destinatário desta conversa
+            const destRow = destinatariosData.find(d => {
+              const msgDaConversa = mensagensData?.find(m => m.id === d.mensagem_id);
+              return msgDaConversa && msgDaConversa.conversa_id === msg.conversa_id;
+            });
+            if (!destRow) return null;
 
             let remetenteNome = "Desconhecido";
             
@@ -132,18 +153,24 @@ export function ChatContatosFornecedor({ fornecedorId }: ChatContatosFornecedorP
               remetenteNome = forn?.[0]?.nome_fantasia || forn?.[0]?.razao_social || "Fornecedor";
             }
 
+            // Verificar se há mensagens não lidas nesta conversa
+            const temNaoLida = destinatariosData.some(d => {
+              const msgDaConversa = mensagensData?.find(m => m.id === d.mensagem_id);
+              return msgDaConversa && msgDaConversa.conversa_id === msg.conversa_id && !d.lida;
+            });
+
             return {
               id: msg.id,
-              assunto: msg.assunto,
+              assunto: msg.assunto.replace(/^Re: /, ''),
               conteudo: msg.conteudo,
               remetente_tipo: msg.remetente_tipo as "interno" | "fornecedor",
               remetente_interno_id: msg.remetente_interno_id,
               remetente_fornecedor_id: msg.remetente_fornecedor_id,
               remetente_nome: remetenteNome,
-              created_at: msg.created_at,
+              created_at: ultimaMensagemConversa.get(msg.conversa_id) || msg.created_at,
               excluida_remetente: msg.excluida_remetente || false,
               destinatario_id: destRow.id,
-              lida: destRow.lida,
+              lida: !temNaoLida,
               excluida: destRow.excluida,
               totalDestinatarios: contagemPorMensagem[msg.id] || 1,
               conversa_id: msg.conversa_id,
@@ -246,39 +273,6 @@ export function ChatContatosFornecedor({ fornecedorId }: ChatContatosFornecedorP
     }
   };
 
-  const handleExcluirMensagem = async () => {
-    if (!mensagemParaExcluir) return;
-
-    try {
-      if (mensagemParaExcluir.tipo === "recebida" && mensagemParaExcluir.destinatarioId) {
-        const { error } = await supabase
-          .from("mensagens_contato_destinatarios")
-          .update({ excluida: true, data_exclusao: new Date().toISOString() })
-          .eq("id", mensagemParaExcluir.destinatarioId);
-
-        if (error) throw error;
-      } else if (mensagemParaExcluir.tipo === "enviada") {
-        const { error } = await supabase
-          .from("mensagens_contato")
-          .update({ excluida_remetente: true, data_exclusao_remetente: new Date().toISOString() })
-          .eq("id", mensagemParaExcluir.id);
-
-        if (error) throw error;
-      }
-
-      toast({ title: "Mensagem excluída com sucesso!" });
-      loadMensagens();
-    } catch (error: any) {
-      toast({
-        title: "Erro ao excluir mensagem",
-        description: error.message,
-        variant: "destructive",
-      });
-    } finally {
-      setDeleteDialogOpen(false);
-      setMensagemParaExcluir(null);
-    }
-  };
 
   const mensagensRecebidasFiltradas = mensagensRecebidas.filter(
     (m) =>
@@ -398,29 +392,13 @@ export function ChatContatosFornecedor({ fornecedorId }: ChatContatosFornecedorP
                         </TableCell>
                         <TableCell>{mensagem.assunto}</TableCell>
                         <TableCell className="text-right">
-                          <div className="flex justify-end gap-2">
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              onClick={() => handleVerMensagem(mensagem, "recebida")}
-                            >
-                              <Eye className="h-4 w-4" />
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              onClick={() => {
-                                setMensagemParaExcluir({
-                                  id: mensagem.id,
-                                  tipo: "recebida",
-                                  destinatarioId: mensagem.destinatario_id,
-                                });
-                                setDeleteDialogOpen(true);
-                              }}
-                            >
-                              <Trash2 className="h-4 w-4 text-destructive" />
-                            </Button>
-                          </div>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => handleVerMensagem(mensagem, "recebida")}
+                          >
+                            <Eye className="h-4 w-4" />
+                          </Button>
                         </TableCell>
                       </TableRow>
                     ))}
@@ -482,28 +460,13 @@ export function ChatContatosFornecedor({ fornecedorId }: ChatContatosFornecedorP
                             )}
                           </TableCell>
                           <TableCell className="text-right">
-                            <div className="flex justify-end gap-2">
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                onClick={() => handleVerMensagem(mensagem, "enviada")}
-                              >
-                                <Eye className="h-4 w-4" />
-                              </Button>
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                onClick={() => {
-                                  setMensagemParaExcluir({
-                                    id: mensagem.id,
-                                    tipo: "enviada",
-                                  });
-                                  setDeleteDialogOpen(true);
-                                }}
-                              >
-                                <Trash2 className="h-4 w-4 text-destructive" />
-                              </Button>
-                            </div>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => handleVerMensagem(mensagem, "enviada")}
+                            >
+                              <Eye className="h-4 w-4" />
+                            </Button>
                           </TableCell>
                         </TableRow>
                       );
@@ -538,23 +501,6 @@ export function ChatContatosFornecedor({ fornecedorId }: ChatContatosFornecedorP
         />
       )}
 
-      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Excluir mensagem?</AlertDialogTitle>
-            <AlertDialogDescription>
-              Esta ação irá remover a mensagem da sua lista. 
-              A mensagem só será excluída definitivamente quando todos os participantes a excluírem.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancelar</AlertDialogCancel>
-            <AlertDialogAction onClick={handleExcluirMensagem}>
-              Excluir
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
     </>
   );
 }
