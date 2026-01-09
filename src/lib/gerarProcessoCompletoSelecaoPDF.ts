@@ -659,7 +659,7 @@ export const gerarProcessoCompletoSelecaoPDF = async (
 
     // Adicionar numeração de páginas
     console.log("\n🔢 Adicionando numeração de páginas...");
-    const helveticaFont = await pdfFinal.embedFont(StandardFonts.Helvetica);
+    const helveticaBoldFont = await pdfFinal.embedFont(StandardFonts.HelveticaBold);
     const pages = pdfFinal.getPages();
     const totalPages = pages.length;
     
@@ -667,15 +667,15 @@ export const gerarProcessoCompletoSelecaoPDF = async (
       const pageNumber = index + 1;
       const { width, height } = page.getSize();
       const text = `Página ${pageNumber} de ${totalPages}`;
-      const textWidth = helveticaFont.widthOfTextAtSize(text, 9);
+      const textWidth = helveticaBoldFont.widthOfTextAtSize(text, 9);
       
-      // Adicionar numeração no rodapé centralizado
+      // Adicionar numeração no canto superior direito em negrito e preto
       page.drawText(text, {
-        x: (width - textWidth) / 2,
-        y: 15,
+        x: width - textWidth - 30,
+        y: height - 25,
         size: 9,
-        font: helveticaFont,
-        color: rgb(0.4, 0.4, 0.4),
+        font: helveticaBoldFont,
+        color: rgb(0, 0, 0),
       });
     });
     
