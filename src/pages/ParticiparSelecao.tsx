@@ -1348,7 +1348,7 @@ const ParticiparSelecao = () => {
         {/* Botão de Login - SEMPRE visível */}
         <Card className="mb-6 bg-blue-50 dark:bg-blue-950 border-blue-200 dark:border-blue-800">
           <CardContent className="pt-6">
-            <div className="flex items-center justify-between">
+            <div className="flex items-center justify-between gap-4">
               <div className="flex-1">
                 <h3 className="font-semibold text-lg mb-1 flex items-center gap-2">
                   <LogIn className="h-5 w-5 text-blue-600 dark:text-blue-400" />
@@ -1367,9 +1367,8 @@ const ParticiparSelecao = () => {
                 </div>
               </div>
               <Button 
-                variant="outline"
                 onClick={() => navigate('/auth')}
-                className="whitespace-nowrap"
+                className="whitespace-nowrap bg-blue-600 hover:bg-blue-700 text-white"
               >
                 <LogIn className="h-4 w-4 mr-2" />
                 Fazer Login
