@@ -285,10 +285,30 @@ export function DialogVerMensagem({
     if (!mensagemParaExcluir) return;
 
     try {
-      // Marcar a mensagem como excluída pelo remetente
+      const isMensagemRaizDaConversa = mensagemParaExcluir === conversaId;
+
+      if (isMensagemRaizDaConversa) {
+        // Quando o criador apaga a mensagem principal, apagar a conversa inteira (principal + respostas)
+        const { error } = await supabase.rpc(
+          "delete_conversa_mensagem" as any,
+          { p_conversa_id: conversaId } as any
+        );
+
+        if (error) throw error;
+
+        toast({ title: "Conversa excluída!" });
+        onMessageSent?.();
+        onOpenChange(false);
+        return;
+      }
+
+      // Caso contrário: excluir apenas a mensagem específica (resposta do próprio usuário)
       const { error } = await supabase
         .from("mensagens_contato")
-        .update({ excluida_remetente: true, data_exclusao_remetente: new Date().toISOString() })
+        .update({
+          excluida_remetente: true,
+          data_exclusao_remetente: new Date().toISOString(),
+        })
         .eq("id", mensagemParaExcluir);
 
       if (error) throw error;
