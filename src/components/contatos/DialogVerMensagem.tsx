@@ -165,14 +165,60 @@ export function DialogVerMensagem({
 
     setEnviando(true);
     try {
-      // Determinar quem vai receber a resposta (o remetente original)
-      const destinatarioTipo = mensagem.remetente_tipo;
-      const destinatarioInternoId = mensagem.remetente_tipo === "interno" 
-        ? mensagem.remetente_interno_id 
-        : null;
-      const destinatarioFornecedorId = mensagem.remetente_tipo === "fornecedor" 
-        ? mensagem.remetente_fornecedor_id 
-        : null;
+      // Buscar todos os participantes da conversa (remetentes e destinatários)
+      const participantes: { tipo: string; internoId?: string | null; fornecedorId?: string | null }[] = [];
+      
+      // Buscar todas as mensagens da conversa para identificar participantes
+      const { data: todasMensagens } = await supabase
+        .from("mensagens_contato")
+        .select(`
+          remetente_tipo,
+          remetente_interno_id,
+          remetente_fornecedor_id,
+          mensagens_contato_destinatarios (
+            destinatario_tipo,
+            destinatario_interno_id,
+            destinatario_fornecedor_id
+          )
+        `)
+        .eq("conversa_id", conversaId);
+
+      // Coletar todos os participantes únicos
+      const participantesSet = new Set<string>();
+      
+      (todasMensagens || []).forEach(msg => {
+        // Adicionar remetente
+        if (msg.remetente_tipo === "interno" && msg.remetente_interno_id) {
+          const key = `interno:${msg.remetente_interno_id}`;
+          if (!participantesSet.has(key)) {
+            participantesSet.add(key);
+            participantes.push({ tipo: "interno", internoId: msg.remetente_interno_id });
+          }
+        } else if (msg.remetente_tipo === "fornecedor" && msg.remetente_fornecedor_id) {
+          const key = `fornecedor:${msg.remetente_fornecedor_id}`;
+          if (!participantesSet.has(key)) {
+            participantesSet.add(key);
+            participantes.push({ tipo: "fornecedor", fornecedorId: msg.remetente_fornecedor_id });
+          }
+        }
+        
+        // Adicionar destinatários
+        (msg.mensagens_contato_destinatarios || []).forEach((dest: any) => {
+          if (dest.destinatario_tipo === "interno" && dest.destinatario_interno_id) {
+            const key = `interno:${dest.destinatario_interno_id}`;
+            if (!participantesSet.has(key)) {
+              participantesSet.add(key);
+              participantes.push({ tipo: "interno", internoId: dest.destinatario_interno_id });
+            }
+          } else if (dest.destinatario_tipo === "fornecedor" && dest.destinatario_fornecedor_id) {
+            const key = `fornecedor:${dest.destinatario_fornecedor_id}`;
+            if (!participantesSet.has(key)) {
+              participantesSet.add(key);
+              participantes.push({ tipo: "fornecedor", fornecedorId: dest.destinatario_fornecedor_id });
+            }
+          }
+        });
+      });
 
       // Criar nova mensagem na mesma conversa
       const novaMensagem: any = {
@@ -196,23 +242,29 @@ export function DialogVerMensagem({
 
       if (errMsg) throw errMsg;
 
-      // Criar destinatário
-      const destinatario: any = {
-        mensagem_id: msgCriada.id,
-        destinatario_tipo: destinatarioTipo,
-      };
+      // Criar destinatários para todos os participantes, exceto quem está enviando
+      const destinatariosParaInserir = participantes
+        .filter(p => {
+          if (userType === "interno") {
+            return !(p.tipo === "interno" && p.internoId === userId);
+          } else {
+            return !(p.tipo === "fornecedor" && p.fornecedorId === fornecedorId);
+          }
+        })
+        .map(p => ({
+          mensagem_id: msgCriada.id,
+          destinatario_tipo: p.tipo,
+          destinatario_interno_id: p.tipo === "interno" ? p.internoId : null,
+          destinatario_fornecedor_id: p.tipo === "fornecedor" ? p.fornecedorId : null,
+        }));
 
-      if (destinatarioTipo === "interno") {
-        destinatario.destinatario_interno_id = destinatarioInternoId;
-      } else {
-        destinatario.destinatario_fornecedor_id = destinatarioFornecedorId;
+      if (destinatariosParaInserir.length > 0) {
+        const { error: errDest } = await supabase
+          .from("mensagens_contato_destinatarios")
+          .insert(destinatariosParaInserir);
+
+        if (errDest) throw errDest;
       }
-
-      const { error: errDest } = await supabase
-        .from("mensagens_contato_destinatarios")
-        .insert(destinatario);
-
-      if (errDest) throw errDest;
 
       toast({ title: "Resposta enviada!" });
       setNovaResposta("");
