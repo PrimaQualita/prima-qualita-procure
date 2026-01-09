@@ -570,17 +570,15 @@ export function DialogVerMensagem({
                           : "bg-muted"
                       }`}
                     >
-                      {/* Nome do remetente com indicador de online - sempre mostrar para outros */}
-                      {!msg.isCurrentUser && (
-                        <div className="flex items-center gap-2 mb-1">
-                          <p className="text-xs font-semibold text-foreground">
-                            {msg.remetente_nome}
-                          </p>
-                          {isUserOnline(msg.remetente_interno_id || null, msg.remetente_fornecedor_id || null) && (
-                            <Circle className="h-2 w-2 fill-green-500 text-green-500" />
-                          )}
-                        </div>
-                      )}
+                      {/* Nome do remetente com indicador de online - SEMPRE mostrar para TODOS */}
+                      <div className="flex items-center gap-2 mb-1">
+                        <p className={`text-xs font-semibold ${msg.isCurrentUser ? "text-primary-foreground" : "text-foreground"}`}>
+                          {msg.remetente_nome}
+                        </p>
+                        {isUserOnline(msg.remetente_interno_id || null, msg.remetente_fornecedor_id || null) && (
+                          <Circle className="h-2 w-2 fill-green-500 text-green-500" />
+                        )}
+                      </div>
                       <p className="text-sm whitespace-pre-wrap">{msg.conteudo}</p>
                       <div className="flex items-center justify-end mt-1 gap-1">
                         <p className={`text-xs ${
