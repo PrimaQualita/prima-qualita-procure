@@ -45,6 +45,7 @@ interface Mensagem {
   excluida?: boolean;
   // Indicador de grupo
   totalDestinatarios?: number;
+  conversa_id?: string;
 }
 
 interface MensagemComDestinatarios extends Mensagem {
@@ -197,6 +198,7 @@ const Contatos = () => {
                 lida: destRow.lida,
                 excluida: destRow.excluida,
                 totalDestinatarios: contagemPorMensagem[msg.id] || 1,
+                conversa_id: msg.conversa_id,
               };
             })
           );
@@ -616,6 +618,10 @@ const Contatos = () => {
           onOpenChange={setDialogVerOpen}
           mensagem={mensagemSelecionada}
           tipo={tipoVisualizacao}
+          userType={userType}
+          userId={userId}
+          fornecedorId={fornecedorId}
+          onMessageSent={loadMensagens}
         />
       )}
 

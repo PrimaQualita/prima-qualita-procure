@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { DialogConsultarProposta } from "@/components/cotacoes/DialogConsultarProposta";
 import { DialogEditarCadastroFornecedor } from "@/components/fornecedores/DialogEditarCadastroFornecedor";
 import { DialogSelecionarResponsavelLegal } from "@/components/fornecedores/DialogSelecionarResponsavelLegal";
+import { ChatContatosFornecedor } from "@/components/contatos/ChatContatosFornecedor";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -1789,20 +1790,7 @@ export default function PortalFornecedor() {
           </TabsContent>
 
           <TabsContent value="contato">
-            <Card>
-              <CardHeader>
-                <CardTitle>Contato com Departamento de Compras</CardTitle>
-                <CardDescription>
-                  Entre em contato para dúvidas ou suporte
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <Button onClick={() => navigate("/contatos")}>
-                  <MessageSquare className="mr-2 h-4 w-4" />
-                  Abrir Página de Contato
-                </Button>
-              </CardContent>
-            </Card>
+            <ChatContatosFornecedor fornecedorId={fornecedor.id} />
           </TabsContent>
         </Tabs>
       </div>
