@@ -3542,6 +3542,18 @@ export type Database = {
       }
       inserir_respostas_itens: { Args: { p_itens: Json }; Returns: Json }
       is_internal_user: { Args: { _user_id: string }; Returns: boolean }
+      is_message_recipient: {
+        Args: { _destinatario_id: string; _user_id: string }
+        Returns: boolean
+      }
+      is_message_sender: {
+        Args: { _message_id: string; _user_id: string }
+        Returns: boolean
+      }
+      is_message_sender_fornecedor: {
+        Args: { _fornecedor_id: string; _message_id: string }
+        Returns: boolean
+      }
       pode_inserir_resposta_item: {
         Args: { p_resposta_id: string }
         Returns: boolean
