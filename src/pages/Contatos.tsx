@@ -13,7 +13,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { MessageSquare, Plus, Trash2, Eye, Mail, MailOpen } from "lucide-react";
+import { MessageSquare, Plus, Trash2, Eye, Mail, MailOpen, Users } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { DialogNovaMensagem } from "@/components/contatos/DialogNovaMensagem";
 import { DialogVerMensagem } from "@/components/contatos/DialogVerMensagem";
@@ -43,6 +43,8 @@ interface Mensagem {
   destinatario_id?: string;
   lida?: boolean;
   excluida?: boolean;
+  // Indicador de grupo
+  totalDestinatarios?: number;
 }
 
 interface MensagemComDestinatarios extends Mensagem {
@@ -86,16 +88,16 @@ const Contatos = () => {
 
     setUserId(session.user.id);
 
-    // Verificar se é fornecedor
-    const { data: fornecedor } = await supabase
+    // Verificar se é fornecedor (sem .single() para evitar erro 406)
+    const { data: fornecedorData } = await supabase
       .from("fornecedores")
       .select("id")
       .eq("user_id", session.user.id)
-      .single();
+      .limit(1);
 
-    if (fornecedor) {
+    if (fornecedorData && fornecedorData.length > 0) {
       setUserType("fornecedor");
-      setFornecedorId(fornecedor.id);
+      setFornecedorId(fornecedorData[0].id);
     } else {
       setUserType("interno");
     }
@@ -114,127 +116,99 @@ const Contatos = () => {
 
     try {
       // Carregar mensagens recebidas
+      let destinatariosQuery;
+      
       if (userType === "interno") {
-        const { data: recebidas, error: errRecebidas } = await supabase
+        destinatariosQuery = supabase
           .from("mensagens_contato_destinatarios")
-          .select(`
-            id,
-            mensagem_id,
-            lida,
-            excluida,
-            mensagens_contato!inner (
-              id,
-              assunto,
-              conteudo,
-              remetente_tipo,
-              remetente_interno_id,
-              remetente_fornecedor_id,
-              created_at
-            )
-          `)
+          .select("id, mensagem_id, lida, excluida, destinatario_tipo")
           .eq("destinatario_interno_id", userId)
-          .eq("excluida", false)
-          .order("created_at", { ascending: false });
-
-        if (errRecebidas) throw errRecebidas;
-
-        // Buscar nomes dos remetentes
-        const mensagensProcessadas = await Promise.all(
-          (recebidas || []).map(async (r: any) => {
-            let remetenteNome = "Desconhecido";
-            const msg = r.mensagens_contato;
-            
-            if (msg.remetente_tipo === "interno" && msg.remetente_interno_id) {
-              const { data: profile } = await supabase
-                .from("profiles")
-                .select("nome_completo")
-                .eq("id", msg.remetente_interno_id)
-                .single();
-              remetenteNome = profile?.nome_completo || "Usuário";
-            } else if (msg.remetente_tipo === "fornecedor" && msg.remetente_fornecedor_id) {
-              const { data: forn } = await supabase
-                .from("fornecedores")
-                .select("razao_social, nome_fantasia")
-                .eq("id", msg.remetente_fornecedor_id)
-                .single();
-              remetenteNome = forn?.nome_fantasia || forn?.razao_social || "Fornecedor";
-            }
-
-            return {
-              id: msg.id,
-              assunto: msg.assunto,
-              conteudo: msg.conteudo,
-              remetente_tipo: msg.remetente_tipo,
-              remetente_interno_id: msg.remetente_interno_id,
-              remetente_fornecedor_id: msg.remetente_fornecedor_id,
-              remetente_nome: remetenteNome,
-              created_at: msg.created_at,
-              excluida_remetente: false,
-              destinatario_id: r.id,
-              lida: r.lida,
-              excluida: r.excluida,
-            };
-          })
-        );
-
-        setMensagensRecebidas(mensagensProcessadas);
+          .eq("excluida", false);
       } else if (fornecedorId) {
-        // Fornecedor
-        const { data: recebidas, error: errRecebidas } = await supabase
+        destinatariosQuery = supabase
           .from("mensagens_contato_destinatarios")
-          .select(`
-            id,
-            mensagem_id,
-            lida,
-            excluida,
-            mensagens_contato!inner (
-              id,
-              assunto,
-              conteudo,
-              remetente_tipo,
-              remetente_interno_id,
-              remetente_fornecedor_id,
-              created_at
-            )
-          `)
+          .select("id, mensagem_id, lida, excluida, destinatario_tipo")
           .eq("destinatario_fornecedor_id", fornecedorId)
-          .eq("excluida", false)
-          .order("created_at", { ascending: false });
+          .eq("excluida", false);
+      }
 
-        if (errRecebidas) throw errRecebidas;
+      if (destinatariosQuery) {
+        const { data: destinatariosData, error: errDest } = await destinatariosQuery;
+        
+        if (errDest) throw errDest;
 
-        const mensagensProcessadas = await Promise.all(
-          (recebidas || []).map(async (r: any) => {
-            let remetenteNome = "Desconhecido";
-            const msg = r.mensagens_contato;
-            
-            if (msg.remetente_tipo === "interno" && msg.remetente_interno_id) {
-              const { data: profile } = await supabase
-                .from("profiles")
-                .select("nome_completo")
-                .eq("id", msg.remetente_interno_id)
-                .single();
-              remetenteNome = profile?.nome_completo || "Usuário";
-            }
+        if (destinatariosData && destinatariosData.length > 0) {
+          // Buscar mensagens associadas
+          const mensagemIds = [...new Set(destinatariosData.map(d => d.mensagem_id))] as string[];
+          
+          const { data: mensagensData, error: errMsgs } = await supabase
+            .from("mensagens_contato")
+            .select("*")
+            .in("id", mensagemIds);
 
-            return {
-              id: msg.id,
-              assunto: msg.assunto,
-              conteudo: msg.conteudo,
-              remetente_tipo: msg.remetente_tipo,
-              remetente_interno_id: msg.remetente_interno_id,
-              remetente_fornecedor_id: msg.remetente_fornecedor_id,
-              remetente_nome: remetenteNome,
-              created_at: msg.created_at,
-              excluida_remetente: false,
-              destinatario_id: r.id,
-              lida: r.lida,
-              excluida: r.excluida,
-            };
-          })
-        );
+          if (errMsgs) throw errMsgs;
 
-        setMensagensRecebidas(mensagensProcessadas);
+          // Contar total de destinatários por mensagem
+          const { data: contagens } = await supabase
+            .from("mensagens_contato_destinatarios")
+            .select("mensagem_id")
+            .in("mensagem_id", mensagemIds);
+
+          const contagemPorMensagem = (contagens || []).reduce((acc: Record<string, number>, d) => {
+            acc[d.mensagem_id] = (acc[d.mensagem_id] || 0) + 1;
+            return acc;
+          }, {});
+
+          // Processar mensagens
+          const mensagensProcessadas = await Promise.all(
+            destinatariosData.map(async (destRow) => {
+              const msg = mensagensData?.find(m => m.id === destRow.mensagem_id);
+              if (!msg) return null;
+
+              let remetenteNome = "Desconhecido";
+              
+              if (msg.remetente_tipo === "interno" && msg.remetente_interno_id) {
+                const { data: profile } = await supabase
+                  .from("profiles")
+                  .select("nome_completo")
+                  .eq("id", msg.remetente_interno_id)
+                  .limit(1);
+                remetenteNome = profile?.[0]?.nome_completo || "Usuário";
+              } else if (msg.remetente_tipo === "fornecedor" && msg.remetente_fornecedor_id) {
+                const { data: forn } = await supabase
+                  .from("fornecedores")
+                  .select("razao_social, nome_fantasia")
+                  .eq("id", msg.remetente_fornecedor_id)
+                  .limit(1);
+                remetenteNome = forn?.[0]?.nome_fantasia || forn?.[0]?.razao_social || "Fornecedor";
+              }
+
+              return {
+                id: msg.id,
+                assunto: msg.assunto,
+                conteudo: msg.conteudo,
+                remetente_tipo: msg.remetente_tipo as "interno" | "fornecedor",
+                remetente_interno_id: msg.remetente_interno_id,
+                remetente_fornecedor_id: msg.remetente_fornecedor_id,
+                remetente_nome: remetenteNome,
+                created_at: msg.created_at,
+                excluida_remetente: msg.excluida_remetente || false,
+                destinatario_id: destRow.id,
+                lida: destRow.lida,
+                excluida: destRow.excluida,
+                totalDestinatarios: contagemPorMensagem[msg.id] || 1,
+              };
+            })
+          );
+
+          setMensagensRecebidas(
+            mensagensProcessadas
+              .filter((m): m is Mensagem => m !== null)
+              .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+          );
+        } else {
+          setMensagensRecebidas([]);
+        }
       }
 
       // Carregar mensagens enviadas
@@ -242,46 +216,14 @@ const Contatos = () => {
       if (userType === "interno") {
         queryEnviadas = supabase
           .from("mensagens_contato")
-          .select(`
-            id,
-            assunto,
-            conteudo,
-            remetente_tipo,
-            remetente_interno_id,
-            remetente_fornecedor_id,
-            created_at,
-            excluida_remetente,
-            mensagens_contato_destinatarios (
-              id,
-              destinatario_tipo,
-              destinatario_interno_id,
-              destinatario_fornecedor_id,
-              lida
-            )
-          `)
+          .select("*")
           .eq("remetente_interno_id", userId)
           .eq("excluida_remetente", false)
           .order("created_at", { ascending: false });
       } else if (fornecedorId) {
         queryEnviadas = supabase
           .from("mensagens_contato")
-          .select(`
-            id,
-            assunto,
-            conteudo,
-            remetente_tipo,
-            remetente_interno_id,
-            remetente_fornecedor_id,
-            created_at,
-            excluida_remetente,
-            mensagens_contato_destinatarios (
-              id,
-              destinatario_tipo,
-              destinatario_interno_id,
-              destinatario_fornecedor_id,
-              lida
-            )
-          `)
+          .select("*")
           .eq("remetente_fornecedor_id", fornecedorId)
           .eq("excluida_remetente", false)
           .order("created_at", { ascending: false });
@@ -291,53 +233,68 @@ const Contatos = () => {
         const { data: enviadas, error: errEnviadas } = await queryEnviadas;
         if (errEnviadas) throw errEnviadas;
 
-        // Processar destinatários
-        const enviadasProcessadas = await Promise.all(
-          (enviadas || []).map(async (msg: any) => {
-            const destinatariosProcessados = await Promise.all(
-              (msg.mensagens_contato_destinatarios || []).map(async (d: any) => {
-                let nome = "Desconhecido";
-                if (d.destinatario_tipo === "interno" && d.destinatario_interno_id) {
-                  const { data: profile } = await supabase
-                    .from("profiles")
-                    .select("nome_completo")
-                    .eq("id", d.destinatario_interno_id)
-                    .single();
-                  nome = profile?.nome_completo || "Usuário";
-                } else if (d.destinatario_tipo === "fornecedor" && d.destinatario_fornecedor_id) {
-                  const { data: forn } = await supabase
-                    .from("fornecedores")
-                    .select("razao_social, nome_fantasia")
-                    .eq("id", d.destinatario_fornecedor_id)
-                    .single();
-                  nome = forn?.nome_fantasia || forn?.razao_social || "Fornecedor";
-                }
-                return {
-                  id: d.id,
-                  tipo: d.destinatario_tipo,
-                  nome,
-                  lida: d.lida,
-                };
-              })
-            );
+        if (enviadas && enviadas.length > 0) {
+          // Buscar destinatários separadamente
+          const mensagemIds = enviadas.map(e => e.id);
+          
+          const { data: todosDestinatarios } = await supabase
+            .from("mensagens_contato_destinatarios")
+            .select("*")
+            .in("mensagem_id", mensagemIds);
 
-            return {
-              id: msg.id,
-              assunto: msg.assunto,
-              conteudo: msg.conteudo,
-              remetente_tipo: msg.remetente_tipo,
-              remetente_interno_id: msg.remetente_interno_id,
-              remetente_fornecedor_id: msg.remetente_fornecedor_id,
-              created_at: msg.created_at,
-              excluida_remetente: msg.excluida_remetente,
-              destinatarios: destinatariosProcessados,
-            };
-          })
-        );
+          // Processar cada mensagem
+          const enviadasProcessadas = await Promise.all(
+            enviadas.map(async (msg) => {
+              const destsDaMensagem = (todosDestinatarios || []).filter(d => d.mensagem_id === msg.id);
+              
+              const destinatariosProcessados = await Promise.all(
+                destsDaMensagem.map(async (d) => {
+                  let nome = "Desconhecido";
+                  if (d.destinatario_tipo === "interno" && d.destinatario_interno_id) {
+                    const { data: profile } = await supabase
+                      .from("profiles")
+                      .select("nome_completo")
+                      .eq("id", d.destinatario_interno_id)
+                      .limit(1);
+                    nome = profile?.[0]?.nome_completo || "Usuário";
+                  } else if (d.destinatario_tipo === "fornecedor" && d.destinatario_fornecedor_id) {
+                    const { data: forn } = await supabase
+                      .from("fornecedores")
+                      .select("razao_social, nome_fantasia")
+                      .eq("id", d.destinatario_fornecedor_id)
+                      .limit(1);
+                    nome = forn?.[0]?.nome_fantasia || forn?.[0]?.razao_social || "Fornecedor";
+                  }
+                  return {
+                    id: d.id,
+                    tipo: d.destinatario_tipo,
+                    nome,
+                    lida: d.lida || false,
+                  };
+                })
+              );
 
-        setMensagensEnviadas(enviadasProcessadas);
+              return {
+                id: msg.id,
+                assunto: msg.assunto,
+                conteudo: msg.conteudo,
+                remetente_tipo: msg.remetente_tipo as "interno" | "fornecedor",
+                remetente_interno_id: msg.remetente_interno_id,
+                remetente_fornecedor_id: msg.remetente_fornecedor_id,
+                created_at: msg.created_at,
+                excluida_remetente: msg.excluida_remetente || false,
+                destinatarios: destinatariosProcessados,
+              };
+            })
+          );
+
+          setMensagensEnviadas(enviadasProcessadas);
+        } else {
+          setMensagensEnviadas([]);
+        }
       }
     } catch (error: any) {
+      console.error("Erro ao carregar mensagens:", error);
       toast({
         title: "Erro ao carregar mensagens",
         description: error.message,
@@ -411,6 +368,17 @@ const Contatos = () => {
   );
 
   const naoLidas = mensagensRecebidas.filter(m => !m.lida).length;
+
+  // Calcular status de leitura para mensagens enviadas
+  const getStatusLeitura = (destinatarios: { lida: boolean }[]) => {
+    if (destinatarios.length === 0) return { todas: false, algumas: false, nenhuma: true };
+    const lidas = destinatarios.filter(d => d.lida).length;
+    return {
+      todas: lidas === destinatarios.length,
+      algumas: lidas > 0 && lidas < destinatarios.length,
+      nenhuma: lidas === 0,
+    };
+  };
 
   if (loading) {
     return <div className="min-h-screen flex items-center justify-center">Carregando...</div>;
@@ -498,25 +466,27 @@ const Contatos = () => {
                               <div className="w-2 h-2 rounded-full bg-primary" />
                             )}
                           </TableCell>
-                          <TableCell>
+                          <TableCell className="whitespace-nowrap">
                             {new Date(mensagem.created_at).toLocaleDateString("pt-BR")}
                           </TableCell>
                           <TableCell>
                             <div className="flex items-center gap-2">
-                              <Badge variant="outline">
-                                {mensagem.remetente_tipo === "interno" ? "Interno" : "Fornecedor"}
-                              </Badge>
                               {mensagem.remetente_nome}
+                              {(mensagem.totalDestinatarios || 1) > 1 && (
+                                <Badge variant="outline" className="text-xs flex items-center gap-1">
+                                  <Users className="h-3 w-3" />
+                                  Grupo
+                                </Badge>
+                              )}
                             </div>
                           </TableCell>
-                          <TableCell className="font-medium">{mensagem.assunto}</TableCell>
+                          <TableCell>{mensagem.assunto}</TableCell>
                           <TableCell className="text-right">
                             <div className="flex justify-end gap-2">
                               <Button
                                 variant="ghost"
                                 size="icon"
                                 onClick={() => handleVerMensagem(mensagem, "recebida")}
-                                title="Ver mensagem"
                               >
                                 <Eye className="h-4 w-4" />
                               </Button>
@@ -531,7 +501,6 @@ const Contatos = () => {
                                   });
                                   setDeleteDialogOpen(true);
                                 }}
-                                title="Excluir mensagem"
                               >
                                 <Trash2 className="h-4 w-4 text-destructive" />
                               </Button>
@@ -554,70 +523,75 @@ const Contatos = () => {
                     <TableHeader>
                       <TableRow>
                         <TableHead>Data</TableHead>
-                        <TableHead>Destinatário(s)</TableHead>
+                        <TableHead>Destinatários</TableHead>
                         <TableHead>Assunto</TableHead>
-                        <TableHead>Status</TableHead>
+                        <TableHead>Leitura</TableHead>
                         <TableHead className="text-right">Ações</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {mensagensEnviadasFiltradas.map((mensagem) => (
-                        <TableRow key={mensagem.id}>
-                          <TableCell>
-                            {new Date(mensagem.created_at).toLocaleDateString("pt-BR")}
-                          </TableCell>
-                          <TableCell>
-                            <div className="flex flex-wrap gap-1">
-                              {mensagem.destinatarios.slice(0, 3).map((d, i) => (
-                                <Badge key={i} variant="outline" className="text-xs">
-                                  {d.nome}
+                      {mensagensEnviadasFiltradas.map((mensagem) => {
+                        const status = getStatusLeitura(mensagem.destinatarios);
+                        return (
+                          <TableRow key={mensagem.id}>
+                            <TableCell className="whitespace-nowrap">
+                              {new Date(mensagem.created_at).toLocaleDateString("pt-BR")}
+                            </TableCell>
+                            <TableCell>
+                              <div className="flex items-center gap-2">
+                                {mensagem.destinatarios.length === 1 ? (
+                                  <span>{mensagem.destinatarios[0]?.nome}</span>
+                                ) : (
+                                  <Badge variant="outline" className="flex items-center gap-1">
+                                    <Users className="h-3 w-3" />
+                                    {mensagem.destinatarios.length} pessoas
+                                  </Badge>
+                                )}
+                              </div>
+                            </TableCell>
+                            <TableCell>{mensagem.assunto}</TableCell>
+                            <TableCell>
+                              {status.todas ? (
+                                <Badge variant="secondary" className="bg-green-100 text-green-800">
+                                  ✓ Lida por todos
                                 </Badge>
-                              ))}
-                              {mensagem.destinatarios.length > 3 && (
-                                <Badge variant="secondary" className="text-xs">
-                                  +{mensagem.destinatarios.length - 3}
+                              ) : status.algumas ? (
+                                <Badge variant="secondary" className="bg-yellow-100 text-yellow-800">
+                                  ◐ Parcialmente lida
+                                </Badge>
+                              ) : (
+                                <Badge variant="outline" className="text-muted-foreground">
+                                  ○ Não lida
                                 </Badge>
                               )}
-                            </div>
-                          </TableCell>
-                          <TableCell className="font-medium">{mensagem.assunto}</TableCell>
-                          <TableCell>
-                            {mensagem.destinatarios.every(d => d.lida) ? (
-                              <Badge variant="secondary">Lida</Badge>
-                            ) : mensagem.destinatarios.some(d => d.lida) ? (
-                              <Badge variant="outline">Parcialmente lida</Badge>
-                            ) : (
-                              <Badge variant="default">Enviada</Badge>
-                            )}
-                          </TableCell>
-                          <TableCell className="text-right">
-                            <div className="flex justify-end gap-2">
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                onClick={() => handleVerMensagem(mensagem, "enviada")}
-                                title="Ver mensagem"
-                              >
-                                <Eye className="h-4 w-4" />
-                              </Button>
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                onClick={() => {
-                                  setMensagemParaExcluir({
-                                    id: mensagem.id,
-                                    tipo: "enviada",
-                                  });
-                                  setDeleteDialogOpen(true);
-                                }}
-                                title="Excluir mensagem"
-                              >
-                                <Trash2 className="h-4 w-4 text-destructive" />
-                              </Button>
-                            </div>
-                          </TableCell>
-                        </TableRow>
-                      ))}
+                            </TableCell>
+                            <TableCell className="text-right">
+                              <div className="flex justify-end gap-2">
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  onClick={() => handleVerMensagem(mensagem, "enviada")}
+                                >
+                                  <Eye className="h-4 w-4" />
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  onClick={() => {
+                                    setMensagemParaExcluir({
+                                      id: mensagem.id,
+                                      tipo: "enviada",
+                                    });
+                                    setDeleteDialogOpen(true);
+                                  }}
+                                >
+                                  <Trash2 className="h-4 w-4 text-destructive" />
+                                </Button>
+                              </div>
+                            </TableCell>
+                          </TableRow>
+                        );
+                      })}
                     </TableBody>
                   </Table>
                 )}
@@ -648,14 +622,15 @@ const Contatos = () => {
       <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Excluir mensagem</AlertDialogTitle>
+            <AlertDialogTitle>Excluir mensagem?</AlertDialogTitle>
             <AlertDialogDescription>
-              Tem certeza que deseja excluir esta mensagem? A mensagem será removida da sua caixa, mas continuará visível para os outros participantes até que eles também a excluam.
+              Esta ação irá remover a mensagem da sua lista. 
+              A mensagem só será excluída definitivamente quando todos os participantes a excluírem.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancelar</AlertDialogCancel>
-            <AlertDialogAction onClick={handleExcluirMensagem} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+            <AlertDialogAction onClick={handleExcluirMensagem}>
               Excluir
             </AlertDialogAction>
           </AlertDialogFooter>
