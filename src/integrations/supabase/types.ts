@@ -3568,6 +3568,14 @@ export type Database = {
         Args: { _fornecedor_id: string; _message_id: string }
         Returns: boolean
       }
+      is_participant_in_conversation: {
+        Args: {
+          p_conversa_id: string
+          p_fornecedor_id: string
+          p_user_id: string
+        }
+        Returns: boolean
+      }
       pode_inserir_resposta_item: {
         Args: { p_resposta_id: string }
         Returns: boolean
