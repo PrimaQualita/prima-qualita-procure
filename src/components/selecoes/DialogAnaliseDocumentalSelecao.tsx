@@ -489,7 +489,7 @@ export function DialogAnaliseDocumentalSelecao({
       
       if (isPorLote) {
         // Agrupar propostas por numero do lote, somando valor total do lote por fornecedor
-        const propostaPorLoteFornecedor = new Map<string, { lote: number; fornecedor: any; fornecedorId: string; valorTotal: number }>();
+        const propostaPorLoteFornecedor = new Map<string, { lote: number; fornecedor: any; fornecedorId: string; valorTotal: number; itensCotados: number }>();
         
         (propostasOriginais || []).forEach((proposta: any) => {
           if (proposta?.desclassificado) return;
@@ -502,12 +502,18 @@ export function DialogAnaliseDocumentalSelecao({
 
           const fornecedor = (proposta.selecao_propostas_fornecedor as any)?.fornecedores;
 
+          // Verificar se tem valor válido (item com valor 0 ou null = não cotado)
+          const valorUnitario = Number(proposta.valor_unitario_ofertado) || 0;
           const totalItem =
             Number(proposta.valor_total_item) > 0
               ? Number(proposta.valor_total_item)
-              : Number(proposta.valor_unitario_ofertado || 0) * Number(proposta.quantidade || 0);
+              : valorUnitario * Number(proposta.quantidade || 0);
 
-          if (totalItem <= 0) return;
+          // Só considerar itens com valores > 0 (efetivamente cotados)
+          if (totalItem <= 0 || valorUnitario <= 0) {
+            console.log(`⚠️ [ANÁLISE DOC] Lote ${loteId}, item ${proposta.numero_item} ignorado - valor zerado/não cotado`);
+            return;
+          }
           
           const key = `${loteId}_${fornecedorId}`;
           
@@ -516,10 +522,12 @@ export function DialogAnaliseDocumentalSelecao({
               lote: 0, // Será preenchido depois
               fornecedor,
               fornecedorId,
-              valorTotal: 0
+              valorTotal: 0,
+              itensCotados: 0
             });
           }
           propostaPorLoteFornecedor.get(key)!.valorTotal += totalItem;
+          propostaPorLoteFornecedor.get(key)!.itensCotados += 1;
         });
         
         // Buscar lotes para mapear lote_id -> numero_lote
@@ -559,7 +567,7 @@ export function DialogAnaliseDocumentalSelecao({
         }
       } else if (selecaoData?.criterios_julgamento === 'global') {
         // Para global: agrupar por fornecedor, somar todos os itens, usar como Item 0
-        const propostaPorFornecedor = new Map<string, { fornecedor: any; fornecedorId: string; valorTotal: number }>();
+        const propostaPorFornecedor = new Map<string, { fornecedor: any; fornecedorId: string; valorTotal: number; itensCotados: number }>();
         
         (propostasOriginais || []).forEach((proposta: any) => {
           if (proposta?.desclassificado) return;
@@ -569,21 +577,29 @@ export function DialogAnaliseDocumentalSelecao({
 
           const fornecedor = (proposta.selecao_propostas_fornecedor as any)?.fornecedores;
 
+          // Verificar se tem valor válido (item com valor 0 ou null = não cotado)
+          const valorUnitario = Number(proposta.valor_unitario_ofertado) || 0;
           const totalItem =
             Number(proposta.valor_total_item) > 0
               ? Number(proposta.valor_total_item)
-              : Number(proposta.valor_unitario_ofertado || 0) * Number(proposta.quantidade || 0);
+              : valorUnitario * Number(proposta.quantidade || 0);
 
-          if (totalItem <= 0) return;
+          // Só considerar itens com valores > 0 (efetivamente cotados)
+          if (totalItem <= 0 || valorUnitario <= 0) {
+            console.log(`⚠️ [ANÁLISE DOC] Global, item ${proposta.numero_item} ignorado para fornecedor ${fornecedorId} - valor zerado/não cotado`);
+            return;
+          }
           
           if (!propostaPorFornecedor.has(fornecedorId)) {
             propostaPorFornecedor.set(fornecedorId, {
               fornecedor,
               fornecedorId,
-              valorTotal: 0
+              valorTotal: 0,
+              itensCotados: 0
             });
           }
           propostaPorFornecedor.get(fornecedorId)!.valorTotal += totalItem;
+          propostaPorFornecedor.get(fornecedorId)!.itensCotados += 1;
         });
         
         // Se não houver lances para Item 0, adicionar propostas
@@ -607,6 +623,13 @@ export function DialogAnaliseDocumentalSelecao({
         // Critério por_item: agrupar por numero_item normalmente
         (propostasOriginais || []).forEach((proposta: any) => {
           if (proposta?.desclassificado) return;
+          
+          // Verificar se tem valor válido (item com valor 0 ou null = não cotado)
+          const valorUnitario = Number(proposta.valor_unitario_ofertado) || 0;
+          if (valorUnitario <= 0) {
+            console.log(`⚠️ [ANÁLISE DOC] Item ${proposta.numero_item} ignorado - valor zerado/não cotado`);
+            return;
+          }
 
           const item = proposta.numero_item;
           // Só adicionar se não houver lances para este item
@@ -807,10 +830,14 @@ export function DialogAnaliseDocumentalSelecao({
         itensLicitadosPorFornecedor.get(fornId)!.add(lance.numero_item);
       });
       
-      // Adicionar também itens das propostas originais
+      // Adicionar também itens das propostas originais (apenas se efetivamente cotados com valor > 0)
       (propostasOriginais || []).forEach((proposta: any) => {
         const fornId = (proposta.selecao_propostas_fornecedor as any)?.fornecedor_id;
         if (!fornId) return;
+        
+        // Verificar se tem valor válido (item com valor 0 ou null = não cotado, não deve entrar em licitados)
+        const valorUnitario = Number(proposta.valor_unitario_ofertado) || 0;
+        if (valorUnitario <= 0) return;
 
         if (!itensLicitadosPorFornecedor.has(fornId)) {
           itensLicitadosPorFornecedor.set(fornId, new Set());
