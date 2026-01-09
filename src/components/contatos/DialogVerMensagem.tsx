@@ -582,6 +582,12 @@ export function DialogVerMensagem({
                   ))}
                 </div>
               )}
+              {/* Para fornecedores: mostrar que é grupo mas sem revelar outros participantes */}
+              {tipo === "recebida" && isGrupo && userType === "fornecedor" && (
+                <p className="text-xs mt-1 text-muted-foreground italic">
+                  Esta é uma conversa em grupo com outros participantes
+                </p>
+              )}
             </div>
           </DialogHeader>
 
