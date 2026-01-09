@@ -3530,6 +3530,13 @@ export type Database = {
           tipo_resposta: string
         }[]
       }
+      get_selecao_internal_user_names: {
+        Args: { p_codigo_acesso?: string; p_selecao_id: string }
+        Returns: {
+          nome_completo: string
+          usuario_id: string
+        }[]
+      }
       get_usuarios_internos_para_mensagem: {
         Args: never
         Returns: {
