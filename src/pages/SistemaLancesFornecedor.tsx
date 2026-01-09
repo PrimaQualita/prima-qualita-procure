@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useMemo, useRef } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -59,6 +59,9 @@ const SistemaLancesFornecedor = () => {
   const propostaId = searchParams.get("proposta");
 
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [retryCount, setRetryCount] = useState(0);
+  const initialLoadDone = useRef(false);
   const [proposta, setProposta] = useState<any>(null);
   const [selecao, setSelecao] = useState<any>(null);
   const [itens, setItens] = useState<Item[]>([]);
@@ -362,15 +365,16 @@ const SistemaLancesFornecedor = () => {
   }, [lances, inabilitacoesPorFornecedor]);
 
   useEffect(() => {
-    console.log('🔄 [useEffect loadProposta] propostaId:', propostaId);
+    console.log('🔄 [useEffect loadProposta] propostaId:', propostaId, 'retryCount:', retryCount);
     if (propostaId) {
       loadProposta();
     } else {
       console.log('⚠️ propostaId não encontrado nos parâmetros de URL');
       // Se não tem propostaId, não fica em loading infinito
       setLoading(false);
+      setLoadError("ID da proposta não encontrado na URL");
     }
-  }, [propostaId]);
+  }, [propostaId, retryCount]);
 
   useEffect(() => {
     if (selecao?.id && proposta?.fornecedor_id) {
@@ -1193,7 +1197,15 @@ const SistemaLancesFornecedor = () => {
   }, [itensEmFechamento.size]);
 
   const loadProposta = async () => {
+    // Se já carregou com sucesso, não recarregar (evitar loops)
+    if (initialLoadDone.current && proposta && selecao) {
+      console.log('✅ Proposta já carregada, ignorando recarregamento');
+      return;
+    }
+    
     try {
+      setLoadError(null);
+      
       // Carregar proposta com fornecedor e seleção
       const { data: propostaData, error: propostaError } = await supabase
         .from("selecao_propostas_fornecedor")
@@ -1459,12 +1471,51 @@ const SistemaLancesFornecedor = () => {
       if (itensError) throw itensError;
       
       setItens(itensData || []);
+      
+      // Marcar que o carregamento inicial foi concluído com sucesso
+      initialLoadDone.current = true;
+      setLoading(false);
+      console.log('✅ Carregamento inicial concluído com sucesso');
 
-    } catch (error) {
+    } catch (error: any) {
       console.error("Erro ao carregar proposta:", error);
-      toast.error("Erro ao carregar proposta. Verifique se você tem acesso.");
-      // NÃO redireciona - deixa mostrar a mensagem "Proposta não encontrada"
-    } finally {
+      
+      const maxRetries = 3;
+      // Erros que justificam retry automático
+      const isRetryableError = error?.message?.includes('network') || 
+                               error?.message?.includes('fetch') ||
+                               error?.message?.includes('Failed to fetch') ||
+                               error?.message?.includes('timeout') ||
+                               error?.code === 'PGRST301' ||
+                               error?.code === '500' ||
+                               error?.code === '503' ||
+                               error?.code === '504';
+      
+      // Erro de "não encontrado" = proposta realmente não existe
+      const isNotFoundError = error?.code === 'PGRST116' || 
+                              error?.message?.includes('not found') ||
+                              error?.message?.includes('no rows');
+      
+      // Se for erro de rede e ainda temos retries, tentar novamente após delay
+      if (isRetryableError && !isNotFoundError && retryCount < maxRetries) {
+        console.log(`🔄 Tentando novamente em 2s... (${retryCount + 1}/${maxRetries})`);
+        setTimeout(() => {
+          setRetryCount(prev => prev + 1);
+        }, 2000);
+        // Não setar loading=false, manter carregando - saímos sem entrar no finally
+        return;
+      }
+      
+      // Se não é erro de rede ou já esgotou retries, mostrar erro
+      if (!isNotFoundError) {
+        setLoadError(error?.message || "Erro desconhecido ao carregar proposta");
+      }
+      
+      // Só mostrar toast se não for primeiro carregamento
+      if (retryCount > 0 && !isNotFoundError) {
+        toast.error("Erro ao carregar proposta. Tente recarregar a página.");
+      }
+      
       setLoading(false);
     }
   };
@@ -2618,7 +2669,9 @@ const SistemaLancesFornecedor = () => {
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto"></div>
-          <p className="mt-4 text-muted-foreground">Carregando...</p>
+          <p className="mt-4 text-muted-foreground">
+            {retryCount > 0 ? `Reconectando... (tentativa ${retryCount + 1})` : "Carregando..."}
+          </p>
         </div>
       </div>
     );
@@ -2629,13 +2682,43 @@ const SistemaLancesFornecedor = () => {
       <div className="min-h-screen flex items-center justify-center">
         <Card className="w-full max-w-md">
           <CardHeader>
-            <CardTitle>Proposta não encontrada</CardTitle>
-            <CardDescription>A proposta solicitada não existe ou você não tem acesso.</CardDescription>
+            <CardTitle className="flex items-center gap-2">
+              <AlertCircle className="h-5 w-5 text-destructive" />
+              {loadError ? "Erro de conexão" : "Proposta não encontrada"}
+            </CardTitle>
+            <CardDescription>
+              {loadError 
+                ? "Houve um problema ao carregar os dados. Isso pode ser uma falha temporária de conexão."
+                : "A proposta solicitada não existe ou você não tem acesso."}
+            </CardDescription>
           </CardHeader>
-          <CardContent>
-            <Button onClick={() => navigate("/")} className="w-full">
+          <CardContent className="space-y-3">
+            {loadError && (
+              <Button 
+                onClick={() => {
+                  setLoading(true);
+                  setLoadError(null);
+                  setRetryCount(0);
+                  initialLoadDone.current = false; // Reset para permitir novo carregamento
+                  // Forçar recarregamento
+                  setTimeout(() => setRetryCount(prev => prev + 1), 100);
+                }} 
+                className="w-full"
+                variant="default"
+              >
+                🔄 Tentar Novamente
+              </Button>
+            )}
+            <Button 
+              onClick={() => window.location.reload()} 
+              className="w-full"
+              variant={loadError ? "outline" : "default"}
+            >
+              Recarregar Página
+            </Button>
+            <Button onClick={() => navigate("/")} className="w-full" variant="ghost">
               <ArrowLeft className="mr-2 h-4 w-4" />
-              Voltar
+              Voltar ao Início
             </Button>
           </CardContent>
         </Card>
