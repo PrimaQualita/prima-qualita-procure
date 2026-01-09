@@ -340,7 +340,9 @@ export async function gerarHomologacaoSelecaoPDF(selecaoId: string, isRegistroPr
       doc.setFillColor(bgColor, bgColor, bgColor);
       
       const linhasEmpresa = doc.splitTextToSize(linha[0], colWidths[0] - 4);
-      const maxLinhas = Math.max(linhasEmpresa.length, 1);
+      // Quebrar itens em múltiplas linhas se necessário
+      const linhasItens = isGlobal ? [] : doc.splitTextToSize(linha[1], colWidths[1] - 4);
+      const maxLinhas = Math.max(linhasEmpresa.length, linhasItens.length || 1, 1);
       const altura = maxLinhas * 5 + 2;
 
       // Calcular posição vertical centralizada
@@ -382,9 +384,18 @@ export async function gerarHomologacaoSelecaoPDF(selecaoId: string, isRegistroPr
           doc.text(linhasEmpresa[0], tableX + 2, verticalCenter);
         }
         
-        // Centralizar itens (horizontal e verticalmente)
-        const itensWidth = doc.getTextWidth(linha[1]);
-        doc.text(linha[1], tableX + colWidths[0] + (colWidths[1] - itensWidth) / 2, verticalCenter);
+        // Itens - quebrar em múltiplas linhas e centralizar verticalmente
+        if (linhasItens.length > 1) {
+          const blocoAlturaItens = linhasItens.length * 4;
+          const startYItens = yPosition + (altura - blocoAlturaItens) / 2 + 3;
+          linhasItens.forEach((linhaTexto, i) => {
+            const itensWidth = doc.getTextWidth(linhaTexto);
+            doc.text(linhaTexto, tableX + colWidths[0] + (colWidths[1] - itensWidth) / 2, startYItens + (i * 4));
+          });
+        } else {
+          const itensWidth = doc.getTextWidth(linha[1]);
+          doc.text(linha[1], tableX + colWidths[0] + (colWidths[1] - itensWidth) / 2, verticalCenter);
+        }
         
         // Centralizar valor/desconto (horizontal e verticalmente)
         const valorWidth = doc.getTextWidth(linha[2]);
