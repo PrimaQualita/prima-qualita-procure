@@ -1225,9 +1225,15 @@ const ParticiparSelecao = () => {
       
       setJaEnviouProposta(true);
       
-    } catch (error) {
+    } catch (error: any) {
       console.error("Erro ao enviar proposta:", error);
-      toast.error("Erro ao enviar proposta");
+      
+      // Verificar se é erro de RLS (seleção encerrada)
+      if (error?.code === 'PGRST301' || error?.message?.includes('policy') || error?.code === '42501') {
+        toast.error("Esta seleção já foi encerrada. Não é possível enviar ou modificar propostas.");
+      } else {
+        toast.error("Erro ao enviar proposta. Tente novamente.");
+      }
     } finally {
       setSubmitting(false);
     }
