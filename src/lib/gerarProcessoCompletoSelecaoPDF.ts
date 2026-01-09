@@ -1,5 +1,5 @@
 // @ts-nocheck - Tabelas podem não existir no schema atual
-import { PDFDocument } from "pdf-lib";
+import { PDFDocument, rgb, StandardFonts } from "pdf-lib";
 import { supabase } from "@/integrations/supabase/client";
 
 interface ProcessoCompletoResult {
@@ -657,6 +657,28 @@ export const gerarProcessoCompletoSelecaoPDF = async (
       await mesclarDocumentos(pdfFinal, documentosCotacaoRestantes);
     }
 
+    // Adicionar numeração de páginas
+    console.log("\n🔢 Adicionando numeração de páginas...");
+    const helveticaFont = await pdfFinal.embedFont(StandardFonts.Helvetica);
+    const pages = pdfFinal.getPages();
+    const totalPages = pages.length;
+    
+    pages.forEach((page, index) => {
+      const pageNumber = index + 1;
+      const { width, height } = page.getSize();
+      const text = `Página ${pageNumber} de ${totalPages}`;
+      const textWidth = helveticaFont.widthOfTextAtSize(text, 9);
+      
+      // Adicionar numeração no rodapé centralizado
+      page.drawText(text, {
+        x: (width - textWidth) / 2,
+        y: 15,
+        size: 9,
+        font: helveticaFont,
+        color: rgb(0.4, 0.4, 0.4),
+      });
+    });
+    
     // Salvar o PDF final
     const pdfBytes = await pdfFinal.save();
     
