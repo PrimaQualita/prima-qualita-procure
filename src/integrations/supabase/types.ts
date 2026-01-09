@@ -1848,6 +1848,118 @@ export type Database = {
           },
         ]
       }
+      mensagens_contato: {
+        Row: {
+          assunto: string
+          conteudo: string
+          created_at: string | null
+          data_exclusao_remetente: string | null
+          excluida_remetente: boolean | null
+          id: string
+          remetente_fornecedor_id: string | null
+          remetente_interno_id: string | null
+          remetente_tipo: string
+        }
+        Insert: {
+          assunto: string
+          conteudo: string
+          created_at?: string | null
+          data_exclusao_remetente?: string | null
+          excluida_remetente?: boolean | null
+          id?: string
+          remetente_fornecedor_id?: string | null
+          remetente_interno_id?: string | null
+          remetente_tipo: string
+        }
+        Update: {
+          assunto?: string
+          conteudo?: string
+          created_at?: string | null
+          data_exclusao_remetente?: string | null
+          excluida_remetente?: boolean | null
+          id?: string
+          remetente_fornecedor_id?: string | null
+          remetente_interno_id?: string | null
+          remetente_tipo?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "mensagens_contato_remetente_fornecedor_id_fkey"
+            columns: ["remetente_fornecedor_id"]
+            isOneToOne: false
+            referencedRelation: "fornecedores"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "mensagens_contato_remetente_interno_id_fkey"
+            columns: ["remetente_interno_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      mensagens_contato_destinatarios: {
+        Row: {
+          created_at: string | null
+          data_exclusao: string | null
+          data_leitura: string | null
+          destinatario_fornecedor_id: string | null
+          destinatario_interno_id: string | null
+          destinatario_tipo: string
+          excluida: boolean | null
+          id: string
+          lida: boolean | null
+          mensagem_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          data_exclusao?: string | null
+          data_leitura?: string | null
+          destinatario_fornecedor_id?: string | null
+          destinatario_interno_id?: string | null
+          destinatario_tipo: string
+          excluida?: boolean | null
+          id?: string
+          lida?: boolean | null
+          mensagem_id: string
+        }
+        Update: {
+          created_at?: string | null
+          data_exclusao?: string | null
+          data_leitura?: string | null
+          destinatario_fornecedor_id?: string | null
+          destinatario_interno_id?: string | null
+          destinatario_tipo?: string
+          excluida?: boolean | null
+          id?: string
+          lida?: boolean | null
+          mensagem_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "mensagens_contato_destinatarios_destinatario_fornecedor_id_fkey"
+            columns: ["destinatario_fornecedor_id"]
+            isOneToOne: false
+            referencedRelation: "fornecedores"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "mensagens_contato_destinatarios_destinatario_interno_id_fkey"
+            columns: ["destinatario_interno_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "mensagens_contato_destinatarios_mensagem_id_fkey"
+            columns: ["mensagem_id"]
+            isOneToOne: false
+            referencedRelation: "mensagens_contato"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       mensagens_negociacao: {
         Row: {
           created_at: string
@@ -3347,6 +3459,14 @@ export type Database = {
           url: string
         }[]
       }
+      get_fornecedores_para_mensagem: {
+        Args: never
+        Returns: {
+          cnpj: string
+          id: string
+          nome: string
+        }[]
+      }
       get_intencao_recurso_por_codigo: {
         Args: { p_codigo_acesso: string; p_selecao_id: string }
         Returns: {
@@ -3394,6 +3514,13 @@ export type Database = {
           ordem: number
           texto_pergunta: string
           tipo_resposta: string
+        }[]
+      }
+      get_usuarios_internos_para_mensagem: {
+        Args: never
+        Returns: {
+          id: string
+          nome: string
         }[]
       }
       has_role: {
