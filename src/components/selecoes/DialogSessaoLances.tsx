@@ -181,15 +181,23 @@ export function DialogSessaoLances({
   const [estimativasItens, setEstimativasItens] = useState<Map<number, number>>(new Map());
 
   // Carregar dados iniciais
+  // IMPORTANTE: loadEstimativas DEVE executar antes de loadVencedoresPorItem
+  // pois a verificação de desclassificação por preço depende das estimativas
   useEffect(() => {
     if (open) {
-      loadItensAbertos();
-      loadLances();
-      loadUserProfile();
-      loadMensagens();
-      loadVencedoresPorItem();
-      loadPlanilhasGeradas();
-      loadEstimativas();
+      const carregarDados = async () => {
+        // Primeiro: carregar estimativas (necessárias para desclassificação por preço)
+        await loadEstimativas();
+        
+        // Depois: carregar dados que dependem das estimativas
+        loadItensAbertos();
+        loadLances();
+        loadUserProfile();
+        loadMensagens();
+        loadVencedoresPorItem();
+        loadPlanilhasGeradas();
+      };
+      carregarDados();
     }
   }, [open, selecaoId]);
 
@@ -668,9 +676,91 @@ export function DialogSessaoLances({
       // Determinar ordem baseada no critério
       const isDesconto = criterioJulgamento === "desconto";
 
+      // Carregar estimativas localmente se o estado ainda estiver vazio
+      // Isso garante que a verificação de preço funcione mesmo na primeira chamada
+      let estimativasLocal = estimativasItens;
+      if (estimativasLocal.size === 0) {
+        const { data: selecaoData } = await supabase
+          .from("selecoes_fornecedores")
+          .select("cotacao_relacionada_id")
+          .eq("id", selecaoId)
+          .single();
+
+        if (selecaoData?.cotacao_relacionada_id) {
+          const { data: planilhaData } = await supabase
+            .from("planilhas_consolidadas")
+            .select("estimativas_itens")
+            .eq("cotacao_id", selecaoData.cotacao_relacionada_id)
+            .order("data_geracao", { ascending: false })
+            .limit(1)
+            .maybeSingle();
+
+          if (planilhaData?.estimativas_itens) {
+            const estimativasRaw = planilhaData.estimativas_itens as Record<string, number>;
+            estimativasLocal = new Map<number, number>();
+
+            if (isPorLote) {
+              // Para por_lote, calcular subtotal por lote
+              const { data: itensCotacao } = await supabase
+                .from("itens_cotacao")
+                .select("numero_item, quantidade, lote_id")
+                .eq("cotacao_id", selecaoData.cotacao_relacionada_id);
+
+              const { data: lotesCotacao } = await supabase
+                .from("lotes_cotacao")
+                .select("id, numero_lote")
+                .eq("cotacao_id", selecaoData.cotacao_relacionada_id);
+
+              if (itensCotacao && lotesCotacao) {
+                const loteIdToNumero = new Map(lotesCotacao.map(l => [l.id, l.numero_lote]));
+                const subtotaisPorLote = new Map<number, number>();
+
+                itensCotacao.forEach(item => {
+                  const numeroLote = item.lote_id ? loteIdToNumero.get(item.lote_id) : null;
+                  if (numeroLote) {
+                    const chaveComposta = `${numeroLote}_${item.numero_item}`;
+                    const valorEstimado = estimativasRaw[chaveComposta] || 0;
+                    const subtotalItem = valorEstimado * (item.quantidade || 1);
+                    const subtotalAtual = subtotaisPorLote.get(numeroLote) || 0;
+                    subtotaisPorLote.set(numeroLote, subtotalAtual + subtotalItem);
+                  }
+                });
+
+                subtotaisPorLote.forEach((valor, lote) => estimativasLocal.set(lote, valor));
+              }
+            } else if (isGlobal) {
+              // Para global, somar todos os itens
+              const { data: itensCotacao } = await supabase
+                .from("itens_cotacao")
+                .select("numero_item, quantidade")
+                .eq("cotacao_id", selecaoData.cotacao_relacionada_id);
+
+              let totalGlobal = 0;
+              if (itensCotacao) {
+                itensCotacao.forEach(item => {
+                  const valorEstimado = estimativasRaw[String(item.numero_item)] || 0;
+                  totalGlobal += valorEstimado * (item.quantidade || 1);
+                });
+              }
+              estimativasLocal.set(0, totalGlobal);
+            } else {
+              // Para outros critérios, usar direto
+              Object.entries(estimativasRaw).forEach(([key, valor]) => {
+                const numero = parseInt(key, 10);
+                if (!isNaN(numero)) {
+                  estimativasLocal.set(numero, valor);
+                }
+              });
+            }
+            
+            console.log("📊 Estimativas carregadas localmente para loadVencedoresPorItem:", Array.from(estimativasLocal.entries()));
+          }
+        }
+      }
+
       // Helper local: desclassificação por preço/estimativa
       const isDesclassificadoPorPreco = (numero: number, valor: number): boolean => {
-        const valorEstimado = estimativasItens.get(numero);
+        const valorEstimado = estimativasLocal.get(numero);
         if (!valorEstimado || valorEstimado === 0) return false;
 
         if (criterioJulgamento === "desconto") {
@@ -756,7 +846,7 @@ export function DialogSessaoLances({
 
       // FALLBACK: itens/lotes sem lances vencedores devem considerar o valor da proposta original
       // (para que apareçam para negociação)
-      const isGlobal = criterioJulgamento === "global";
+      // Nota: isGlobal e isPorLote já estão definidos no escopo do componente
       const numerosBase = isPorLote
         ? lotes.map((l) => l.numero_lote)
         : (isGlobal ? itensParaControle : itens).map((i) => i.numero_item);
