@@ -364,7 +364,7 @@ const Auth = () => {
                 >
                   Iniciar Cadastro Completo
                 </Button>
-                <div className="pt-4 border-t mt-2">
+                <div className="pt-4 mt-2 bg-primary/10 rounded-md p-3 -mx-1">
                   <p className="text-sm font-medium text-foreground">
                     Já possui cadastro?{" "}
                     <Button
