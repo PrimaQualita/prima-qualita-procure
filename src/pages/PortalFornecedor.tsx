@@ -36,7 +36,7 @@ export default function PortalFornecedor() {
   const [dialogResponsavelLegalOpen, setDialogResponsavelLegalOpen] = useState(false);
   const [assinaturaParaAssinar, setAssinaturaParaAssinar] = useState<string | null>(null);
 
-
+  const [unreadCountContato, setUnreadCountContato] = useState(0);
   useEffect(() => {
     checkAuth();
   }, []);
@@ -94,6 +94,87 @@ export default function PortalFornecedor() {
     
     return () => clearInterval(interval);
   }, [fornecedor]);
+
+  // Contador de mensagens não lidas no menu "Contato" (Fornecedor)
+  useEffect(() => {
+    if (!fornecedor?.id) return;
+
+    let cancelled = false;
+
+    const loadUnreadContato = async () => {
+      try {
+        const { data, error } = await supabase
+          .from("mensagens_contato_destinatarios")
+          .select("mensagem_id, mensagens_contato ( id, conversa_id )")
+          .eq("destinatario_fornecedor_id", fornecedor.id)
+          .eq("lida", false)
+          .eq("excluida", false);
+
+        if (error) throw error;
+
+        if (!data || data.length === 0) {
+          if (!cancelled) setUnreadCountContato(0);
+          return;
+        }
+
+        // Não contar mensagens de conversas cuja raiz foi apagada (soft-delete antigo)
+        const rootIds = Array.from(
+          new Set(
+            data
+              .map((d: any) => d.mensagens_contato?.conversa_id || d.mensagens_contato?.id)
+              .filter(Boolean)
+          )
+        ) as string[];
+
+        if (rootIds.length === 0) {
+          if (!cancelled) setUnreadCountContato(data.length);
+          return;
+        }
+
+        const { data: roots, error: errRoots } = await supabase
+          .from("mensagens_contato")
+          .select("id, excluida_remetente")
+          .in("id", rootIds);
+
+        if (errRoots) throw errRoots;
+
+        const conversasApagadas = new Set(
+          (roots || [])
+            .filter((r: any) => r.excluida_remetente === true)
+            .map((r: any) => r.id)
+        );
+
+        const count = data.filter((d: any) => {
+          const rootId = d.mensagens_contato?.conversa_id || d.mensagens_contato?.id;
+          return rootId && !conversasApagadas.has(rootId);
+        }).length;
+
+        if (!cancelled) setUnreadCountContato(count);
+      } catch {
+        // silenciar para não poluir o portal
+      }
+    };
+
+    loadUnreadContato();
+
+    const channel = supabase
+      .channel(`unread-messages-fornecedor-${fornecedor.id}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "mensagens_contato_destinatarios",
+        },
+        () => loadUnreadContato()
+      )
+      .subscribe();
+
+    return () => {
+      cancelled = true;
+      supabase.removeChannel(channel);
+    };
+  }, [fornecedor?.id]);
 
   const checkAuth = async () => {
     const { data: { session } } = await supabase.auth.getSession();
@@ -1303,6 +1384,11 @@ export default function PortalFornecedor() {
             <TabsTrigger value="contato">
               <MessageSquare className="mr-2 h-4 w-4" />
               Contato
+              {unreadCountContato > 0 && (
+                <Badge variant="destructive" className="ml-2 h-5 px-1.5 text-xs">
+                  {unreadCountContato > 99 ? "99+" : unreadCountContato}
+                </Badge>
+              )}
             </TabsTrigger>
           </TabsList>
 
