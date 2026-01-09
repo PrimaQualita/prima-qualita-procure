@@ -3412,6 +3412,10 @@ export type Database = {
         Args: { p_cotacao_id: string }
         Returns: undefined
       }
+      delete_conversa_mensagem: {
+        Args: { p_conversa_id: string }
+        Returns: undefined
+      }
       executar_delete_sem_trigger: {
         Args: { p_coluna: string; p_path: string; p_tabela: string }
         Returns: number

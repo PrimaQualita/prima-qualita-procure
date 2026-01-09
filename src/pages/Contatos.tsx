@@ -145,7 +145,8 @@ const Contatos = () => {
           const { data: mensagensData, error: errMsgs } = await supabase
             .from("mensagens_contato")
             .select("*")
-            .in("id", mensagemIds);
+            .in("id", mensagemIds)
+            .or("excluida_remetente.is.null,excluida_remetente.eq.false");
 
           if (errMsgs) throw errMsgs;
 
@@ -371,34 +372,12 @@ const Contatos = () => {
 
         if (error) throw error;
       } else if (mensagemParaExcluir.tipo === "enviada") {
-        // Quando o criador exclui, deletar TODAS as mensagens da conversa completamente
-        const conversaId = mensagemParaExcluir.id;
-        
-        // 1. Buscar todas as mensagens da conversa
-        const { data: mensagensDaConversa } = await supabase
-          .from("mensagens_contato")
-          .select("id")
-          .eq("conversa_id", conversaId);
-        
-        if (mensagensDaConversa && mensagensDaConversa.length > 0) {
-          const mensagemIds = mensagensDaConversa.map(m => m.id);
-          
-          // 2. Deletar todos os destinatários dessas mensagens
-          const { error: errDest } = await supabase
-            .from("mensagens_contato_destinatarios")
-            .delete()
-            .in("mensagem_id", mensagemIds);
-          
-          if (errDest) throw errDest;
-          
-          // 3. Deletar todas as mensagens da conversa
-          const { error: errMsg } = await supabase
-            .from("mensagens_contato")
-            .delete()
-            .eq("conversa_id", conversaId);
-          
-          if (errMsg) throw errMsg;
-        }
+        // Quando o criador exclui, apagar a conversa inteira (mensagem principal + respostas)
+        const { error } = await supabase.rpc("delete_conversa_mensagem", {
+          p_conversa_id: mensagemParaExcluir.id,
+        });
+
+        if (error) throw error;
       }
 
       toast({ title: "Mensagem excluída com sucesso!" });
