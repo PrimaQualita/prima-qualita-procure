@@ -342,7 +342,7 @@ export function AppSidebar({
                     >
                       <div className="relative">
                         <item.icon className="h-4 w-4" />
-                        {item.href === "/contatos" && unreadCount > 0 && (
+                        {item.href === "/contatos" && unreadCount > 0 && !open && (
                           <Badge 
                             variant="destructive" 
                             className="absolute -top-2 -right-2 h-4 min-w-4 px-1 text-[10px] flex items-center justify-center"
