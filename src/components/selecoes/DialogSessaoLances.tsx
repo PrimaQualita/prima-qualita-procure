@@ -1581,13 +1581,14 @@ export function DialogSessaoLances({
         return { ...lance, _inabilitado: inabilitadoNoItem };
       });
       
-      const lancesOrdenados = lancesComMarcacao.sort((a: any, b: any) => {
-        // Primeiro ordenar por número do item
+      // CORREÇÃO: Ordenar primeiro por número do item, depois por valor dentro de cada item
+      const lancesOrdenados = [...lancesComMarcacao].sort((a: any, b: any) => {
+        // 1. Primeiro ordenar por número do item (crescente)
         if (a.numero_item !== b.numero_item) {
           return a.numero_item - b.numero_item;
         }
         
-        // Dentro do mesmo item, ordenar por valor (MELHOR VALOR VENCE - sem priorizar negociação)
+        // 2. Dentro do mesmo item, ordenar por valor (MELHOR VALOR VENCE)
         // Desconto: maior é melhor (ordem decrescente)
         // Preço: menor é melhor (ordem crescente)
         if (isDesconto) {
@@ -1597,7 +1598,12 @@ export function DialogSessaoLances({
         }
       });
       
-      console.log("🎯 Lances ordenados por valor:", lancesOrdenados);
+      console.log("🎯 Lances ordenados por item:", lancesOrdenados.length, "lances");
+      console.log("📊 Distribuição por item:", 
+        [...new Set(lancesOrdenados.map(l => l.numero_item))].map(item => 
+          `Item ${item}: ${lancesOrdenados.filter(l => l.numero_item === item).length} lances`
+        ).join(", ")
+      );
       
       setLances(lancesOrdenados);
       // Atualizar vencedores quando lances mudam
@@ -3411,14 +3417,28 @@ export function DialogSessaoLances({
                               </TableCell>
                             </TableRow>
                           ) : (
-                            lances.map((lance) => {
+                            lances.map((lance, idx) => {
                               // Calcular dinamicamente se este lance é o melhor do seu item
                               const lancesDoItem = getLancesDoItem(lance.numero_item || 0);
                               const ehMelhorLance = lancesDoItem.length > 0 && lancesDoItem[0].id === lance.id;
                               
+                              // Verificar se é o primeiro lance de um novo item (para adicionar separador visual)
+                              const itemAnterior = idx > 0 ? lances[idx - 1]?.numero_item : null;
+                              const novoItem = itemAnterior !== null && itemAnterior !== lance.numero_item;
+                              
                               return (
-                                <TableRow key={lance.id} className={ehMelhorLance ? "bg-yellow-50 dark:bg-yellow-950" : ""}>
-                                  <TableCell className="text-xs font-medium">{lance.numero_item || "-"}</TableCell>
+                                <TableRow 
+                                  key={lance.id} 
+                                  className={`
+                                    ${ehMelhorLance ? "bg-yellow-50 dark:bg-yellow-950" : ""}
+                                    ${novoItem ? "border-t-2 border-t-primary/30" : ""}
+                                  `}
+                                >
+                                  <TableCell className="text-xs font-medium">
+                                    <Badge variant={ehMelhorLance ? "default" : "secondary"} className="text-xs">
+                                      {lance.numero_item || "-"}
+                                    </Badge>
+                                  </TableCell>
                                   <TableCell className="text-xs">
                                     <div>{lance.fornecedores?.razao_social}</div>
                                     <div className="text-muted-foreground text-[10px]">{formatCNPJ(lance.fornecedores?.cnpj || "")}</div>
