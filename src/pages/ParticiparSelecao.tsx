@@ -1354,13 +1354,14 @@ const ParticiparSelecao = () => {
                   <LogIn className="h-5 w-5 text-blue-600 dark:text-blue-400" />
                   Já é fornecedor cadastrado?
                 </h3>
-                <p className="text-sm text-muted-foreground">
-                  Se você já enviou sua proposta, acesse o Portal do Fornecedor através do login para editar ou acompanhar o sistema de lances.
-                  <br />
-                  <span className="text-foreground font-medium">Ainda não enviou proposta?</span> Preencha o formulário abaixo para participar.
-                </p>
                 <div className="bg-yellow-100 border border-yellow-400 rounded-md p-3 mt-2">
-                  <p className="text-red-600 font-medium text-sm">
+                  <p className="text-sm text-gray-800">
+                    Se você já enviou sua proposta, acesse o Portal do Fornecedor através do login para editar ou acompanhar o sistema de lances.
+                  </p>
+                  <p className="text-sm text-gray-800 mt-2">
+                    <span className="font-medium">Ainda não enviou proposta?</span> Preencha o formulário abaixo para participar.
+                  </p>
+                  <p className="text-red-600 font-medium text-sm mt-2">
                     <span className="font-bold">Importante:</span> Caso ainda não possua cadastro, o mesmo deverá ser realizado obrigatoriamente após o envio da proposta para acompanhamento do processo e da seleção de fornecedores.
                   </p>
                 </div>
