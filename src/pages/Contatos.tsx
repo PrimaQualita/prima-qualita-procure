@@ -371,13 +371,34 @@ const Contatos = () => {
 
         if (error) throw error;
       } else if (mensagemParaExcluir.tipo === "enviada") {
-        // Excluir para o remetente
-        const { error } = await supabase
+        // Quando o criador exclui, deletar TODAS as mensagens da conversa completamente
+        const conversaId = mensagemParaExcluir.id;
+        
+        // 1. Buscar todas as mensagens da conversa
+        const { data: mensagensDaConversa } = await supabase
           .from("mensagens_contato")
-          .update({ excluida_remetente: true, data_exclusao_remetente: new Date().toISOString() })
-          .eq("id", mensagemParaExcluir.id);
-
-        if (error) throw error;
+          .select("id")
+          .eq("conversa_id", conversaId);
+        
+        if (mensagensDaConversa && mensagensDaConversa.length > 0) {
+          const mensagemIds = mensagensDaConversa.map(m => m.id);
+          
+          // 2. Deletar todos os destinatários dessas mensagens
+          const { error: errDest } = await supabase
+            .from("mensagens_contato_destinatarios")
+            .delete()
+            .in("mensagem_id", mensagemIds);
+          
+          if (errDest) throw errDest;
+          
+          // 3. Deletar todas as mensagens da conversa
+          const { error: errMsg } = await supabase
+            .from("mensagens_contato")
+            .delete()
+            .eq("conversa_id", conversaId);
+          
+          if (errMsg) throw errMsg;
+        }
       }
 
       toast({ title: "Mensagem excluída com sucesso!" });
