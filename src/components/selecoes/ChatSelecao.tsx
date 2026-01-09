@@ -35,6 +35,7 @@ export function ChatSelecao({ selecaoId, codigoAcesso }: ChatSelecaoProps) {
   const [userProfile, setUserProfile] = useState<any>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const prevMensagensCountRef = useRef<number>(0);
 
   useEffect(() => {
     loadCurrentUser();
@@ -101,16 +102,20 @@ export function ChatSelecao({ selecaoId, codigoAcesso }: ChatSelecaoProps) {
     };
   }, [selecaoId, codigoAcesso]);
 
-  // Função para scroll automático - usa scrollIntoView na última mensagem
+  // Função para scroll automático - usa scrollIntoView apenas dentro do container do chat
   const scrollToBottom = useCallback(() => {
     setTimeout(() => {
-      messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+      // Usar block: "nearest" para não afetar scroll da página inteira
+      messagesEndRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" });
     }, 100);
   }, []);
 
   useEffect(() => {
-    // Auto-scroll para última mensagem quando mensagens mudam
-    scrollToBottom();
+    // Auto-scroll APENAS quando o número de mensagens realmente mudou (novas mensagens)
+    if (mensagens.length > prevMensagensCountRef.current) {
+      scrollToBottom();
+    }
+    prevMensagensCountRef.current = mensagens.length;
   }, [mensagens, scrollToBottom]);
 
   const loadUserProfile = async () => {
