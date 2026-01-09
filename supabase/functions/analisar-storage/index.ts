@@ -779,6 +779,35 @@ Deno.serve(async (req) => {
       }
     }
 
+    // Buscar mapeamento de paths de propostas de cotação (url_pdf_proposta) para cotacao_id
+    const { data: propostasCotacaoRespostasDB } = await supabase
+      .from('cotacao_respostas_fornecedor')
+      .select('url_pdf_proposta, cotacao_id, fornecedores!inner(razao_social)')
+      .not('url_pdf_proposta', 'is', null);
+    const propostasCotacaoMap = new Map<string, { cotacaoId: string; fornecedorNome: string }>();
+    if (propostasCotacaoRespostasDB) {
+      for (const prop of propostasCotacaoRespostasDB) {
+        if (!prop.url_pdf_proposta) continue;
+        let path = prop.url_pdf_proposta;
+        if (path.includes('processo-anexos/')) {
+          path = path.split('processo-anexos/')[1].split('?')[0];
+        } else if (path.includes('/')) {
+          // Pegar apenas o nome do arquivo após a última barra, pois pode ser URL completa
+          path = path.split('/').slice(-2).join('/').split('?')[0];
+        } else {
+          path = path.split('?')[0];
+        }
+        const fornecedorData = (prop as any).fornecedores;
+        propostasCotacaoMap.set(path, {
+          cotacaoId: prop.cotacao_id,
+          fornecedorNome: fornecedorData?.razao_social || 'Desconhecido'
+        });
+        // Também adicionar nome bonito
+        nomesBonitos.set(path, `Proposta ${fornecedorData?.razao_social || 'Fornecedor'}.pdf`);
+      }
+    }
+    console.log(`📋 Propostas de cotação mapeadas: ${propostasCotacaoMap.size}`);
+
     // Buscar mapeamento de documentos de habilitação (finalizacao) para identificar quais arquivos são de habilitação
     const { data: docsHabilitacaoData } = await supabase
       .from('documentos_finalizacao_fornecedor')
@@ -2483,7 +2512,9 @@ Deno.serve(async (req) => {
         pathSemBucket.includes('Planilha_Consolidada') ||
         pathSemBucket.includes('-EMAIL.pdf') ||
         pathSemBucket.startsWith('emails/') ||
+        pathSemBucket.startsWith('propostas/') ||
         emailsCotacaoMap.has(pathSemBucket) ||
+        propostasCotacaoMap.has(pathSemBucket) ||
         (fileNameRaw.startsWith('proposta_') && !pathSemBucket.startsWith('propostas_realinhadas/'))
       ) {
         // Documentos de cotações - nome já foi buscado no início via nomesBonitos
@@ -2498,6 +2529,14 @@ Deno.serve(async (req) => {
           cotacaoId = emailsCotacaoMap.get(pathSemBucket) || '';
         } else if (pathSemBucket.toLowerCase().includes('planilha_consolidada') || pathSemBucket.includes('Planilha_Consolidada')) {
           cotacaoId = planilhasConsolidadasMap.get(pathSemBucket) || '';
+        } else if (propostasCotacaoMap.has(pathSemBucket)) {
+          // Propostas de cotação (url_pdf_proposta)
+          cotacaoId = propostasCotacaoMap.get(pathSemBucket)?.cotacaoId || '';
+        } else if (pathSemBucket.startsWith('propostas/')) {
+          // Tentar extrair apenas o nome do arquivo para matching
+          const nomeArquivo = pathSemBucket.split('/').pop() || '';
+          const propostaEntry = Array.from(propostasCotacaoMap.entries()).find(([key]) => key.includes(nomeArquivo));
+          cotacaoId = propostaEntry?.[1]?.cotacaoId || '';
         } else {
           cotacaoId = anexosCotacaoMap.get(pathSemBucket) || '';
         }
@@ -2519,9 +2558,16 @@ Deno.serve(async (req) => {
                 });
               }
               
+              // Usar nome bonito do mapa de propostas se disponível
+              let nomeDocumento = fileName;
+              const propostaInfo = propostasCotacaoMap.get(pathSemBucket);
+              if (propostaInfo) {
+                nomeDocumento = `Proposta ${propostaInfo.fornecedorNome}`;
+              }
+              
               estatisticasPorCategoria.cotacoes.porProcesso!.get(processoId)!.documentos.push({
                 path,
-                fileName,
+                fileName: nomeDocumento,
                 size: metadata.size
               });
             }
