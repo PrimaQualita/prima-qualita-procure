@@ -18,6 +18,7 @@ interface Mensagem {
   remetente_tipo: "interno" | "fornecedor";
   remetente_nome?: string;
   created_at: string;
+  totalDestinatarios?: number;
 }
 
 interface MensagemComDestinatarios extends Mensagem {
@@ -43,6 +44,9 @@ export function DialogVerMensagem({
   tipo,
 }: DialogVerMensagemProps) {
   const temDestinatarios = "destinatarios" in mensagem;
+  const isGrupo = temDestinatarios 
+    ? (mensagem as MensagemComDestinatarios).destinatarios.length > 1
+    : (mensagem.totalDestinatarios || 1) > 1;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -50,6 +54,12 @@ export function DialogVerMensagem({
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             {mensagem.assunto}
+            {isGrupo && (
+              <Badge variant="outline" className="ml-2 flex items-center gap-1">
+                <Users className="h-3 w-3" />
+                Grupo
+              </Badge>
+            )}
           </DialogTitle>
         </DialogHeader>
 
@@ -90,7 +100,7 @@ export function DialogVerMensagem({
                     <Badge
                       key={d.id}
                       variant={d.lida ? "secondary" : "outline"}
-                      className="flex items-center gap-1"
+                      className={`flex items-center gap-1 ${d.lida ? "bg-green-100 text-green-800" : ""}`}
                     >
                       {d.tipo === "interno" ? (
                         <Users className="h-3 w-3" />
