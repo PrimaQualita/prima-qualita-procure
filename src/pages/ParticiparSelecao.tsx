@@ -1357,7 +1357,9 @@ const ParticiparSelecao = () => {
                 <p className="text-sm text-muted-foreground">
                   Se você já enviou sua proposta, acesse o Portal do Fornecedor através do login para editar ou acompanhar o sistema de lances.
                   <br />
-                  <span className="text-foreground font-medium">Ainda não enviou proposta?</span> Preencha o formulário abaixo para participar e, após o envio, acesse o portal pelo login.
+                  <span className="text-foreground font-medium">Ainda não enviou proposta?</span> Preencha o formulário abaixo para participar.
+                  <br />
+                  <span className="text-foreground font-medium">Importante:</span> Caso ainda não possua cadastro, o mesmo deverá ser realizado obrigatoriamente após o envio da proposta para acompanhamento do processo e da seleção de fornecedores.
                 </p>
               </div>
               <Button 
