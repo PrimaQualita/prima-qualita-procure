@@ -149,22 +149,53 @@ const Contatos = () => {
 
           if (errMsgs) throw errMsgs;
 
-          // Contar total de destinatários por mensagem
+          // Buscar todas as mensagens das conversas para agrupar corretamente
+          const conversaIds = [...new Set((mensagensData || []).map(m => m.conversa_id).filter(Boolean))] as string[];
+          
+          // Buscar mensagem original de cada conversa (para mostrar na lista)
+          const { data: mensagensOriginais } = await supabase
+            .from("mensagens_contato")
+            .select("*")
+            .in("conversa_id", conversaIds)
+            .order("created_at", { ascending: true });
+
+          // Agrupar por conversa_id - pegar apenas a primeira mensagem de cada conversa
+          const conversasMap = new Map<string, typeof mensagensOriginais[0]>();
+          const ultimaMensagemConversa = new Map<string, string>(); // conversa_id -> última data
+          
+          (mensagensOriginais || []).forEach(msg => {
+            const cid = msg.conversa_id;
+            if (!conversasMap.has(cid)) {
+              conversasMap.set(cid, msg);
+            }
+            // Rastrear última mensagem da conversa
+            const ultimaData = ultimaMensagemConversa.get(cid);
+            if (!ultimaData || new Date(msg.created_at) > new Date(ultimaData)) {
+              ultimaMensagemConversa.set(cid, msg.created_at);
+            }
+          });
+
+          // Contar total de destinatários por mensagem original
+          const mensagensOriginaisIds = [...conversasMap.values()].map(m => m.id);
           const { data: contagens } = await supabase
             .from("mensagens_contato_destinatarios")
             .select("mensagem_id")
-            .in("mensagem_id", mensagemIds);
+            .in("mensagem_id", mensagensOriginaisIds);
 
           const contagemPorMensagem = (contagens || []).reduce((acc: Record<string, number>, d) => {
             acc[d.mensagem_id] = (acc[d.mensagem_id] || 0) + 1;
             return acc;
           }, {});
 
-          // Processar mensagens
+          // Processar apenas a primeira mensagem de cada conversa
           const mensagensProcessadas = await Promise.all(
-            destinatariosData.map(async (destRow) => {
-              const msg = mensagensData?.find(m => m.id === destRow.mensagem_id);
-              if (!msg) return null;
+            [...conversasMap.values()].map(async (msg) => {
+              // Verificar se o usuário é destinatário desta conversa
+              const destRow = destinatariosData.find(d => {
+                const msgDaConversa = mensagensData?.find(m => m.id === d.mensagem_id);
+                return msgDaConversa && msgDaConversa.conversa_id === msg.conversa_id;
+              });
+              if (!destRow) return null;
 
               let remetenteNome = "Desconhecido";
               
@@ -184,18 +215,24 @@ const Contatos = () => {
                 remetenteNome = forn?.[0]?.nome_fantasia || forn?.[0]?.razao_social || "Fornecedor";
               }
 
+              // Verificar se há mensagens não lidas nesta conversa
+              const temNaoLida = destinatariosData.some(d => {
+                const msgDaConversa = mensagensData?.find(m => m.id === d.mensagem_id);
+                return msgDaConversa && msgDaConversa.conversa_id === msg.conversa_id && !d.lida;
+              });
+
               return {
                 id: msg.id,
-                assunto: msg.assunto,
+                assunto: msg.assunto.replace(/^Re: /, ''), // Remover prefixo Re: para mostrar assunto original
                 conteudo: msg.conteudo,
                 remetente_tipo: msg.remetente_tipo as "interno" | "fornecedor",
                 remetente_interno_id: msg.remetente_interno_id,
                 remetente_fornecedor_id: msg.remetente_fornecedor_id,
                 remetente_nome: remetenteNome,
-                created_at: msg.created_at,
+                created_at: ultimaMensagemConversa.get(msg.conversa_id) || msg.created_at, // Usar data da última mensagem
                 excluida_remetente: msg.excluida_remetente || false,
                 destinatario_id: destRow.id,
-                lida: destRow.lida,
+                lida: !temNaoLida,
                 excluida: destRow.excluida,
                 totalDestinatarios: contagemPorMensagem[msg.id] || 1,
                 conversa_id: msg.conversa_id,
@@ -205,7 +242,7 @@ const Contatos = () => {
 
           setMensagensRecebidas(
             mensagensProcessadas
-              .filter((m): m is Mensagem => m !== null)
+              .filter((m): m is NonNullable<typeof m> => m !== null)
               .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
           );
         } else {
@@ -484,29 +521,13 @@ const Contatos = () => {
                           </TableCell>
                           <TableCell>{mensagem.assunto}</TableCell>
                           <TableCell className="text-right">
-                            <div className="flex justify-end gap-2">
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                onClick={() => handleVerMensagem(mensagem, "recebida")}
-                              >
-                                <Eye className="h-4 w-4" />
-                              </Button>
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                onClick={() => {
-                                  setMensagemParaExcluir({
-                                    id: mensagem.id,
-                                    tipo: "recebida",
-                                    destinatarioId: mensagem.destinatario_id,
-                                  });
-                                  setDeleteDialogOpen(true);
-                                }}
-                              >
-                                <Trash2 className="h-4 w-4 text-destructive" />
-                              </Button>
-                            </div>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => handleVerMensagem(mensagem, "recebida")}
+                            >
+                              <Eye className="h-4 w-4" />
+                            </Button>
                           </TableCell>
                         </TableRow>
                       ))}

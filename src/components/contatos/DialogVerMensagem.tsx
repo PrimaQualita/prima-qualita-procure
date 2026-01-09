@@ -6,14 +6,22 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { Separator } from "@/components/ui/separator";
 import { Textarea } from "@/components/ui/textarea";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Users, Building2, Check, Clock, Send } from "lucide-react";
+import { Users, Check, Clock, Send, Trash2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 interface Mensagem {
   id: string;
@@ -44,6 +52,8 @@ interface MensagemConversa {
   remetente_nome: string;
   created_at: string;
   isCurrentUser: boolean;
+  remetente_interno_id?: string | null;
+  remetente_fornecedor_id?: string | null;
 }
 
 interface DialogVerMensagemProps {
@@ -71,6 +81,8 @@ export function DialogVerMensagem({
   const [mensagensConversa, setMensagensConversa] = useState<MensagemConversa[]>([]);
   const [novaResposta, setNovaResposta] = useState("");
   const [enviando, setEnviando] = useState(false);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [mensagemParaExcluir, setMensagemParaExcluir] = useState<string | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   
   const temDestinatarios = "destinatarios" in mensagem;
@@ -100,6 +112,7 @@ export function DialogVerMensagem({
         .from("mensagens_contato")
         .select("*")
         .eq("conversa_id", conversaId)
+        .eq("excluida_remetente", false)
         .order("created_at", { ascending: true });
 
       if (error) throw error;
@@ -135,6 +148,8 @@ export function DialogVerMensagem({
             remetente_nome: remetenteNome,
             created_at: msg.created_at,
             isCurrentUser,
+            remetente_interno_id: msg.remetente_interno_id,
+            remetente_fornecedor_id: msg.remetente_fornecedor_id,
           };
         })
       );
@@ -161,7 +176,7 @@ export function DialogVerMensagem({
 
       // Criar nova mensagem na mesma conversa
       const novaMensagem: any = {
-        assunto: `Re: ${mensagem.assunto}`,
+        assunto: `Re: ${mensagem.assunto.replace(/^Re: /, '')}`,
         conteudo: novaResposta.trim(),
         remetente_tipo: userType,
         conversa_id: conversaId,
@@ -214,6 +229,33 @@ export function DialogVerMensagem({
     }
   };
 
+  const handleExcluirMensagem = async () => {
+    if (!mensagemParaExcluir) return;
+
+    try {
+      // Marcar a mensagem como excluída pelo remetente
+      const { error } = await supabase
+        .from("mensagens_contato")
+        .update({ excluida_remetente: true, data_exclusao_remetente: new Date().toISOString() })
+        .eq("id", mensagemParaExcluir);
+
+      if (error) throw error;
+
+      toast({ title: "Mensagem excluída!" });
+      loadConversa();
+      onMessageSent?.();
+    } catch (error: any) {
+      toast({
+        title: "Erro ao excluir mensagem",
+        description: error.message,
+        variant: "destructive",
+      });
+    } finally {
+      setDeleteDialogOpen(false);
+      setMensagemParaExcluir(null);
+    }
+  };
+
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
@@ -222,118 +264,152 @@ export function DialogVerMensagem({
   };
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl h-[80vh] flex flex-col p-0">
-        <DialogHeader className="px-6 pt-6 pb-4 border-b">
-          <DialogTitle className="flex items-center gap-2">
-            {mensagem.assunto}
-            {isGrupo && (
-              <Badge variant="outline" className="ml-2 flex items-center gap-1">
-                <Users className="h-3 w-3" />
-                Grupo
-              </Badge>
-            )}
-          </DialogTitle>
-          <div className="text-sm text-muted-foreground mt-1">
-            {tipo === "recebida" && (
-              <span className="flex items-center gap-2">
-                De: {mensagem.remetente_nome}
-                {mensagem.remetente_tipo === "interno" ? (
-                  <Badge variant="outline" className="text-xs">Interno</Badge>
-                ) : (
-                  <Badge variant="outline" className="text-xs">Fornecedor</Badge>
-                )}
-              </span>
-            )}
-            {tipo === "enviada" && temDestinatarios && (
-              <div className="flex flex-wrap gap-1 mt-1">
-                Para: {(mensagem as MensagemComDestinatarios).destinatarios.map((d) => (
-                  <Badge
-                    key={d.id}
-                    variant={d.lida ? "secondary" : "outline"}
-                    className={`flex items-center gap-1 text-xs ${d.lida ? "bg-green-100 text-green-800" : ""}`}
-                  >
-                    {d.nome}
-                    {d.lida ? (
-                      <Check className="h-3 w-3 text-green-600" />
-                    ) : (
-                      <Clock className="h-3 w-3 text-muted-foreground" />
-                    )}
-                  </Badge>
-                ))}
-              </div>
-            )}
-          </div>
-        </DialogHeader>
-
-        {/* Área de mensagens estilo chat */}
-        <ScrollArea className="flex-1 px-6" ref={scrollRef}>
-          <div className="py-4 space-y-4">
-            {mensagensConversa.length === 0 ? (
-              <div className="p-4 bg-muted rounded-lg">
-                <p className="text-sm whitespace-pre-wrap">{mensagem.conteudo}</p>
-                <p className="text-xs text-muted-foreground mt-2">
-                  {new Date(mensagem.created_at).toLocaleString("pt-BR")}
-                </p>
-              </div>
-            ) : (
-              mensagensConversa.map((msg) => (
-                <div
-                  key={msg.id}
-                  className={`flex ${msg.isCurrentUser ? "justify-end" : "justify-start"}`}
-                >
-                  <div
-                    className={`max-w-[80%] rounded-lg p-3 ${
-                      msg.isCurrentUser
-                        ? "bg-primary text-primary-foreground"
-                        : "bg-muted"
-                    }`}
-                  >
-                    {!msg.isCurrentUser && (
-                      <p className={`text-xs font-medium mb-1 ${
-                        msg.isCurrentUser ? "text-primary-foreground/80" : "text-muted-foreground"
-                      }`}>
-                        {msg.remetente_nome}
-                      </p>
-                    )}
-                    <p className="text-sm whitespace-pre-wrap">{msg.conteudo}</p>
-                    <p className={`text-xs mt-1 ${
-                      msg.isCurrentUser ? "text-primary-foreground/70" : "text-muted-foreground"
-                    }`}>
-                      {new Date(msg.created_at).toLocaleString("pt-BR")}
-                    </p>
-                  </div>
+    <>
+      <Dialog open={open} onOpenChange={onOpenChange}>
+        <DialogContent className="max-w-2xl h-[80vh] flex flex-col p-0">
+          <DialogHeader className="px-6 pt-6 pb-4 border-b">
+            <DialogTitle className="flex items-center gap-2">
+              {mensagem.assunto.replace(/^Re: /, '')}
+              {isGrupo && (
+                <Badge variant="outline" className="ml-2 flex items-center gap-1">
+                  <Users className="h-3 w-3" />
+                  Grupo
+                </Badge>
+              )}
+            </DialogTitle>
+            <div className="text-sm text-muted-foreground mt-1">
+              {tipo === "recebida" && (
+                <span className="flex items-center gap-2">
+                  De: {mensagem.remetente_nome}
+                  {mensagem.remetente_tipo === "interno" ? (
+                    <Badge variant="outline" className="text-xs">Interno</Badge>
+                  ) : (
+                    <Badge variant="outline" className="text-xs">Fornecedor</Badge>
+                  )}
+                </span>
+              )}
+              {tipo === "enviada" && temDestinatarios && (
+                <div className="flex flex-wrap gap-1 mt-1">
+                  Para: {(mensagem as MensagemComDestinatarios).destinatarios.map((d) => (
+                    <Badge
+                      key={d.id}
+                      variant={d.lida ? "secondary" : "outline"}
+                      className={`flex items-center gap-1 text-xs ${d.lida ? "bg-green-100 text-green-800" : ""}`}
+                    >
+                      {d.nome}
+                      {d.lida ? (
+                        <Check className="h-3 w-3 text-green-600" />
+                      ) : (
+                        <Clock className="h-3 w-3 text-muted-foreground" />
+                      )}
+                    </Badge>
+                  ))}
                 </div>
-              ))
-            )}
-          </div>
-        </ScrollArea>
+              )}
+            </div>
+          </DialogHeader>
 
-        {/* Área de resposta */}
-        <div className="border-t p-4">
-          <div className="flex gap-2">
-            <Textarea
-              placeholder="Digite sua resposta..."
-              value={novaResposta}
-              onChange={(e) => setNovaResposta(e.target.value)}
-              onKeyDown={handleKeyDown}
-              rows={2}
-              className="resize-none"
-            />
-            <Button 
-              onClick={handleEnviarResposta} 
-              disabled={enviando || !novaResposta.trim()}
-              size="icon"
-              className="h-auto"
-            >
-              <Send className="h-4 w-4" />
-            </Button>
+          {/* Área de mensagens estilo chat */}
+          <ScrollArea className="flex-1 px-6" ref={scrollRef}>
+            <div className="py-4 space-y-4">
+              {mensagensConversa.length === 0 ? (
+                <div className="p-4 bg-muted rounded-lg">
+                  <p className="text-sm whitespace-pre-wrap">{mensagem.conteudo}</p>
+                  <p className="text-xs text-muted-foreground mt-2">
+                    {new Date(mensagem.created_at).toLocaleString("pt-BR")}
+                  </p>
+                </div>
+              ) : (
+                mensagensConversa.map((msg) => (
+                  <div
+                    key={msg.id}
+                    className={`flex ${msg.isCurrentUser ? "justify-end" : "justify-start"}`}
+                  >
+                    <div
+                      className={`max-w-[80%] rounded-lg p-3 relative group ${
+                        msg.isCurrentUser
+                          ? "bg-primary text-primary-foreground"
+                          : "bg-muted"
+                      }`}
+                    >
+                      {!msg.isCurrentUser && (
+                        <p className={`text-xs font-medium mb-1 ${
+                          msg.isCurrentUser ? "text-primary-foreground/80" : "text-muted-foreground"
+                        }`}>
+                          {msg.remetente_nome}
+                        </p>
+                      )}
+                      <p className="text-sm whitespace-pre-wrap">{msg.conteudo}</p>
+                      <div className="flex items-center justify-between mt-1 gap-2">
+                        <p className={`text-xs ${
+                          msg.isCurrentUser ? "text-primary-foreground/70" : "text-muted-foreground"
+                        }`}>
+                          {new Date(msg.created_at).toLocaleString("pt-BR")}
+                        </p>
+                        {msg.isCurrentUser && (
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-5 w-5 opacity-0 group-hover:opacity-100 transition-opacity"
+                            onClick={() => {
+                              setMensagemParaExcluir(msg.id);
+                              setDeleteDialogOpen(true);
+                            }}
+                          >
+                            <Trash2 className="h-3 w-3 text-destructive" />
+                          </Button>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          </ScrollArea>
+
+          {/* Área de resposta */}
+          <div className="border-t p-4">
+            <div className="flex gap-2">
+              <Textarea
+                placeholder="Digite sua resposta..."
+                value={novaResposta}
+                onChange={(e) => setNovaResposta(e.target.value)}
+                onKeyDown={handleKeyDown}
+                rows={2}
+                className="resize-none"
+              />
+              <Button 
+                onClick={handleEnviarResposta} 
+                disabled={enviando || !novaResposta.trim()}
+                size="icon"
+                className="h-auto"
+              >
+                <Send className="h-4 w-4" />
+              </Button>
+            </div>
+            <p className="text-xs text-muted-foreground mt-2">
+              Pressione Enter para enviar, Shift+Enter para nova linha
+            </p>
           </div>
-          <p className="text-xs text-muted-foreground mt-2">
-            Pressione Enter para enviar, Shift+Enter para nova linha
-          </p>
-        </div>
-      </DialogContent>
-    </Dialog>
+        </DialogContent>
+      </Dialog>
+
+      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Excluir mensagem?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Esta ação irá excluir sua mensagem da conversa.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={handleExcluirMensagem}>
+              Excluir
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </>
   );
 }
