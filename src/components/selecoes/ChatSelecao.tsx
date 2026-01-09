@@ -33,7 +33,7 @@ export function ChatSelecao({ selecaoId, codigoAcesso }: ChatSelecaoProps) {
   const [mensagens, setMensagens] = useState<Mensagem[]>([]);
   const [enviando, setEnviando] = useState(false);
   const [userProfile, setUserProfile] = useState<any>(null);
-  const scrollRef = useRef<HTMLDivElement>(null);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -101,12 +101,17 @@ export function ChatSelecao({ selecaoId, codigoAcesso }: ChatSelecaoProps) {
     };
   }, [selecaoId, codigoAcesso]);
 
+  // Função para scroll automático - usa scrollIntoView na última mensagem
+  const scrollToBottom = useCallback(() => {
+    setTimeout(() => {
+      messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    }, 100);
+  }, []);
+
   useEffect(() => {
-    // Auto-scroll para última mensagem
-    if (scrollRef.current) {
-      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
-    }
-  }, [mensagens]);
+    // Auto-scroll para última mensagem quando mensagens mudam
+    scrollToBottom();
+  }, [mensagens, scrollToBottom]);
 
   const loadUserProfile = async () => {
     try {
@@ -283,7 +288,7 @@ export function ChatSelecao({ selecaoId, codigoAcesso }: ChatSelecaoProps) {
         <CardTitle>Chat em Tempo Real - Tire suas dúvidas</CardTitle>
       </CardHeader>
       <CardContent>
-        <ScrollArea className="h-[400px] pr-4 mb-4" ref={scrollRef}>
+        <ScrollArea className="h-[400px] pr-4 mb-4">
           <div className="space-y-4">
             {mensagens.length === 0 ? (
               <p className="text-center text-muted-foreground py-8">
@@ -315,6 +320,8 @@ export function ChatSelecao({ selecaoId, codigoAcesso }: ChatSelecaoProps) {
                 </div>
               ))
             )}
+            {/* Elemento invisível no final para scroll automático */}
+            <div ref={messagesEndRef} />
           </div>
         </ScrollArea>
 
