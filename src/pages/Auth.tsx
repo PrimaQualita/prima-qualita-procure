@@ -309,7 +309,7 @@ const Auth = () => {
             <TabsContent value="login">
               <form onSubmit={handleLogin} className="space-y-4">
                 <div className="space-y-2">
-                  <Label htmlFor="login-identifier">E-mail ou CPF</Label>
+                  <Label htmlFor="login-identifier">E-mail</Label>
                   <Input
                     id="login-identifier"
                     type="text"
@@ -366,8 +366,10 @@ const Auth = () => {
                       variant="link"
                       className="p-0 h-auto text-xs"
                       onClick={() => {
-                        const loginTab = document.querySelector('[value="login"]') as HTMLElement;
-                        loginTab?.click();
+                        const tabsTrigger = document.querySelector('[data-state="inactive"][value="login"]') as HTMLElement;
+                        if (tabsTrigger) {
+                          tabsTrigger.click();
+                        }
                       }}
                     >
                       Faça login aqui
