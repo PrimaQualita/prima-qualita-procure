@@ -309,12 +309,14 @@ export function ChatContatosFornecedor({ fornecedorId }: ChatContatosFornecedorP
     setTipoVisualizacao(tipo);
     setDialogVerOpen(true);
 
-    if (tipo === "recebida" && "destinatario_id" in mensagem && mensagem.destinatario_id && !mensagem.lida) {
-      await supabase
-        .from("mensagens_contato_destinatarios")
-        .update({ lida: true, data_leitura: new Date().toISOString() })
-        .eq("id", mensagem.destinatario_id);
-      
+    // A marcação como lida agora é feita dentro do DialogVerMensagem
+    // que marca TODAS as mensagens da conversa como lidas
+  };
+  
+  const handleDialogVerClose = (open: boolean) => {
+    setDialogVerOpen(open);
+    if (!open) {
+      // Recarregar mensagens quando o dialog fecha para atualizar status de leitura
       loadMensagens();
     }
   };
@@ -537,7 +539,7 @@ export function ChatContatosFornecedor({ fornecedorId }: ChatContatosFornecedorP
       {mensagemSelecionada && (
         <DialogVerMensagem
           open={dialogVerOpen}
-          onOpenChange={setDialogVerOpen}
+          onOpenChange={handleDialogVerClose}
           mensagem={mensagemSelecionada}
           tipo={tipoVisualizacao}
           userType="fornecedor"
