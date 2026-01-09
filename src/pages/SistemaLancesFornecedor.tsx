@@ -516,12 +516,54 @@ const SistemaLancesFornecedor = () => {
         )
         .subscribe();
 
-      // Polling como fallback a cada 1 segundo para garantir atualizações
-      // mesmo se o broadcast falhar por problemas de rede
-      const pollingInterval = setInterval(() => {
+      // Polling adaptativo - mais frequente quando há itens em fechamento
+      // Isso reduz carga no servidor quando não há atividade crítica
+      let pollingInterval: NodeJS.Timeout | null = null;
+      let lastPollTime = 0;
+      const MIN_POLL_INTERVAL = 500; // Debounce mínimo de 500ms
+      
+      const doPoll = () => {
+        const now = Date.now();
+        // Debounce: evitar requests muito próximos
+        if (now - lastPollTime < MIN_POLL_INTERVAL) return;
+        lastPollTime = now;
+        
+        // Não fazer polling se a aba está em background
+        if (document.hidden) return;
+        
         loadItensAbertos();
         loadLances();
-      }, 1000);
+      };
+      
+      const startAdaptivePolling = () => {
+        if (pollingInterval) clearInterval(pollingInterval);
+        
+        // Verificar se há itens em fechamento ativo
+        const temFechamentoAtivo = itensEmFechamento.size > 0;
+        
+        // Polling mais frequente (1.5s) durante fechamento, normal (3s) caso contrário
+        const intervalo = temFechamentoAtivo ? 1500 : 3000;
+        
+        pollingInterval = setInterval(doPoll, intervalo);
+        console.log(`📊 Polling adaptativo: ${intervalo}ms (fechamento ativo: ${temFechamentoAtivo})`);
+      };
+      
+      // Iniciar polling
+      startAdaptivePolling();
+      
+      // Reajustar polling quando mudar status de fechamento
+      const checkFechamentoInterval = setInterval(() => {
+        startAdaptivePolling();
+      }, 5000);
+      
+      // Listener para quando a página volta ao foco - atualizar imediatamente
+      const handleVisibilityChange = () => {
+        if (!document.hidden) {
+          console.log('📊 Página voltou ao foco - atualizando dados');
+          doPoll();
+        }
+      };
+      document.addEventListener('visibilitychange', handleVisibilityChange);
 
       // Canal de presença para rastrear fornecedores online
       const presenceChannel = supabase.channel(`presence_selecao_${selecao.id}`);
@@ -554,7 +596,9 @@ const SistemaLancesFornecedor = () => {
         supabase.removeChannel(channelMensagens);
         supabase.removeChannel(channelInabilitacoes);
         supabase.removeChannel(presenceChannel);
-        clearInterval(pollingInterval);
+        if (pollingInterval) clearInterval(pollingInterval);
+        clearInterval(checkFechamentoInterval);
+        document.removeEventListener('visibilitychange', handleVisibilityChange);
       };
     }
   }, [selecao?.id, proposta?.fornecedor_id, itemSelecionado]);
