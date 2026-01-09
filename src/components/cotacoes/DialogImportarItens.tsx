@@ -288,13 +288,19 @@ export function DialogImportarItens({ open, onOpenChange, cotacaoId, onImportSuc
       return {
         cotacao_id: cotacaoId,
         numero_item: isNaN(numeroItem) ? index + 1 : numeroItem,
-        descricao: item.Descrição || '',
-        quantidade: item.Quantidade || 0,
-        unidade: item.Unidade || 'UND',
+        descricao: String(item.Descrição || ''),
+        quantidade: Number(item.Quantidade) || 0,
+        unidade: String(item.Unidade || 'UND'),
         valor_unitario_estimado: 0,
-        lote_id: null,
       };
     });
+
+    // Validar que há itens para inserir
+    if (itensParaInserir.length === 0) {
+      throw new Error("Nenhum item válido encontrado na planilha");
+    }
+
+    console.log("Itens para inserir:", itensParaInserir);
 
     const { error } = await supabase
       .from("itens_cotacao")
