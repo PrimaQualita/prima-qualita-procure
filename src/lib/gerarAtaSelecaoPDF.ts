@@ -1890,7 +1890,7 @@ export async function gerarAtaSelecaoPDF(selecaoId: string): Promise<{ url: stri
         entidade: 'Ata de Seleção',
         entidade_id: ataInserida.id,
         detalhes: {
-          protocolo: protocolo,
+          protocolo: protocoloFormatado,
           nome_arquivo: nomeArquivo,
           url_arquivo: publicUrl,
           numero_selecao: selecao?.numero_selecao || 'N/A',
