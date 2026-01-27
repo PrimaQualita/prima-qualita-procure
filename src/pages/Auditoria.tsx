@@ -20,7 +20,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Eye, FileText, Plus, Trash2, Edit, XCircle } from "lucide-react";
+import { Eye, FileText, Plus, Trash2, Edit, XCircle, CheckCircle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 interface AuditLog {
@@ -147,6 +147,7 @@ const Auditoria = () => {
 
   const getAcaoBadge = (log: AuditLog) => {
     const acaoLower = (log.acao || "").toLowerCase();
+    const entidadeLower = (log.entidade || "").toLowerCase();
 
     const statusPossivel = String(
       log.detalhes?.status ??
@@ -158,8 +159,24 @@ const Auditoria = () => {
 
     const motivoRejeicao = String(log.detalhes?.motivo_rejeicao ?? "").toLowerCase();
 
-    // Rejeição: muitos fluxos gravam como "edição/atualização", mas o status/motivo indica rejeição.
+    // Habilitação de Fornecedor
+    const isHabilitacao =
+      entidadeLower.includes("habilitação fornecedor") ||
+      entidadeLower.includes("habilitacao fornecedor");
+
+    if (isHabilitacao) {
+      return (
+        <Badge className="bg-green-600 hover:bg-green-700 text-white gap-1">
+          <CheckCircle className="h-3 w-3" />
+          Habilitação
+        </Badge>
+      );
+    }
+
+    // Rejeição de Fornecedor (entidade específica ou status/motivo)
     const isRejeicao =
+      entidadeLower.includes("rejeição fornecedor") ||
+      entidadeLower.includes("rejeicao fornecedor") ||
       statusPossivel.includes("rejeit") ||
       statusPossivel.includes("reprov") ||
       motivoRejeicao.length > 0;
@@ -267,6 +284,10 @@ const Auditoria = () => {
       tinha_arquivo: "Tinha Arquivo",
       responsavel_email: "Responsável (e-mail)",
       url_arquivo: "URL do Arquivo",
+      motivo_rejeicao: "Motivo da Rejeição",
+      rejeicao_total: "Rejeição Total",
+      itens_afetados: "Itens Afetados",
+      quantidade_documentos_aprovados: "Documentos Aprovados",
     };
     return traducoes[chave] || chave;
   };

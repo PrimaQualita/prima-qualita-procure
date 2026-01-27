@@ -1931,6 +1931,23 @@ export function DialogFinalizarProcesso({
         setDocumentosAprovados(novosDocumentosAprovados);
       }
 
+      // Registrar auditoria de habilitação do fornecedor
+      const dadosProcesso = await obterDadosProcessoParaAuditoria();
+      await registrarAuditoria({
+        acao: 'criação',
+        entidade: 'Habilitação Fornecedor',
+        entidade_id: fornecedorId,
+        detalhes: {
+          tipo: 'Habilitação de Fornecedor - Compra Direta',
+          fornecedor: fornecedorData.fornecedor.razao_social,
+          cnpj: (fornecedorData.fornecedor as any)?.cnpj || "",
+          numero_processo: dadosProcesso.numero_processo,
+          contrato_gestao: dadosProcesso.contrato_gestao,
+          titulo_cotacao: dadosProcesso.titulo_cotacao,
+          quantidade_documentos_aprovados: camposParaAprovar.length || 1,
+        },
+      });
+
       toast.success(`Documentos de ${fornecedorData.fornecedor.razao_social} aprovados com sucesso`);
       
       // CRÍTICO: Aguardar um momento e recarregar dados frescos do banco
@@ -3117,6 +3134,25 @@ export function DialogFinalizarProcesso({
 
         if (error) throw error;
       }
+
+      // Registrar auditoria de rejeição do fornecedor
+      const dadosProcesso = await obterDadosProcessoParaAuditoria();
+      await registrarAuditoria({
+        acao: 'criação',
+        entidade: 'Rejeição Fornecedor',
+        entidade_id: fornecedorParaRejeitar,
+        detalhes: {
+          tipo: 'Rejeição de Fornecedor - Compra Direta',
+          fornecedor: fornData.fornecedor.razao_social,
+          cnpj: (fornData.fornecedor as any)?.cnpj || "",
+          motivo_rejeicao: motivo.trim(),
+          numero_processo: dadosProcesso.numero_processo,
+          contrato_gestao: dadosProcesso.contrato_gestao,
+          titulo_cotacao: dadosProcesso.titulo_cotacao,
+          rejeicao_total: ehRejeicaoTotal,
+          itens_afetados: itensAfetados.length > 0 ? itensAfetados.join(', ') : 'Todos',
+        },
+      });
 
       // CRÍTICO: Mensagem diferenciada para lotes vs itens
       const mensagemSucesso = (criterioJulgamento === 'por_lote' || criterioJulgamento === 'lote')
