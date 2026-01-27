@@ -456,6 +456,8 @@ const ParticiparSelecao = () => {
       if (selecaoError) throw selecaoError;
       
       console.log("✅ Seleção carregada:", selecaoData);
+      console.log("🏢 Processo com contrato:", selecaoData.processos_compras);
+      console.log("📋 Contrato de gestão:", selecaoData.processos_compras?.contratos_gestao);
       setSelecao(selecaoData);
       setProcesso(selecaoData.processos_compras);
       setCriterioJulgamento(selecaoData.processos_compras?.criterio_julgamento || "");
@@ -1223,12 +1225,16 @@ const ParticiparSelecao = () => {
 
       // Registrar auditoria da proposta de seleção via RPC (fornecedor externo)
       try {
+        // Acessar contrato de gestão corretamente da relação carregada
+        const contratoGestaoNome = (processo as any)?.contratos_gestao?.nome_contrato || '';
+        console.log('📝 Auditoria - Contrato de Gestão:', contratoGestaoNome, 'Processo:', processo);
+        
         await supabase.rpc('registrar_auditoria_proposta_selecao_fornecedor', {
           p_entidade_id: propostaId,
           p_fornecedor_nome: fornecedor?.razao_social || dadosEmpresa.razao_social,
           p_fornecedor_cnpj: fornecedor?.cnpj || dadosEmpresa.cnpj.replace(/\D/g, ''),
           p_valor_total: valorTotal,
-          p_contrato_gestao: (processo as any)?.contratos_gestao?.nome_contrato || '',
+          p_contrato_gestao: contratoGestaoNome,
           p_numero_processo: processo?.numero_processo_interno || '',
           p_titulo_selecao: selecao?.titulo_selecao || '',
           p_protocolo: protocoloGerado
