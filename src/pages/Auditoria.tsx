@@ -187,17 +187,19 @@ const Auditoria = () => {
       );
     }
 
-    // Recurso de Inabilitação (envio pelo fornecedor)
+    // Recurso de Inabilitação ou Recurso de Cotação (envio pelo fornecedor)
     const isRecursoInabilitacao =
       entidadeLower.includes("recurso inabilitação") ||
       entidadeLower.includes("recurso inabilitacao") ||
-      entidadeLower.includes("recurso fornecedor");
+      entidadeLower.includes("recurso fornecedor") ||
+      entidadeLower.includes("recurso cotação") ||
+      entidadeLower.includes("recurso cotacao");
 
     if (isRecursoInabilitacao && acaoLower.includes("criação")) {
       return (
         <Badge className="bg-amber-500 hover:bg-amber-600 text-white gap-1">
           <FileText className="h-3 w-3" />
-          Recurso Enviado
+          Recurso
         </Badge>
       );
     }
