@@ -1088,17 +1088,17 @@ const RespostaCotacao = () => {
       }
 
       // Registrar auditoria de envio de proposta (via RPC para funcionar com cliente anônimo)
-      try {
-        await supabaseAnon.rpc('registrar_auditoria_proposta_fornecedor', {
-          p_entidade_id: respostaCriada.id,
-          p_fornecedor_nome: dadosEmpresa.razao_social,
-          p_fornecedor_cnpj: cnpjLimpo,
-          p_valor_total: valorTotal,
-          p_contrato_gestao: processoCompra?.contratos_gestao?.nome_contrato || "",
-          p_numero_processo: processoCompra?.numero_processo_interno || "",
-          p_titulo_cotacao: cotacao.titulo_cotacao
-        });
-      } catch (auditError) {
+      const { error: auditError } = await supabaseAnon.rpc('registrar_auditoria_proposta_fornecedor', {
+        p_entidade_id: respostaCriada.id,
+        p_fornecedor_nome: dadosEmpresa.razao_social,
+        p_fornecedor_cnpj: cnpjLimpo,
+        p_valor_total: valorTotal,
+        p_contrato_gestao: processoCompra?.contratos_gestao?.nome_contrato || "",
+        p_numero_processo: processoCompra?.numero_processo_interno || "",
+        p_titulo_cotacao: cotacao.titulo_cotacao
+      });
+
+      if (auditError) {
         console.error("Erro ao registrar auditoria (não bloqueia):", auditError);
       }
 
