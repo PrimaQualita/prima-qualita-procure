@@ -25,6 +25,7 @@ import { ChatNegociacao } from "./ChatNegociacao";
 import capaLogo from "@/assets/capa-processo-logo.png";
 import capaRodape from "@/assets/capa-processo-rodape.png";
 import logoHorizontal from "@/assets/prima-qualita-logo-horizontal.png";
+import { registrarAuditoria } from "@/lib/registrarAuditoria";
 
 interface Item {
   numero_item: number;
@@ -1891,12 +1892,48 @@ export function DialogSessaoLances({
     if (!confirmDeleteLance.lanceId) return;
     
     try {
+      // Buscar dados do lance antes de deletar (para auditoria)
+      const { data: lanceData } = await supabase
+        .from("lances_fornecedores")
+        .select("*, fornecedores(razao_social, cnpj)")
+        .eq("id", confirmDeleteLance.lanceId)
+        .single();
+
+      // Buscar dados da seleção para auditoria
+      const { data: selecaoData } = await supabase
+        .from("selecoes_fornecedores")
+        .select("numero_selecao, titulo_selecao, processos_compras(numero_processo_interno, contratos_gestao:contrato_gestao_id(nome_contrato))")
+        .eq("id", selecaoId)
+        .single();
+
       const { error } = await supabase
         .from("lances_fornecedores")
         .delete()
         .eq("id", confirmDeleteLance.lanceId);
 
       if (error) throw error;
+
+      // Registrar auditoria da exclusão do lance
+      try {
+        await registrarAuditoria({
+          acao: 'exclusão',
+          entidade: 'Lance',
+          entidade_id: confirmDeleteLance.lanceId,
+          detalhes: {
+            fornecedor: lanceData?.fornecedores?.razao_social || 'N/A',
+            cnpj_fornecedor: lanceData?.fornecedores?.cnpj || 'N/A',
+            valor_lance: lanceData?.valor_lance || 0,
+            numero_item: lanceData?.numero_item || 0,
+            tipo_lance: lanceData?.tipo_lance || 'lance',
+            numero_selecao: selecaoData?.numero_selecao || 'N/A',
+            titulo_selecao: selecaoData?.titulo_selecao || 'N/A',
+            numero_processo: (selecaoData?.processos_compras as any)?.numero_processo_interno || '',
+            contrato_gestao: (selecaoData?.processos_compras as any)?.contratos_gestao?.nome_contrato || '',
+          },
+        });
+      } catch (auditError) {
+        console.error('Erro ao registrar auditoria de lance:', auditError);
+      }
 
       toast.success("Lance excluído com sucesso");
       loadLances();
@@ -2114,6 +2151,20 @@ export function DialogSessaoLances({
     const urlArquivo = confirmDeletePlanilha.urlArquivo;
     
     try {
+      // Buscar dados da planilha antes de deletar (para auditoria)
+      const { data: planilhaData } = await supabase
+        .from("planilhas_lances_selecao")
+        .select("nome_arquivo, protocolo")
+        .eq("id", planilhaId)
+        .single();
+
+      // Buscar dados da seleção para auditoria
+      const { data: selecaoData } = await supabase
+        .from("selecoes_fornecedores")
+        .select("numero_selecao, titulo_selecao, processos_compras(numero_processo_interno, contratos_gestao:contrato_gestao_id(nome_contrato))")
+        .eq("id", selecaoId)
+        .single();
+
       // Extrair caminho do storage da URL
       const urlParts = urlArquivo.split("/storage/v1/object/public/processo-anexos/");
       const storagePath = urlParts[1];
@@ -2134,6 +2185,32 @@ export function DialogSessaoLances({
         .eq("id", planilhaId);
       
       if (dbError) throw dbError;
+
+      // Formatar protocolo para padrão curto
+      let protocoloFormatado = planilhaData?.protocolo || '';
+      if (protocoloFormatado && protocoloFormatado.includes('-')) {
+        const limpo = protocoloFormatado.replace(/-/g, '').toUpperCase().substring(0, 16);
+        protocoloFormatado = `${limpo.substring(0, 4)}-${limpo.substring(4, 8)}-${limpo.substring(8, 12)}-${limpo.substring(12, 16)}`;
+      }
+
+      // Registrar auditoria da exclusão da planilha
+      try {
+        await registrarAuditoria({
+          acao: 'exclusão',
+          entidade: 'Planilha de Lances',
+          entidade_id: planilhaId,
+          detalhes: {
+            nome_arquivo: planilhaData?.nome_arquivo || 'N/A',
+            protocolo: protocoloFormatado || null,
+            numero_selecao: selecaoData?.numero_selecao || 'N/A',
+            titulo_selecao: selecaoData?.titulo_selecao || 'N/A',
+            numero_processo: (selecaoData?.processos_compras as any)?.numero_processo_interno || '',
+            contrato_gestao: (selecaoData?.processos_compras as any)?.contratos_gestao?.nome_contrato || '',
+          },
+        });
+      } catch (auditError) {
+        console.error('Erro ao registrar auditoria de planilha:', auditError);
+      }
       
       // Recarregar lista de planilhas e lances
       await loadPlanilhasGeradas();
@@ -3173,6 +3250,12 @@ export function DialogSessaoLances({
         .from("processo-anexos")
         .getPublicUrl(storagePath);
       
+      const { data: selecaoInfoAudit } = await supabase
+        .from("selecoes_fornecedores")
+        .select("numero_selecao, titulo_selecao, processos_compras(numero_processo_interno, contratos_gestao:contrato_gestao_id(nome_contrato))")
+        .eq("id", selecaoId)
+        .single();
+
       // Inserir nova planilha no banco (não sobrescrever)
       const { data: planilhaData, error: dbError } = await supabase
         .from("planilhas_lances_selecao")
@@ -3188,6 +3271,29 @@ export function DialogSessaoLances({
         .single();
       
       if (dbError) throw dbError;
+
+      // Formatar protocolo para padrão curto
+      const limpo = protocolo.replace(/-/g, '').toUpperCase().substring(0, 16);
+      const protocoloFormatado = `${limpo.substring(0, 4)}-${limpo.substring(4, 8)}-${limpo.substring(8, 12)}-${limpo.substring(12, 16)}`;
+
+      // Registrar auditoria da geração da planilha
+      try {
+        await registrarAuditoria({
+          acao: 'criação',
+          entidade: 'Planilha de Lances',
+          entidade_id: planilhaData?.id,
+          detalhes: {
+            nome_arquivo: nomeArquivo,
+            protocolo: protocoloFormatado,
+            numero_selecao: selecaoInfoAudit?.numero_selecao || 'N/A',
+            titulo_selecao: selecaoInfoAudit?.titulo_selecao || 'N/A',
+            numero_processo: (selecaoInfoAudit?.processos_compras as any)?.numero_processo_interno || '',
+            contrato_gestao: (selecaoInfoAudit?.processos_compras as any)?.contratos_gestao?.nome_contrato || '',
+          },
+        });
+      } catch (auditError) {
+        console.error('Erro ao registrar auditoria de planilha:', auditError);
+      }
       
       // Recarregar lista de planilhas
       await loadPlanilhasGeradas();
