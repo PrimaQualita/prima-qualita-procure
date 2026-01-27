@@ -30,6 +30,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { registrarAuditoria } from "@/lib/registrarAuditoria";
 
 interface PropostaFornecedor {
   id: string;
@@ -492,6 +493,24 @@ export default function PropostasSelecao() {
       
       console.log("✅ Proposta excluída com sucesso");
 
+      // Registrar auditoria da exclusão
+      try {
+        await registrarAuditoria({
+          acao: 'exclusão',
+          entidade: 'Proposta de Seleção',
+          entidade_id: propostaParaExcluirCompleta.id,
+          detalhes: {
+            fornecedor: propostaParaExcluirCompleta.fornecedor?.razao_social || 'N/A',
+            cnpj: propostaParaExcluirCompleta.fornecedor?.cnpj || 'N/A',
+            valor_proposta: propostaParaExcluirCompleta.valor_total_proposta,
+            numero_selecao: selecao?.numero_selecao || 'N/A',
+            numero_processo: selecao?.processos_compras?.numero_processo_interno || '',
+          },
+        });
+      } catch (auditError) {
+        console.warn('Erro ao registrar auditoria de exclusão de proposta:', auditError);
+      }
+
       // Notificar via realtime que propostas mudaram (força refresh nas telas de lances)
       // Isso é feito inserindo um lance "fantasma" com valor 0 para disparar o realtime
       // Alternativa: usar broadcast channel do Supabase
@@ -758,6 +777,23 @@ export default function PropostasSelecao() {
         .eq("id", propostaRealinhadaParaExcluir.id);
 
       if (propostaError) throw propostaError;
+
+      // Registrar auditoria da exclusão
+      try {
+        await registrarAuditoria({
+          acao: 'exclusão',
+          entidade: 'Proposta Realinhada (Seleção)',
+          entidade_id: propostaRealinhadaParaExcluir.id,
+          detalhes: {
+            fornecedor: propostaRealinhadaParaExcluir.fornecedores?.razao_social || 'N/A',
+            cnpj: propostaRealinhadaParaExcluir.fornecedores?.cnpj || 'N/A',
+            numero_selecao: selecao?.numero_selecao || 'N/A',
+            numero_processo: selecao?.processos_compras?.numero_processo_interno || '',
+          },
+        });
+      } catch (auditError) {
+        console.warn('Erro ao registrar auditoria de exclusão de proposta realinhada:', auditError);
+      }
 
       console.log("✅ Proposta realinhada excluída");
       setPropostaRealinhadaParaExcluir(null);

@@ -28,6 +28,7 @@ import { gerarAtaSelecaoPDF, atualizarAtaComAssinaturas } from "@/lib/gerarAtaSe
 import { gerarHomologacaoSelecaoPDF } from "@/lib/gerarHomologacaoSelecaoPDF";
 import { gerarProcessoCompletoSelecaoPDF } from "@/lib/gerarProcessoCompletoSelecaoPDF";
 import { gerarEncaminhamentoContabilidadePDF, gerarProtocoloContabilidade } from "@/lib/gerarEncaminhamentoContabilidadePDF";
+import { registrarAuditoria } from "@/lib/registrarAuditoria";
 
 interface Item {
   id: string;
@@ -527,6 +528,23 @@ const [itens, setItens] = useState<Item[]>([]);
 
       if (error) throw error;
 
+      // Registrar auditoria da exclusão
+      try {
+        await registrarAuditoria({
+          acao: 'exclusão',
+          entidade: 'Ata de Seleção',
+          entidade_id: ataId,
+          detalhes: {
+            protocolo: ata?.protocolo || 'N/A',
+            nome_arquivo: ata?.nome_arquivo || 'N/A',
+            numero_selecao: selecao?.numero_selecao || 'N/A',
+            numero_processo: processo?.numero_processo_interno || '',
+          },
+        });
+      } catch (auditError) {
+        console.warn('Erro ao registrar auditoria da exclusão de ata:', auditError);
+      }
+
       toast.success("Ata excluída com sucesso!");
       await loadAtasGeradas();
     } catch (error) {
@@ -737,6 +755,23 @@ const [itens, setItens] = useState<Item[]>([]);
 
       if (insertError) throw insertError;
 
+      // Registrar auditoria da criação
+      try {
+        await registrarAuditoria({
+          acao: 'criação',
+          entidade: 'Encaminhamento Contabilidade (Seleção)',
+          detalhes: {
+            protocolo,
+            nome_arquivo: resultado.fileName,
+            numero_selecao: selecao?.numero_selecao || 'N/A',
+            numero_processo: processo.numero_processo_interno,
+            fornecedores_vencedores: fornecedoresVencedores.map(f => f.razaoSocial).join(', '),
+          },
+        });
+      } catch (auditError) {
+        console.warn('Erro ao registrar auditoria de encaminhamento contabilidade:', auditError);
+      }
+
       toast.success("Encaminhamento para Contabilidade gerado!");
       await loadEncaminhamentosContabilidade();
     } catch (error: any) {
@@ -790,6 +825,23 @@ const [itens, setItens] = useState<Item[]>([]);
 
       // Deletar registro do banco
       await supabase.from("encaminhamentos_contabilidade").delete().eq("id", confirmDeleteEncContab.id);
+
+      // Registrar auditoria da exclusão
+      try {
+        await registrarAuditoria({
+          acao: 'exclusão',
+          entidade: 'Encaminhamento Contabilidade (Seleção)',
+          entidade_id: confirmDeleteEncContab.id,
+          detalhes: {
+            protocolo: confirmDeleteEncContab.protocolo || 'N/A',
+            nome_arquivo: confirmDeleteEncContab.nome_arquivo || 'N/A',
+            numero_selecao: selecao?.numero_selecao || 'N/A',
+            numero_processo: processo?.numero_processo_interno || '',
+          },
+        });
+      } catch (auditError) {
+        console.warn('Erro ao registrar auditoria da exclusão de encaminhamento:', auditError);
+      }
       
       toast.success("Encaminhamento excluído");
       setConfirmDeleteEncContab(null);
@@ -869,6 +921,23 @@ const [itens, setItens] = useState<Item[]>([]);
         .eq("id", homologacaoId);
 
       if (error) throw error;
+
+      // Registrar auditoria da exclusão
+      try {
+        await registrarAuditoria({
+          acao: 'exclusão',
+          entidade: 'Homologação de Seleção',
+          entidade_id: homologacaoId,
+          detalhes: {
+            protocolo: homologacao?.protocolo || 'N/A',
+            nome_arquivo: homologacao?.nome_arquivo || 'N/A',
+            numero_selecao: selecao?.numero_selecao || 'N/A',
+            numero_processo: processo?.numero_processo_interno || '',
+          },
+        });
+      } catch (auditError) {
+        console.warn('Erro ao registrar auditoria da exclusão de homologação:', auditError);
+      }
 
       toast.success("Homologação excluída com sucesso!");
       await loadHomologacoesGeradas();
@@ -1940,6 +2009,23 @@ const [itens, setItens] = useState<Item[]>([]);
                     .eq("id", avisoAnexado.id);
                   
                   if (error) throw error;
+
+                  // 4. Registrar auditoria
+                  try {
+                    await registrarAuditoria({
+                      acao: 'exclusão',
+                      entidade: 'Anexo de Seleção',
+                      entidade_id: avisoAnexado.id,
+                      detalhes: {
+                        tipo_documento: 'Aviso de Seleção',
+                        nome_arquivo: avisoAnexado.nome_arquivo || 'N/A',
+                        numero_selecao: selecao?.numero_selecao || 'N/A',
+                        numero_processo: processo?.numero_processo_interno || '',
+                      },
+                    });
+                  } catch (auditError) {
+                    console.warn('Erro ao registrar auditoria da exclusão de aviso:', auditError);
+                  }
                   
                   toast.success("Documento excluído com sucesso");
                   loadDocumentosAnexados();
@@ -1988,6 +2074,23 @@ const [itens, setItens] = useState<Item[]>([]);
                     .eq("id", editalAnexado.id);
                   
                   if (error) throw error;
+
+                  // 4. Registrar auditoria
+                  try {
+                    await registrarAuditoria({
+                      acao: 'exclusão',
+                      entidade: 'Anexo de Seleção',
+                      entidade_id: editalAnexado.id,
+                      detalhes: {
+                        tipo_documento: 'Edital',
+                        nome_arquivo: editalAnexado.nome_arquivo || 'N/A',
+                        numero_selecao: selecao?.numero_selecao || 'N/A',
+                        numero_processo: processo?.numero_processo_interno || '',
+                      },
+                    });
+                  } catch (auditError) {
+                    console.warn('Erro ao registrar auditoria da exclusão de edital:', auditError);
+                  }
                   
                   toast.success("Documento excluído com sucesso");
                   loadDocumentosAnexados();
