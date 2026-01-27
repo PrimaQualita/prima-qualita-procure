@@ -3593,6 +3593,19 @@ export type Database = {
         Args: { p_resposta_id: string }
         Returns: boolean
       }
+      registrar_auditoria_documento_adicional_fornecedor: {
+        Args: {
+          p_acao?: string
+          p_contrato_gestao: string
+          p_entidade_id: string
+          p_fornecedor_nome: string
+          p_nome_documento: string
+          p_numero_processo: string
+          p_titulo_cotacao?: string
+          p_titulo_selecao?: string
+        }
+        Returns: boolean
+      }
       registrar_auditoria_proposta_fornecedor: {
         Args: {
           p_contrato_gestao: string

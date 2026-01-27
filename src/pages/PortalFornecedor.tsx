@@ -874,14 +874,32 @@ export default function PortalFornecedor() {
     }
 
     try {
-      // Buscar o nome do campo de documento
+      // Buscar o nome do campo e dados da cotação/processo para auditoria
       const { data: campoData } = await supabase
         .from('campos_documentos_finalizacao')
-        .select('nome_campo')
+        .select(`
+          nome_campo,
+          cotacao_id,
+          cotacoes_precos (
+            titulo_cotacao,
+            processo_compra_id,
+            processos_compras (
+              numero_processo_interno,
+              contrato_gestao_id,
+              contratos_gestao (
+                nome_contrato
+              )
+            )
+          )
+        `)
         .eq('id', campoId)
         .single();
 
       const nomeCampo = campoData?.nome_campo || 'Documento';
+      const dadosProcesso = campoData?.cotacoes_precos?.processos_compras as any;
+      const numeroProcesso = dadosProcesso?.numero_processo_interno || '';
+      const contratoGestao = dadosProcesso?.contratos_gestao?.nome_contrato || '';
+      const tituloCotacao = campoData?.cotacoes_precos?.titulo_cotacao || '';
       
       // Sanitizar nomes para uso em arquivo
       const sanitizedNomeCampo = nomeCampo.replace(/[^a-zA-Z0-9]/g, '_');
@@ -946,6 +964,24 @@ export default function PortalFornecedor() {
       }
 
       console.log("✅ Status atualizado com sucesso!");
+      
+      // Registrar auditoria de upload de documento adicional pelo fornecedor
+      try {
+        await supabase.rpc('registrar_auditoria_documento_adicional_fornecedor', {
+          p_entidade_id: campoId,
+          p_fornecedor_nome: fornecedor.razao_social,
+          p_nome_documento: nomeCampo,
+          p_numero_processo: numeroProcesso,
+          p_contrato_gestao: contratoGestao,
+          p_titulo_cotacao: tituloCotacao,
+          p_titulo_selecao: null,
+          p_acao: 'criação'
+        });
+        console.log("✅ Auditoria registrada com sucesso!");
+      } catch (auditError) {
+        console.error("⚠️ Erro ao registrar auditoria (não bloqueante):", auditError);
+      }
+      
       toast.success("Documento enviado com sucesso!");
       
       console.log("🔄 Recarregando lista de documentos pendentes...");
@@ -967,14 +1003,35 @@ export default function PortalFornecedor() {
     }
 
     try {
-      // Buscar o nome do campo para usar no nome do arquivo
+      // Buscar o nome do campo e dados da seleção/processo para auditoria
       const { data: campoData } = await supabase
         .from('campos_documentos_finalizacao')
-        .select('nome_campo')
+        .select(`
+          nome_campo,
+          selecao_id,
+          selecoes_fornecedores (
+            titulo_selecao,
+            numero_selecao,
+            processo_compra_id,
+            processos_compras (
+              numero_processo_interno,
+              contrato_gestao_id,
+              contratos_gestao (
+                nome_contrato
+              )
+            )
+          )
+        `)
         .eq('id', campoId)
         .single();
       
       const nomeCampo = campoData?.nome_campo || 'documento';
+      const dadosSelecao = campoData?.selecoes_fornecedores as any;
+      const dadosProcesso = dadosSelecao?.processos_compras;
+      const numeroProcesso = dadosProcesso?.numero_processo_interno || '';
+      const contratoGestao = dadosProcesso?.contratos_gestao?.nome_contrato || '';
+      const tituloSelecao = dadosSelecao?.titulo_selecao || dadosSelecao?.numero_selecao || '';
+      
       // Sanitizar nome do campo e razão social para usar em nome de arquivo
       // Remover acentos e caracteres especiais pois Supabase Storage não aceita
       const removeAcentos = (str: string) => str.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
@@ -1041,6 +1098,23 @@ export default function PortalFornecedor() {
       }
 
       console.log("✅ Status atualizado com sucesso!");
+      
+      // Registrar auditoria de upload de documento adicional pelo fornecedor
+      try {
+        await supabase.rpc('registrar_auditoria_documento_adicional_fornecedor', {
+          p_entidade_id: campoId,
+          p_fornecedor_nome: fornecedor.razao_social,
+          p_nome_documento: nomeCampo,
+          p_numero_processo: numeroProcesso,
+          p_contrato_gestao: contratoGestao,
+          p_titulo_cotacao: null,
+          p_titulo_selecao: tituloSelecao,
+          p_acao: 'criação'
+        });
+        console.log("✅ Auditoria registrada com sucesso!");
+      } catch (auditError) {
+        console.error("⚠️ Erro ao registrar auditoria (não bloqueante):", auditError);
+      }
       
       // Verificar se o update realmente funcionou
       const { data: campoVerificacao } = await supabase
