@@ -20,7 +20,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Eye, FileText, Plus, Trash2, Edit, XCircle, CheckCircle } from "lucide-react";
+import { Eye, FileText, Plus, Trash2, Edit, XCircle, CheckCircle, AlertCircle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 interface AuditLog {
@@ -187,6 +187,71 @@ const Auditoria = () => {
       );
     }
 
+    // Recurso de Inabilitação (envio pelo fornecedor)
+    const isRecursoInabilitacao =
+      entidadeLower.includes("recurso inabilitação") ||
+      entidadeLower.includes("recurso inabilitacao") ||
+      entidadeLower.includes("recurso fornecedor");
+
+    if (isRecursoInabilitacao && acaoLower.includes("criação")) {
+      return (
+        <Badge className="bg-amber-500 hover:bg-amber-600 text-white gap-1">
+          <FileText className="h-3 w-3" />
+          Recurso Enviado
+        </Badge>
+      );
+    }
+
+    // Resposta de Recurso (provimento/negado)
+    const isRespostaRecurso = entidadeLower.includes("resposta recurso");
+    if (isRespostaRecurso) {
+      const tipoDetalhe = String(log.detalhes?.tipo || "").toLowerCase();
+      const decisaoDetalhe = String(log.detalhes?.decisao || "").toLowerCase();
+      
+      if (tipoDetalhe.includes("provimento total") || decisaoDetalhe.includes("provimento total")) {
+        return (
+          <Badge className="bg-green-600 hover:bg-green-700 text-white gap-1">
+            <CheckCircle className="h-3 w-3" />
+            Provimento Total
+          </Badge>
+        );
+      }
+      if (tipoDetalhe.includes("provimento parcial") || decisaoDetalhe.includes("provimento parcial")) {
+        return (
+          <Badge className="bg-yellow-500 hover:bg-yellow-600 text-white gap-1">
+            <AlertCircle className="h-3 w-3" />
+            Provimento Parcial
+          </Badge>
+        );
+      }
+      if (tipoDetalhe.includes("negado") || decisaoDetalhe.includes("negado")) {
+        return (
+          <Badge className="bg-red-500 hover:bg-red-600 text-white gap-1">
+            <XCircle className="h-3 w-3" />
+            Negado Provimento
+          </Badge>
+        );
+      }
+      if (acaoLower.includes("exclusão")) {
+        return (
+          <Badge className="bg-red-500 hover:bg-red-600 text-white gap-1">
+            <Trash2 className="h-3 w-3" />
+            Exclusão
+          </Badge>
+        );
+      }
+    }
+
+    // Exclusão de Recurso
+    if (isRecursoInabilitacao && acaoLower.includes("exclusão")) {
+      return (
+        <Badge className="bg-red-500 hover:bg-red-600 text-white gap-1">
+          <Trash2 className="h-3 w-3" />
+          Exclusão
+        </Badge>
+      );
+    }
+
     // Rejeição genérica (documentos adicionais, etc.)
     const isRejeicaoGenerica =
       statusPossivel.includes("rejeit") ||
@@ -300,6 +365,11 @@ const Auditoria = () => {
       rejeicao_total: "Rejeição Total",
       itens_afetados: "Itens Afetados",
       quantidade_documentos_aprovados: "Documentos Aprovados",
+      decisao: "Decisão",
+      decisao_anterior: "Decisão Anterior",
+      itens_reabilitados: "Itens Reabilitados",
+      tinha_resposta: "Tinha Resposta",
+      motivo_inabilitacao: "Motivo da Inabilitação",
     };
     return traducoes[chave] || chave;
   };
