@@ -3621,6 +3621,19 @@ export type Database = {
         }
         Returns: undefined
       }
+      registrar_auditoria_recurso_fornecedor: {
+        Args: {
+          p_contrato_gestao: string
+          p_entidade_id: string
+          p_fornecedor_cnpj: string
+          p_fornecedor_nome: string
+          p_motivo_rejeicao: string
+          p_numero_processo: string
+          p_protocolo?: string
+          p_titulo_cotacao: string
+        }
+        Returns: boolean
+      }
       registrar_intencao_recurso_por_codigo: {
         Args: {
           p_codigo_acesso: string
