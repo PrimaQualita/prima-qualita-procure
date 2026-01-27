@@ -1553,8 +1553,9 @@ export function DialogFinalizarProcesso({
     if (!cotacaoId) return;
 
     try {
-      // Determinar o tipo de autorização esperado baseado no status atual
-      const tipoEsperado = foiEnviadoParaSelecao ? 'selecao_fornecedores' : 'compra_direta';
+      // Determinar o tipo de autorização esperado baseado no tipo do processo (Compra Direta vs Seleção)
+      // IMPORTANTE: usar requerSelecao (processo.requer_selecao) para evitar exibir/gerar o tipo errado
+      const tipoEsperado = requerSelecao ? 'selecao_fornecedores' : 'compra_direta';
       
       const { data, error } = await supabase
         .from("autorizacoes_processo")
@@ -4837,14 +4838,14 @@ export function DialogFinalizarProcesso({
                       className="w-full"
                     >
                       <FileText className="h-4 w-4 mr-2" />
-                      Gerar Autorização de {foiEnviadoParaSelecao ? 'Seleção de Fornecedores' : 'Compra Direta'}
+                      Gerar Autorização de {requerSelecao ? 'Seleção de Fornecedores' : 'Compra Direta'}
                     </Button>
                   </>
                 ) : (
                   <div className="p-4 bg-yellow-50 dark:bg-yellow-950 border border-yellow-200 dark:border-yellow-800 rounded-lg">
                     <p className="text-sm text-yellow-800 dark:text-yellow-200 flex items-center">
                       <AlertCircle className="h-4 w-4 mr-2 flex-shrink-0" />
-                      Apenas Responsáveis Legais podem gerar Autorização de Compra Direta
+                      Apenas Responsáveis Legais podem gerar Autorização de {requerSelecao ? 'Seleção de Fornecedores' : 'Compra Direta'}
                     </p>
                   </div>
                 )}
