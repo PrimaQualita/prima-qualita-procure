@@ -273,6 +273,35 @@ export function NotificacaoRejeicao({ fornecedorId, onRecursoEnviado }: Notifica
 
       if (updateError) throw updateError;
 
+      // Buscar contrato de gestão para auditoria
+      let contratoGestao = '';
+      try {
+        const { data: processoData } = await supabase
+          .from('processos_compras')
+          .select('contratos_gestao(nome_contrato)')
+          .eq('numero_processo_interno', rejeicao.cotacoes_precos?.processos_compras?.numero_processo_interno || '')
+          .maybeSingle();
+        contratoGestao = (processoData as any)?.contratos_gestao?.nome_contrato || '';
+      } catch (e) {
+        console.warn('Erro ao buscar contrato de gestão para auditoria:', e);
+      }
+
+      // Registrar auditoria via RPC (usuário externo)
+      const { error: auditError } = await supabase.rpc('registrar_auditoria_recurso_fornecedor', {
+        p_entidade_id: rejeicaoId,
+        p_fornecedor_nome: fornecedorData.razao_social || '',
+        p_fornecedor_cnpj: fornecedorData.cnpj || '',
+        p_numero_processo: rejeicao.cotacoes_precos?.processos_compras?.numero_processo_interno || '',
+        p_contrato_gestao: contratoGestao,
+        p_titulo_cotacao: rejeicao.cotacoes_precos?.titulo_cotacao || '',
+        p_motivo_rejeicao: rejeicao.motivo_rejeicao || '',
+        p_protocolo: pdfResult.protocolo || ''
+      });
+
+      if (auditError) {
+        console.error('Erro ao registrar auditoria do recurso:', auditError);
+      }
+
       await loadRejeicoes();
       setDesejaRecorrer(prev => ({ ...prev, [rejeicaoId]: false }));
       setMensagemRecurso(prev => ({ ...prev, [rejeicaoId]: '' }));
