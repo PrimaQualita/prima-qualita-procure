@@ -1553,9 +1553,16 @@ export function DialogFinalizarProcesso({
     if (!cotacaoId) return;
 
     try {
-      // Determinar o tipo de autorização esperado baseado no tipo do processo (Compra Direta vs Seleção)
-      // IMPORTANTE: usar requerSelecao (processo.requer_selecao) para evitar exibir/gerar o tipo errado
-      const tipoEsperado = requerSelecao ? 'selecao_fornecedores' : 'compra_direta';
+      // CRÍTICO: Buscar requer_selecao diretamente do banco para evitar condição de corrida
+      // O state requerSelecao pode não estar setado ainda quando esta função é chamada no useEffect
+      const { data: cotacaoData } = await supabase
+        .from("cotacoes_precos")
+        .select("processos_compras!inner(requer_selecao)")
+        .eq("id", cotacaoId)
+        .single();
+      
+      const requerSelecaoAtual = (cotacaoData as any)?.processos_compras?.requer_selecao || false;
+      const tipoEsperado = requerSelecaoAtual ? 'selecao_fornecedores' : 'compra_direta';
       
       const { data, error } = await supabase
         .from("autorizacoes_processo")
