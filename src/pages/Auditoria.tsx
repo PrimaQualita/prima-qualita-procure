@@ -148,6 +148,7 @@ const Auditoria = () => {
   const getAcaoBadge = (log: AuditLog) => {
     const acaoLower = (log.acao || "").toLowerCase();
     const entidadeLower = (log.entidade || "").toLowerCase();
+    const tipoDetalhe = String(log.detalhes?.tipo || "").toLowerCase();
 
     const statusPossivel = String(
       log.detalhes?.status ??
@@ -158,6 +159,16 @@ const Auditoria = () => {
     ).toLowerCase();
 
     const motivoRejeicao = String(log.detalhes?.motivo_rejeicao ?? "").toLowerCase();
+
+    // Finalização de Sessão de Lances
+    if (entidadeLower.includes("sessão de lances") && tipoDetalhe.includes("finalização")) {
+      return (
+        <Badge className="bg-purple-600 hover:bg-purple-700 text-white gap-1">
+          <CheckCircle className="h-3 w-3" />
+          Fechamento
+        </Badge>
+      );
+    }
 
     // Habilitação de Fornecedor
     const isHabilitacao =
