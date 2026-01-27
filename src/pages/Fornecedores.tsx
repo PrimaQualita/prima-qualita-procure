@@ -34,7 +34,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import primaLogo from "@/assets/prima-qualita-logo.png";
-import { ArrowLeft, Plus, Edit, Trash2, Eye, FileText, Copy, CheckCircle, XCircle, Send, Clock } from "lucide-react";
+import { ArrowLeft, Plus, Edit, Trash2, Eye, FileText, Copy, CheckCircle, XCircle, Send, Clock, RotateCcw } from "lucide-react";
 import { toast } from "sonner";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import GestaoDocumentosGestor from "@/components/fornecedores/GestaoDocumentosGestor";
@@ -101,6 +101,7 @@ export default function Fornecedores() {
   const [extraindoDataCertificado, setExtraindoDataCertificado] = useState(false);
   const [avaliacoesCompliance, setAvaliacoesCompliance] = useState<Record<string, any>>({});
   const [enviandoCompliance, setEnviandoCompliance] = useState<string | null>(null);
+  const [resetandoSenha, setResetandoSenha] = useState<string | null>(null);
   
   const [formDataPergunta, setFormDataPergunta] = useState({
     texto_pergunta: "",
@@ -556,6 +557,28 @@ export default function Fornecedores() {
     }
   };
 
+  const handleResetSenhaFornecedor = async (fornecedorId: string) => {
+    setResetandoSenha(fornecedorId);
+    try {
+      const { data, error } = await supabase.functions.invoke("resetar-senha-fornecedor", {
+        body: { fornecedorId },
+      });
+
+      if (error) throw error;
+
+      if (data?.error) {
+        throw new Error(data.error);
+      }
+
+      toast.success("Senha resetada com sucesso! A nova senha temporária é o CNPJ (apenas números, 14 dígitos). O fornecedor deverá trocá-la no próximo login.");
+      loadFornecedores();
+    } catch (error: any) {
+      toast.error("Erro ao resetar senha: " + error.message);
+    } finally {
+      setResetandoSenha(null);
+    }
+  };
+
   const getNivelPontuacao = (pontos: number) => {
     if (pontos === 0) {
       return { label: "Satisfatório", cor: "text-green-600", bg: "bg-green-500/10" };
@@ -722,6 +745,17 @@ export default function Fornecedores() {
                           >
                             <Eye className="h-4 w-4" />
                           </Button>
+                          {isGestor && canEdit && fornecedor.user_id && (
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => handleResetSenhaFornecedor(fornecedor.id)}
+                              disabled={resetandoSenha === fornecedor.id}
+                              title="Resetar senha para CNPJ"
+                            >
+                              <RotateCcw className={`h-4 w-4 ${resetandoSenha === fornecedor.id ? 'animate-spin' : ''}`} />
+                            </Button>
+                          )}
                           {isGestor && canEdit && (
                             <Button
                               variant="ghost"
