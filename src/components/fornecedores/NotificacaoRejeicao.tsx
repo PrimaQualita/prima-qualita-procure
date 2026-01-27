@@ -21,6 +21,9 @@ interface Rejeicao {
     titulo_cotacao: string;
     processos_compras: {
       numero_processo_interno: string;
+      contratos_gestao?: {
+        nome_contrato: string;
+      } | null;
     };
   };
   resposta_recurso?: {
@@ -160,7 +163,10 @@ export function NotificacaoRejeicao({ fornecedorId, onRecursoEnviado }: Notifica
             id,
             titulo_cotacao,
             processos_compras (
-              numero_processo_interno
+              numero_processo_interno,
+              contratos_gestao (
+                nome_contrato
+              )
             )
           `)
           .in('id', cotacaoIds);
@@ -273,18 +279,8 @@ export function NotificacaoRejeicao({ fornecedorId, onRecursoEnviado }: Notifica
 
       if (updateError) throw updateError;
 
-      // Buscar contrato de gestão para auditoria
-      let contratoGestao = '';
-      try {
-        const { data: processoData } = await supabase
-          .from('processos_compras')
-          .select('contratos_gestao(nome_contrato)')
-          .eq('numero_processo_interno', rejeicao.cotacoes_precos?.processos_compras?.numero_processo_interno || '')
-          .maybeSingle();
-        contratoGestao = (processoData as any)?.contratos_gestao?.nome_contrato || '';
-      } catch (e) {
-        console.warn('Erro ao buscar contrato de gestão para auditoria:', e);
-      }
+      // Obter contrato de gestão dos dados já carregados
+      const contratoGestao = rejeicao.cotacoes_precos?.processos_compras?.contratos_gestao?.nome_contrato || '';
 
       // Registrar auditoria via RPC (usuário externo)
       const { error: auditError } = await supabase.rpc('registrar_auditoria_recurso_fornecedor', {
