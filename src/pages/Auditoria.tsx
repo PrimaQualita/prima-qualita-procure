@@ -300,6 +300,11 @@ const Auditoria = () => {
     const detalhes = log.detalhes;
     if (!detalhes) return log.entidade;
 
+    // Para Planilha de Lances, exibir nome formatado
+    if (log.entidade === 'Planilha de Lances' && detalhes.numero_selecao) {
+      return `Planilha de Lances - Seleção ${detalhes.numero_selecao}`;
+    }
+
     // Para uploads do fornecedor, priorizar o nome do arquivo original (quando disponível)
     if (detalhes.tipo === 'Documento Adicional - Upload Fornecedor' && detalhes.nome_arquivo) {
       return detalhes.nome_documento
