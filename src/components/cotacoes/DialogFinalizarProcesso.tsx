@@ -29,6 +29,7 @@ import { gerarEncaminhamentoContabilidadePDF, gerarProtocoloContabilidade } from
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { stripHtml } from "@/lib/htmlUtils";
 import { identificarVencedoresPorCriterio, carregarItensVencedoresPorFornecedor } from "@/lib/identificadorVencedores";
+import { registrarAuditoria } from "@/lib/registrarAuditoria";
 import { copiarDocumentosFornecedorParaProcesso } from "@/lib/copiarArquivoStorage";
 
 interface FornecedorVencedor {
@@ -352,6 +353,31 @@ export function DialogFinalizarProcesso({
       supabase.removeChannel(documentosChannel);
     };
   }, [open, cotacaoId]);
+
+  // Helper para obter dados do processo/contrato de gestão para auditoria
+  const obterDadosProcessoParaAuditoria = async () => {
+    try {
+      const { data } = await supabase
+        .from("cotacoes_precos")
+        .select(`
+          titulo_cotacao,
+          processos_compras!inner(
+            numero_processo_interno,
+            contratos_gestao!inner(nome_contrato)
+          )
+        `)
+        .eq("id", cotacaoId)
+        .single();
+      
+      return {
+        numero_processo: data?.processos_compras?.numero_processo_interno || "",
+        contrato_gestao: data?.processos_compras?.contratos_gestao?.nome_contrato || "",
+        titulo_cotacao: data?.titulo_cotacao || ""
+      };
+    } catch {
+      return { numero_processo: "", contrato_gestao: "", titulo_cotacao: "" };
+    }
+  };
 
   const loadFornecedoresRejeitados = async () => {
     if (!cotacaoId) return;
@@ -1582,7 +1608,7 @@ export function DialogFinalizarProcesso({
 
       const proximaOrdem = maxOrdemData ? maxOrdemData.ordem + 1 : 0;
 
-      const { error } = await supabase
+      const { data: novoRegistro, error } = await supabase
         .from("campos_documentos_finalizacao")
         .insert({
           cotacao_id: cotacaoId,
@@ -1593,13 +1619,36 @@ export function DialogFinalizarProcesso({
           ordem: proximaOrdem,
           status_solicitacao: "pendente",
           data_solicitacao: new Date().toISOString()
-        });
+        })
+        .select("id")
+        .single();
 
       if (error) {
         console.error("Erro detalhado ao adicionar documento:", error);
         toast.error(`Erro ao adicionar documento: ${error.message || 'Erro desconhecido'}`);
         return;
       }
+
+      // Buscar nome do fornecedor para auditoria
+      const fornecedorData = fornecedoresData.find(f => f.fornecedor.id === fornecedorId);
+      const dadosProcesso = await obterDadosProcessoParaAuditoria();
+
+      // Registrar auditoria
+      registrarAuditoria({
+        acao: 'criação',
+        entidade: 'Documento Adicional (Solicitação)',
+        entidade_id: novoRegistro?.id,
+        detalhes: {
+          nome_documento: campoFornecedor.nome.trim(),
+          descricao: campoFornecedor.descricao?.trim(),
+          fornecedor: fornecedorData?.fornecedor.razao_social || '',
+          data_limite: dataLimite,
+          numero_processo: dadosProcesso.numero_processo,
+          contrato_gestao: dadosProcesso.contrato_gestao,
+          titulo_cotacao: dadosProcesso.titulo_cotacao,
+          tipo: 'Solicitação de Documento Adicional'
+        }
+      });
 
       toast.success("Documento adicionado à lista");
       
@@ -1641,6 +1690,25 @@ export function DialogFinalizarProcesso({
 
       if (error) throw error;
 
+      // Registrar auditoria para cada documento notificado
+      const dadosProcesso = await obterDadosProcessoParaAuditoria();
+      for (const campo of camposPendentes) {
+        registrarAuditoria({
+          acao: 'atualização',
+          entidade: 'Documento Adicional (Notificação)',
+          entidade_id: campo.id,
+          detalhes: {
+            nome_documento: campo.nome_campo,
+            fornecedor: fornecedorData.fornecedor.razao_social,
+            status: 'Notificação enviada ao fornecedor',
+            numero_processo: dadosProcesso.numero_processo,
+            contrato_gestao: dadosProcesso.contrato_gestao,
+            titulo_cotacao: dadosProcesso.titulo_cotacao,
+            tipo: 'Notificação de Documento Adicional'
+          }
+        });
+      }
+
       toast.success("Fornecedor notificado sobre documentos pendentes");
       await loadAllFornecedores();
     } catch (error) {
@@ -1652,6 +1720,14 @@ export function DialogFinalizarProcesso({
   const aprovarDocumento = async (campoId: string) => {
     try {
       console.log("📋 Aprovando documento:", campoId);
+      
+      // Buscar dados do documento antes de aprovar
+      const { data: campoData } = await supabase
+        .from("campos_documentos_finalizacao")
+        .select("nome_campo, fornecedor_id, fornecedores!inner(razao_social)")
+        .eq("id", campoId)
+        .single();
+      
       const { data, error } = await supabase
         .from("campos_documentos_finalizacao")
         .update({
@@ -1665,6 +1741,23 @@ export function DialogFinalizarProcesso({
 
       if (error) throw error;
 
+      // Registrar auditoria
+      const dadosProcesso = await obterDadosProcessoParaAuditoria();
+      registrarAuditoria({
+        acao: 'atualização',
+        entidade: 'Documento Adicional (Aprovação)',
+        entidade_id: campoId,
+        detalhes: {
+          nome_documento: campoData?.nome_campo || '',
+          fornecedor: (campoData?.fornecedores as any)?.razao_social || '',
+          status: 'Aprovado',
+          numero_processo: dadosProcesso.numero_processo,
+          contrato_gestao: dadosProcesso.contrato_gestao,
+          titulo_cotacao: dadosProcesso.titulo_cotacao,
+          tipo: 'Aprovação de Documento Adicional'
+        }
+      });
+
       toast.success("Documento aprovado");
       await loadAllFornecedores();
     } catch (error) {
@@ -1675,6 +1768,13 @@ export function DialogFinalizarProcesso({
 
   const rejeitarDocumento = async (campoId: string) => {
     try {
+      // Buscar dados do documento antes de rejeitar
+      const { data: campoData } = await supabase
+        .from("campos_documentos_finalizacao")
+        .select("nome_campo, fornecedor_id, fornecedores!inner(razao_social)")
+        .eq("id", campoId)
+        .single();
+      
       const { error } = await supabase
         .from("campos_documentos_finalizacao")
         .update({
@@ -1684,6 +1784,23 @@ export function DialogFinalizarProcesso({
         .eq("id", campoId);
 
       if (error) throw error;
+
+      // Registrar auditoria
+      const dadosProcesso = await obterDadosProcessoParaAuditoria();
+      registrarAuditoria({
+        acao: 'atualização',
+        entidade: 'Documento Adicional (Rejeição)',
+        entidade_id: campoId,
+        detalhes: {
+          nome_documento: campoData?.nome_campo || '',
+          fornecedor: (campoData?.fornecedores as any)?.razao_social || '',
+          status: 'Rejeitado',
+          numero_processo: dadosProcesso.numero_processo,
+          contrato_gestao: dadosProcesso.contrato_gestao,
+          titulo_cotacao: dadosProcesso.titulo_cotacao,
+          tipo: 'Rejeição de Documento Adicional'
+        }
+      });
 
       toast.success("Documento rejeitado");
       await loadAllFornecedores();
@@ -1725,6 +1842,13 @@ export function DialogFinalizarProcesso({
 
   const reverterAprovacaoDocumento = async (campoId: string) => {
     try {
+      // Buscar dados do documento antes de reverter
+      const { data: campoData } = await supabase
+        .from("campos_documentos_finalizacao")
+        .select("nome_campo, fornecedor_id, fornecedores!inner(razao_social)")
+        .eq("id", campoId)
+        .single();
+      
       const { error } = await supabase
         .from("campos_documentos_finalizacao")
         .update({
@@ -1734,6 +1858,23 @@ export function DialogFinalizarProcesso({
         .eq("id", campoId);
 
       if (error) throw error;
+
+      // Registrar auditoria
+      const dadosProcesso = await obterDadosProcessoParaAuditoria();
+      registrarAuditoria({
+        acao: 'atualização',
+        entidade: 'Documento Adicional (Reversão)',
+        entidade_id: campoId,
+        detalhes: {
+          nome_documento: campoData?.nome_campo || '',
+          fornecedor: (campoData?.fornecedores as any)?.razao_social || '',
+          status: 'Aprovação revertida',
+          numero_processo: dadosProcesso.numero_processo,
+          contrato_gestao: dadosProcesso.contrato_gestao,
+          titulo_cotacao: dadosProcesso.titulo_cotacao,
+          tipo: 'Reversão de Aprovação de Documento Adicional'
+        }
+      });
 
       toast.success("Aprovação revertida");
       await loadAllFornecedores();
@@ -3543,6 +3684,23 @@ export function DialogFinalizarProcesso({
 
                                           if (error) throw error;
 
+                                          // Registrar auditoria da reversão de rejeição
+                                          const dadosProcesso = await obterDadosProcessoParaAuditoria();
+                                          registrarAuditoria({
+                                            acao: 'atualização',
+                                            entidade: 'Documento Adicional (Reversão Rejeição)',
+                                            entidade_id: campo.id,
+                                            detalhes: {
+                                              nome_documento: campo.nome_campo,
+                                              fornecedor: fornData.fornecedor.razao_social,
+                                              status: 'Rejeição revertida (voltou para análise)',
+                                              numero_processo: dadosProcesso.numero_processo,
+                                              contrato_gestao: dadosProcesso.contrato_gestao,
+                                              titulo_cotacao: dadosProcesso.titulo_cotacao,
+                                              tipo: 'Reversão de Rejeição de Documento Adicional'
+                                            }
+                                          });
+
                                           toast.success("Rejeição revertida");
                                           await loadAllFornecedores();
                                         } catch (error) {
@@ -3601,6 +3759,25 @@ export function DialogFinalizarProcesso({
                                           .eq("id", campo.id!);
 
                                         if (error) throw error;
+
+                                        // Registrar auditoria da exclusão
+                                        const dadosProcesso = await obterDadosProcessoParaAuditoria();
+                                        registrarAuditoria({
+                                          acao: 'exclusão',
+                                          entidade: 'Documento Adicional (Solicitação)',
+                                          entidade_id: campo.id,
+                                          detalhes: {
+                                            nome_documento: campo.nome_campo,
+                                            descricao: campo.descricao || '',
+                                            fornecedor: fornData.fornecedor.razao_social,
+                                            status_anterior: campo.status_solicitacao || 'pendente',
+                                            tinha_arquivo: docsAssociados && docsAssociados.length > 0,
+                                            numero_processo: dadosProcesso.numero_processo,
+                                            contrato_gestao: dadosProcesso.contrato_gestao,
+                                            titulo_cotacao: dadosProcesso.titulo_cotacao,
+                                            tipo: 'Exclusão de Solicitação de Documento Adicional'
+                                          }
+                                        });
 
                                         toast.success("Solicitação excluída com sucesso");
                                         await loadAllFornecedores();

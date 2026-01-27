@@ -171,7 +171,7 @@ const Auditoria = () => {
     const traducoes: Record<string, string> = {
       numero_processo: "Número do Processo",
       nome_arquivo: "Nome do Arquivo",
-      nome_documento: "Tipo de Documento",
+      nome_documento: "Nome do Documento",
       tipo: "Categoria",
       objeto: "Objeto",
       titulo: "Título",
@@ -196,6 +196,9 @@ const Auditoria = () => {
       valor_total: "Valor Total",
       quantidade_itens: "Quantidade de Itens",
       cnpj: "CNPJ",
+      data_limite: "Data Limite",
+      status_anterior: "Status Anterior",
+      tinha_arquivo: "Tinha Arquivo",
     };
     return traducoes[chave] || chave;
   };
