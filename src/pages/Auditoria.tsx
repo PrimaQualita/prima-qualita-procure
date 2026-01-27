@@ -173,19 +173,31 @@ const Auditoria = () => {
       );
     }
 
-    // Rejeição de Fornecedor (entidade específica ou status/motivo)
-    const isRejeicao =
+    // Inabilitação de Fornecedor (apenas entidade específica de rejeição de fornecedor)
+    const isInabilitacaoFornecedor =
       entidadeLower.includes("rejeição fornecedor") ||
-      entidadeLower.includes("rejeicao fornecedor") ||
-      statusPossivel.includes("rejeit") ||
-      statusPossivel.includes("reprov") ||
-      motivoRejeicao.length > 0;
+      entidadeLower.includes("rejeicao fornecedor");
 
-    if (isRejeicao) {
+    if (isInabilitacaoFornecedor) {
       return (
         <Badge className="bg-red-500 hover:bg-red-600 text-white gap-1">
           <XCircle className="h-3 w-3" />
           Inabilitado
+        </Badge>
+      );
+    }
+
+    // Rejeição genérica (documentos adicionais, etc.)
+    const isRejeicaoGenerica =
+      statusPossivel.includes("rejeit") ||
+      statusPossivel.includes("reprov") ||
+      (motivoRejeicao.length > 0 && !isInabilitacaoFornecedor);
+
+    if (isRejeicaoGenerica) {
+      return (
+        <Badge className="bg-orange-500 hover:bg-orange-600 text-white gap-1">
+          <XCircle className="h-3 w-3" />
+          Rejeitado
         </Badge>
       );
     }
