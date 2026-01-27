@@ -20,7 +20,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Eye, FileText, Plus, Trash2, Edit } from "lucide-react";
+import { Eye, FileText, Plus, Trash2, Edit, XCircle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 interface AuditLog {
@@ -145,8 +145,34 @@ const Auditoria = () => {
       log.detalhes?.numero_processo?.toLowerCase().includes(filtro.toLowerCase())
   );
 
-  const getAcaoBadge = (acao: string) => {
-    const acaoLower = acao.toLowerCase();
+  const getAcaoBadge = (log: AuditLog) => {
+    const acaoLower = (log.acao || "").toLowerCase();
+
+    const statusPossivel = String(
+      log.detalhes?.status ??
+        log.detalhes?.status_aprovacao ??
+        log.detalhes?.status_solicitacao ??
+        log.detalhes?.status_avaliacao ??
+        ""
+    ).toLowerCase();
+
+    const motivoRejeicao = String(log.detalhes?.motivo_rejeicao ?? "").toLowerCase();
+
+    // Rejeição: muitos fluxos gravam como "edição/atualização", mas o status/motivo indica rejeição.
+    const isRejeicao =
+      statusPossivel.includes("rejeit") ||
+      statusPossivel.includes("reprov") ||
+      motivoRejeicao.length > 0;
+
+    if (isRejeicao) {
+      return (
+        <Badge className="bg-red-500 hover:bg-red-600 text-white gap-1">
+          <XCircle className="h-3 w-3" />
+          Rejeição
+        </Badge>
+      );
+    }
+
     if (acaoLower.includes("criar") || acaoLower.includes("insert") || acaoLower.includes("criação")) {
       return (
         <Badge className="bg-emerald-500 hover:bg-emerald-600 text-white gap-1">
@@ -171,7 +197,7 @@ const Auditoria = () => {
         </Badge>
       );
     }
-    return <Badge variant="outline">{acao}</Badge>;
+    return <Badge variant="outline">{log.acao}</Badge>;
   };
 
   const getNomeArquivo = (log: AuditLog) => {
@@ -293,7 +319,7 @@ const Auditoria = () => {
                         <TableCell className="text-xs font-mono">
                           {new Date(log.created_at).toLocaleString("pt-BR")}
                         </TableCell>
-                        <TableCell>{getAcaoBadge(log.acao)}</TableCell>
+                        <TableCell>{getAcaoBadge(log)}</TableCell>
                         <TableCell>
                           <div className="flex items-center gap-2">
                             <FileText className="h-4 w-4 text-muted-foreground flex-shrink-0" />
@@ -353,7 +379,7 @@ const Auditoria = () => {
                 </div>
                 <div>
                   <p className="text-xs text-muted-foreground">Ação</p>
-                  <div className="mt-0.5">{getAcaoBadge(logSelecionado.acao)}</div>
+                    <div className="mt-0.5">{getAcaoBadge(logSelecionado)}</div>
                 </div>
                 <div>
                   <p className="text-xs text-muted-foreground">Usuário</p>
