@@ -465,45 +465,51 @@ serve(async (req) => {
     }
 
     // ===== AUDITORIA =====
-    try {
-      // Buscar dados adicionais para auditoria
-      const { data: selecaoData } = await supabase
-        .from("selecoes_fornecedores")
-        .select(`
-          titulo_selecao,
-          processos_compras!inner(
-            numero_processo_interno,
-            contratos_gestao(nome_contrato)
-          )
-        `)
-        .eq("id", selecaoId)
-        .maybeSingle();
+    // Buscar dados adicionais para auditoria
+    const { data: selecaoData, error: selecaoError } = await supabase
+      .from("selecoes_fornecedores")
+      .select(`
+        titulo_selecao,
+        processos_compras!inner(
+          numero_processo_interno,
+          contratos_gestao(nome_contrato)
+        )
+      `)
+      .eq("id", selecaoId)
+      .maybeSingle();
 
-      const numeroProcessoAudit = (selecaoData as any)?.processos_compras?.numero_processo_interno || numeroProcesso || "";
-      const contratoGestao = (selecaoData as any)?.processos_compras?.contratos_gestao?.nome_contrato || "";
-      const tituloSelecao = selecaoData?.titulo_selecao || numeroSelecao || "";
+    if (selecaoError) {
+      console.warn("Erro ao buscar dados da seleção para auditoria:", selecaoError);
+    }
 
-      await supabase
-        .from("audit_logs")
-        .insert({
-          acao: "criação",
-          entidade: "Recurso Inabilitação",
-          entidade_id: recursoId,
-          usuario_nome: fornecedorNome || "Fornecedor",
-          usuario_tipo: "fornecedor",
-          detalhes: {
-            tipo: "Recurso de Inabilitação - Envio Fornecedor",
-            protocolo: protocolo,
-            fornecedor: fornecedorNome,
-            cnpj: fornecedorCnpj,
-            numero_processo: numeroProcessoAudit,
-            contrato_gestao: contratoGestao,
-            titulo_selecao: tituloSelecao,
-            motivo_inabilitacao: motivoInabilitacao,
-          },
-        });
-    } catch (auditError) {
-      console.warn("Erro ao registrar auditoria do recurso (não bloqueia envio):", auditError);
+    const numeroProcessoAudit = (selecaoData as any)?.processos_compras?.numero_processo_interno || numeroProcesso || "";
+    const contratoGestao = (selecaoData as any)?.processos_compras?.contratos_gestao?.nome_contrato || "";
+    const tituloSelecao = selecaoData?.titulo_selecao || numeroSelecao || "";
+
+    const { error: auditError } = await supabase
+      .from("audit_logs")
+      .insert({
+        acao: "criação",
+        entidade: "Recurso Inabilitação",
+        entidade_id: recursoId,
+        usuario_nome: fornecedorNome || "Fornecedor",
+        usuario_tipo: "fornecedor",
+        detalhes: {
+          tipo: "Recurso de Inabilitação - Envio Fornecedor",
+          protocolo: protocolo,
+          fornecedor: fornecedorNome,
+          cnpj: fornecedorCnpj,
+          numero_processo: numeroProcessoAudit,
+          contrato_gestao: contratoGestao,
+          titulo_selecao: tituloSelecao,
+          motivo_inabilitacao: motivoInabilitacao,
+        },
+      });
+
+    if (auditError) {
+      console.error("Erro ao registrar auditoria do recurso:", auditError);
+    } else {
+      console.log("Auditoria de recurso registrada com sucesso:", protocolo);
     }
 
     return new Response(
