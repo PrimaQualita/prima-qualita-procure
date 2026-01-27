@@ -496,6 +496,14 @@ export default function PropostasSelecao() {
 
       // Registrar auditoria da exclusão
       try {
+        // Formatar protocolo UUID para padrão curto XXXX-XXXX-XXXX-XXXX
+        const protocoloRaw = (propostaParaExcluirCompleta as any).protocolo || null;
+        let protocoloFormatado: string | null = null;
+        if (protocoloRaw) {
+          const limpo = protocoloRaw.replace(/-/g, '').toUpperCase().substring(0, 16);
+          protocoloFormatado = `${limpo.substring(0, 4)}-${limpo.substring(4, 8)}-${limpo.substring(8, 12)}-${limpo.substring(12, 16)}`;
+        }
+
         await registrarAuditoria({
           acao: 'exclusão',
           entidade: 'Proposta de Seleção',
@@ -507,7 +515,7 @@ export default function PropostasSelecao() {
             numero_selecao: selecao?.numero_selecao || 'N/A',
             numero_processo: selecao?.processos_compras?.numero_processo_interno || '',
             contrato_gestao: selecao?.processos_compras?.contratos_gestao?.nome_contrato || 'N/A',
-            protocolo: (propostaParaExcluirCompleta as any).protocolo || null,
+            protocolo: protocoloFormatado,
           },
         });
       } catch (auditError) {
@@ -783,6 +791,14 @@ export default function PropostasSelecao() {
 
       // Registrar auditoria da exclusão
       try {
+        // Formatar protocolo UUID para padrão curto XXXX-XXXX-XXXX-XXXX
+        const protocoloRawRealinhada = propostaRealinhadaParaExcluir.protocolo || null;
+        let protocoloFormatadoRealinhada: string | null = null;
+        if (protocoloRawRealinhada) {
+          const limpo = protocoloRawRealinhada.replace(/-/g, '').toUpperCase().substring(0, 16);
+          protocoloFormatadoRealinhada = `${limpo.substring(0, 4)}-${limpo.substring(4, 8)}-${limpo.substring(8, 12)}-${limpo.substring(12, 16)}`;
+        }
+
         await registrarAuditoria({
           acao: 'exclusão',
           entidade: 'Proposta Realinhada (Seleção)',
@@ -793,7 +809,7 @@ export default function PropostasSelecao() {
             numero_selecao: selecao?.numero_selecao || 'N/A',
             numero_processo: selecao?.processos_compras?.numero_processo_interno || '',
             contrato_gestao: selecao?.processos_compras?.contratos_gestao?.nome_contrato || 'N/A',
-            protocolo: propostaRealinhadaParaExcluir.protocolo || null,
+            protocolo: protocoloFormatadoRealinhada,
           },
         });
       } catch (auditError) {
