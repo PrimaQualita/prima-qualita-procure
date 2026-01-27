@@ -41,6 +41,7 @@ interface PropostaFornecedor {
   motivo_desclassificacao: string | null;
   email: string | null;
   url_pdf_proposta: string | null;
+  protocolo?: string | null;
   fornecedor: {
     razao_social: string;
     cnpj: string;
@@ -95,7 +96,7 @@ export default function PropostasSelecao() {
       // Carregar seleção e processo
       const { data: selecaoData, error: selecaoError } = await supabase
         .from("selecoes_fornecedores")
-        .select("*, processos_compras(*)")
+        .select("*, processos_compras(*, contratos_gestao:contrato_gestao_id(nome_contrato))")
         .eq("id", selecaoId)
         .single();
 
@@ -135,7 +136,7 @@ export default function PropostasSelecao() {
       // Carregar seleção e processo
       const { data: selecaoData, error: selecaoError } = await supabase
         .from("selecoes_fornecedores")
-        .select("*, processos_compras(*)")
+        .select("*, processos_compras(*, contratos_gestao:contrato_gestao_id(nome_contrato))")
         .eq("id", selecaoId)
         .single();
 
@@ -144,7 +145,7 @@ export default function PropostasSelecao() {
       setSelecao(selecaoData);
       setProcesso(selecaoData.processos_compras);
 
-      // Carregar propostas dos fornecedores
+      // Carregar propostas dos fornecedores (incluindo protocolo)
       const { data: propostasData, error: propostasError } = await supabase
         .from("selecao_propostas_fornecedor")
         .select(`
@@ -505,6 +506,8 @@ export default function PropostasSelecao() {
             valor_proposta: propostaParaExcluirCompleta.valor_total_proposta,
             numero_selecao: selecao?.numero_selecao || 'N/A',
             numero_processo: selecao?.processos_compras?.numero_processo_interno || '',
+            contrato_gestao: selecao?.processos_compras?.contratos_gestao?.nome_contrato || 'N/A',
+            protocolo: (propostaParaExcluirCompleta as any).protocolo || null,
           },
         });
       } catch (auditError) {
@@ -785,10 +788,12 @@ export default function PropostasSelecao() {
           entidade: 'Proposta Realinhada (Seleção)',
           entidade_id: propostaRealinhadaParaExcluir.id,
           detalhes: {
-            fornecedor: propostaRealinhadaParaExcluir.fornecedores?.razao_social || 'N/A',
-            cnpj: propostaRealinhadaParaExcluir.fornecedores?.cnpj || 'N/A',
+            fornecedor: propostaRealinhadaParaExcluir.fornecedor?.razao_social || propostaRealinhadaParaExcluir.fornecedores?.razao_social || 'N/A',
+            cnpj: propostaRealinhadaParaExcluir.fornecedor?.cnpj || propostaRealinhadaParaExcluir.fornecedores?.cnpj || 'N/A',
             numero_selecao: selecao?.numero_selecao || 'N/A',
             numero_processo: selecao?.processos_compras?.numero_processo_interno || '',
+            contrato_gestao: selecao?.processos_compras?.contratos_gestao?.nome_contrato || 'N/A',
+            protocolo: propostaRealinhadaParaExcluir.protocolo || null,
           },
         });
       } catch (auditError) {
