@@ -231,6 +231,27 @@ export function DialogFinalizarProcesso({
         usuario_gerador_nome: profile?.nome_completo || "Usuário"
       });
       
+      // Registrar auditoria da geração do encaminhamento para contabilidade
+      try {
+        const dadosProcesso = await obterDadosProcessoParaAuditoria();
+        await registrarAuditoria({
+          acao: 'criação',
+          entidade: 'Encaminhamento Contabilidade',
+          entidade_id: cotacaoId,
+          detalhes: {
+            tipo: 'Encaminhamento para Contabilidade',
+            protocolo,
+            nome_arquivo: resultado.fileName,
+            numero_processo: dadosProcesso.numero_processo,
+            contrato_gestao: dadosProcesso.contrato_gestao,
+            titulo_cotacao: dadosProcesso.titulo_cotacao,
+            fornecedores_vencedores: fornecedoresVencedores.map(f => f.razaoSocial).join(', '),
+          },
+        });
+      } catch (auditError) {
+        console.warn('Erro ao registrar auditoria do encaminhamento para contabilidade:', auditError);
+      }
+      
       toast.success("Encaminhamento para Contabilidade gerado!");
       await loadEncaminhamentosContabilidade();
     } catch (error: any) {
@@ -277,6 +298,28 @@ export function DialogFinalizarProcesso({
       
       // 3. Deletar o registro do banco
       await supabase.from('encaminhamentos_contabilidade').delete().eq('id', encContabParaExcluir.id);
+      
+      // Registrar auditoria da exclusão do encaminhamento para contabilidade
+      try {
+        const dadosProcesso = await obterDadosProcessoParaAuditoria();
+        await registrarAuditoria({
+          acao: 'exclusão',
+          entidade: 'Encaminhamento Contabilidade',
+          entidade_id: encContabParaExcluir.id,
+          detalhes: {
+            tipo: 'Encaminhamento para Contabilidade',
+            protocolo: encContabParaExcluir.protocolo || null,
+            nome_arquivo: encContabParaExcluir.nome_arquivo,
+            numero_processo: encContabParaExcluir.processo_numero || dadosProcesso.numero_processo,
+            contrato_gestao: dadosProcesso.contrato_gestao,
+            titulo_cotacao: dadosProcesso.titulo_cotacao,
+            tinha_resposta: !!encContabParaExcluir.respondido_contabilidade,
+          },
+        });
+      } catch (auditError) {
+        console.warn('Erro ao registrar auditoria da exclusão do encaminhamento:', auditError);
+      }
+      
       toast.success('Encaminhamento excluído');
       setConfirmDeleteEncContabOpen(false);
       setEncContabParaExcluir(null);
@@ -2093,6 +2136,30 @@ export function DialogFinalizarProcesso({
 
       if (dbError) throw dbError;
 
+      // Registrar auditoria da exclusão da autorização
+      try {
+        const dadosProcesso = await obterDadosProcessoParaAuditoria();
+        const tipoNome = autorizacaoParaExcluir.tipo_autorizacao === 'selecao_fornecedores' 
+          ? 'Seleção de Fornecedores' 
+          : 'Compra Direta';
+        await registrarAuditoria({
+          acao: 'exclusão',
+          entidade: 'Autorização de Processo',
+          entidade_id: autorizacaoParaExcluir.id,
+          detalhes: {
+            tipo: `Autorização de ${tipoNome}`,
+            tipo_autorizacao: autorizacaoParaExcluir.tipo_autorizacao,
+            protocolo: autorizacaoParaExcluir.protocolo || null,
+            nome_arquivo: autorizacaoParaExcluir.nome_arquivo,
+            numero_processo: dadosProcesso.numero_processo,
+            contrato_gestao: dadosProcesso.contrato_gestao,
+            titulo_cotacao: dadosProcesso.titulo_cotacao,
+          },
+        });
+      } catch (auditError) {
+        console.warn('Erro ao registrar auditoria da exclusão da autorização:', auditError);
+      }
+
       setAutorizacaoParaExcluir(null);
       setConfirmDeleteAutorizacaoOpen(false);
       await loadAutorizacoes();
@@ -2346,6 +2413,26 @@ export function DialogFinalizarProcesso({
 
       if (dbError) throw dbError;
 
+      // Registrar auditoria da exclusão do relatório final
+      try {
+        const dadosProcesso = await obterDadosProcessoParaAuditoria();
+        await registrarAuditoria({
+          acao: 'exclusão',
+          entidade: 'Relatório Final',
+          entidade_id: relatorioParaExcluir.id,
+          detalhes: {
+            tipo: 'Relatório Final',
+            protocolo: relatorioParaExcluir.protocolo || null,
+            nome_arquivo: relatorioParaExcluir.nome_arquivo,
+            numero_processo: dadosProcesso.numero_processo,
+            contrato_gestao: dadosProcesso.contrato_gestao,
+            titulo_cotacao: dadosProcesso.titulo_cotacao,
+          },
+        });
+      } catch (auditError) {
+        console.warn('Erro ao registrar auditoria da exclusão do relatório final:', auditError);
+      }
+
       setRelatorioParaExcluir(null);
       setConfirmDeleteRelatorioOpen(false);
       await loadRelatorioFinal();
@@ -2539,12 +2626,13 @@ export function DialogFinalizarProcesso({
         .getPublicUrl(storagePath);
 
       // Salvar no banco
+      const nomeArquivo = `Planilha_Habilitacao_${processo.numero_processo_interno.replace(/\//g, '-')}.pdf`;
       const { error: insertError } = await supabase
         .from("planilhas_habilitacao")
         .insert({
           cotacao_id: cotacaoId,
           protocolo,
-          nome_arquivo: `Planilha_Habilitacao_${processo.numero_processo_interno.replace(/\//g, '-')}.pdf`,
+          nome_arquivo: nomeArquivo,
           url_arquivo: urlData.publicUrl,
           storage_path: storagePath,
           usuario_gerador_id: user!.id,
@@ -2552,6 +2640,26 @@ export function DialogFinalizarProcesso({
         });
 
       if (insertError) throw insertError;
+
+      // Registrar auditoria da geração da planilha final
+      try {
+        const dadosProcesso = await obterDadosProcessoParaAuditoria();
+        await registrarAuditoria({
+          acao: 'criação',
+          entidade: 'Planilha de Habilitação',
+          entidade_id: cotacaoId,
+          detalhes: {
+            tipo: 'Planilha de Habilitação (Final)',
+            protocolo,
+            nome_arquivo: nomeArquivo,
+            numero_processo: dadosProcesso.numero_processo,
+            contrato_gestao: dadosProcesso.contrato_gestao,
+            titulo_cotacao: dadosProcesso.titulo_cotacao,
+          },
+        });
+      } catch (auditError) {
+        console.warn('Erro ao registrar auditoria da planilha final:', auditError);
+      }
 
       await loadPlanilhasHabilitacao();
       toast.success("Planilha Final gerada com sucesso!");
@@ -2601,6 +2709,26 @@ export function DialogFinalizarProcesso({
         .eq("id", planilhaHabParaExcluir.id);
 
       if (dbError) throw dbError;
+
+      // Registrar auditoria da exclusão da planilha final
+      try {
+        const dadosProcesso = await obterDadosProcessoParaAuditoria();
+        await registrarAuditoria({
+          acao: 'exclusão',
+          entidade: 'Planilha de Habilitação',
+          entidade_id: planilhaHabParaExcluir.id,
+          detalhes: {
+            tipo: 'Planilha de Habilitação (Final)',
+            protocolo: planilhaHabParaExcluir.protocolo || null,
+            nome_arquivo: planilhaHabParaExcluir.nome_arquivo,
+            numero_processo: dadosProcesso.numero_processo,
+            contrato_gestao: dadosProcesso.contrato_gestao,
+            titulo_cotacao: dadosProcesso.titulo_cotacao,
+          },
+        });
+      } catch (auditError) {
+        console.warn('Erro ao registrar auditoria da exclusão da planilha final:', auditError);
+      }
 
       setPlanilhaHabParaExcluir(null);
       setConfirmDeletePlanilhaHabOpen(false);
@@ -2841,6 +2969,27 @@ export function DialogFinalizarProcesso({
 
       if (insertError) throw insertError;
 
+      // Registrar auditoria da geração do relatório final
+      try {
+        const dadosProcesso = await obterDadosProcessoParaAuditoria();
+        await registrarAuditoria({
+          acao: 'criação',
+          entidade: 'Relatório Final',
+          entidade_id: insertData?.id || cotacaoId,
+          detalhes: {
+            tipo: 'Relatório Final',
+            protocolo: resultado.protocolo,
+            nome_arquivo: resultado.fileName,
+            numero_processo: dadosProcesso.numero_processo,
+            contrato_gestao: dadosProcesso.contrato_gestao,
+            titulo_cotacao: dadosProcesso.titulo_cotacao,
+            quantidade_fornecedores_vencedores: fornecedoresVencedores.length,
+            quantidade_fornecedores_rejeitados: fornecedoresRejeitados.length,
+          },
+        });
+      } catch (auditError) {
+        console.warn('Erro ao registrar auditoria do relatório final:', auditError);
+      }
 
       // Recarregar a lista de relatórios
       await loadRelatorioFinal();
@@ -3052,6 +3201,28 @@ export function DialogFinalizarProcesso({
         });
 
       if (insertError) throw insertError;
+
+      // Registrar auditoria da geração da autorização
+      try {
+        const dadosProcesso = await obterDadosProcessoParaAuditoria();
+        const tipoNome = foiParaSelecao ? 'Seleção de Fornecedores' : 'Compra Direta';
+        await registrarAuditoria({
+          acao: 'criação',
+          entidade: 'Autorização de Processo',
+          entidade_id: cotacaoId,
+          detalhes: {
+            tipo: `Autorização de ${tipoNome}`,
+            tipo_autorizacao: tipoAutorizacao,
+            protocolo: resultadoAutorizacao.protocolo,
+            nome_arquivo: resultadoAutorizacao.fileName,
+            numero_processo: dadosProcesso.numero_processo,
+            contrato_gestao: dadosProcesso.contrato_gestao,
+            titulo_cotacao: dadosProcesso.titulo_cotacao,
+          },
+        });
+      } catch (auditError) {
+        console.warn('Erro ao registrar auditoria da autorização:', auditError);
+      }
 
       // Atualizar status da solicitação de autorização se houver
       const { error: updateSolicitacaoError } = await supabase

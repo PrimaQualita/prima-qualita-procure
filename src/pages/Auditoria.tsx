@@ -372,6 +372,11 @@ const Auditoria = () => {
       itens_reabilitados: "Itens Reabilitados",
       tinha_resposta: "Tinha Resposta",
       motivo_inabilitacao: "Motivo da Inabilitação",
+      quantidade_fornecedores_vencedores: "Fornecedores Vencedores",
+      quantidade_fornecedores_rejeitados: "Fornecedores Rejeitados",
+      fornecedores_vencedores: "Fornecedores Vencedores",
+      fornecedores_respondidos: "Fornecedores Respondidos",
+      objeto_processo: "Objeto do Processo",
     };
     return traducoes[chave] || chave;
   };
