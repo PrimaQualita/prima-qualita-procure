@@ -867,7 +867,7 @@ export default function RespostasCotacao() {
       // 1. Buscar TODOS os anexos (PDF proposta + comprovantes) e comprovantes_urls
       const { data: respostaData, error: fetchError } = await supabase
         .from('cotacao_respostas_fornecedor')
-        .select('comprovantes_urls, url_pdf_proposta, anexos_cotacao_fornecedor(id, url_arquivo)')
+        .select('comprovantes_urls, url_pdf_proposta, protocolo, anexos_cotacao_fornecedor(id, url_arquivo)')
         .eq('id', respostaParaExcluir)
         .single();
 
@@ -942,6 +942,7 @@ export default function RespostasCotacao() {
         entidade: 'Proposta Cotação',
         entidade_id: respostaParaExcluir,
         detalhes: {
+          protocolo: (respostaData as any)?.protocolo || "",
           contrato_gestao: cotacao?.processos_compras?.contratos_gestao?.nome_contrato || "",
           numero_processo: processoNumero,
           titulo_cotacao: cotacao?.titulo_cotacao || "",
