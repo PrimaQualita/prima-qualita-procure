@@ -1,0 +1,153 @@
+import { useState } from "react";
+import { useNavigate } from "react-router-dom";
+import { supabase } from "@/integrations/supabase/client";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { useToast } from "@/hooks/use-toast";
+import primaLogo from "@/assets/prima-qualita-logo.png";
+import { AlertCircle } from "lucide-react";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { validarSenhaForte } from "@/lib/validators";
+import { RequisitosSenha } from "@/components/RequisitosSenha";
+
+const TrocaSenhaFornecedor = () => {
+  const navigate = useNavigate();
+  const { toast } = useToast();
+  const [loading, setLoading] = useState(false);
+  const [novaSenha, setNovaSenha] = useState("");
+  const [confirmaSenha, setConfirmaSenha] = useState("");
+  const [validacaoSenha, setValidacaoSenha] = useState(validarSenhaForte(""));
+
+  const handleTrocaSenha = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    if (novaSenha !== confirmaSenha) {
+      toast({
+        title: "Erro",
+        description: "As senhas não coincidem.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Validar senha forte
+    const validacao = validarSenhaForte(novaSenha);
+    if (!validacao.valida) {
+      toast({
+        title: "Senha fraca",
+        description: "A nova senha deve atender a todos os requisitos de segurança.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setLoading(true);
+
+    try {
+      // Atualizar senha do usuário
+      const { error: updateError } = await supabase.auth.updateUser({
+        password: novaSenha,
+      });
+
+      if (updateError) throw updateError;
+
+      // Obter usuário atual
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+
+      if (user) {
+        // Atualizar flag de primeiro acesso no fornecedor
+        const { error: fornecedorError } = await supabase
+          .from("fornecedores")
+          .update({
+            primeiro_acesso: false,
+            senha_temporaria: false,
+          })
+          .eq("user_id", user.id);
+
+        if (fornecedorError) throw fornecedorError;
+      }
+
+      toast({
+        title: "Senha alterada com sucesso!",
+        description: "Você será redirecionado para o Portal do Fornecedor.",
+      });
+
+      setTimeout(() => {
+        navigate("/portal-fornecedor");
+      }, 1500);
+    } catch (error: any) {
+      toast({
+        title: "Erro ao alterar senha",
+        description: error.message,
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-primary/10 via-background to-secondary/10 p-4">
+      <Card className="w-full max-w-md">
+        <CardHeader className="space-y-4">
+          <div className="flex justify-center">
+            <img src={primaLogo} alt="Prima Qualitá Saúde" className="h-16" />
+          </div>
+          <CardTitle className="text-2xl text-center">Primeiro Acesso - Fornecedor</CardTitle>
+          <CardDescription className="text-center">
+            Por segurança, você precisa criar uma nova senha
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <Alert className="mb-6">
+            <AlertCircle className="h-4 w-4" />
+            <AlertDescription>
+              Sua senha foi resetada. Por favor, crie uma nova senha segura para
+              proteger sua conta.
+            </AlertDescription>
+          </Alert>
+
+          <form onSubmit={handleTrocaSenha} className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="nova-senha">Nova Senha</Label>
+              <Input
+                id="nova-senha"
+                type="password"
+                placeholder="Mínimo 8 caracteres"
+                value={novaSenha}
+                onChange={(e) => {
+                  setNovaSenha(e.target.value);
+                  setValidacaoSenha(validarSenhaForte(e.target.value));
+                }}
+                required
+                minLength={8}
+              />
+            </div>
+
+            <RequisitosSenha validacao={validacaoSenha} />
+            <div className="space-y-2">
+              <Label htmlFor="confirma-senha">Confirmar Nova Senha</Label>
+              <Input
+                id="confirma-senha"
+                type="password"
+                placeholder="Digite a senha novamente"
+                value={confirmaSenha}
+                onChange={(e) => setConfirmaSenha(e.target.value)}
+                required
+              />
+            </div>
+            <Button type="submit" className="w-full" disabled={loading}>
+              {loading ? "Alterando senha..." : "Confirmar Nova Senha"}
+            </Button>
+          </form>
+        </CardContent>
+      </Card>
+    </div>
+  );
+};
+
+export default TrocaSenhaFornecedor;

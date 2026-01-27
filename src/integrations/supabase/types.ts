@@ -1282,9 +1282,11 @@ export type Database = {
           nome_socio_administrador: string | null
           nomes_socios_cotistas: string | null
           observacoes_gestor: string | null
+          primeiro_acesso: boolean | null
           razao_social: string
           responsaveis_legais: Json | null
           segmento_atividade: string | null
+          senha_temporaria: boolean | null
           status_aprovacao: string | null
           telefone: string
           updated_at: string | null
@@ -1305,9 +1307,11 @@ export type Database = {
           nome_socio_administrador?: string | null
           nomes_socios_cotistas?: string | null
           observacoes_gestor?: string | null
+          primeiro_acesso?: boolean | null
           razao_social: string
           responsaveis_legais?: Json | null
           segmento_atividade?: string | null
+          senha_temporaria?: boolean | null
           status_aprovacao?: string | null
           telefone: string
           updated_at?: string | null
@@ -1328,9 +1332,11 @@ export type Database = {
           nome_socio_administrador?: string | null
           nomes_socios_cotistas?: string | null
           observacoes_gestor?: string | null
+          primeiro_acesso?: boolean | null
           razao_social?: string
           responsaveis_legais?: Json | null
           segmento_atividade?: string | null
+          senha_temporaria?: boolean | null
           status_aprovacao?: string | null
           telefone?: string
           updated_at?: string | null

@@ -7,6 +7,7 @@ import { DashboardLayout } from "./components/DashboardLayout";
 import Index from "./pages/Index";
 import Auth from "./pages/Auth";
 import TrocaSenha from "./pages/TrocaSenha";
+import TrocaSenhaFornecedor from "./pages/TrocaSenhaFornecedor";
 import Dashboard from "./pages/Dashboard";
 import Perfil from "./pages/Perfil";
 import ProcessosCompras from "./pages/ProcessosCompras";
@@ -81,6 +82,7 @@ const App = () => {
             <Route path="/" element={<Index />} />
             <Route path="/auth" element={<Auth />} />
             <Route path="/troca-senha" element={<TrocaSenha />} />
+            <Route path="/troca-senha-fornecedor" element={<TrocaSenhaFornecedor />} />
             <Route path="/recuperar-senha" element={<RecuperarSenha />} />
             <Route path="/cadastro-fornecedor" element={<CadastroFornecedor />} />
             <Route path="/aprovacao-fornecedores" element={<AprovacaoFornecedores />} />

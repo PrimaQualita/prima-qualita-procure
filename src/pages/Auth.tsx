@@ -69,7 +69,7 @@ const Auth = () => {
         // Verificar se é fornecedor - com timeout de segurança
         const fornecedorPromise = supabase
           .from("fornecedores")
-          .select("id, status_aprovacao")
+          .select("id, status_aprovacao, primeiro_acesso, senha_temporaria")
           .eq("user_id", data.session.user.id)
           .maybeSingle();
 
@@ -86,7 +86,18 @@ const Auth = () => {
         }
 
         if (fornecedorData) {
-          // É fornecedor - permitir acesso ao portal
+          // É fornecedor - verificar se é primeiro acesso
+          if (fornecedorData.primeiro_acesso || fornecedorData.senha_temporaria) {
+            toast({
+              title: "Primeiro acesso detectado",
+              description: "Por favor, crie uma nova senha.",
+            });
+            setLoading(false);
+            navigate("/troca-senha-fornecedor");
+            return;
+          }
+
+          // Não é primeiro acesso - permitir acesso ao portal
           toast({
             title: "Login realizado com sucesso!",
             description: fornecedorData.status_aprovacao === 'pendente' 
