@@ -3599,10 +3599,13 @@ export type Database = {
           p_contrato_gestao: string
           p_entidade_id: string
           p_fornecedor_nome: string
+          p_nome_arquivo?: string
           p_nome_documento: string
           p_numero_processo: string
+          p_responsavel_email?: string
           p_titulo_cotacao?: string
           p_titulo_selecao?: string
+          p_url_arquivo?: string
         }
         Returns: boolean
       }
