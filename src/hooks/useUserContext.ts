@@ -52,3 +52,14 @@ export function useIsOnlyContabilidade() {
   
   return isContabilidade && !temOutrosPapeis;
 }
+
+// Helper para verificar se pode regenerar senha (apenas Gestor, Superintendente Executivo ou Compliance)
+export function useCanResetPassword() {
+  const context = useOutletContext<UserContextType>();
+  
+  if (!context) return false;
+  
+  const { isGestor, isCompliance, isSuperintendenteExecutivo } = context;
+  
+  return isGestor || isCompliance || isSuperintendenteExecutivo;
+}

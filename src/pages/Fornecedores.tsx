@@ -38,7 +38,7 @@ import { ArrowLeft, Plus, Edit, Trash2, Eye, FileText, Copy, CheckCircle, XCircl
 import { toast } from "sonner";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import GestaoDocumentosGestor from "@/components/fornecedores/GestaoDocumentosGestor";
-import { useCanEdit } from "@/hooks/useUserContext";
+import { useCanEdit, useCanResetPassword } from "@/hooks/useUserContext";
 
 interface Pergunta {
   id: string;
@@ -78,6 +78,7 @@ interface RespostaDueDiligence {
 export default function Fornecedores() {
   const navigate = useNavigate();
   const canEdit = useCanEdit();
+  const canResetPassword = useCanResetPassword();
   const [loading, setLoading] = useState(true);
   const [perguntas, setPerguntas] = useState<Pergunta[]>([]);
   const [fornecedores, setFornecedores] = useState<Fornecedor[]>([]);
@@ -745,7 +746,7 @@ export default function Fornecedores() {
                           >
                             <Eye className="h-4 w-4" />
                           </Button>
-                          {isGestor && canEdit && fornecedor.user_id && (
+                          {canResetPassword && fornecedor.user_id && (
                             <Button
                               variant="ghost"
                               size="icon"
