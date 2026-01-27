@@ -1228,7 +1228,7 @@ const ParticiparSelecao = () => {
           p_fornecedor_nome: fornecedor?.razao_social || dadosEmpresa.razao_social,
           p_fornecedor_cnpj: fornecedor?.cnpj || dadosEmpresa.cnpj.replace(/\D/g, ''),
           p_valor_total: valorTotal,
-          p_contrato_gestao: processo?.processos_compras?.contratos_gestao?.nome_contrato || processo?.contratos_gestao?.nome_contrato || '',
+          p_contrato_gestao: (processo as any)?.contratos_gestao?.nome_contrato || '',
           p_numero_processo: processo?.numero_processo_interno || '',
           p_titulo_selecao: selecao?.titulo_selecao || '',
           p_protocolo: protocoloGerado
