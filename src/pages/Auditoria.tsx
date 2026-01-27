@@ -43,10 +43,41 @@ const Auditoria = () => {
   const [filtro, setFiltro] = useState("");
   const [logSelecionado, setLogSelecionado] = useState<AuditLog | null>(null);
   const [dialogDetalhesAberto, setDialogDetalhesAberto] = useState(false);
+  const [protocoloCertificacaoFallback, setProtocoloCertificacaoFallback] = useState<string | null>(null);
 
   useEffect(() => {
     checkAuth();
   }, []);
+
+  // Fallback: alguns logs antigos (ex: "Proposta Cotação" via link externo) podem não ter gravado o protocolo no JSON.
+  // Nesse caso, buscamos o protocolo na tabela origem usando entidade_id.
+  useEffect(() => {
+    const carregarProtocoloFallback = async () => {
+      setProtocoloCertificacaoFallback(null);
+
+      if (!logSelecionado) return;
+      if (logSelecionado.detalhes?.protocolo) return;
+      if (logSelecionado.entidade !== 'Proposta Cotação') return;
+      if (!logSelecionado.entidade_id) return;
+
+      const { data, error } = await supabase
+        .from('cotacao_respostas_fornecedor')
+        .select('protocolo')
+        .eq('id', logSelecionado.entidade_id)
+        .maybeSingle();
+
+      if (error) {
+        console.warn('Não foi possível buscar protocolo da certificação (fallback):', error);
+        return;
+      }
+
+      if (data?.protocolo) {
+        setProtocoloCertificacaoFallback(data.protocolo);
+      }
+    };
+
+    carregarProtocoloFallback();
+  }, [logSelecionado?.id]);
 
   const checkAuth = async () => {
     const { data: { session } } = await supabase.auth.getSession();
@@ -164,6 +195,7 @@ const Auditoria = () => {
 
   const abrirDetalhes = (log: AuditLog) => {
     setLogSelecionado(log);
+    setProtocoloCertificacaoFallback(null);
     setDialogDetalhesAberto(true);
   };
 
@@ -186,7 +218,7 @@ const Auditoria = () => {
       titulo_selecao: "Título da Seleção",
       fornecedor: "Fornecedor",
       selecao: "Seleção",
-      protocolo: "Protocolo",
+      protocolo: "Protocolo da Certificação",
       tipo_autorizacao: "Tipo de Autorização",
       contrato_gestao: "Contrato de Gestão",
       numero_item: "Número do Item",
@@ -331,6 +363,16 @@ const Auditoria = () => {
                   <p className="text-xs text-muted-foreground">Tipo de Usuário</p>
                   <p className="font-medium text-sm">{logSelecionado.usuario_tipo || "interno"}</p>
                 </div>
+
+
+                {(logSelecionado.detalhes?.protocolo || protocoloCertificacaoFallback) && (
+                  <div className="col-span-2">
+                    <p className="text-xs text-muted-foreground">Protocolo da Certificação</p>
+                    <p className="font-medium text-sm font-mono">
+                      {String(logSelecionado.detalhes?.protocolo || protocoloCertificacaoFallback)}
+                    </p>
+                  </div>
+                )}
               </div>
 
               {/* Detalhes do documento */}
