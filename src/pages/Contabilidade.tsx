@@ -6,6 +6,7 @@ import { FileText, Eye, ChevronRight, ArrowLeft, CheckCircle, Clock, MessageSqua
 import { toast } from "sonner";
 import { stripHtml } from "@/lib/htmlUtils";
 import { gerarRespostaContabilidadePDF, gerarProtocoloRespostaContabilidade } from "@/lib/gerarRespostaContabilidadePDF";
+import { registrarAuditoria } from "@/lib/registrarAuditoria";
 import {
   Table,
   TableBody,
@@ -316,6 +317,44 @@ export default function Contabilidade() {
 
       if (error) throw error;
 
+      // Buscar contrato de gestão para auditoria
+      let contratoGestao = "";
+      try {
+        // Tentar buscar pelo cotacao_id ou selecao_id
+        if (processoSelecionado.cotacao_id) {
+          const { data: cotacaoData } = await supabase
+            .from("cotacoes_precos")
+            .select(`
+              titulo_cotacao,
+              processos_compras!inner(contratos_gestao!inner(nome_contrato))
+            `)
+            .eq("id", processoSelecionado.cotacao_id)
+            .single();
+          contratoGestao = cotacaoData?.processos_compras?.contratos_gestao?.nome_contrato || "";
+        }
+      } catch {
+        contratoGestao = "";
+      }
+
+      // Registrar auditoria da resposta da contabilidade
+      try {
+        await registrarAuditoria({
+          acao: 'criação',
+          entidade: 'Resposta Contabilidade',
+          entidade_id: processoSelecionado.id,
+          detalhes: {
+            tipo: 'Resposta da Contabilidade',
+            protocolo: resultado.protocolo,
+            numero_processo: processoSelecionado.processo_numero,
+            contrato_gestao: contratoGestao,
+            objeto_processo: processoSelecionado.objeto_processo,
+            fornecedores_respondidos: fornecedoresParaPDF.map(f => `${f.razaoSocial} (${f.tipoOperacao})`).join(', '),
+          },
+        });
+      } catch (auditError) {
+        console.warn('Erro ao registrar auditoria da resposta da contabilidade:', auditError);
+      }
+
       toast.success("Resposta salva e PDF gerado com sucesso!");
       setDialogRespostaOpen(false);
       setProcessoSelecionado(null);
@@ -365,6 +404,42 @@ export default function Contabilidade() {
         .eq("id", processoParaExcluir.id);
 
       if (error) throw error;
+
+      // Buscar contrato de gestão para auditoria
+      let contratoGestao = "";
+      try {
+        if (processoParaExcluir.cotacao_id) {
+          const { data: cotacaoData } = await supabase
+            .from("cotacoes_precos")
+            .select(`
+              titulo_cotacao,
+              processos_compras!inner(contratos_gestao!inner(nome_contrato))
+            `)
+            .eq("id", processoParaExcluir.cotacao_id)
+            .single();
+          contratoGestao = cotacaoData?.processos_compras?.contratos_gestao?.nome_contrato || "";
+        }
+      } catch {
+        contratoGestao = "";
+      }
+
+      // Registrar auditoria da exclusão da resposta da contabilidade
+      try {
+        await registrarAuditoria({
+          acao: 'exclusão',
+          entidade: 'Resposta Contabilidade',
+          entidade_id: processoParaExcluir.id,
+          detalhes: {
+            tipo: 'Resposta da Contabilidade',
+            protocolo: processoParaExcluir.protocolo_resposta || null,
+            numero_processo: processoParaExcluir.processo_numero,
+            contrato_gestao: contratoGestao,
+            objeto_processo: processoParaExcluir.objeto_processo,
+          },
+        });
+      } catch (auditError) {
+        console.warn('Erro ao registrar auditoria da exclusão da resposta:', auditError);
+      }
 
       toast.success("Resposta excluída com sucesso! O processo voltou para pendente.");
       setDialogExcluirOpen(false);

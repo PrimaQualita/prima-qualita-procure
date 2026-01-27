@@ -625,6 +625,25 @@ const Cotacoes = () => {
         return;
       }
 
+      // Registrar auditoria da exclusão da autorização
+      try {
+        const tipoNome = tipo === 'selecao_fornecedores' ? 'Seleção de Fornecedores' : 'Compra Direta';
+        await registrarAuditoria({
+          acao: 'exclusão',
+          entidade: 'Autorização de Processo',
+          entidade_id: autorizacaoId,
+          detalhes: {
+            tipo: `Autorização de ${tipoNome}`,
+            tipo_autorizacao: tipo,
+            numero_processo: processoSelecionado?.numero_processo_interno || '',
+            contrato_gestao: contratoSelecionado?.nome_contrato || '',
+            titulo_cotacao: cotacaoSelecionada?.titulo_cotacao || '',
+          },
+        });
+      } catch (auditError) {
+        console.warn('Erro ao registrar auditoria da exclusão da autorização:', auditError);
+      }
+
       if (tipo === 'compra_direta') {
         setAutorizacaoDiretaUrl('');
         setAutorizacaoDiretaId('');
