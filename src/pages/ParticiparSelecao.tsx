@@ -449,7 +449,7 @@ const ParticiparSelecao = () => {
       // Carregar seleção
       const { data: selecaoData, error: selecaoError } = await supabase
         .from("selecoes_fornecedores")
-        .select("*, processos_compras(*)")
+        .select("*, processos_compras(*, contratos_gestao:contrato_gestao_id(nome_contrato))")
         .eq("id", selecaoId)
         .single();
 
@@ -1153,6 +1153,9 @@ const ParticiparSelecao = () => {
 
       if (erroItens) throw erroItens;
 
+      // Variável para capturar o protocolo gerado
+      let protocoloGerado: string | null = null;
+
       // Gerar e salvar PDF da proposta
       try {
         const { gerarPropostaSelecaoPDF } = await import('@/lib/gerarPropostaSelecaoPDF');
@@ -1182,13 +1185,16 @@ const ParticiparSelecao = () => {
           arquivosComprovantes
         );
 
+        // Capturar o protocolo gerado
+        protocoloGerado = pdfResult.protocolo || null;
+
         // Atualizar proposta com URL do PDF
         await supabase
           .from('selecao_propostas_fornecedor')
           .update({ url_pdf_proposta: pdfResult.url })
           .eq('id', propostaId);
 
-        console.log('PDF da proposta gerado e salvo:', pdfResult.url);
+        console.log('PDF da proposta gerado e salvo:', pdfResult.url, 'Protocolo:', protocoloGerado);
       } catch (pdfError) {
         console.error('Erro ao gerar PDF da proposta:', pdfError);
         // Não bloqueia o envio se houver erro no PDF
@@ -1222,10 +1228,10 @@ const ParticiparSelecao = () => {
           p_fornecedor_nome: fornecedor?.razao_social || dadosEmpresa.razao_social,
           p_fornecedor_cnpj: fornecedor?.cnpj || dadosEmpresa.cnpj.replace(/\D/g, ''),
           p_valor_total: valorTotal,
-          p_contrato_gestao: processo?.contratos_gestao?.nome_contrato || '',
+          p_contrato_gestao: processo?.processos_compras?.contratos_gestao?.nome_contrato || processo?.contratos_gestao?.nome_contrato || '',
           p_numero_processo: processo?.numero_processo_interno || '',
           p_titulo_selecao: selecao?.titulo_selecao || '',
-          p_protocolo: null // Proposta de seleção não tem protocolo neste momento
+          p_protocolo: protocoloGerado
         });
       } catch (auditError) {
         console.error('Erro ao registrar auditoria (não bloqueia envio):', auditError);
