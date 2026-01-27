@@ -592,7 +592,7 @@ const Cotacoes = () => {
       // Buscar a URL do arquivo para deletar do storage
       const { data: autorizacao } = await supabase
         .from("autorizacoes_processo")
-        .select("url_arquivo")
+        .select("url_arquivo, nome_arquivo, protocolo")
         .eq("id", autorizacaoId)
         .single();
 
@@ -635,6 +635,8 @@ const Cotacoes = () => {
           detalhes: {
             tipo: `Autorização de ${tipoNome}`,
             tipo_autorizacao: tipo,
+            protocolo: autorizacao?.protocolo || null,
+            nome_arquivo: autorizacao?.nome_arquivo || null,
             numero_processo: processoSelecionado?.numero_processo_interno || '',
             contrato_gestao: contratoSelecionado?.nome_contrato || '',
             titulo_cotacao: cotacaoSelecionada?.titulo_cotacao || '',
@@ -2446,6 +2448,26 @@ const Cotacoes = () => {
                                       
                                       if (saveError) throw saveError;
                                       setAutorizacaoSelecaoId(autorizacao.id);
+
+                                      // Registrar auditoria da CRIAÇÃO (com protocolo)
+                                      try {
+                                        await registrarAuditoria({
+                                          acao: 'criação',
+                                          entidade: 'Autorização de Processo',
+                                          entidade_id: autorizacao.id,
+                                          detalhes: {
+                                            tipo: 'Autorização de Seleção de Fornecedores',
+                                            tipo_autorizacao: 'selecao_fornecedores',
+                                            protocolo: result.protocolo,
+                                            nome_arquivo: result.fileName,
+                                            numero_processo: processoSelecionado.numero_processo_interno,
+                                            contrato_gestao: contratoSelecionado?.nome_contrato || '',
+                                            titulo_cotacao: cotacaoSelecionada.titulo_cotacao,
+                                          },
+                                        });
+                                      } catch (auditError) {
+                                        console.warn('Erro ao registrar auditoria da criação da autorização (seleção):', auditError);
+                                      }
                                       
                                       // Atualizar status da solicitação se existir
                                       const { error: updateError } = await supabase
