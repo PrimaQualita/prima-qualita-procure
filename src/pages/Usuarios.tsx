@@ -29,7 +29,7 @@ import { ArrowLeft, Plus, RotateCcw, Trash2, Pencil } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { DialogUsuario } from "@/components/usuarios/DialogUsuario";
 import { mascaraCPF } from "@/lib/validators";
-import { useCanEdit } from "@/hooks/useUserContext";
+import { useCanEdit, useCanResetPassword } from "@/hooks/useUserContext";
 
 
 interface Usuario {
@@ -54,6 +54,7 @@ const Usuarios = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
   const canEdit = useCanEdit();
+  const canResetPassword = useCanResetPassword();
   const [loading, setLoading] = useState(true);
   const [usuarios, setUsuarios] = useState<Usuario[]>([]);
   const [filtro, setFiltro] = useState("");
@@ -288,14 +289,16 @@ const Usuarios = () => {
                             >
                               <Pencil className="h-4 w-4" />
                             </Button>
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => handleResetSenha(usuario.id, usuario.data_nascimento)}
-                              title="Resetar senha para data de nascimento"
-                            >
-                              <RotateCcw className="h-4 w-4" />
-                            </Button>
+                            {canResetPassword && (
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => handleResetSenha(usuario.id, usuario.data_nascimento)}
+                                title="Resetar senha para data de nascimento"
+                              >
+                                <RotateCcw className="h-4 w-4" />
+                              </Button>
+                            )}
                             <Button
                               variant="outline"
                               size="sm"
