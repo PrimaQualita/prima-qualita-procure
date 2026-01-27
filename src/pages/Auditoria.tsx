@@ -176,6 +176,7 @@ const Auditoria = () => {
       objeto: "Objeto",
       titulo: "Título",
       titulo_cotacao: "Título da Cotação",
+      titulo_selecao: "Título da Seleção",
       fornecedor: "Fornecedor",
       selecao: "Seleção",
       protocolo: "Protocolo",
