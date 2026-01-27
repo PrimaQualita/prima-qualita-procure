@@ -17,6 +17,7 @@ const Auth = () => {
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const [showForgotPassword, setShowForgotPassword] = useState(false);
   const [activeTab, setActiveTab] = useState<"login" | "fornecedor">("login");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -321,7 +322,7 @@ const Auth = () => {
           >
             <TabsList className="grid w-full grid-cols-2">
               <TabsTrigger value="login">Login</TabsTrigger>
-              <TabsTrigger value="fornecedor">Sou Fornecedor</TabsTrigger>
+              <TabsTrigger value="fornecedor">Cadastro de Fornecedor</TabsTrigger>
             </TabsList>
 
             <TabsContent value="login">
@@ -368,11 +369,32 @@ const Auth = () => {
                     type="button"
                     variant="link"
                     className="p-0 h-auto text-sm text-primary"
-                    onClick={() => navigate("/recuperar-senha")}
+                    onClick={() => setShowForgotPassword(true)}
                   >
                     Esqueci a Senha
                   </Button>
                 </div>
+                
+                {showForgotPassword && (
+                  <div className="p-4 bg-amber-50 border border-amber-200 rounded-lg space-y-2">
+                    <p className="text-sm font-medium text-amber-800">
+                      Recuperação de Senha
+                    </p>
+                    <p className="text-sm text-amber-700">
+                      Para solicitar a alteração de sua senha, entre em contato com o{" "}
+                      <strong>Departamento de Compras</strong>.
+                    </p>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="mt-2"
+                      onClick={() => setShowForgotPassword(false)}
+                    >
+                      Fechar
+                    </Button>
+                  </div>
+                )}
                 <Button type="submit" className="w-full" disabled={loading}>
                   {loading ? "Entrando..." : "Entrar"}
                 </Button>
