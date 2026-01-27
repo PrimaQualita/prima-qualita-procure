@@ -1977,6 +1977,22 @@ export function DialogSessaoLances({
   const handleFinalizarSessaoInterna = async () => {
     setSalvando(true);
     try {
+      // Buscar dados da seleção para auditoria
+      const { data: selecaoData } = await supabase
+        .from("selecoes_fornecedores")
+        .select(`
+          numero_selecao,
+          titulo_selecao,
+          processos_compras!inner (
+            numero_processo_interno,
+            contratos_gestao (
+              nome_contrato
+            )
+          )
+        `)
+        .eq("id", selecaoId)
+        .maybeSingle();
+
       // Buscar fornecedores inabilitados
       const { data: inabilitados } = await supabase
         .from("fornecedores_inabilitados_selecao")
@@ -2044,6 +2060,23 @@ export function DialogSessaoLances({
           .update({ indicativo_lance_vencedor: update.indicativo_lance_vencedor })
           .eq("id", update.id);
       }
+
+      // Registrar auditoria da finalização da sessão
+      const processoData = selecaoData?.processos_compras as { numero_processo_interno?: string; contratos_gestao?: { nome_contrato?: string } } | null;
+      await registrarAuditoria({
+        acao: 'atualização',
+        entidade: 'Sessão de Lances',
+        entidade_id: selecaoId,
+        detalhes: {
+          tipo: 'Finalização de Sessão de Lances',
+          numero_selecao: selecaoData?.numero_selecao || numeroSelecao || 'N/A',
+          titulo_selecao: selecaoData?.titulo_selecao || tituloSelecao || 'N/A',
+          numero_processo: processoData?.numero_processo_interno || 'N/A',
+          contrato_gestao: processoData?.contratos_gestao?.nome_contrato || 'N/A',
+          total_itens_lotes: isPorLote ? lotes.length : itens.length,
+          total_vencedores: vencedoresPorItem.size,
+        },
+      });
 
       // Notificar componente pai sobre atualização de vencedores
       if (onVencedoresAtualizados) {
