@@ -539,6 +539,8 @@ const [itens, setItens] = useState<Item[]>([]);
             nome_arquivo: ata?.nome_arquivo || 'N/A',
             numero_selecao: selecao?.numero_selecao || 'N/A',
             numero_processo: processo?.numero_processo_interno || '',
+             contrato_gestao: processo?.contratos_gestao?.nome_contrato || '',
+             titulo_selecao: selecao?.titulo_selecao || 'N/A',
           },
         });
       } catch (auditError) {

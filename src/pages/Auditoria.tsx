@@ -305,6 +305,11 @@ const Auditoria = () => {
       return `Planilha de Lances - Seleção ${detalhes.numero_selecao}`;
     }
 
+    // Para Ata de Seleção, exibir nome amigável
+    if (log.entidade === 'Ata de Seleção' && detalhes.numero_selecao) {
+      return `Ata de Seleção - ${detalhes.numero_selecao}`;
+    }
+
     // Para uploads do fornecedor, priorizar o nome do arquivo original (quando disponível)
     if (detalhes.tipo === 'Documento Adicional - Upload Fornecedor' && detalhes.nome_arquivo) {
       return detalhes.nome_documento
