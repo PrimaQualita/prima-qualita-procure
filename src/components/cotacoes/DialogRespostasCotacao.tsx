@@ -50,6 +50,7 @@ interface ItemResposta {
 
 interface RespostaFornecedor {
   id: string;
+  protocolo?: string | null;
   valor_total_anual_ofertado: number;
   observacoes_fornecedor: string | null;
   data_envio_resposta: string;
@@ -683,6 +684,7 @@ export function DialogRespostasCotacao({
         .from("cotacao_respostas_fornecedor")
         .select(`
           id,
+          protocolo,
           valor_total_anual_ofertado,
           observacoes_fornecedor,
           data_envio_resposta,
@@ -731,6 +733,7 @@ export function DialogRespostasCotacao({
         
         return {
           id: r.id,
+          protocolo: r.protocolo ?? null,
           valor_total_anual_ofertado: r.valor_total_anual_ofertado,
           observacoes_fornecedor: r.observacoes_fornecedor,
           data_envio_resposta: r.data_envio_resposta,
@@ -1058,6 +1061,7 @@ export function DialogRespostasCotacao({
         entidade: 'Proposta Cotação',
         entidade_id: respostaParaExcluir.id,
         detalhes: {
+          protocolo: (respostaParaExcluir as any)?.protocolo || "",
           contrato_gestao: contratoGestaoNome,
           numero_processo: numeroProcesso,
           titulo_cotacao: tituloCotacaoLog,
