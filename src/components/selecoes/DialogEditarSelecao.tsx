@@ -12,6 +12,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
+import { registrarAuditoria } from "@/lib/registrarAuditoria";
+import { compararAlteracoes } from "@/lib/compararAlteracoes";
 
 interface DialogEditarSelecaoProps {
   open: boolean;
@@ -70,6 +72,27 @@ export function DialogEditarSelecao({
     setSalvando(true);
 
     try {
+      // Buscar dados completos da seleção para comparação e contexto
+      const { data: selecaoCompleta } = await supabase
+        .from("selecoes_fornecedores")
+        .select("*, processos_compras(numero_processo_interno, contratos_gestao(nome_contrato))")
+        .eq("id", selecao.id)
+        .single();
+
+      const dadosAntigos = {
+        titulo_selecao: selecaoCompleta?.titulo_selecao || '',
+        descricao: selecaoCompleta?.descricao || '',
+        data_sessao_disputa: selecaoCompleta?.data_sessao_disputa?.split('T')[0] || '',
+        hora_sessao_disputa: selecaoCompleta?.hora_sessao_disputa || '',
+      };
+
+      const dadosNovos = {
+        titulo_selecao: titulo.trim(),
+        descricao: descricao.trim() || '',
+        data_sessao_disputa: dataDisputa,
+        hora_sessao_disputa: horaDisputa,
+      };
+
       const { error } = await supabase
         .from("selecoes_fornecedores")
         .update({
@@ -82,6 +105,24 @@ export function DialogEditarSelecao({
         .eq("id", selecao.id);
 
       if (error) throw error;
+
+      // Registrar auditoria da edição
+      try {
+        const alteracoes = compararAlteracoes(dadosAntigos, dadosNovos);
+        await registrarAuditoria({
+          acao: 'edição',
+          entidade: 'Seleção de Fornecedores',
+          entidade_id: selecao.id,
+          detalhes: {
+            numero_selecao: selecaoCompleta?.numero_selecao || 'N/A',
+            numero_processo: selecaoCompleta?.processos_compras?.numero_processo_interno || '',
+            contrato_gestao: selecaoCompleta?.processos_compras?.contratos_gestao?.nome_contrato || '',
+            alteracoes,
+          },
+        });
+      } catch (auditError) {
+        console.warn('Erro ao registrar auditoria de edição de seleção:', auditError);
+      }
 
       toast.success("Seleção atualizada com sucesso");
       onSuccess();

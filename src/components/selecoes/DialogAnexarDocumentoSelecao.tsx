@@ -6,6 +6,7 @@ import { Label } from "@/components/ui/label";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Upload } from "lucide-react";
+import { registrarAuditoria } from "@/lib/registrarAuditoria";
 
 interface DialogAnexarDocumentoSelecaoProps {
   open: boolean;
@@ -50,6 +51,13 @@ export function DialogAnexarDocumentoSelecao({
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("Usuário não autenticado");
 
+      // Buscar dados da seleção para o log de auditoria
+      const { data: selecaoData } = await supabase
+        .from("selecoes_fornecedores")
+        .select("numero_selecao, titulo_selecao, processos_compras(numero_processo_interno)")
+        .eq("id", selecaoId)
+        .single();
+
       // Upload do arquivo
       const fileName = `selecao_${selecaoId}_${tipoDocumento}_${Date.now()}.pdf`;
       const filePath = `selecoes/${fileName}`;
@@ -72,7 +80,10 @@ export function DialogAnexarDocumentoSelecao({
         .eq("selecao_id", selecaoId)
         .eq("tipo_documento", tipoDocumento);
 
-      if (existingDocs && existingDocs.length > 0) {
+      const tipoLabel = tipoDocumento === 'aviso' ? 'Aviso de Seleção' : 'Edital';
+      const isUpdate = existingDocs && existingDocs.length > 0;
+
+      if (isUpdate) {
         // Atualizar documento existente
         const { error: updateError } = await supabase
           .from("anexos_selecao")
@@ -84,9 +95,26 @@ export function DialogAnexarDocumentoSelecao({
           .eq("id", existingDocs[0].id);
 
         if (updateError) throw updateError;
+
+        // Registrar auditoria de atualização
+        try {
+          await registrarAuditoria({
+            acao: 'atualização',
+            entidade: 'Anexo de Seleção',
+            entidade_id: existingDocs[0].id,
+            detalhes: {
+              tipo_documento: tipoLabel,
+              nome_arquivo: arquivo.name,
+              numero_selecao: selecaoData?.numero_selecao || 'N/A',
+              numero_processo: selecaoData?.processos_compras?.numero_processo_interno || '',
+            },
+          });
+        } catch (auditError) {
+          console.warn('Erro ao registrar auditoria de atualização de anexo:', auditError);
+        }
       } else {
         // Inserir novo documento
-        const { error: insertError } = await supabase
+        const { data: insertedDoc, error: insertError } = await supabase
           .from("anexos_selecao")
           .insert({
             selecao_id: selecaoId,
@@ -94,9 +122,28 @@ export function DialogAnexarDocumentoSelecao({
             url_arquivo: publicUrl,
             nome_arquivo: arquivo.name,
             usuario_upload_id: user.id,
-          });
+          })
+          .select()
+          .single();
 
         if (insertError) throw insertError;
+
+        // Registrar auditoria de criação
+        try {
+          await registrarAuditoria({
+            acao: 'criação',
+            entidade: 'Anexo de Seleção',
+            entidade_id: insertedDoc?.id,
+            detalhes: {
+              tipo_documento: tipoLabel,
+              nome_arquivo: arquivo.name,
+              numero_selecao: selecaoData?.numero_selecao || 'N/A',
+              numero_processo: selecaoData?.processos_compras?.numero_processo_interno || '',
+            },
+          });
+        } catch (auditError) {
+          console.warn('Erro ao registrar auditoria de criação de anexo:', auditError);
+        }
       }
 
       toast.success("Documento anexado com sucesso!");

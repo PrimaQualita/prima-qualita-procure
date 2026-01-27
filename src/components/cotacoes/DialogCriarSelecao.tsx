@@ -6,6 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { registrarAuditoria } from "@/lib/registrarAuditoria";
 
 interface DialogCriarSelecaoProps {
   open: boolean;
@@ -165,6 +166,34 @@ export function DialogCriarSelecao({
         .single();
 
       if (selecaoError) throw selecaoError;
+
+      // Buscar dados do contrato de gestão para o log
+      const { data: processoData } = await supabase
+        .from("processos_compras")
+        .select("contratos_gestao(nome_contrato)")
+        .eq("id", processoId)
+        .single();
+
+      // Registrar auditoria da criação
+      try {
+        await registrarAuditoria({
+          acao: 'criação',
+          entidade: 'Seleção de Fornecedores',
+          entidade_id: selecao.id,
+          detalhes: {
+            numero_selecao: numeroSelecao,
+            titulo_selecao: titulo,
+            numero_processo: processoNumero,
+            contrato_gestao: processoData?.contratos_gestao?.nome_contrato || '',
+            data_sessao_disputa: dataLocal,
+            hora_sessao_disputa: horaDisputa,
+            criterio_julgamento: criterioJulgamento,
+            valor_estimado: valorTotal,
+          },
+        });
+      } catch (auditError) {
+        console.warn('Erro ao registrar auditoria de criação de seleção:', auditError);
+      }
 
       // Marcar cotação como enviada para seleção
       const { error: updateError } = await supabase

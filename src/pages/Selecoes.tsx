@@ -22,6 +22,7 @@ import { toast } from "sonner";
 import DOMPurify from "dompurify";
 import { DialogEditarSelecao } from "@/components/selecoes/DialogEditarSelecao";
 import { useCanEdit } from "@/hooks/useUserContext";
+import { registrarAuditoria } from "@/lib/registrarAuditoria";
 
 interface Contrato {
   id: string;
@@ -241,11 +242,36 @@ const Selecoes = () => {
 
   const handleExcluirSelecao = async (selecaoId: string) => {
     try {
+      // Buscar dados da seleção ANTES de deletar para o log de auditoria
+      const { data: selecaoData } = await supabase
+        .from("selecoes_fornecedores")
+        .select("numero_selecao, titulo_selecao")
+        .eq("id", selecaoId)
+        .single();
+
       const { data, error } = await supabase.functions.invoke("deletar-selecao", {
         body: { selecaoId },
       });
 
       if (error) throw error;
+
+      // Registrar auditoria da exclusão
+      try {
+        await registrarAuditoria({
+          acao: 'exclusão',
+          entidade: 'Seleção de Fornecedores',
+          entidade_id: selecaoId,
+          detalhes: {
+            numero_selecao: selecaoData?.numero_selecao || 'N/A',
+            titulo_selecao: selecaoData?.titulo_selecao || 'N/A',
+            numero_processo: processoSelecionado?.numero_processo_interno || '',
+            contrato_gestao: contratoSelecionado?.nome_contrato || '',
+            arquivos_deletados: data?.arquivosDeletados || 0,
+          },
+        });
+      } catch (auditError) {
+        console.warn('Erro ao registrar auditoria da exclusão de seleção:', auditError);
+      }
 
       toast.success("Seleção excluída com sucesso", {
         description:
