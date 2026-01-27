@@ -51,10 +51,10 @@ export function DialogAnexarDocumentoSelecao({
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("Usuário não autenticado");
 
-      // Buscar dados da seleção para o log de auditoria
+      // Buscar dados da seleção para o log de auditoria (incluindo contrato de gestão)
       const { data: selecaoData } = await supabase
         .from("selecoes_fornecedores")
-        .select("numero_selecao, titulo_selecao, processos_compras(numero_processo_interno)")
+        .select("numero_selecao, titulo_selecao, processos_compras(numero_processo_interno, contratos_gestao(nome_contrato))")
         .eq("id", selecaoId)
         .single();
 
@@ -107,6 +107,7 @@ export function DialogAnexarDocumentoSelecao({
               nome_arquivo: arquivo.name,
               numero_selecao: selecaoData?.numero_selecao || 'N/A',
               numero_processo: selecaoData?.processos_compras?.numero_processo_interno || '',
+              contrato_gestao: (selecaoData?.processos_compras as any)?.contratos_gestao?.nome_contrato || '',
             },
           });
         } catch (auditError) {
@@ -139,6 +140,7 @@ export function DialogAnexarDocumentoSelecao({
               nome_arquivo: arquivo.name,
               numero_selecao: selecaoData?.numero_selecao || 'N/A',
               numero_processo: selecaoData?.processos_compras?.numero_processo_interno || '',
+              contrato_gestao: (selecaoData?.processos_compras as any)?.contratos_gestao?.nome_contrato || '',
             },
           });
         } catch (auditError) {

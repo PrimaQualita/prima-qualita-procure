@@ -212,10 +212,10 @@ const [itens, setItens] = useState<Item[]>([]);
 
   const loadSelecao = async () => {
     try {
-      // Carregar seleção
+      // Carregar seleção (incluindo contrato de gestão)
       const { data: selecaoData, error: selecaoError } = await supabase
         .from("selecoes_fornecedores")
-        .select("*, processos_compras(*)")
+        .select("*, processos_compras(*, contratos_gestao(nome_contrato))")
         .eq("id", selecaoId)
         .single();
 
@@ -2021,6 +2021,7 @@ const [itens, setItens] = useState<Item[]>([]);
                         nome_arquivo: avisoAnexado.nome_arquivo || 'N/A',
                         numero_selecao: selecao?.numero_selecao || 'N/A',
                         numero_processo: processo?.numero_processo_interno || '',
+                        contrato_gestao: processo?.contratos_gestao?.nome_contrato || '',
                       },
                     });
                   } catch (auditError) {
@@ -2086,6 +2087,7 @@ const [itens, setItens] = useState<Item[]>([]);
                         nome_arquivo: editalAnexado.nome_arquivo || 'N/A',
                         numero_selecao: selecao?.numero_selecao || 'N/A',
                         numero_processo: processo?.numero_processo_interno || '',
+                        contrato_gestao: processo?.contratos_gestao?.nome_contrato || '',
                       },
                     });
                   } catch (auditError) {
