@@ -57,6 +57,14 @@ const toRoman = (num: number): string => {
   return result;
 };
 
+// Formata protocolo (UUID ou string) para o padrão curto XXXX-XXXX-XXXX-XXXX
+const formatarProtocoloCurto = (protocolo?: string | null): string => {
+  if (!protocolo) return 'N/A';
+  const limpo = protocolo.replace(/-/g, '').toUpperCase().substring(0, 16);
+  if (limpo.length < 16) return protocolo;
+  return `${limpo.substring(0, 4)}-${limpo.substring(4, 8)}-${limpo.substring(8, 12)}-${limpo.substring(12, 16)}`;
+};
+
 const DetalheSelecao = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
@@ -535,7 +543,7 @@ const [itens, setItens] = useState<Item[]>([]);
           entidade: 'Ata de Seleção',
           entidade_id: ataId,
           detalhes: {
-            protocolo: ata?.protocolo || 'N/A',
+            protocolo: formatarProtocoloCurto(ata?.protocolo),
             nome_arquivo: ata?.nome_arquivo || 'N/A',
             numero_selecao: selecao?.numero_selecao || 'N/A',
             numero_processo: processo?.numero_processo_interno || '',
