@@ -966,18 +966,33 @@ export default function PortalFornecedor() {
       console.log("✅ Status atualizado com sucesso!");
       
       // Registrar auditoria de upload de documento adicional pelo fornecedor
+      // (supabase-js NÃO lança exception automaticamente em .rpc; precisamos checar error)
       try {
-        await supabase.rpc('registrar_auditoria_documento_adicional_fornecedor', {
-          p_entidade_id: campoId,
-          p_fornecedor_nome: fornecedor.razao_social,
-          p_nome_documento: nomeCampo,
-          p_numero_processo: numeroProcesso,
-          p_contrato_gestao: contratoGestao,
-          p_titulo_cotacao: tituloCotacao,
-          p_titulo_selecao: null,
-          p_acao: 'criação'
-        });
-        console.log("✅ Auditoria registrada com sucesso!");
+        const { data: sess } = await supabase.auth.getSession();
+        const responsavelEmail = sess.session?.user?.email || null;
+
+        const { data: auditOk, error: auditError } = await supabase.rpc(
+          'registrar_auditoria_documento_adicional_fornecedor',
+          {
+            p_entidade_id: campoId,
+            p_fornecedor_nome: fornecedor.razao_social,
+            p_nome_documento: nomeCampo,
+            p_numero_processo: numeroProcesso,
+            p_contrato_gestao: contratoGestao,
+            p_titulo_cotacao: tituloCotacao,
+            p_titulo_selecao: null,
+            p_acao: 'criação',
+            p_nome_arquivo: file.name,
+            p_url_arquivo: publicUrl,
+            p_responsavel_email: responsavelEmail,
+          } as any
+        );
+
+        if (auditError || auditOk !== true) {
+          console.error("⚠️ Auditoria não registrada (não bloqueante):", auditError || auditOk);
+        } else {
+          console.log("✅ Auditoria registrada com sucesso!");
+        }
       } catch (auditError) {
         console.error("⚠️ Erro ao registrar auditoria (não bloqueante):", auditError);
       }
@@ -1100,18 +1115,33 @@ export default function PortalFornecedor() {
       console.log("✅ Status atualizado com sucesso!");
       
       // Registrar auditoria de upload de documento adicional pelo fornecedor
+      // (supabase-js NÃO lança exception automaticamente em .rpc; precisamos checar error)
       try {
-        await supabase.rpc('registrar_auditoria_documento_adicional_fornecedor', {
-          p_entidade_id: campoId,
-          p_fornecedor_nome: fornecedor.razao_social,
-          p_nome_documento: nomeCampo,
-          p_numero_processo: numeroProcesso,
-          p_contrato_gestao: contratoGestao,
-          p_titulo_cotacao: null,
-          p_titulo_selecao: tituloSelecao,
-          p_acao: 'criação'
-        });
-        console.log("✅ Auditoria registrada com sucesso!");
+        const { data: sess } = await supabase.auth.getSession();
+        const responsavelEmail = sess.session?.user?.email || null;
+
+        const { data: auditOk, error: auditError } = await supabase.rpc(
+          'registrar_auditoria_documento_adicional_fornecedor',
+          {
+            p_entidade_id: campoId,
+            p_fornecedor_nome: fornecedor.razao_social,
+            p_nome_documento: nomeCampo,
+            p_numero_processo: numeroProcesso,
+            p_contrato_gestao: contratoGestao,
+            p_titulo_cotacao: null,
+            p_titulo_selecao: tituloSelecao,
+            p_acao: 'criação',
+            p_nome_arquivo: file.name,
+            p_url_arquivo: publicUrl,
+            p_responsavel_email: responsavelEmail,
+          } as any
+        );
+
+        if (auditError || auditOk !== true) {
+          console.error("⚠️ Auditoria não registrada (não bloqueante):", auditError || auditOk);
+        } else {
+          console.log("✅ Auditoria registrada com sucesso!");
+        }
       } catch (auditError) {
         console.error("⚠️ Erro ao registrar auditoria (não bloqueante):", auditError);
       }

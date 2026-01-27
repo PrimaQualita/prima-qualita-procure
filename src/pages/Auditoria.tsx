@@ -147,6 +147,13 @@ const Auditoria = () => {
     const detalhes = log.detalhes;
     if (!detalhes) return log.entidade;
 
+    // Para uploads do fornecedor, priorizar o nome do arquivo original (quando disponível)
+    if (detalhes.tipo === 'Documento Adicional - Upload Fornecedor' && detalhes.nome_arquivo) {
+      return detalhes.nome_documento
+        ? `${detalhes.nome_documento} - ${detalhes.nome_arquivo}`
+        : detalhes.nome_arquivo;
+    }
+
     // Priorizar nome do documento formatado, depois nome do arquivo
     if (detalhes.nome_documento) return detalhes.nome_documento;
     if (detalhes.tipo) return detalhes.tipo;
@@ -200,6 +207,8 @@ const Auditoria = () => {
       data_limite: "Data Limite",
       status_anterior: "Status Anterior",
       tinha_arquivo: "Tinha Arquivo",
+      responsavel_email: "Responsável (e-mail)",
+      url_arquivo: "URL do Arquivo",
     };
     return traducoes[chave] || chave;
   };
