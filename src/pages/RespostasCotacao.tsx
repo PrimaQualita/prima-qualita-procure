@@ -936,13 +936,41 @@ export default function RespostasCotacao() {
 
       if (error) throw error;
 
+      // Capturar protocolo (preferência: linha atual; fallback: histórico de auditoria)
+      let protocoloFinal: string | null = null;
+      const protoFromRow = (respostaData as any)?.protocolo;
+      if (typeof protoFromRow === "string" && protoFromRow.trim().length > 0) {
+        protocoloFinal = protoFromRow.trim();
+      }
+
+      if (!protocoloFinal) {
+        try {
+          const { data: protoLogs, error: protoLogsErr } = await supabase
+            .from("audit_logs")
+            .select("detalhes, created_at")
+            .eq("entidade", "Proposta Cotação")
+            .eq("entidade_id", respostaParaExcluir)
+            .order("created_at", { ascending: false })
+            .limit(10);
+
+          if (!protoLogsErr && Array.isArray(protoLogs)) {
+            const p = (protoLogs as any[])
+              .map((l) => l?.detalhes?.protocolo)
+              .find((v) => typeof v === "string" && v.trim().length > 0);
+            if (p) protocoloFinal = String(p).trim();
+          }
+        } catch {
+          // silencioso
+        }
+      }
+
       // Registrar auditoria de exclusão de proposta
       await registrarAuditoria({
         acao: 'exclusão',
         entidade: 'Proposta Cotação',
         entidade_id: respostaParaExcluir,
         detalhes: {
-          protocolo: (respostaData as any)?.protocolo || "",
+          protocolo: protocoloFinal,
           contrato_gestao: cotacao?.processos_compras?.contratos_gestao?.nome_contrato || "",
           numero_processo: processoNumero,
           titulo_cotacao: cotacao?.titulo_cotacao || "",

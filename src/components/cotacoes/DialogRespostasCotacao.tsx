@@ -1039,6 +1039,52 @@ export function DialogRespostasCotacao({
       const numeroProcesso = (cotacaoData?.processos_compras as any)?.numero_processo_interno || "";
       const tituloCotacaoLog = cotacaoData?.titulo_cotacao || "";
 
+      // Capturar o protocolo ANTES de deletar (depois do DELETE a linha não existe mais)
+      let protocoloFinal: string | null =
+        typeof (respostaParaExcluir as any)?.protocolo === "string" &&
+        String((respostaParaExcluir as any).protocolo).trim().length > 0
+          ? String((respostaParaExcluir as any).protocolo).trim()
+          : null;
+
+      if (!protocoloFinal) {
+        try {
+          const { data: protoRow, error: protoErr } = await supabase
+            .from("cotacao_respostas_fornecedor")
+            .select("protocolo")
+            .eq("id", respostaParaExcluir.id)
+            .maybeSingle();
+
+          if (!protoErr && protoRow?.protocolo) {
+            const p = String(protoRow.protocolo).trim();
+            if (p) protocoloFinal = p;
+          }
+        } catch {
+          // silencioso
+        }
+      }
+
+      // Fallback: se por algum motivo o protocolo não veio da linha (ou está vazio), buscar no histórico de auditoria
+      if (!protocoloFinal) {
+        try {
+          const { data: protoLogs, error: protoLogsErr } = await supabase
+            .from("audit_logs")
+            .select("detalhes, created_at")
+            .eq("entidade", "Proposta Cotação")
+            .eq("entidade_id", respostaParaExcluir.id)
+            .order("created_at", { ascending: false })
+            .limit(10);
+
+          if (!protoLogsErr && Array.isArray(protoLogs)) {
+            const p = (protoLogs as any[])
+              .map((l) => l?.detalhes?.protocolo)
+              .find((v) => typeof v === "string" && v.trim().length > 0);
+            if (p) protocoloFinal = String(p).trim();
+          }
+        } catch {
+          // silencioso
+        }
+      }
+
       // Excluir itens da resposta
       const { error: itensError } = await supabase
         .from("respostas_itens_fornecedor")
@@ -1061,7 +1107,7 @@ export function DialogRespostasCotacao({
         entidade: 'Proposta Cotação',
         entidade_id: respostaParaExcluir.id,
         detalhes: {
-          protocolo: (respostaParaExcluir as any)?.protocolo || "",
+          protocolo: protocoloFinal,
           contrato_gestao: contratoGestaoNome,
           numero_processo: numeroProcesso,
           titulo_cotacao: tituloCotacaoLog,
