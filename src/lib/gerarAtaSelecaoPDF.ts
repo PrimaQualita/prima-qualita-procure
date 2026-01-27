@@ -1,6 +1,7 @@
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { supabase } from '@/integrations/supabase/client';
+import { registrarAuditoria } from '@/lib/registrarAuditoria';
 import { v4 as uuidv4 } from 'uuid';
 import logoImg from '@/assets/capa-processo-logo.png';
 import rodapeImg from '@/assets/capa-processo-rodape.png';
@@ -1865,7 +1866,7 @@ export async function gerarAtaSelecaoPDF(selecaoId: string): Promise<{ url: stri
     .getPublicUrl(storagePath);
 
   // Salvar registro da ata na tabela para verificação
-  const { error: insertError } = await supabase
+  const { data: ataInserida, error: insertError } = await supabase
     .from('atas_selecao')
     .insert({
       selecao_id: selecaoId,
@@ -1875,10 +1876,32 @@ export async function gerarAtaSelecaoPDF(selecaoId: string): Promise<{ url: stri
       url_arquivo_original: publicUrl,
       usuario_gerador_id: user?.id || null,
       data_geracao: new Date().toISOString()
-    });
+    })
+    .select('id')
+    .maybeSingle();
 
   if (insertError) {
     console.error('Erro ao salvar registro da ata:', insertError);
+  } else if (ataInserida?.id) {
+    // Auditoria manual (não bloqueia a geração)
+    try {
+      await registrarAuditoria({
+        acao: 'criação',
+        entidade: 'Ata de Seleção',
+        entidade_id: ataInserida.id,
+        detalhes: {
+          protocolo: protocolo,
+          nome_arquivo: nomeArquivo,
+          url_arquivo: publicUrl,
+          numero_selecao: selecao?.numero_selecao || 'N/A',
+          titulo_selecao: selecao?.titulo_selecao || 'N/A',
+          numero_processo: selecao?.processos_compras?.numero_processo_interno || '',
+          contrato_gestao: selecao?.processos_compras?.contratos_gestao?.nome_contrato || '',
+        },
+      });
+    } catch (auditError) {
+      console.warn('Erro ao registrar auditoria da criação de ata:', auditError);
+    }
   }
 
   return {
