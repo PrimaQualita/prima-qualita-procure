@@ -168,7 +168,7 @@ const Auditoria = () => {
       return (
         <Badge className="bg-green-600 hover:bg-green-700 text-white gap-1">
           <CheckCircle className="h-3 w-3" />
-          Habilitação
+          Habilitado
         </Badge>
       );
     }
@@ -185,7 +185,7 @@ const Auditoria = () => {
       return (
         <Badge className="bg-red-500 hover:bg-red-600 text-white gap-1">
           <XCircle className="h-3 w-3" />
-          Rejeição
+          Inabilitado
         </Badge>
       );
     }
