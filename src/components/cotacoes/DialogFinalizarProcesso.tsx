@@ -2170,6 +2170,28 @@ export function DialogFinalizarProcesso({
         .update({ status_recurso: 'sem_recurso' })
         .eq('id', recursoParaExcluir.rejeicao_id);
       
+      // Registrar auditoria da exclusão do recurso
+      try {
+        const dadosProcesso = await obterDadosProcessoParaAuditoria();
+        
+        await registrarAuditoria({
+          acao: 'exclusão',
+          entidade: 'Recurso Fornecedor',
+          entidade_id: recursoParaExcluir.id,
+          detalhes: {
+            tipo: 'Recurso de Fornecedor - Exclusão',
+            protocolo: recursoParaExcluir.protocolo || null,
+            fornecedor: recursoParaExcluir.fornecedores?.razao_social || 'N/A',
+            numero_processo: dadosProcesso.numero_processo,
+            contrato_gestao: dadosProcesso.contrato_gestao,
+            titulo_cotacao: dadosProcesso.titulo_cotacao,
+            tinha_resposta: !!respostaExistente,
+          },
+        });
+      } catch (auditError) {
+        console.warn('Erro ao registrar auditoria da exclusão do recurso:', auditError);
+      }
+      
       setRecursoParaExcluir(null);
       setConfirmDeleteRecursoOpen(false);
       toast.success('Recurso apagado com sucesso!');
@@ -2216,6 +2238,30 @@ export function DialogFinalizarProcesso({
             usuario_reverteu_id: null
           })
           .eq('id', respostaRecursoParaExcluir.rejeicao_id);
+      }
+      
+      // Registrar auditoria da exclusão da resposta de recurso
+      try {
+        const dadosProcesso = await obterDadosProcessoParaAuditoria();
+        
+        await registrarAuditoria({
+          acao: 'exclusão',
+          entidade: 'Resposta Recurso',
+          entidade_id: respostaAtual.id,
+          detalhes: {
+            tipo: 'Resposta de Recurso - Exclusão',
+            protocolo: respostaAtual.protocolo || null,
+            fornecedor: respostaRecursoParaExcluir.fornecedores?.razao_social || 'N/A',
+            numero_processo: dadosProcesso.numero_processo,
+            contrato_gestao: dadosProcesso.contrato_gestao,
+            titulo_cotacao: dadosProcesso.titulo_cotacao,
+            decisao_anterior: respostaAtual.decisao === 'provimento' 
+              ? (respostaAtual.tipo_provimento === 'parcial' ? 'Provimento Parcial' : 'Provimento Total') 
+              : 'Negado',
+          },
+        });
+      } catch (auditError) {
+        console.warn('Erro ao registrar auditoria da exclusão da resposta:', auditError);
       }
       
       setRespostaRecursoParaExcluir(null);
@@ -5301,6 +5347,32 @@ export function DialogFinalizarProcesso({
                             .eq('id', recurso.rejeicao_id);
                         }
                       }
+                    }
+
+                    // ===== AUDITORIA DA RESPOSTA AO RECURSO =====
+                    try {
+                      const dadosProcesso = await obterDadosProcessoParaAuditoria();
+                      const tipoDecisao = decisaoRecurso === 'negado' 
+                        ? 'Negado Provimento' 
+                        : (tipoProvimento === 'parcial' ? 'Provimento Parcial' : 'Provimento Total');
+                      
+                      await registrarAuditoria({
+                        acao: 'criação',
+                        entidade: 'Resposta Recurso',
+                        entidade_id: recursoSelecionado,
+                        detalhes: {
+                          tipo: `Resposta de Recurso - ${tipoDecisao}`,
+                          protocolo: pdfResult.protocolo,
+                          fornecedor: fornecedorNome,
+                          numero_processo: dadosProcesso.numero_processo,
+                          contrato_gestao: dadosProcesso.contrato_gestao,
+                          titulo_cotacao: dadosProcesso.titulo_cotacao,
+                          decisao: tipoDecisao,
+                          itens_reabilitados: tipoProvimento === 'parcial' ? itensParaReabilitar : [],
+                        },
+                      });
+                    } catch (auditError) {
+                      console.warn('Erro ao registrar auditoria da resposta ao recurso:', auditError);
                     }
 
                     toast.success('Resposta de recurso registrada com sucesso!');
