@@ -3011,16 +3011,15 @@ export function DialogFinalizarProcesso({
     try {
       setLoading(true);
       
-      // Buscar processo_compra_id da cotação e status de seleção
+      // Buscar processo_compra_id da cotação
       const { data: cotacaoData } = await supabase
         .from("cotacoes_precos")
-        .select("processo_compra_id, enviado_para_selecao")
+        .select("processo_compra_id")
         .eq("id", cotacaoId)
         .single();
       
       if (!cotacaoData) throw new Error("Cotação não encontrada");
       const processoId = cotacaoData.processo_compra_id;
-      const foiParaSelecao = cotacaoData.enviado_para_selecao || false;
       
       const { data: { user } } = await supabase.auth.getUser();
       const { data: usuario } = await supabase
@@ -3031,9 +3030,12 @@ export function DialogFinalizarProcesso({
 
       const { data: processo } = await supabase
         .from("processos_compras")
-        .select("numero_processo_interno, objeto_resumido")
+        .select("numero_processo_interno, objeto_resumido, requer_selecao")
         .eq("id", processoId)
         .single();
+      
+      // Determinar se é compra direta ou seleção baseado no campo requer_selecao do processo
+      const foiParaSelecao = processo?.requer_selecao || false;
 
       if (!processo) throw new Error("Processo não encontrado");
 
