@@ -1326,6 +1326,20 @@ export function DialogAnaliseDocumentalSelecao({
 
       if (error) throw error;
 
+      // Registrar auditoria - Encerramento de Habilitação
+      await registrarAuditoria({
+        acao: 'atualização',
+        entidade: 'Habilitação Seleção',
+        entidade_id: selecaoId,
+        detalhes: {
+          tipo: 'Encerramento de Habilitação',
+          numero_processo: selecaoInfo?.numeroProcesso || '',
+          numero_selecao: selecaoInfo?.numero || '',
+          titulo_selecao: selecaoInfo?.titulo || '',
+          contrato_gestao: selecaoInfo?.contratoGestao || '',
+        },
+      });
+
       toast.success("Habilitação encerrada! Fornecedores têm 5 minutos para declarar intenção de recurso.");
       setDialogEncerrarHabilitacao(false);
       setHabilitacaoEncerrada(true);
@@ -1349,6 +1363,20 @@ export function DialogAnaliseDocumentalSelecao({
         .eq("id", selecaoId);
 
       if (error) throw error;
+
+      // Registrar auditoria - Reversão de Encerramento de Habilitação
+      await registrarAuditoria({
+        acao: 'atualização',
+        entidade: 'Habilitação Seleção',
+        entidade_id: selecaoId,
+        detalhes: {
+          tipo: 'Reversão de Encerramento de Habilitação',
+          numero_processo: selecaoInfo?.numeroProcesso || '',
+          numero_selecao: selecaoInfo?.numero || '',
+          titulo_selecao: selecaoInfo?.titulo || '',
+          contrato_gestao: selecaoInfo?.contratoGestao || '',
+        },
+      });
 
       toast.success("Encerramento revertido!");
       setDialogReverterEncerramento(false);
