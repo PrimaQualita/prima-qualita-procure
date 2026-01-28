@@ -1861,10 +1861,12 @@ export function DialogAnaliseDocumentalSelecao({
           protocolo_resposta: null,
           status_recurso: "aguardando_envio",
           data_envio_recurso: null,
-          data_resposta: null,
+          data_resposta_gestor: null,
           motivo_recurso: "",
           resposta_gestor: null,
-          usuario_resposta_id: null
+          usuario_gestor_id: null,
+          tipo_provimento: null,
+          itens_reabilitados: null
         })
         .eq("id", confirmDeleteRecurso.recursoId);
       
