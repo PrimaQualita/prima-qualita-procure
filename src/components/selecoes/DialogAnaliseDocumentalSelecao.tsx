@@ -1947,6 +1947,20 @@ export function DialogAnaliseDocumentalSelecao({
 
   const handleReverterDecisao = async (campoId: string) => {
     try {
+      // Buscar dados do campo antes de atualizar para log
+      const { data: campoData } = await supabase
+        .from("campos_documentos_finalizacao")
+        .select(`
+          nome_campo,
+          status_solicitacao,
+          fornecedor_id,
+          fornecedores (razao_social, cnpj)
+        `)
+        .eq("id", campoId)
+        .maybeSingle();
+      
+      const statusAnterior = campoData?.status_solicitacao;
+      
       const { error } = await supabase
         .from("campos_documentos_finalizacao")
         .update({
@@ -1958,11 +1972,124 @@ export function DialogAnaliseDocumentalSelecao({
 
       if (error) throw error;
 
+      // Registrar auditoria da reversão
+      const tipoReversao = statusAnterior === 'aprovado' 
+        ? 'Reversão de Aprovação de Documento' 
+        : 'Reversão de Rejeição de Documento';
+      
+      await registrarAuditoria({
+        acao: 'atualização',
+        entidade: 'Documento Adicional Seleção',
+        entidade_id: selecaoId,
+        detalhes: {
+          tipo: tipoReversao,
+          nome_documento: campoData?.nome_campo || '',
+          status_anterior: statusAnterior || '',
+          fornecedor: (campoData?.fornecedores as any)?.razao_social || '',
+          cnpj: (campoData?.fornecedores as any)?.cnpj || '',
+          numero_processo: selecaoInfo?.numeroProcesso || '',
+          contrato_gestao: selecaoInfo?.contratoGestao || '',
+          titulo_selecao: selecaoInfo?.titulo || '',
+        },
+      });
+
       toast.success("Decisão revertida");
       loadFornecedoresVencedores();
     } catch (error) {
       console.error("Erro ao reverter decisão:", error);
       toast.error("Erro ao reverter decisão");
+    }
+  };
+
+  const handleExcluirDocumentoAdicional = async (campoId: string, fornecedorId: string) => {
+    try {
+      // Buscar dados do campo e documento para log e limpeza
+      const { data: campoData } = await supabase
+        .from("campos_documentos_finalizacao")
+        .select(`
+          nome_campo,
+          fornecedores (razao_social, cnpj),
+          documentos_finalizacao_fornecedor (id, url_arquivo, nome_arquivo)
+        `)
+        .eq("id", campoId)
+        .maybeSingle();
+
+      const documentos = (campoData as any)?.documentos_finalizacao_fornecedor || [];
+
+      // Deletar arquivos do storage primeiro
+      for (const doc of documentos) {
+        if (doc.url_arquivo) {
+          // Extrair path do arquivo
+          let storagePath = doc.url_arquivo;
+          storagePath = storagePath.split('?')[0];
+          storagePath = storagePath.replace(/^https?:\/\/[^/]+\/storage\/v1\/object\/public\//, '');
+          
+          // Detectar bucket
+          let bucket = 'processo-anexos';
+          if (storagePath.startsWith('processo-anexos/')) {
+            bucket = 'processo-anexos';
+            storagePath = storagePath.replace('processo-anexos/', '');
+          } else if (storagePath.startsWith('documents/')) {
+            bucket = 'documents';
+            storagePath = storagePath.replace('documents/', '');
+          }
+          
+          // Decodificar path
+          try {
+            while (storagePath.includes('%')) {
+              const decoded = decodeURIComponent(storagePath);
+              if (decoded === storagePath) break;
+              storagePath = decoded;
+            }
+          } catch {}
+          
+          console.log(`🗑️ Deletando arquivo do storage: ${bucket}/${storagePath}`);
+          const { error: storageError } = await supabase.storage
+            .from(bucket)
+            .remove([storagePath]);
+          
+          if (storageError) {
+            console.error("Erro ao deletar arquivo do storage:", storageError);
+          }
+        }
+        
+        // Deletar registro do documento
+        await supabase
+          .from("documentos_finalizacao_fornecedor")
+          .delete()
+          .eq("id", doc.id);
+      }
+
+      // Deletar o campo de documento adicional
+      const { error } = await supabase
+        .from("campos_documentos_finalizacao")
+        .delete()
+        .eq("id", campoId);
+
+      if (error) throw error;
+
+      // Registrar auditoria
+      await registrarAuditoria({
+        acao: 'exclusão',
+        entidade: 'Documento Adicional Seleção',
+        entidade_id: selecaoId,
+        detalhes: {
+          tipo: 'Exclusão de Documento Adicional',
+          nome_documento: campoData?.nome_campo || '',
+          fornecedor: (campoData?.fornecedores as any)?.razao_social || '',
+          cnpj: (campoData?.fornecedores as any)?.cnpj || '',
+          arquivo_deletado: documentos[0]?.nome_arquivo || 'Sem arquivo',
+          numero_processo: selecaoInfo?.numeroProcesso || '',
+          contrato_gestao: selecaoInfo?.contratoGestao || '',
+          titulo_selecao: selecaoInfo?.titulo || '',
+        },
+      });
+
+      toast.success("Documento adicional excluído");
+      loadFornecedoresVencedores();
+    } catch (error) {
+      console.error("Erro ao excluir documento adicional:", error);
+      toast.error("Erro ao excluir documento adicional");
     }
   };
 
@@ -3221,75 +3348,90 @@ export function DialogAnaliseDocumentalSelecao({
                         )}
                       </TableCell>
                       <TableCell>
-                        {campo.documentos_finalizacao_fornecedor && campo.documentos_finalizacao_fornecedor.length > 0 && (
-                          <div className="flex gap-2 items-center">
-                            {/* Status aprovado ou rejeitado - mostrar badge e botão de reversão */}
-                            {(campo.status_solicitacao === "aprovado" || campo.status_solicitacao === "rejeitado") ? (
-                              <>
-                                <Badge 
-                                  variant={campo.status_solicitacao === "aprovado" ? "default" : "destructive"}
-                                  className={campo.status_solicitacao === "aprovado" ? "bg-green-500" : ""}
-                                >
-                                  {campo.status_solicitacao === "aprovado" ? (
-                                    <>
-                                      <CheckCircle className="h-3 w-3 mr-1" />
-                                      Documento OK
-                                    </>
-                                  ) : (
-                                    <>
-                                      <XCircle className="h-3 w-3 mr-1" />
-                                      Rejeitado
-                                    </>
-                                  )}
-                                </Badge>
-                                <Button
-                                  size="sm"
-                                  variant="outline"
-                                  onClick={() => handleReverterDecisao(campo.id!)}
-                                >
-                                  <RefreshCw className="h-4 w-4 mr-1" />
-                                  Reverter Decisão
-                                </Button>
-                              </>
-                            ) : (
-                              /* Status em_analise ou pendente - mostrar botões de ação */
-                              <>
-                                <Button
-                                  size="sm"
-                                  variant="default"
-                                  onClick={() => handleAprovarDocumento(campo.id!)}
-                                >
-                                  <CheckCircle className="h-4 w-4 mr-1" />
-                                  Aprovar
-                                </Button>
-                                <Button
-                                  size="sm"
-                                  variant="destructive"
-                                  onClick={() => {
-                                    setCampoParaRejeitar(campo.id!);
-                                    setMotivoRejeicaoDocumento("");
-                                    setDialogRejeitarDocumento(true);
-                                  }}
-                                >
-                                  <XCircle className="h-4 w-4 mr-1" />
-                                  Rejeitar
-                                </Button>
-                                <Button
-                                  size="sm"
-                                  variant="outline"
-                                  onClick={() => {
-                                    setCampoParaAtualizacao(campo.id!);
-                                    setMotivoAtualizacaoDocumento("");
-                                    setDialogSolicitarAtualizacaoDocumento(true);
-                                  }}
-                                >
-                                  <RefreshCw className="h-4 w-4 mr-1" />
-                                  Solicitar Atualização
-                                </Button>
-                              </>
-                            )}
-                          </div>
-                        )}
+                        <div className="flex gap-2 items-center flex-wrap">
+                          {campo.documentos_finalizacao_fornecedor && campo.documentos_finalizacao_fornecedor.length > 0 ? (
+                            <>
+                              {/* Status aprovado ou rejeitado - mostrar badge e botão de reversão */}
+                              {(campo.status_solicitacao === "aprovado" || campo.status_solicitacao === "rejeitado") ? (
+                                <>
+                                  <Badge 
+                                    variant={campo.status_solicitacao === "aprovado" ? "default" : "destructive"}
+                                    className={campo.status_solicitacao === "aprovado" ? "bg-green-500" : ""}
+                                  >
+                                    {campo.status_solicitacao === "aprovado" ? (
+                                      <>
+                                        <CheckCircle className="h-3 w-3 mr-1" />
+                                        Documento OK
+                                      </>
+                                    ) : (
+                                      <>
+                                        <XCircle className="h-3 w-3 mr-1" />
+                                        Rejeitado
+                                      </>
+                                    )}
+                                  </Badge>
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    onClick={() => handleReverterDecisao(campo.id!)}
+                                  >
+                                    <RefreshCw className="h-4 w-4 mr-1" />
+                                    Reverter Decisão
+                                  </Button>
+                                </>
+                              ) : (
+                                /* Status em_analise ou pendente - mostrar botões de ação */
+                                <>
+                                  <Button
+                                    size="sm"
+                                    variant="default"
+                                    onClick={() => handleAprovarDocumento(campo.id!)}
+                                  >
+                                    <CheckCircle className="h-4 w-4 mr-1" />
+                                    Aprovar
+                                  </Button>
+                                  <Button
+                                    size="sm"
+                                    variant="destructive"
+                                    onClick={() => {
+                                      setCampoParaRejeitar(campo.id!);
+                                      setMotivoRejeicaoDocumento("");
+                                      setDialogRejeitarDocumento(true);
+                                    }}
+                                  >
+                                    <XCircle className="h-4 w-4 mr-1" />
+                                    Rejeitar
+                                  </Button>
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    onClick={() => {
+                                      setCampoParaAtualizacao(campo.id!);
+                                      setMotivoAtualizacaoDocumento("");
+                                      setDialogSolicitarAtualizacaoDocumento(true);
+                                    }}
+                                  >
+                                    <RefreshCw className="h-4 w-4 mr-1" />
+                                    Solicitar Atualização
+                                  </Button>
+                                </>
+                              )}
+                            </>
+                          ) : null}
+                          {/* Botão de excluir documento adicional - sempre disponível */}
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            className="text-destructive hover:text-destructive hover:bg-destructive/10"
+                            onClick={() => {
+                              if (confirm(`Excluir o documento adicional "${campo.nome_campo}"? Esta ação também removerá o arquivo enviado.`)) {
+                                handleExcluirDocumentoAdicional(campo.id!, data.fornecedor.id);
+                              }
+                            }}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
                       </TableCell>
                     </TableRow>
                   ))}

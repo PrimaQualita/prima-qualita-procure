@@ -230,6 +230,36 @@ const Auditoria = () => {
       );
     }
 
+    // Reversão de Rejeição de Documento Adicional - Seleção
+    if (entidadeLower.includes("documento adicional seleção") && tipoDetalhe.includes("reversão de rejeição")) {
+      return (
+        <Badge className="bg-amber-500 hover:bg-amber-600 text-white gap-1">
+          <RefreshCw className="h-3 w-3" />
+          Reversão Rejeição
+        </Badge>
+      );
+    }
+
+    // Reversão de Aprovação de Documento Adicional - Seleção
+    if (entidadeLower.includes("documento adicional seleção") && tipoDetalhe.includes("reversão de aprovação")) {
+      return (
+        <Badge className="bg-amber-500 hover:bg-amber-600 text-white gap-1">
+          <RefreshCw className="h-3 w-3" />
+          Reversão Aprovação
+        </Badge>
+      );
+    }
+
+    // Exclusão de Documento Adicional - Seleção
+    if (entidadeLower.includes("documento adicional seleção") && tipoDetalhe.includes("exclusão")) {
+      return (
+        <Badge className="bg-red-500 hover:bg-red-600 text-white gap-1">
+          <Trash2 className="h-3 w-3" />
+          Exclusão Doc.
+        </Badge>
+      );
+    }
+
     // Rejeição de Documento Adicional - Seleção
     if (entidadeLower.includes("documento adicional seleção") && tipoDetalhe.includes("rejeição")) {
       return (
