@@ -20,7 +20,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Eye, FileText, Plus, Trash2, Edit, XCircle, CheckCircle, AlertCircle, RefreshCw } from "lucide-react";
+import { Eye, FileText, Plus, Trash2, Edit, XCircle, CheckCircle, AlertCircle, RefreshCw, Lock } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 interface AuditLog {
@@ -318,6 +318,26 @@ const Auditoria = () => {
           Exclusão Recurso
         </Badge>
       );
+    }
+
+    // Encerramento de Habilitação - Seleção
+    if (entidadeLower.includes("habilitação seleção") || entidadeLower.includes("habilitacao selecao")) {
+      if (tipoDetalhe.includes("encerramento de habilitação")) {
+        return (
+          <Badge className="bg-blue-600 hover:bg-blue-700 text-white gap-1">
+            <Lock className="h-3 w-3" />
+            Encerramento
+          </Badge>
+        );
+      }
+      if (tipoDetalhe.includes("reversão de encerramento")) {
+        return (
+          <Badge className="bg-orange-500 hover:bg-orange-600 text-white gap-1">
+            <RefreshCw className="h-3 w-3" />
+            Reversão Encerramento
+          </Badge>
+        );
+      }
     }
 
     // Habilitação de Fornecedor
