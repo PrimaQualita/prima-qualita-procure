@@ -2556,6 +2556,22 @@ export function DialogAnaliseDocumentalSelecao({
                             newSet.delete(data.fornecedor.id);
                             return newSet;
                           });
+
+                          // Registrar auditoria da reversão de aprovação
+                          await registrarAuditoria({
+                            acao: 'atualização',
+                            entidade: 'Fornecedor Seleção',
+                            entidade_id: selecaoId,
+                            detalhes: {
+                              tipo: 'Reversão de Aprovação de Fornecedor',
+                              fornecedor: data.fornecedor.razao_social,
+                              cnpj: data.fornecedor.cnpj,
+                              numero_processo: selecaoInfo?.numeroProcesso,
+                              contrato_gestao: selecaoInfo?.contratoGestao,
+                              titulo_selecao: selecaoInfo?.titulo,
+                            },
+                          });
+
                           toast.success("Aprovação revertida");
                         } catch (error) {
                           console.error("Erro ao reverter aprovação:", error);
