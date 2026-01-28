@@ -1829,7 +1829,7 @@ export function DialogAnaliseDocumentalSelecao({
       // 1. Buscar dados do recurso antes de deletar
       const { data: recursoData } = await supabase
         .from("recursos_inabilitacao_selecao")
-        .select("url_pdf_recurso, url_pdf_resposta, data_limite_fornecedor, protocolo_recurso, fornecedores (razao_social)")
+        .select("url_pdf_recurso, url_pdf_resposta, data_limite_fornecedor, protocolo_recurso, protocolo_resposta, fornecedores (razao_social, cnpj)")
         .eq("id", confirmDeleteRecurso.recursoId)
         .single();
       
@@ -1884,7 +1884,9 @@ export function DialogAnaliseDocumentalSelecao({
         detalhes: {
           tipo: 'Exclusão de Recurso Completo',
           fornecedor: (recursoData?.fornecedores as any)?.razao_social || '',
-          protocolo: recursoData?.protocolo_recurso || '',
+          cnpj: (recursoData?.fornecedores as any)?.cnpj || '',
+          protocolo_recurso: recursoData?.protocolo_recurso || 'Não havia recurso enviado',
+          protocolo_resposta: recursoData?.protocolo_resposta || 'Não havia resposta registrada',
           numero_processo: selecaoInfo?.numeroProcesso || '',
           contrato_gestao: selecaoInfo?.contratoGestao || '',
           titulo_selecao: selecaoInfo?.titulo || '',
