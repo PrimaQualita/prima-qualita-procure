@@ -548,6 +548,8 @@ const Auditoria = () => {
       fornecedores_vencedores: "Fornecedores Vencedores",
       fornecedores_respondidos: "Fornecedores Respondidos",
       objeto_processo: "Objeto do Processo",
+      protocolo_recurso: "Protocolo do Recurso",
+      numero_selecao: "Número da Seleção",
     };
     return traducoes[chave] || chave;
   };
