@@ -1233,6 +1233,7 @@ export function DialogAnaliseDocumentalSelecao({
       }
 
       // Gerar PDF da resposta ao recurso
+      let protocoloResposta: string | null = null;
       try {
         const tipoDecisao = decisao === 'deferido' ? 'provimento' : 
                             decisao === 'parcial' ? 'provimento_parcial' : 'negado';
@@ -1246,6 +1247,8 @@ export function DialogAnaliseDocumentalSelecao({
         );
 
         if (pdfResult?.url) {
+          protocoloResposta = pdfResult.protocolo || null;
+          
           // Salvar URL do PDF no recurso
           await supabase
             .from("recursos_inabilitacao_selecao")
@@ -1276,6 +1279,7 @@ export function DialogAnaliseDocumentalSelecao({
           fornecedor: inabilitacao?.fornecedores?.razao_social || '',
           cnpj: inabilitacao?.fornecedores?.cnpj || '',
           decisao: decisaoLabel,
+          protocolo_resposta: protocoloResposta,
           resposta: respostaRecurso,
           itens_reabilitados: decisao === 'parcial' ? itensReabilitar.join(', ') : '',
           numero_processo: selecaoInfo?.numeroProcesso || '',
