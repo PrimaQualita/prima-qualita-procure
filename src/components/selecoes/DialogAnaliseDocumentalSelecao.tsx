@@ -31,6 +31,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { gerarRespostaRecursoPDF } from "@/lib/gerarRespostaRecursoPDF";
 import { gerarRecursoPDF } from "@/lib/gerarRecursoPDF";
+import { registrarAuditoria } from "@/lib/registrarAuditoria";
 
 interface DocumentoExistente {
   id: string;
@@ -178,7 +179,7 @@ export function DialogAnaliseDocumentalSelecao({
   const [respostaRecurso, setRespostaRecurso] = useState("");
   const [deferirRecurso, setDeferirRecurso] = useState(true);
   const [gerandoPdfRecurso, setGerandoPdfRecurso] = useState(false);
-  const [selecaoInfo, setSelecaoInfo] = useState<{titulo: string; numero: string; numeroProcesso: string} | null>(null);
+  const [selecaoInfo, setSelecaoInfo] = useState<{titulo: string; numero: string; numeroProcesso: string; contratoGestao: string} | null>(null);
   
   // State para confirmar exclusão de PDF
   const [confirmDeletePdf, setConfirmDeletePdf] = useState<{ open: boolean; recursoId: string | null; tipo: 'recurso' | 'resposta' | null }>({ open: false, recursoId: null, tipo: null });
@@ -325,23 +326,26 @@ export function DialogAnaliseDocumentalSelecao({
       const cotacaoId = selecaoData?.cotacao_relacionada_id;
       setCotacaoRelacionadaId(cotacaoId || null);
 
-      // Buscar o número do processo através da cotação
+      // Buscar o número do processo e contrato de gestão através da cotação
       let numeroProcesso = "";
+      let contratoGestao = "";
       if (cotacaoId) {
         const { data: cotacaoData } = await supabase
           .from("cotacoes_precos")
-          .select("processos_compras (numero_processo_interno)")
+          .select("processos_compras (numero_processo_interno, contratos_gestao (nome_contrato))")
           .eq("id", cotacaoId)
           .single();
         
         numeroProcesso = (cotacaoData as any)?.processos_compras?.numero_processo_interno || "";
+        contratoGestao = (cotacaoData as any)?.processos_compras?.contratos_gestao?.nome_contrato || "";
       }
 
-      // Salvar info da seleção para uso no PDF
+      // Salvar info da seleção para uso no PDF e auditoria
       setSelecaoInfo({
         titulo: selecaoData?.titulo_selecao || "",
         numero: selecaoData?.numero_selecao || "",
-        numeroProcesso
+        numeroProcesso,
+        contratoGestao
       });
 
       // Buscar itens da cotação relacionada para obter quantidades
@@ -1257,6 +1261,26 @@ export function DialogAnaliseDocumentalSelecao({
         // Não bloqueia o processo se o PDF falhar
       }
 
+      // Registrar auditoria - Resposta de Recurso
+      const decisaoLabel = decisao === 'deferido' ? 'Provimento Total' : 
+                           decisao === 'parcial' ? 'Provimento Parcial' : 'Negado';
+      await registrarAuditoria({
+        acao: 'atualização',
+        entidade: 'Recurso Seleção',
+        entidade_id: recursoParaResponder.id,
+        detalhes: {
+          tipo: 'Resposta de Recurso',
+          fornecedor: inabilitacao?.fornecedores?.razao_social || '',
+          cnpj: inabilitacao?.fornecedores?.cnpj || '',
+          decisao: decisaoLabel,
+          resposta: respostaRecurso,
+          itens_reabilitados: decisao === 'parcial' ? itensReabilitar.join(', ') : '',
+          numero_processo: selecaoInfo?.numeroProcesso || '',
+          contrato_gestao: selecaoInfo?.contratoGestao || '',
+          titulo_selecao: selecaoInfo?.titulo || '',
+        },
+      });
+
       const mensagem = decisao === 'deferido' ? "deferido" : 
                        decisao === 'parcial' ? "deferido parcialmente" : "indeferido";
       toast.success(`Recurso ${mensagem} com sucesso!`);
@@ -1611,6 +1635,13 @@ export function DialogAnaliseDocumentalSelecao({
     }
 
     try {
+      // Buscar dados do fornecedor para auditoria
+      const { data: fornecedorData } = await supabase
+        .from("fornecedores")
+        .select("razao_social")
+        .eq("id", fornecedorId)
+        .single();
+
       // Buscar maior ordem existente para esta seleção
       const { data: maxOrdemData } = await supabase
         .from("campos_documentos_finalizacao")
@@ -1623,7 +1654,7 @@ export function DialogAnaliseDocumentalSelecao({
       
       const dataLimite = datasLimiteDocumentos[fornecedorId];
       
-      const { error } = await supabase
+      const { data: campoInserido, error } = await supabase
         .from("campos_documentos_finalizacao")
         .insert({
           selecao_id: selecaoId,
@@ -1634,9 +1665,28 @@ export function DialogAnaliseDocumentalSelecao({
           ordem: proximaOrdem,
           status_solicitacao: "pendente",
           data_solicitacao: dataLimite || null,
-        });
+        })
+        .select("id")
+        .single();
 
       if (error) throw error;
+
+      // Registrar auditoria - Solicitação de Documento Adicional
+      await registrarAuditoria({
+        acao: 'criação',
+        entidade: 'Documento Adicional Seleção',
+        entidade_id: campoInserido?.id,
+        detalhes: {
+          tipo: 'Solicitação de Documento Adicional',
+          nome_documento: novoCampo.nome,
+          descricao: novoCampo.descricao || '',
+          fornecedor: fornecedorData?.razao_social || '',
+          numero_processo: selecaoInfo?.numeroProcesso || '',
+          contrato_gestao: selecaoInfo?.contratoGestao || '',
+          titulo_selecao: selecaoInfo?.titulo || '',
+          data_limite: dataLimite || null,
+        },
+      });
 
       toast.success("Documento solicitado ao fornecedor");
       setNovosCampos(prev => ({ ...prev, [fornecedorId]: { nome: "", descricao: "", obrigatorio: true } }));
@@ -1649,6 +1699,13 @@ export function DialogAnaliseDocumentalSelecao({
 
   const handleAprovarDocumento = async (campoId: string) => {
     try {
+      // Buscar dados do campo e fornecedor para auditoria
+      const { data: campoData } = await supabase
+        .from("campos_documentos_finalizacao")
+        .select("nome_campo, fornecedor_id, fornecedores (razao_social)")
+        .eq("id", campoId)
+        .single();
+
       const { error } = await supabase
         .from("campos_documentos_finalizacao")
         .update({
@@ -1658,6 +1715,22 @@ export function DialogAnaliseDocumentalSelecao({
         .eq("id", campoId);
 
       if (error) throw error;
+
+      // Registrar auditoria - Aprovação de Documento Adicional
+      await registrarAuditoria({
+        acao: 'atualização',
+        entidade: 'Documento Adicional Seleção',
+        entidade_id: campoId,
+        detalhes: {
+          tipo: 'Aprovação de Documento Adicional',
+          nome_documento: campoData?.nome_campo || '',
+          fornecedor: (campoData?.fornecedores as any)?.razao_social || '',
+          numero_processo: selecaoInfo?.numeroProcesso || '',
+          contrato_gestao: selecaoInfo?.contratoGestao || '',
+          titulo_selecao: selecaoInfo?.titulo || '',
+          status: 'aprovado',
+        },
+      });
 
       toast.success("Documento aprovado");
       loadFornecedoresVencedores();
@@ -1687,16 +1760,20 @@ export function DialogAnaliseDocumentalSelecao({
     if (!confirmDeletePdf.recursoId || !confirmDeletePdf.tipo) return;
     
     try {
-      // 1. Buscar a URL do arquivo antes de atualizar
+      // 1. Buscar dados do recurso e fornecedor para auditoria
       const { data: recursoData } = await supabase
         .from("recursos_inabilitacao_selecao")
-        .select("url_pdf_recurso, url_pdf_resposta")
+        .select("url_pdf_recurso, url_pdf_resposta, protocolo_recurso, protocolo_resposta, fornecedores (razao_social)")
         .eq("id", confirmDeletePdf.recursoId)
         .single();
       
       const urlArquivo = confirmDeletePdf.tipo === 'recurso' 
         ? recursoData?.url_pdf_recurso 
         : recursoData?.url_pdf_resposta;
+      
+      const protocolo = confirmDeletePdf.tipo === 'recurso'
+        ? recursoData?.protocolo_recurso
+        : recursoData?.protocolo_resposta;
       
       // 2. Deletar arquivo do storage PRIMEIRO
       if (urlArquivo) {
@@ -1710,6 +1787,23 @@ export function DialogAnaliseDocumentalSelecao({
       } else {
         await supabase.from("recursos_inabilitacao_selecao").update({ url_pdf_resposta: null, nome_arquivo_resposta: null, protocolo_resposta: null }).eq("id", confirmDeletePdf.recursoId);
       }
+
+      // 4. Registrar auditoria - Exclusão de PDF de Recurso/Resposta
+      const tipoDocumento = confirmDeletePdf.tipo === 'recurso' ? 'PDF do Recurso' : 'PDF da Resposta de Recurso';
+      await registrarAuditoria({
+        acao: 'exclusão',
+        entidade: 'Recurso Seleção',
+        entidade_id: confirmDeletePdf.recursoId,
+        detalhes: {
+          tipo: `Exclusão de ${tipoDocumento}`,
+          fornecedor: (recursoData?.fornecedores as any)?.razao_social || '',
+          protocolo: protocolo || '',
+          numero_processo: selecaoInfo?.numeroProcesso || '',
+          contrato_gestao: selecaoInfo?.contratoGestao || '',
+          titulo_selecao: selecaoInfo?.titulo || '',
+        },
+      });
+
       toast.success("PDF excluído com sucesso");
       loadRecursosInabilitacao();
     } catch (error) {
@@ -1728,7 +1822,7 @@ export function DialogAnaliseDocumentalSelecao({
       // 1. Buscar dados do recurso antes de deletar
       const { data: recursoData } = await supabase
         .from("recursos_inabilitacao_selecao")
-        .select("url_pdf_recurso, url_pdf_resposta, data_limite_fornecedor")
+        .select("url_pdf_recurso, url_pdf_resposta, data_limite_fornecedor, protocolo_recurso, fornecedores (razao_social)")
         .eq("id", confirmDeleteRecurso.recursoId)
         .single();
       
@@ -1772,6 +1866,21 @@ export function DialogAnaliseDocumentalSelecao({
         .eq("id", confirmDeleteRecurso.recursoId);
       
       if (error) throw error;
+
+      // 4. Registrar auditoria - Exclusão de Recurso Completo
+      await registrarAuditoria({
+        acao: 'exclusão',
+        entidade: 'Recurso Seleção',
+        entidade_id: confirmDeleteRecurso.recursoId,
+        detalhes: {
+          tipo: 'Exclusão de Recurso Completo',
+          fornecedor: (recursoData?.fornecedores as any)?.razao_social || '',
+          protocolo: recursoData?.protocolo_recurso || '',
+          numero_processo: selecaoInfo?.numeroProcesso || '',
+          contrato_gestao: selecaoInfo?.contratoGestao || '',
+          titulo_selecao: selecaoInfo?.titulo || '',
+        },
+      });
       
       toast.success("Recurso excluído com sucesso. Prazo original mantido.");
       loadRecursosInabilitacao();
@@ -1790,6 +1899,13 @@ export function DialogAnaliseDocumentalSelecao({
     }
 
     try {
+      // Buscar dados do campo e fornecedor para auditoria
+      const { data: campoData } = await supabase
+        .from("campos_documentos_finalizacao")
+        .select("nome_campo, fornecedor_id, fornecedores (razao_social)")
+        .eq("id", campoParaRejeitar)
+        .single();
+
       const { error } = await supabase
         .from("campos_documentos_finalizacao")
         .update({
@@ -1800,6 +1916,23 @@ export function DialogAnaliseDocumentalSelecao({
         .eq("id", campoParaRejeitar);
 
       if (error) throw error;
+
+      // Registrar auditoria - Rejeição de Documento Adicional
+      await registrarAuditoria({
+        acao: 'atualização',
+        entidade: 'Documento Adicional Seleção',
+        entidade_id: campoParaRejeitar,
+        detalhes: {
+          tipo: 'Rejeição de Documento Adicional',
+          nome_documento: campoData?.nome_campo || '',
+          fornecedor: (campoData?.fornecedores as any)?.razao_social || '',
+          motivo_rejeicao: motivoRejeicaoDocumento,
+          numero_processo: selecaoInfo?.numeroProcesso || '',
+          contrato_gestao: selecaoInfo?.contratoGestao || '',
+          titulo_selecao: selecaoInfo?.titulo || '',
+          status: 'rejeitado',
+        },
+      });
 
       toast.success("Documento rejeitado");
       setDialogRejeitarDocumento(false);
@@ -2175,6 +2308,25 @@ export function DialogAnaliseDocumentalSelecao({
           : `Fornecedor inabilitado. ${UnidadePlural} sem segundo colocado foram fechados.`);
       }
 
+      // Registrar auditoria - Inabilitação de Fornecedor
+      await registrarAuditoria({
+        acao: 'atualização',
+        entidade: 'Fornecedor Seleção',
+        entidade_id: selecaoId,
+        detalhes: {
+          tipo: 'Inabilitação de Fornecedor',
+          fornecedor: fornecedorParaInabilitar.fornecedor.razao_social,
+          cnpj: fornecedorParaInabilitar.fornecedor.cnpj,
+          motivo_inabilitacao: motivoInabilitacao,
+          tipo_inabilitacao: tipoInabilitacao === 'parcial' ? 'Parcial' : 'Completa',
+          itens_afetados: itensAfetados.join(', '),
+          numero_processo: selecaoInfo?.numeroProcesso || '',
+          contrato_gestao: selecaoInfo?.contratoGestao || '',
+          titulo_selecao: selecaoInfo?.titulo || '',
+          status: 'inabilitado',
+        },
+      });
+
       setDialogInabilitar(false);
       setFornecedorParaInabilitar(null);
       setMotivoInabilitacao("");
@@ -2448,6 +2600,22 @@ export function DialogAnaliseDocumentalSelecao({
                               .eq("fornecedor_id", data.fornecedor.id);
                             
                             if (error) throw error;
+
+                            // Registrar auditoria - Aprovação de Fornecedor (Habilitação)
+                            await registrarAuditoria({
+                              acao: 'atualização',
+                              entidade: 'Fornecedor Seleção',
+                              entidade_id: selecaoId,
+                              detalhes: {
+                                tipo: 'Aprovação de Fornecedor (Habilitação)',
+                                fornecedor: data.fornecedor.razao_social,
+                                cnpj: data.fornecedor.cnpj,
+                                numero_processo: selecaoInfo?.numeroProcesso || '',
+                                contrato_gestao: selecaoInfo?.contratoGestao || '',
+                                titulo_selecao: selecaoInfo?.titulo || '',
+                                status: 'habilitado',
+                              },
+                            });
                             
                             setFornecedoresAprovadosGeral(prev => new Set(prev).add(data.fornecedor.id));
                             toast.success(`Fornecedor ${data.fornecedor.razao_social} aprovado com sucesso!`);

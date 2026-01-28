@@ -170,6 +170,96 @@ const Auditoria = () => {
       );
     }
 
+    // Aprovação de Fornecedor (Habilitação) - Seleção
+    if (entidadeLower.includes("fornecedor seleção") && tipoDetalhe.includes("aprovação de fornecedor")) {
+      return (
+        <Badge className="bg-green-600 hover:bg-green-700 text-white gap-1">
+          <CheckCircle className="h-3 w-3" />
+          Habilitado
+        </Badge>
+      );
+    }
+
+    // Inabilitação de Fornecedor - Seleção
+    if (entidadeLower.includes("fornecedor seleção") && tipoDetalhe.includes("inabilitação")) {
+      return (
+        <Badge className="bg-red-500 hover:bg-red-600 text-white gap-1">
+          <XCircle className="h-3 w-3" />
+          Inabilitado
+        </Badge>
+      );
+    }
+
+    // Solicitação de Documento Adicional - Seleção
+    if (entidadeLower.includes("documento adicional seleção") && tipoDetalhe.includes("solicitação")) {
+      return (
+        <Badge className="bg-blue-500 hover:bg-blue-600 text-white gap-1">
+          <Plus className="h-3 w-3" />
+          Solicitação
+        </Badge>
+      );
+    }
+
+    // Aprovação de Documento Adicional - Seleção
+    if (entidadeLower.includes("documento adicional seleção") && tipoDetalhe.includes("aprovação")) {
+      return (
+        <Badge className="bg-green-600 hover:bg-green-700 text-white gap-1">
+          <CheckCircle className="h-3 w-3" />
+          Aprovado
+        </Badge>
+      );
+    }
+
+    // Rejeição de Documento Adicional - Seleção
+    if (entidadeLower.includes("documento adicional seleção") && tipoDetalhe.includes("rejeição")) {
+      return (
+        <Badge className="bg-orange-500 hover:bg-orange-600 text-white gap-1">
+          <XCircle className="h-3 w-3" />
+          Rejeitado
+        </Badge>
+      );
+    }
+
+    // Resposta de Recurso - Seleção
+    if (entidadeLower.includes("recurso seleção") && tipoDetalhe.includes("resposta de recurso")) {
+      const decisaoDetalhe = String(log.detalhes?.decisao || "").toLowerCase();
+      
+      if (decisaoDetalhe.includes("provimento total")) {
+        return (
+          <Badge className="bg-green-600 hover:bg-green-700 text-white gap-1">
+            <CheckCircle className="h-3 w-3" />
+            Provimento Total
+          </Badge>
+        );
+      }
+      if (decisaoDetalhe.includes("provimento parcial")) {
+        return (
+          <Badge className="bg-yellow-500 hover:bg-yellow-600 text-white gap-1">
+            <AlertCircle className="h-3 w-3" />
+            Provimento Parcial
+          </Badge>
+        );
+      }
+      if (decisaoDetalhe.includes("negado")) {
+        return (
+          <Badge className="bg-red-500 hover:bg-red-600 text-white gap-1">
+            <XCircle className="h-3 w-3" />
+            Negado Provimento
+          </Badge>
+        );
+      }
+    }
+
+    // Exclusão de Recurso ou PDF de Recurso - Seleção
+    if (entidadeLower.includes("recurso seleção") && acaoLower.includes("exclusão")) {
+      return (
+        <Badge className="bg-red-500 hover:bg-red-600 text-white gap-1">
+          <Trash2 className="h-3 w-3" />
+          Exclusão
+        </Badge>
+      );
+    }
+
     // Habilitação de Fornecedor
     const isHabilitacao =
       entidadeLower.includes("habilitação fornecedor") ||
