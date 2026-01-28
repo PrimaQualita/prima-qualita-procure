@@ -1193,6 +1193,9 @@ const SistemaLancesFornecedor = () => {
       setExcluindoRecurso(true);
       setConfirmExcluirRecurso(false);
       
+      // Guardar protocolo antes de limpar para usar na auditoria
+      const protocoloExcluido = meuRecurso.protocolo_recurso;
+      
       // Extrair path do storage (removendo query strings)
       let urlClean = meuRecurso.url_pdf_recurso.split('?')[0];
       const urlParts = urlClean.split("/storage/v1/object/public/");
@@ -1225,6 +1228,28 @@ const SistemaLancesFornecedor = () => {
         .eq("id", meuRecurso.id);
       
       if (error) throw error;
+      
+      // Registrar auditoria da exclusão via RPC (fornecedor sem autenticação)
+      try {
+        const contratoGestao = selecao?.processos_compras?.contratos_gestao?.nome_contrato || '';
+        const { error: auditError } = await supabase.rpc('registrar_auditoria_exclusao_recurso_selecao_fornecedor', {
+          p_entidade_id: meuRecurso.id,
+          p_fornecedor_nome: proposta?.fornecedores?.razao_social || '',
+          p_fornecedor_cnpj: proposta?.fornecedores?.cnpj || '',
+          p_numero_processo: numeroProcesso || '',
+          p_numero_selecao: selecao?.numero_selecao || '',
+          p_titulo_selecao: selecao?.titulo_selecao || '',
+          p_contrato_gestao: contratoGestao,
+          p_protocolo_recurso: protocoloExcluido || '',
+          p_motivo_inabilitacao: minhaInabilitacao?.motivo_inabilitacao || ''
+        });
+        
+        if (auditError) {
+          console.error('Erro ao registrar auditoria de exclusão de recurso:', auditError);
+        }
+      } catch (auditErr) {
+        console.error('Erro ao registrar auditoria:', auditErr);
+      }
       
       // Atualizar estado local
       setMeuRecurso((prev: any) => prev ? {

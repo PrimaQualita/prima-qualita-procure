@@ -310,6 +310,16 @@ const Auditoria = () => {
       );
     }
 
+    // Exclusão de Recurso Inabilitação Seleção (pelo fornecedor)
+    if (entidadeLower.includes("recurso inabilitação seleção") && acaoLower.includes("exclusão")) {
+      return (
+        <Badge className="bg-red-500 hover:bg-red-600 text-white gap-1">
+          <Trash2 className="h-3 w-3" />
+          Exclusão Recurso
+        </Badge>
+      );
+    }
+
     // Habilitação de Fornecedor
     const isHabilitacao =
       entidadeLower.includes("habilitação fornecedor") ||

@@ -3609,6 +3609,20 @@ export type Database = {
         }
         Returns: boolean
       }
+      registrar_auditoria_exclusao_recurso_selecao_fornecedor: {
+        Args: {
+          p_contrato_gestao: string
+          p_entidade_id: string
+          p_fornecedor_cnpj: string
+          p_fornecedor_nome: string
+          p_motivo_inabilitacao?: string
+          p_numero_processo: string
+          p_numero_selecao: string
+          p_protocolo_recurso?: string
+          p_titulo_selecao: string
+        }
+        Returns: boolean
+      }
       registrar_auditoria_proposta_fornecedor: {
         Args: {
           p_contrato_gestao: string
