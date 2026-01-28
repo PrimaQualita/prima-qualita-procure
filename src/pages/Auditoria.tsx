@@ -20,7 +20,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Eye, FileText, Plus, Trash2, Edit, XCircle, CheckCircle, AlertCircle } from "lucide-react";
+import { Eye, FileText, Plus, Trash2, Edit, XCircle, CheckCircle, AlertCircle, RefreshCw } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 interface AuditLog {
@@ -166,6 +166,16 @@ const Auditoria = () => {
         <Badge className="bg-purple-600 hover:bg-purple-700 text-white gap-1">
           <CheckCircle className="h-3 w-3" />
           Fechamento
+        </Badge>
+      );
+    }
+
+    // Reversão de Aprovação de Fornecedor - Seleção
+    if (entidadeLower.includes("fornecedor seleção") && tipoDetalhe.includes("reversão de aprovação")) {
+      return (
+        <Badge className="bg-amber-500 hover:bg-amber-600 text-white gap-1">
+          <RefreshCw className="h-3 w-3" />
+          Reversão Habilitação
         </Badge>
       );
     }
