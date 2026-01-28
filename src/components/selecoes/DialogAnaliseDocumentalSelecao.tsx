@@ -3816,7 +3816,7 @@ export function DialogAnaliseDocumentalSelecao({
 
       {/* Dialog para reabrir negociação */}
       <AlertDialog open={dialogReabrirNegociacao} onOpenChange={setDialogReabrirNegociacao}>
-        <AlertDialogContent className="max-w-lg">
+        <AlertDialogContent className="max-w-lg max-h-[85vh] overflow-hidden flex flex-col">
           <AlertDialogHeader>
             <AlertDialogTitle className="flex items-center gap-2">
               <Handshake className="h-5 w-5" />
@@ -3829,31 +3829,35 @@ export function DialogAnaliseDocumentalSelecao({
                   <strong>{inabilitacaoParaReabrirNegociacao?.fornecedor.razao_social}</strong>,
                   você pode reabrir a negociação com os segundos colocados dos itens afetados.
                 </p>
-                
-                <div className="bg-muted/50 p-3 rounded-lg">
-                  <p className="text-sm font-medium">Itens para negociação:</p>
-                  <p className="text-sm">
-                    {inabilitacaoParaReabrirNegociacao?.inabilitado?.itens_afetados?.sort((a, b) => a - b).join(", ")}
-                  </p>
-                </div>
-
-                {segundosColocados.length > 0 && (
-                  <div className="bg-primary/10 p-3 rounded-lg">
-                    <p className="text-sm font-medium mb-2">Segundos colocados disponíveis para negociação:</p>
-                    {segundosColocados.map((seg) => (
-                      <p key={seg.numero_item} className="text-sm">
-                        Item {seg.numero_item}: <strong>{seg.fornecedor_nome}</strong> - {formatCurrency(seg.valor_lance)}
-                      </p>
-                    ))}
-                  </div>
-                )}
-
-                <p className="text-sm text-muted-foreground">
-                  A sessão de lances será reaberta para os itens selecionados, permitindo negociar melhores condições com os fornecedores classificados.
-                </p>
               </div>
             </AlertDialogDescription>
           </AlertDialogHeader>
+          
+          <ScrollArea className="flex-1 max-h-[50vh] pr-4">
+            <div className="space-y-4">
+              <div className="bg-muted/50 p-3 rounded-lg">
+                <p className="text-sm font-medium">Itens para negociação:</p>
+                <p className="text-sm">
+                  {inabilitacaoParaReabrirNegociacao?.inabilitado?.itens_afetados?.sort((a, b) => a - b).join(", ")}
+                </p>
+              </div>
+
+              {segundosColocados.length > 0 && (
+                <div className="bg-primary/10 p-3 rounded-lg">
+                  <p className="text-sm font-medium mb-2">Segundos colocados disponíveis para negociação:</p>
+                  {segundosColocados.map((seg) => (
+                    <p key={seg.numero_item} className="text-sm">
+                      Item {seg.numero_item}: <strong>{seg.fornecedor_nome}</strong> - {formatCurrency(seg.valor_lance)}
+                    </p>
+                  ))}
+                </div>
+              )}
+
+              <p className="text-sm text-muted-foreground">
+                A sessão de lances será reaberta para os itens selecionados, permitindo negociar melhores condições com os fornecedores classificados.
+              </p>
+            </div>
+          </ScrollArea>
           
           <AlertDialogFooter>
             <AlertDialogCancel>Cancelar</AlertDialogCancel>
