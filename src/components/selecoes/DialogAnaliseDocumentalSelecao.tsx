@@ -2410,6 +2410,23 @@ export function DialogAnaliseDocumentalSelecao({
         console.error("Erro ao atualizar itens de negociação:", updateItensError);
       }
 
+      // Registrar auditoria da reversão de inabilitação
+      await registrarAuditoria({
+        acao: 'atualização',
+        entidade: 'Fornecedor Seleção',
+        entidade_id: selecaoId,
+        detalhes: {
+          tipo: 'Reversão de Inabilitação',
+          fornecedor: inabilitacaoParaReverter.fornecedor.razao_social,
+          cnpj: inabilitacaoParaReverter.fornecedor.cnpj,
+          motivo_reversao: motivoReversao || "Reversão solicitada pelo gestor",
+          itens_reabilitados: inabilitacaoParaReverter.inabilitado.itens_afetados.join(', '),
+          numero_processo: selecaoInfo?.numeroProcesso,
+          contrato_gestao: selecaoInfo?.contratoGestao,
+          titulo_selecao: selecaoInfo?.titulo,
+        },
+      });
+
       toast.success("Inabilitação revertida. Fornecedor restaurado como vencedor.");
       setDialogReverterInabilitacao(false);
       setInabilitacaoParaReverter(null);

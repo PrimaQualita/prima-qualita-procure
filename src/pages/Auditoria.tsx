@@ -190,6 +190,16 @@ const Auditoria = () => {
       );
     }
 
+    // Reversão de Inabilitação - Seleção
+    if (entidadeLower.includes("fornecedor seleção") && tipoDetalhe.includes("reversão de inabilitação")) {
+      return (
+        <Badge className="bg-amber-500 hover:bg-amber-600 text-white gap-1">
+          <RefreshCw className="h-3 w-3" />
+          Reversão Inabilitação
+        </Badge>
+      );
+    }
+
     // Inabilitação de Fornecedor - Seleção
     if (entidadeLower.includes("fornecedor seleção") && tipoDetalhe.includes("inabilitação")) {
       return (
