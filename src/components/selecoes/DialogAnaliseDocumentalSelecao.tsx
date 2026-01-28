@@ -186,6 +186,9 @@ export function DialogAnaliseDocumentalSelecao({
   
   // State para confirmar exclusão completa do recurso
   const [confirmDeleteRecurso, setConfirmDeleteRecurso] = useState<{ open: boolean; recursoId: string | null }>({ open: false, recursoId: null });
+  
+  // State para confirmar exclusão de documento adicional
+  const [confirmDeleteDocumentoAdicional, setConfirmDeleteDocumentoAdicional] = useState<{ open: boolean; campoId: string | null; fornecedorId: string | null; nomeCampo: string }>({ open: false, campoId: null, fornecedorId: null, nomeCampo: "" });
 
   // States para encerramento de habilitação
   const [habilitacaoEncerrada, setHabilitacaoEncerrada] = useState(false);
@@ -3424,9 +3427,12 @@ export function DialogAnaliseDocumentalSelecao({
                             variant="ghost"
                             className="text-destructive hover:text-destructive hover:bg-destructive/10"
                             onClick={() => {
-                              if (confirm(`Excluir o documento adicional "${campo.nome_campo}"? Esta ação também removerá o arquivo enviado.`)) {
-                                handleExcluirDocumentoAdicional(campo.id!, data.fornecedor.id);
-                              }
+                              setConfirmDeleteDocumentoAdicional({
+                                open: true,
+                                campoId: campo.id!,
+                                fornecedorId: data.fornecedor.id,
+                                nomeCampo: campo.nome_campo
+                              });
                             }}
                           >
                             <Trash2 className="h-4 w-4" />
@@ -4338,6 +4344,39 @@ export function DialogAnaliseDocumentalSelecao({
             <AlertDialogCancel>Cancelar</AlertDialogCancel>
             <AlertDialogAction onClick={handleReverterEncerramento}>
               Reverter Encerramento
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Dialog para confirmar exclusão de documento adicional */}
+      <AlertDialog 
+        open={confirmDeleteDocumentoAdicional.open} 
+        onOpenChange={(open) => setConfirmDeleteDocumentoAdicional(prev => ({ ...prev, open }))}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2 text-destructive">
+              <Trash2 className="h-5 w-5" />
+              Excluir Documento Adicional
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              Deseja excluir o documento adicional "{confirmDeleteDocumentoAdicional.nomeCampo}"? 
+              Esta ação também removerá o arquivo enviado e não pode ser desfeita.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction 
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={() => {
+                if (confirmDeleteDocumentoAdicional.campoId && confirmDeleteDocumentoAdicional.fornecedorId) {
+                  handleExcluirDocumentoAdicional(confirmDeleteDocumentoAdicional.campoId, confirmDeleteDocumentoAdicional.fornecedorId);
+                }
+                setConfirmDeleteDocumentoAdicional({ open: false, campoId: null, fornecedorId: null, nomeCampo: "" });
+              }}
+            >
+              Excluir
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
