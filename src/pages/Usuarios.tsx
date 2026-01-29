@@ -112,7 +112,7 @@ const Usuarios = () => {
       const { data: profiles, error: profileError } = await supabase
         .from("profiles")
         .select("*")
-        .order("created_at", { ascending: false});
+        .order("nome_completo", { ascending: true });
 
       if (profileError) throw profileError;
       
