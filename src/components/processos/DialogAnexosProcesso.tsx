@@ -366,6 +366,19 @@ export function DialogAnexosProcesso({
         console.log("✅ Processo completo deletado, status revertido");
       }
 
+      // Buscar contrato de gestão para auditoria
+      let contratoGestao = '';
+      try {
+        const { data: processoData } = await supabase
+          .from("processos_compras")
+          .select("contratos_gestao:contrato_gestao_id(nome_contrato)")
+          .eq("id", processoId)
+          .single();
+        contratoGestao = (processoData?.contratos_gestao as any)?.nome_contrato || '';
+      } catch (e) {
+        console.warn('Não foi possível buscar contrato de gestão para auditoria:', e);
+      }
+
       // Registrar auditoria
       const nomeDocumento = anexo.tipo_anexo === 'capa_processo' ? 'Capa do Processo' : 
                             anexo.tipo_anexo === 'requisicao' ? 'Requisição' : 
@@ -377,11 +390,12 @@ export function DialogAnexosProcesso({
       
       await registrarAuditoria({
         acao: 'deleção',
-        entidade: 'anexos_processo_compra',
+        entidade: 'Anexo do Processo',
         entidade_id: anexo.id,
         detalhes: {
           tipo: 'Anexo do Processo',
           numero_processo: processoNumero,
+          contrato_gestao: contratoGestao,
           nome_documento: nomeDocumento,
           nome_arquivo: anexo.nome_arquivo,
         },
