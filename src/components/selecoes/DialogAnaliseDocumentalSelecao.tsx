@@ -1775,12 +1775,30 @@ export function DialogAnaliseDocumentalSelecao({
     }
   };
 
+  // Helper para decodificar path completamente (como na edge function)
+  const decodePathFully = (path: string): string => {
+    let decoded = path;
+    try {
+      let prev = "";
+      while (decoded !== prev) {
+        prev = decoded;
+        decoded = decodeURIComponent(decoded);
+      }
+    } catch {
+      // Já decodificado ou inválido
+    }
+    return decoded;
+  };
+
   // Helper para extrair path do storage a partir de URL completa
   const extractStoragePath = (url: string): string => {
     if (!url) return url;
     
     // Remover query strings primeiro (como ?token=...)
     let cleanUrl = url.split('?')[0];
+    
+    // Decodificar URL completamente
+    cleanUrl = decodePathFully(cleanUrl);
     
     // Se for URL completa do Supabase, extrair apenas o path relativo
     if (cleanUrl.includes('processo-anexos/')) {
