@@ -491,6 +491,21 @@ const Auditoria = () => {
       return `Ata de Seleção - ${detalhes.numero_selecao}`;
     }
 
+    // Para Homologação Seleção, exibir nome amigável
+    if (log.entidade === 'Homologação Seleção' && detalhes.numero_selecao) {
+      return `Homologação - Seleção ${detalhes.numero_selecao}`;
+    }
+
+    // Para Contrato de Gestão, exibir nome do contrato
+    if (log.entidade === 'Contrato de Gestão' && detalhes.nome_arquivo) {
+      return detalhes.nome_arquivo;
+    }
+
+    // Para Anexo do Processo (processo mesclado), exibir nome formatado
+    if (log.entidade === 'Anexo do Processo' && detalhes.nome_documento) {
+      return detalhes.nome_documento;
+    }
+
     // Para uploads do fornecedor, priorizar o nome do arquivo original (quando disponível)
     if (detalhes.tipo === 'Documento Adicional - Upload Fornecedor' && detalhes.nome_arquivo) {
       return detalhes.nome_documento

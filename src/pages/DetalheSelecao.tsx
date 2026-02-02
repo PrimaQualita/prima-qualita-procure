@@ -934,15 +934,17 @@ const [itens, setItens] = useState<Item[]>([]);
 
       // Registrar auditoria da exclusão
       try {
+        const contratoGestao = processo?.contratos_gestao?.nome_contrato || '';
         await registrarAuditoria({
           acao: 'exclusão',
-          entidade: 'Homologação de Seleção',
+          entidade: 'Homologação Seleção',
           entidade_id: homologacaoId,
           detalhes: {
-            protocolo: homologacao?.protocolo || 'N/A',
+            protocolo: formatarProtocoloCurto(homologacao?.protocolo),
             nome_arquivo: homologacao?.nome_arquivo || 'N/A',
             numero_selecao: selecao?.numero_selecao || 'N/A',
             numero_processo: processo?.numero_processo_interno || '',
+            contrato_gestao: contratoGestao,
           },
         });
       } catch (auditError) {

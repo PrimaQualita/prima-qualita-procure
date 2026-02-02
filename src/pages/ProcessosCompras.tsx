@@ -226,11 +226,12 @@ const ProcessosCompras = () => {
         // Auditoria de edição
         await registrarAuditoria({
           acao: "edição",
-          entidade: "contratos_gestao",
+          entidade: "Contrato de Gestão",
           entidade_id: contratoParaEditar.id,
           detalhes: {
             tipo: "Contrato de Gestão",
-            nome_contrato: contrato.nome_contrato,
+            nome_arquivo: contrato.nome_contrato,
+            contrato_gestao: contrato.nome_contrato,
             ente_federativo: contrato.ente_federativo,
           },
         });
@@ -243,11 +244,12 @@ const ProcessosCompras = () => {
         // Auditoria de criação
         await registrarAuditoria({
           acao: "criação",
-          entidade: "contratos_gestao",
+          entidade: "Contrato de Gestão",
           entidade_id: data.id,
           detalhes: {
             tipo: "Contrato de Gestão",
-            nome_contrato: contrato.nome_contrato,
+            nome_arquivo: contrato.nome_contrato,
+            contrato_gestao: contrato.nome_contrato,
             ente_federativo: contrato.ente_federativo,
           },
         });
@@ -284,11 +286,12 @@ const ProcessosCompras = () => {
       if (contratoParaLog) {
         await registrarAuditoria({
           acao: "exclusão",
-          entidade: "contratos_gestao",
+          entidade: "Contrato de Gestão",
           entidade_id: contratoParaExcluir,
           detalhes: {
             tipo: "Contrato de Gestão",
-            nome_contrato: contratoParaLog.nome_contrato,
+            nome_arquivo: contratoParaLog.nome_contrato,
+            contrato_gestao: contratoParaLog.nome_contrato,
             ente_federativo: contratoParaLog.ente_federativo,
           },
         });
