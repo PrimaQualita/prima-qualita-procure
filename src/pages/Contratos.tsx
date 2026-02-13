@@ -1,90 +1,58 @@
 import { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Input } from "@/components/ui/input";
-import primaLogo from "@/assets/prima-qualita-logo.png";
-import { ArrowLeft, FileText, CheckCircle, ChevronRight } from "lucide-react";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { ArrowLeft, ChevronRight } from "lucide-react";
 import { toast } from "sonner";
+import { useUserContext } from "@/hooks/useUserContext";
+import { TabProcessosParaContratar } from "@/components/contratos/TabProcessosParaContratar";
+import { TabContratosTerceiros } from "@/components/contratos/TabContratosTerceiros";
+import { TabAVencer } from "@/components/contratos/TabAVencer";
 
 interface ContratoGestao {
   id: string;
   nome_contrato: string;
   ente_federativo: string;
-}
-
-interface ProcessoCompra {
-  id: string;
-  numero_processo_interno: string;
-  objeto_resumido: string;
-  status_processo: string;
-  ano_referencia: number;
-  contrato_gestao_id: string;
-  credenciamento: boolean;
-  contratacao_especifica: boolean;
-  requer_selecao: boolean;
+  cor_fundo: string | null;
 }
 
 export default function Contratos() {
-  const navigate = useNavigate();
+  const context = useUserContext();
   const [contratos, setContratos] = useState<ContratoGestao[]>([]);
   const [contratoSelecionado, setContratoSelecionado] = useState<ContratoGestao | null>(null);
-  const [processos, setProcessos] = useState<Record<string, ProcessoCompra[]>>({});
   const [loading, setLoading] = useState(true);
   const [filtro, setFiltro] = useState("");
 
+  // Determinar se o usuário tem perfil "Contrato" (pode editar)
+  const isContratoPerfil = (context?.profile as any)?.contrato === true;
+  const canEdit = isContratoPerfil;
+
   useEffect(() => {
-    loadData();
+    loadContratos();
   }, []);
 
-  const loadData = async () => {
+  const loadContratos = async () => {
     try {
-      const { data: contratosData, error: contratosError } = await supabase
+      const { data, error } = await supabase
         .from("contratos_gestao")
-        .select("*")
+        .select("id, nome_contrato, ente_federativo, cor_fundo")
         .order("nome_contrato");
 
-      if (contratosError) throw contratosError;
-
-      const { data: processosData, error: processosError } = await supabase
-        .from("processos_compras")
-        .select("*")
-        .eq("status_processo", "contratado")
-        .order("numero_processo_interno");
-
-      if (processosError) throw processosError;
-
-      const processosAgrupados: Record<string, ProcessoCompra[]> = {};
-      processosData?.forEach((processo) => {
-        if (!processosAgrupados[processo.contrato_gestao_id]) {
-          processosAgrupados[processo.contrato_gestao_id] = [];
-        }
-        processosAgrupados[processo.contrato_gestao_id].push(processo);
-      });
-
-      setContratos(contratosData || []);
-      setProcessos(processosAgrupados);
+      if (error) throw error;
+      setContratos(data || []);
     } catch (error: any) {
-      console.error("Erro ao carregar dados:", error);
-      toast.error("Erro ao carregar dados de contratos");
+      toast.error("Erro ao carregar contratos de gestão");
     } finally {
       setLoading(false);
     }
   };
 
-  const getTipoProcesso = (processo: ProcessoCompra) => {
-    if (processo.credenciamento) return "Credenciamento";
-    if (processo.contratacao_especifica) return "Contratação Específica";
-    if (processo.requer_selecao) return "Seleção de Fornecedores";
-    return "Compra Direta";
-  };
-
-  const contratosFiltrados = contratos.filter((contrato) =>
-    contrato.nome_contrato.toLowerCase().includes(filtro.toLowerCase()) ||
-    contrato.ente_federativo.toLowerCase().includes(filtro.toLowerCase())
+  const contratosFiltrados = contratos.filter((c) =>
+    c.nome_contrato.toLowerCase().includes(filtro.toLowerCase()) ||
+    c.ente_federativo.toLowerCase().includes(filtro.toLowerCase())
   );
 
   return (
@@ -99,13 +67,13 @@ export default function Contratos() {
             <CardHeader>
               <CardTitle>Contratos</CardTitle>
               <CardDescription>
-                Selecione um contrato para visualizar os processos enviados para contratação
+                Selecione um Contrato de Gestão para gerenciar processos e contratos com terceiros
               </CardDescription>
             </CardHeader>
             <CardContent className="p-0 sm:p-6">
               <div className="px-4 sm:px-0 mb-4">
                 <Input
-                  placeholder="Buscar contrato..."
+                  placeholder="Buscar contrato de gestão..."
                   value={filtro}
                   onChange={(e) => setFiltro(e.target.value)}
                   className="text-sm"
@@ -124,12 +92,15 @@ export default function Contratos() {
                     {contratosFiltrados.length === 0 ? (
                       <TableRow>
                         <TableCell colSpan={3} className="text-center text-muted-foreground text-xs sm:text-sm">
-                          Nenhum contrato encontrado
+                          Nenhum contrato de gestão encontrado
                         </TableCell>
                       </TableRow>
                     ) : (
                       contratosFiltrados.map((contrato) => (
-                        <TableRow key={contrato.id}>
+                        <TableRow 
+                          key={contrato.id}
+                          style={contrato.cor_fundo ? { backgroundColor: contrato.cor_fundo } : undefined}
+                        >
                           <TableCell className="font-medium text-xs sm:text-sm">{contrato.nome_contrato}</TableCell>
                           <TableCell className="text-xs sm:text-sm">{contrato.ente_federativo}</TableCell>
                           <TableCell className="text-right">
@@ -140,7 +111,7 @@ export default function Contratos() {
                               className="text-xs"
                             >
                               <ChevronRight className="h-3 w-3 sm:h-4 sm:w-4 sm:mr-2" />
-                              <span className="hidden sm:inline">Ver Processos</span>
+                              <span className="hidden sm:inline">Abrir</span>
                             </Button>
                           </TableCell>
                         </TableRow>
@@ -166,47 +137,33 @@ export default function Contratos() {
               </div>
             </CardHeader>
             <CardContent>
-              {processos[contratoSelecionado.id]?.length > 0 ? (
-                <div className="space-y-3">
-                  {processos[contratoSelecionado.id].map((processo) => (
-                    <div
-                      key={processo.id}
-                      className="flex items-center justify-between p-4 border rounded-lg hover:bg-muted/50 transition-colors"
-                    >
-                      <div className="flex-1">
-                        <div className="flex items-center gap-3">
-                          <CheckCircle className="h-5 w-5 text-green-600" />
-                          <div className="flex-1">
-                            <div className="flex items-center gap-2">
-                              <p className="font-medium text-xs sm:text-sm">
-                                Processo {processo.numero_processo_interno}/{processo.ano_referencia}
-                              </p>
-                              <Badge variant="outline" className="text-xs">
-                                {getTipoProcesso(processo)}
-                              </Badge>
-                            </div>
-                            <p className="text-xs sm:text-sm text-muted-foreground">
-                              {processo.objeto_resumido}
-                            </p>
-                          </div>
-                        </div>
-                      </div>
-                      <Button
-                        size="sm"
-                        onClick={() => {
-                          toast.info("Funcionalidade em desenvolvimento");
-                        }}
-                      >
-                        Visualizar
-                      </Button>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <p className="text-center text-muted-foreground py-8 text-xs sm:text-sm">
-                  Nenhum processo enviado para contratação neste contrato
-                </p>
-              )}
+              <Tabs defaultValue="processos">
+                <TabsList className="w-full justify-start flex-wrap h-auto gap-1">
+                  <TabsTrigger value="processos" className="text-xs sm:text-sm">Processos para Contratar</TabsTrigger>
+                  <TabsTrigger value="contratos" className="text-xs sm:text-sm">Contratos com Terceiros</TabsTrigger>
+                  <TabsTrigger value="vencer" className="text-xs sm:text-sm">A Vencer</TabsTrigger>
+                </TabsList>
+
+                <TabsContent value="processos">
+                  <TabProcessosParaContratar
+                    contratoGestaoId={contratoSelecionado.id}
+                    contratoGestaoNome={contratoSelecionado.nome_contrato}
+                    canEdit={canEdit}
+                  />
+                </TabsContent>
+
+                <TabsContent value="contratos">
+                  <TabContratosTerceiros
+                    contratoGestaoId={contratoSelecionado.id}
+                    contratoGestaoNome={contratoSelecionado.nome_contrato}
+                    canEdit={canEdit}
+                  />
+                </TabsContent>
+
+                <TabsContent value="vencer">
+                  <TabAVencer contratoGestaoId={contratoSelecionado.id} />
+                </TabsContent>
+              </Tabs>
             </CardContent>
           </Card>
         )}

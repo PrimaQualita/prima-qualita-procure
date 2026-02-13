@@ -12,6 +12,7 @@ import {
   ClipboardList,
   FileCheck,
   FolderKanban,
+  Briefcase,
   LogOut,
   UserCircle,
   Camera,
@@ -208,6 +209,11 @@ export function AppSidebar({
       title: "Contratações Específicas",
       icon: FileCheck,
       href: "/contratacoes-especificas",
+    },
+    {
+      title: "Contratos",
+      icon: Briefcase,
+      href: "/contratos",
     },
   ];
 

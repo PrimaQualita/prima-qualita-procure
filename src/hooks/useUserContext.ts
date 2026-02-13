@@ -8,6 +8,7 @@ export interface UserContextType {
   isSuperintendenteExecutivo: boolean;
   isGerenteContratos: boolean;
   isContabilidade: boolean;
+  isContrato: boolean;
   profile: any;
   userId?: string;
 }
