@@ -9,9 +9,10 @@ import { ptBR } from "date-fns/locale";
 
 interface Props {
   contratoGestaoId: string;
+  processoCompraId?: string;
 }
 
-export function TabAVencer({ contratoGestaoId }: Props) {
+export function TabAVencer({ contratoGestaoId, processoCompraId }: Props) {
   const [contratos, setContratos] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -21,13 +22,29 @@ export function TabAVencer({ contratoGestaoId }: Props) {
 
   const loadContratos = async () => {
     try {
-      const { data, error } = await supabase
+      let query = supabase
         .from("contratos_terceiros")
         .select("*, fornecedores(razao_social)")
         .eq("contrato_gestao_id", contratoGestaoId)
         .eq("status", "vigente")
-        .not("fim_vigencia_atual", "is", null)
-        .order("fim_vigencia_atual", { ascending: true });
+        .not("fim_vigencia_atual", "is", null);
+
+      if (processoCompraId) {
+        const { data: pcData } = await supabase
+          .from("processos_para_contratar")
+          .select("id")
+          .eq("processo_compra_id", processoCompraId);
+        const pcIds = pcData?.map(p => p.id) || [];
+        if (pcIds.length > 0) {
+          query = query.in("processo_para_contratar_id", pcIds);
+        } else {
+          setContratos([]);
+          setLoading(false);
+          return;
+        }
+      }
+
+      const { data, error } = await query.order("fim_vigencia_atual", { ascending: true });
 
       if (error) throw error;
       setContratos(data || []);
