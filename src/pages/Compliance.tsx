@@ -33,6 +33,7 @@ import {
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { AnoReferenciaFilter, extrairAnos, filtrarPorAno } from "@/components/AnoReferenciaFilter";
 
 interface ContratoGestao {
   id: string;
@@ -77,6 +78,7 @@ export default function Compliance() {
   const [avaliacoesCadastro, setAvaliacoesCadastro] = useState<AvaliacaoCadastro[]>([]);
   const [loading, setLoading] = useState(true);
   const [filtro, setFiltro] = useState("");
+  const [anoSelecionado, setAnoSelecionado] = useState("todos");
   const [filtroAvaliacoes, setFiltroAvaliacoes] = useState("");
   const [analiseDialogOpen, setAnaliseDialogOpen] = useState(false);
   const [avaliacaoDialogOpen, setAvaliacaoDialogOpen] = useState(false);
@@ -629,7 +631,14 @@ export default function Compliance() {
               </div>
             </CardHeader>
             <CardContent>
-              {processos[contratoSelecionado.id]?.length > 0 ? (
+              {(() => {
+                const allProcessos = processos[contratoSelecionado.id] || [];
+                const anos = extrairAnos(allProcessos, p => p.ano_referencia);
+                const filtrados = filtrarPorAno(allProcessos, anoSelecionado, p => p.ano_referencia);
+                return (
+                  <>
+                    <AnoReferenciaFilter anos={anos} anoSelecionado={anoSelecionado} onAnoChange={setAnoSelecionado} />
+              {filtrados.length > 0 ? (
                 <Table>
                   <TableHeader>
                     <TableRow>
@@ -642,7 +651,7 @@ export default function Compliance() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {[...processos[contratoSelecionado.id]]
+                    {[...filtrados]
                       .sort((a, b) => a.numero_processo_interno.localeCompare(b.numero_processo_interno, undefined, { numeric: true }))
                       .map((processo) => (
                       <TableRow key={`${processo.id}-${processo.cotacao_id}`}>
@@ -721,6 +730,9 @@ export default function Compliance() {
                   Nenhum processo enviado ao compliance neste contrato
                 </p>
               )}
+                  </>
+                );
+              })()}
             </CardContent>
           </Card>
         )}

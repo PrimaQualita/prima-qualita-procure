@@ -30,6 +30,7 @@ import { gerarAutorizacaoCompraDireta, gerarAutorizacaoSelecao } from "@/lib/ger
 import { useCanEdit, useUserContext } from "@/hooks/useUserContext";
 import { registrarAuditoria } from "@/lib/registrarAuditoria";
 import { compararAlteracoes } from "@/lib/compararAlteracoes";
+import { AnoReferenciaFilter, extrairAnos, filtrarPorAno } from "@/components/AnoReferenciaFilter";
 
 // Cache global para evitar recarregamentos desnecessários
 let cachedContratos: Contrato[] | null = null;
@@ -62,6 +63,7 @@ interface Processo {
   requer_selecao: boolean;
   tipo: string;
   criterio_julgamento?: string;
+  ano_referencia?: number;
 }
 
 interface Cotacao {
@@ -111,6 +113,7 @@ const Cotacoes = () => {
   const [lotes, setLotes] = useState<Lote[]>([]);
   const [itensSelecionados, setItensSelecionados] = useState<Set<string>>(new Set());
   const [filtro, setFiltro] = useState("");
+  const [anoSelecionado, setAnoSelecionado] = useState("todos");
   const [dialogItemOpen, setDialogItemOpen] = useState(false);
   const [dialogCotacaoOpen, setDialogCotacaoOpen] = useState(false);
   const [dialogEnviarOpen, setDialogEnviarOpen] = useState(false);
@@ -1888,6 +1891,12 @@ const Cotacoes = () => {
                   ))}
                 </div>
               ) : (
+                <>
+                <AnoReferenciaFilter
+                  anos={extrairAnos(processos, p => p.ano_referencia)}
+                  anoSelecionado={anoSelecionado}
+                  onAnoChange={setAnoSelecionado}
+                />
                 <Table>
                   <TableHeader>
                     <TableRow>
@@ -1898,14 +1907,14 @@ const Cotacoes = () => {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {processos.length === 0 ? (
+                    {filtrarPorAno(processos, anoSelecionado, p => p.ano_referencia).length === 0 ? (
                       <TableRow>
                         <TableCell colSpan={4} className="text-center text-muted-foreground">
                           Nenhum processo que requer cotação encontrado neste contrato
                         </TableCell>
                       </TableRow>
                     ) : (
-                      processos.map((processo) => (
+                      filtrarPorAno(processos, anoSelecionado, p => p.ano_referencia).map((processo) => (
                         <TableRow key={processo.id}>
                           <TableCell className="font-medium">{processo.numero_processo_interno}</TableCell>
                           <TableCell dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(processo.objeto_resumido) }} />
@@ -1927,6 +1936,7 @@ const Cotacoes = () => {
                     )}
                   </TableBody>
                 </Table>
+                </>
               )}
             </CardContent>
           </Card>
