@@ -16,15 +16,17 @@ interface Props {
   contratoGestaoNome: string;
   processoCompraIds?: string[];
   canEdit?: boolean;
+  onStatusChanged?: () => void;
 }
 
-export function TabVencidos({ contratoGestaoId, contratoGestaoNome, processoCompraIds, canEdit }: Props) {
+export function TabVencidos({ contratoGestaoId, contratoGestaoNome, processoCompraIds, canEdit, onStatusChanged }: Props) {
   const [contratos, setContratos] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   
   // Dialog ciente
   const [confirmCienteOpen, setConfirmCienteOpen] = useState(false);
   const [contratoParaCiente, setContratoParaCiente] = useState<any>(null);
+  const [acaoCiente, setAcaoCiente] = useState<"ciente" | "encerrado" | "rescindido">("ciente");
   
   // Dialog documentos (aditivos)
   const [dialogDocumentosOpen, setDialogDocumentosOpen] = useState(false);
@@ -85,41 +87,51 @@ export function TabVencidos({ contratoGestaoId, contratoGestaoNome, processoComp
   const handleMarcarCiente = async () => {
     if (!contratoParaCiente) return;
     try {
+      const updateData: any = {
+        ciente_nao_renovar: true,
+        data_ciente: new Date().toISOString(),
+        motivo_ciente: acaoCiente === "encerrado" ? "Contrato encerrado" : acaoCiente === "rescindido" ? "Contrato rescindido" : "Não será renovado",
+      };
+
+      // Update status for encerrado/rescindido
+      if (acaoCiente === "encerrado" || acaoCiente === "rescindido") {
+        updateData.status = acaoCiente;
+      }
+
       const { error } = await supabase
         .from("contratos_terceiros")
-        .update({
-          ciente_nao_renovar: true,
-          data_ciente: new Date().toISOString(),
-          motivo_ciente: "Não será renovado",
-        })
+        .update(updateData)
         .eq("id", contratoParaCiente.id);
 
       if (error) throw error;
+
+      const labelAcao = acaoCiente === "encerrado" ? "encerrado" : acaoCiente === "rescindido" ? "rescindido" : "ciente - não renovar";
 
       await registrarAuditoria({
         acao: "atualização",
         entidade: "Contrato com Terceiro",
         entidade_id: contratoParaCiente.id,
         detalhes: {
-          tipo: "Marcação Ciente - Não Renovar",
+          tipo: `Marcação: ${labelAcao}`,
           codigo_interno: contratoParaCiente.codigo_interno,
           contrato_gestao: contratoGestaoNome,
           fornecedor: contratoParaCiente.fornecedores?.razao_social || "N/A",
         },
       });
 
-      toast.success("Contrato marcado como ciente - não será renovado");
+      toast.success(`Contrato marcado como ${labelAcao}`);
       setConfirmCienteOpen(false);
       setContratoParaCiente(null);
       await loadContratos();
+      onStatusChanged?.();
     } catch (error: any) {
       toast.error("Erro: " + error.message);
     }
   };
 
-  // Contratos vencidos que NÃO foram marcados como ciente (notificações ativas)
-  const contratosComNotificacao = contratos.filter(c => !c.ciente_nao_renovar);
-  const contratosCientes = contratos.filter(c => c.ciente_nao_renovar);
+  // Contratos vencidos que NÃO foram marcados como ciente e não estão encerrados/rescindidos (notificações ativas)
+  const contratosComNotificacao = contratos.filter(c => !c.ciente_nao_renovar && c.status !== "encerrado" && c.status !== "rescindido");
+  const contratosCientes = contratos.filter(c => c.ciente_nao_renovar || c.status === "encerrado" || c.status === "rescindido");
 
   if (loading) return <div className="text-center py-8 text-muted-foreground text-sm">Carregando...</div>;
 
@@ -185,7 +197,7 @@ export function TabVencidos({ contratoGestaoId, contratoGestaoNome, processoComp
                       </TableCell>
                       <TableCell className="text-right space-x-1">
                         {canEdit && (
-                          <>
+                          <div className="flex flex-wrap gap-1 justify-end">
                             <Button
                               variant="outline"
                               size="sm"
@@ -201,16 +213,42 @@ export function TabVencidos({ contratoGestaoId, contratoGestaoNome, processoComp
                             <Button
                               variant="outline"
                               size="sm"
-                              className="text-xs text-orange-700 border-orange-300 hover:bg-orange-50"
+                              className="text-xs"
                               onClick={() => {
+                                setAcaoCiente("encerrado");
+                                setContratoParaCiente(c);
+                                setConfirmCienteOpen(true);
+                              }}
+                            >
+                              <CheckCircle className="h-3 w-3 mr-1" />
+                              Encerrar
+                            </Button>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="text-xs text-destructive border-destructive/30 hover:bg-destructive/10"
+                              onClick={() => {
+                                setAcaoCiente("rescindido");
                                 setContratoParaCiente(c);
                                 setConfirmCienteOpen(true);
                               }}
                             >
                               <XCircle className="h-3 w-3 mr-1" />
-                              Não Renovar
+                              Rescindir
                             </Button>
-                          </>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="text-xs text-muted-foreground"
+                              onClick={() => {
+                                setAcaoCiente("ciente");
+                                setContratoParaCiente(c);
+                                setConfirmCienteOpen(true);
+                              }}
+                            >
+                              Ciente
+                            </Button>
+                          </div>
                         )}
                       </TableCell>
                     </TableRow>
@@ -226,7 +264,7 @@ export function TabVencidos({ contratoGestaoId, contratoGestaoNome, processoComp
       {contratosCientes.length > 0 && (
         <div>
           <h3 className="text-sm font-semibold mb-2 text-muted-foreground flex items-center gap-1">
-            <CheckCircle className="h-4 w-4" /> Ciente - Não serão renovados
+            <CheckCircle className="h-4 w-4" /> Encerrados / Ciente - Não renovados
           </h3>
           <div className="overflow-x-auto">
             <Table>
@@ -240,34 +278,47 @@ export function TabVencidos({ contratoGestaoId, contratoGestaoNome, processoComp
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {contratosCientes.map((c) => (
-                  <TableRow key={c.id} className="opacity-60">
-                    <TableCell className="font-medium text-xs sm:text-sm">{c.codigo_interno}</TableCell>
-                    <TableCell className="text-xs sm:text-sm">{c.fornecedores?.razao_social || "—"}</TableCell>
-                    <TableCell className="text-xs sm:text-sm max-w-[200px] truncate">{c.objeto}</TableCell>
-                    <TableCell className="text-xs sm:text-sm">
-                      {format(new Date(c.fim_vigencia_atual + "T12:00:00"), "dd/MM/yyyy")}
-                    </TableCell>
-                    <TableCell>
-                      <Badge className="text-xs bg-gray-100 text-gray-600">
-                        <CheckCircle className="h-3 w-3 mr-1" /> Ciente
-                      </Badge>
-                    </TableCell>
-                  </TableRow>
-                ))}
+                {contratosCientes.map((c) => {
+                  const statusLabel = c.status === "rescindido" ? "Rescindido" : c.status === "encerrado" ? "Encerrado" : "Ciente";
+                  return (
+                    <TableRow key={c.id} className="opacity-60">
+                      <TableCell className="font-medium text-xs sm:text-sm">{c.codigo_interno}</TableCell>
+                      <TableCell className="text-xs sm:text-sm">{c.fornecedores?.razao_social || "—"}</TableCell>
+                      <TableCell className="text-xs sm:text-sm max-w-[200px] truncate">{c.objeto}</TableCell>
+                      <TableCell className="text-xs sm:text-sm">
+                        {format(new Date(c.fim_vigencia_atual + "T12:00:00"), "dd/MM/yyyy")}
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant="outline" className="text-xs">
+                          <CheckCircle className="h-3 w-3 mr-1" /> {statusLabel}
+                        </Badge>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
               </TableBody>
             </Table>
           </div>
         </div>
       )}
 
-      {/* Confirm Ciente */}
+      {/* Confirm Ciente/Encerrar/Rescindir */}
       <ConfirmDialog
         open={confirmCienteOpen}
         onOpenChange={setConfirmCienteOpen}
         onConfirm={handleMarcarCiente}
-        title="Marcar como Ciente - Não Renovar"
-        description={`Tem certeza que deseja marcar o contrato "${contratoParaCiente?.codigo_interno}" (${contratoParaCiente?.fornecedores?.razao_social || "sem fornecedor"}) como ciente e que não será renovado? A notificação será desconsiderada.`}
+        title={
+          acaoCiente === "encerrado" ? "Encerrar Contrato" :
+          acaoCiente === "rescindido" ? "Rescindir Contrato" :
+          "Marcar como Ciente - Não Renovar"
+        }
+        description={
+          acaoCiente === "encerrado"
+            ? `Tem certeza que deseja marcar o contrato "${contratoParaCiente?.codigo_interno}" (${contratoParaCiente?.fornecedores?.razao_social || "sem fornecedor"}) como encerrado? O status será alterado e a notificação será removida.`
+            : acaoCiente === "rescindido"
+            ? `Tem certeza que deseja rescindir o contrato "${contratoParaCiente?.codigo_interno}" (${contratoParaCiente?.fornecedores?.razao_social || "sem fornecedor"})? O status será alterado para rescindido e a notificação será removida.`
+            : `Tem certeza que deseja marcar o contrato "${contratoParaCiente?.codigo_interno}" (${contratoParaCiente?.fornecedores?.razao_social || "sem fornecedor"}) como ciente e que não será renovado? A notificação será desconsiderada.`
+        }
         confirmText="Confirmar"
         cancelText="Cancelar"
       />

@@ -1,11 +1,14 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ArrowLeft, ChevronRight } from "lucide-react";
+import { toZonedTime } from "date-fns-tz";
+import { differenceInDays } from "date-fns";
 import { toast } from "sonner";
 import { useUserContext } from "@/hooks/useUserContext";
 import { TabProcessosParaContratar } from "@/components/contratos/TabProcessosParaContratar";
@@ -42,7 +45,61 @@ export default function Contratos() {
   const [activeTab, setActiveTab] = useState("processos");
   const [processoParaContrato, setProcessoParaContrato] = useState<any>(null);
 
+  // Notification counts
+  const [countAVencer, setCountAVencer] = useState(0);
+  const [countVencidos, setCountVencidos] = useState(0);
+
   const canEdit = context?.isContrato === true;
+
+  const loadNotificationCounts = useCallback(async (contratoGestaoId: string, pcIds: string[]) => {
+    try {
+      // Get processos_para_contratar IDs
+      let filterPcIds: string[] = [];
+      if (pcIds.length > 0) {
+        const { data: pcData } = await supabase
+          .from("processos_para_contratar")
+          .select("id")
+          .eq("contrato_gestao_id", contratoGestaoId)
+          .in("processo_compra_id", pcIds);
+        filterPcIds = pcData?.map(p => p.id) || [];
+      }
+
+      let query = supabase
+        .from("contratos_terceiros")
+        .select("id, fim_vigencia_atual, status, ciente_nao_renovar")
+        .eq("contrato_gestao_id", contratoGestaoId)
+        .not("fim_vigencia_atual", "is", null);
+
+      if (filterPcIds.length > 0) {
+        query = query.in("processo_para_contratar_id", filterPcIds);
+      }
+
+      const { data } = await query;
+      if (!data) return;
+
+      const hoje = toZonedTime(new Date(), "America/Sao_Paulo");
+
+      // A Vencer: vigentes com <= 45 dias restantes
+      const aVencer = data.filter(c => {
+        if (c.status !== "vigente") return false;
+        const fimDate = new Date(c.fim_vigencia_atual + "T23:59:59-03:00");
+        const dias = differenceInDays(fimDate, hoje);
+        return dias >= 0 && dias <= 45;
+      });
+      setCountAVencer(aVencer.length);
+
+      // Vencidos: expirados E não marcados como ciente E não encerrados/rescindidos
+      const vencidos = data.filter(c => {
+        if (c.ciente_nao_renovar) return false;
+        if (c.status === "encerrado" || c.status === "rescindido") return false;
+        const fimDate = new Date(c.fim_vigencia_atual + "T23:59:59-03:00");
+        return fimDate < hoje;
+      });
+      setCountVencidos(vencidos.length);
+    } catch {
+      // silent
+    }
+  }, []);
 
   useEffect(() => {
     loadContratos();
@@ -100,6 +157,22 @@ export default function Contratos() {
   const processoCompraIdsFiltrados = anoSelecionado === "todos"
     ? processosAnos.map(p => p.id)
     : processosAnos.filter(p => p.ano_referencia === parseInt(anoSelecionado)).map(p => p.id);
+
+  // Load notification counts when filter changes
+  useEffect(() => {
+    if (contratoSelecionado && processoCompraIdsFiltrados.length > 0) {
+      loadNotificationCounts(contratoSelecionado.id, processoCompraIdsFiltrados);
+    } else {
+      setCountAVencer(0);
+      setCountVencidos(0);
+    }
+  }, [contratoSelecionado, anoSelecionado, processosAnos, loadNotificationCounts]);
+
+  const refreshCounts = () => {
+    if (contratoSelecionado) {
+      loadNotificationCounts(contratoSelecionado.id, processoCompraIdsFiltrados);
+    }
+  };
 
   const anosDisponiveis = extrairAnos(processosAnos, p => p.ano_referencia ?? undefined);
 
@@ -225,8 +298,18 @@ export default function Contratos() {
                     <TabsList className="w-full h-auto gap-0 p-0">
                       <TabsTrigger value="processos" className="flex-1 text-xs sm:text-sm rounded-none first:rounded-l-md data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">Processos para Contratar</TabsTrigger>
                       <TabsTrigger value="contratos" className="flex-1 text-xs sm:text-sm rounded-none data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">Contratos com Terceiros</TabsTrigger>
-                      <TabsTrigger value="vencer" className="flex-1 text-xs sm:text-sm rounded-none data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">A Vencer</TabsTrigger>
-                      <TabsTrigger value="vencidos" className="flex-1 text-xs sm:text-sm rounded-none last:rounded-r-md data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">Vencidos</TabsTrigger>
+                      <TabsTrigger value="vencer" className="flex-1 text-xs sm:text-sm rounded-none data-[state=active]:bg-primary data-[state=active]:text-primary-foreground gap-1">
+                        A Vencer
+                        {countAVencer > 0 && (
+                          <Badge variant="destructive" className="text-[10px] px-1.5 py-0 min-w-[18px] h-[18px] rounded-full">{countAVencer}</Badge>
+                        )}
+                      </TabsTrigger>
+                      <TabsTrigger value="vencidos" className="flex-1 text-xs sm:text-sm rounded-none last:rounded-r-md data-[state=active]:bg-primary data-[state=active]:text-primary-foreground gap-1">
+                        Vencidos/Encerrados
+                        {countVencidos > 0 && (
+                          <Badge variant="destructive" className="text-[10px] px-1.5 py-0 min-w-[18px] h-[18px] rounded-full">{countVencidos}</Badge>
+                        )}
+                      </TabsTrigger>
                     </TabsList>
 
                     <TabsContent value="processos">
@@ -264,6 +347,7 @@ export default function Contratos() {
                         contratoGestaoNome={contratoSelecionado.nome_contrato}
                         processoCompraIds={processoCompraIdsFiltrados}
                         canEdit={canEdit}
+                        onStatusChanged={refreshCounts}
                       />
                     </TabsContent>
                   </Tabs>
