@@ -39,6 +39,7 @@ interface Props {
   contratoGestaoId: string;
   contratoGestaoNome: string;
   processoCompraId?: string;
+  processoCompraIds?: string[];
   canEdit: boolean;
   onCriarContrato?: (processo: ProcessoParaContratar) => void;
 }
@@ -64,7 +65,7 @@ const statusIcons: Record<string, any> = {
   cancelado: Ban,
 };
 
-export function TabProcessosParaContratar({ contratoGestaoId, contratoGestaoNome, processoCompraId, canEdit, onCriarContrato }: Props) {
+export function TabProcessosParaContratar({ contratoGestaoId, contratoGestaoNome, processoCompraId, processoCompraIds, canEdit, onCriarContrato }: Props) {
   const [processos, setProcessos] = useState<ProcessoParaContratar[]>([]);
   const [loading, setLoading] = useState(true);
   const [filtro, setFiltro] = useState("");
@@ -86,7 +87,7 @@ export function TabProcessosParaContratar({ contratoGestaoId, contratoGestaoNome
 
   useEffect(() => {
     loadProcessos();
-  }, [contratoGestaoId]);
+  }, [contratoGestaoId, processoCompraIds]);
 
   const loadProcessos = async () => {
     try {
@@ -95,7 +96,9 @@ export function TabProcessosParaContratar({ contratoGestaoId, contratoGestaoNome
         .select("*")
         .eq("contrato_gestao_id", contratoGestaoId);
       
-      if (processoCompraId) {
+      if (processoCompraIds && processoCompraIds.length > 0) {
+        query = query.in("processo_compra_id", processoCompraIds);
+      } else if (processoCompraId) {
         query = query.eq("processo_compra_id", processoCompraId);
       }
 

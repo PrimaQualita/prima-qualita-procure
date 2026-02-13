@@ -78,12 +78,13 @@ interface Props {
   contratoGestaoId: string;
   contratoGestaoNome: string;
   processoCompraId?: string;
+  processoCompraIds?: string[];
   canEdit: boolean;
   processoParaContrato?: any;
   onProcessoContratoUsado?: () => void;
 }
 
-export function TabContratosTerceiros({ contratoGestaoId, contratoGestaoNome, processoCompraId, canEdit, processoParaContrato, onProcessoContratoUsado }: Props) {
+export function TabContratosTerceiros({ contratoGestaoId, contratoGestaoNome, processoCompraId, processoCompraIds, canEdit, processoParaContrato, onProcessoContratoUsado }: Props) {
   const [contratos, setContratos] = useState<ContratoTerceiro[]>([]);
   const [loading, setLoading] = useState(true);
   const [filtro, setFiltro] = useState("");
@@ -119,7 +120,7 @@ export function TabContratosTerceiros({ contratoGestaoId, contratoGestaoNome, pr
   useEffect(() => {
     loadContratos();
     loadFornecedores();
-  }, [contratoGestaoId]);
+  }, [contratoGestaoId, processoCompraIds]);
 
   // Auto-abrir dialog de criação quando vier de "Criar Contrato" no ProcessosParaContratar
   useEffect(() => {
@@ -151,8 +152,21 @@ export function TabContratosTerceiros({ contratoGestaoId, contratoGestaoNome, pr
         .select("*, fornecedores(razao_social, cnpj)")
         .eq("contrato_gestao_id", contratoGestaoId);
 
-      // Filter by processoCompraId through processos_para_contratar
-      if (processoCompraId) {
+      // Filter by processoCompraIds (array) or single processoCompraId
+      if (processoCompraIds && processoCompraIds.length > 0) {
+        const { data: pcData } = await supabase
+          .from("processos_para_contratar")
+          .select("id")
+          .in("processo_compra_id", processoCompraIds);
+        const pcIds = pcData?.map(p => p.id) || [];
+        if (pcIds.length > 0) {
+          query = query.in("processo_para_contratar_id", pcIds);
+        } else {
+          setContratos([]);
+          setLoading(false);
+          return;
+        }
+      } else if (processoCompraId) {
         const { data: pcData } = await supabase
           .from("processos_para_contratar")
           .select("id")

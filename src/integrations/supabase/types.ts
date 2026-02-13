@@ -665,16 +665,19 @@ export type Database = {
       }
       contratos_terceiros: {
         Row: {
+          ciente_nao_renovar: boolean | null
           codigo_interno: string
           conta_gerencial: string | null
           contrato_gestao_id: string
           created_at: string
           criterio_reajuste: string | null
           data_assinatura: string | null
+          data_ciente: string | null
           fim_vigencia_atual: string | null
           fornecedor_id: string | null
           id: string
           inicio_vigencia: string | null
+          motivo_ciente: string | null
           objeto: string
           processo_para_contratar_id: string | null
           status: string
@@ -686,16 +689,19 @@ export type Database = {
           valor_inicial: number | null
         }
         Insert: {
+          ciente_nao_renovar?: boolean | null
           codigo_interno: string
           conta_gerencial?: string | null
           contrato_gestao_id: string
           created_at?: string
           criterio_reajuste?: string | null
           data_assinatura?: string | null
+          data_ciente?: string | null
           fim_vigencia_atual?: string | null
           fornecedor_id?: string | null
           id?: string
           inicio_vigencia?: string | null
+          motivo_ciente?: string | null
           objeto: string
           processo_para_contratar_id?: string | null
           status?: string
@@ -707,16 +713,19 @@ export type Database = {
           valor_inicial?: number | null
         }
         Update: {
+          ciente_nao_renovar?: boolean | null
           codigo_interno?: string
           conta_gerencial?: string | null
           contrato_gestao_id?: string
           created_at?: string
           criterio_reajuste?: string | null
           data_assinatura?: string | null
+          data_ciente?: string | null
           fim_vigencia_atual?: string | null
           fornecedor_id?: string | null
           id?: string
           inicio_vigencia?: string | null
+          motivo_ciente?: string | null
           objeto?: string
           processo_para_contratar_id?: string | null
           status?: string
