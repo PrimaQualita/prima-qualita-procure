@@ -39,6 +39,7 @@ interface Props {
   contratoGestaoId: string;
   contratoGestaoNome: string;
   canEdit: boolean;
+  onCriarContrato?: (processo: ProcessoParaContratar) => void;
 }
 
 const statusLabels: Record<string, string> = {
@@ -62,7 +63,7 @@ const statusIcons: Record<string, any> = {
   cancelado: Ban,
 };
 
-export function TabProcessosParaContratar({ contratoGestaoId, contratoGestaoNome, canEdit }: Props) {
+export function TabProcessosParaContratar({ contratoGestaoId, contratoGestaoNome, canEdit, onCriarContrato }: Props) {
   const [processos, setProcessos] = useState<ProcessoParaContratar[]>([]);
   const [loading, setLoading] = useState(true);
   const [filtro, setFiltro] = useState("");
@@ -240,7 +241,7 @@ export function TabProcessosParaContratar({ contratoGestaoId, contratoGestaoNome
                 <TableHead className="min-w-[100px]">Valor</TableHead>
                 <TableHead className="min-w-[100px]">Status</TableHead>
                 <TableHead className="min-w-[100px]">Data</TableHead>
-                <TableHead className="text-right min-w-[180px]">Ações</TableHead>
+                <TableHead className="text-right min-w-[220px]">Ações</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -269,6 +270,18 @@ export function TabProcessosParaContratar({ contratoGestaoId, contratoGestaoNome
                       {format(new Date(processo.data_finalizacao), "dd/MM/yyyy", { locale: ptBR })}
                     </TableCell>
                     <TableCell className="text-right space-x-1">
+                      {/* Criar Contrato */}
+                      {canEdit && (processo.status === "pronto_para_contratar" || processo.status === "em_contratacao") && onCriarContrato && (
+                        <Button
+                          variant="default"
+                          size="sm"
+                          className="text-xs"
+                          onClick={() => onCriarContrato(processo)}
+                        >
+                          <Plus className="h-3 w-3 mr-1" />
+                          Contrato
+                        </Button>
+                      )}
                       {/* Visualizar */}
                       <Button
                         variant="outline"
