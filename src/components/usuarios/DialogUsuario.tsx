@@ -67,6 +67,7 @@ export function DialogUsuario({ open, onOpenChange, onSuccess, usuarioEdit }: Di
   const [gerenteContratos, setGerenteContratos] = useState(false);
   const [superintendenteExecutivo, setSuperintendenteExecutivo] = useState(false);
   const [contabilidade, setContabilidade] = useState(false);
+  const [contrato, setContrato] = useState(false);
   const [contratosDisponiveis, setContratosDisponiveis] = useState<ContratoGestao[]>([]);
   const [contratosSelecionados, setContratosSelecionados] = useState<string[]>([]);
 
@@ -158,6 +159,7 @@ export function DialogUsuario({ open, onOpenChange, onSuccess, usuarioEdit }: Di
         setGenero((usuarioEdit as any).genero || "feminino");
         setGerenteContratos((usuarioEdit as any).gerente_contratos || false);
         setContabilidade((usuarioEdit as any).contabilidade || false);
+        setContrato((usuarioEdit as any).contrato || false);
         setSuperintendenteExecutivo(
           (usuarioEdit as any).superintendente_executivo || (usuarioEdit as any).gerente_financeiro || false
         );
@@ -206,6 +208,7 @@ export function DialogUsuario({ open, onOpenChange, onSuccess, usuarioEdit }: Di
     setGenero("feminino");
     setGerenteContratos(false);
     setContabilidade(false);
+    setContrato(false);
     setSuperintendenteExecutivo(false);
     setContratosSelecionados([]);
   };
@@ -297,6 +300,7 @@ export function DialogUsuario({ open, onOpenChange, onSuccess, usuarioEdit }: Di
             genero: genero,
             gerente_contratos: gerenteContratos,
             contabilidade: contabilidade,
+            contrato: contrato,
             superintendente_executivo: superintendenteExecutivo,
           })
           .eq("id", usuarioEdit.id);
@@ -389,6 +393,7 @@ export function DialogUsuario({ open, onOpenChange, onSuccess, usuarioEdit }: Di
               genero,
               gerenteContratos,
               contabilidade,
+              contrato,
               superintendenteExecutivo,
               contratosVinculados: gerenteContratos ? contratosSelecionados : [],
             },
@@ -416,6 +421,7 @@ export function DialogUsuario({ open, onOpenChange, onSuccess, usuarioEdit }: Di
         if (responsavelLegal) perfis.push("Responsável Legal");
         if (compliance) perfis.push("Compliance");
         if (contabilidade) perfis.push("Contabilidade");
+        if (contrato) perfis.push("Contrato");
         if (gerenteContratos) perfis.push("Gerente de Contratos");
         if (superintendenteExecutivo) perfis.push("Superintendente Executivo");
         
@@ -680,6 +686,24 @@ export function DialogUsuario({ open, onOpenChange, onSuccess, usuarioEdit }: Di
                   className={`font-normal ${(isUserResponsavelLegal || isUserGestor) ? 'cursor-pointer' : 'cursor-not-allowed opacity-50'}`}
                 >
                   Contabilidade
+                </Label>
+              </div>
+
+              {/* Contrato */}
+              <div className="flex items-center space-x-2">
+                <input
+                  type="checkbox"
+                  id="contrato-perfil"
+                  checked={contrato}
+                  onChange={(e) => setContrato(e.target.checked)}
+                  disabled={!isUserResponsavelLegal && !isUserGestor}
+                  className="h-4 w-4 rounded-full border-gray-300 disabled:opacity-50 disabled:cursor-not-allowed accent-primary"
+                />
+                <Label 
+                  htmlFor="contrato-perfil" 
+                  className={`font-normal ${(isUserResponsavelLegal || isUserGestor) ? 'cursor-pointer' : 'cursor-not-allowed opacity-50'}`}
+                >
+                  Contrato
                 </Label>
               </div>
 

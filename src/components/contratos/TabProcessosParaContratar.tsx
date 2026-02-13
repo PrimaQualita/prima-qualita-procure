@@ -5,7 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { ExternalLink, FileText, XCircle, CheckCircle, Clock, Ban } from "lucide-react";
+import { ExternalLink, FileText, Clock, CheckCircle, Ban, Pencil, Trash2, Eye, Plus } from "lucide-react";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -14,6 +14,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { registrarAuditoria } from "@/lib/registrarAuditoria";
+import { stripHtml } from "@/lib/htmlUtils";
 
 interface ProcessoParaContratar {
   id: string;
@@ -72,6 +73,14 @@ export function TabProcessosParaContratar({ contratoGestaoId, contratoGestaoNome
   const [processoSelecionado, setProcessoSelecionado] = useState<ProcessoParaContratar | null>(null);
   const [novoStatus, setNovoStatus] = useState("");
   const [motivoCancelamento, setMotivoCancelamento] = useState("");
+
+  // Dialog visualização
+  const [dialogVisualizarOpen, setDialogVisualizarOpen] = useState(false);
+  const [processoVisualizar, setProcessoVisualizar] = useState<ProcessoParaContratar | null>(null);
+
+  // Confirm delete
+  const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
+  const [processoParaExcluir, setProcessoParaExcluir] = useState<ProcessoParaContratar | null>(null);
 
   useEffect(() => {
     loadProcessos();
@@ -141,10 +150,46 @@ export function TabProcessosParaContratar({ contratoGestaoId, contratoGestaoNome
     }
   };
 
+  const handleExcluir = async () => {
+    if (!processoParaExcluir) return;
+    try {
+      const { error } = await supabase
+        .from("processos_para_contratar")
+        .delete()
+        .eq("id", processoParaExcluir.id);
+
+      if (error) throw error;
+
+      await registrarAuditoria({
+        acao: 'exclusão',
+        entidade: 'Processo para Contratar',
+        entidade_id: processoParaExcluir.id,
+        detalhes: {
+          tipo: 'Exclusão de Processo para Contratar',
+          numero_processo: processoParaExcluir.numero_processo,
+          contrato_gestao: contratoGestaoNome,
+          fornecedor: processoParaExcluir.fornecedor_vencedor_nome || 'N/A',
+        },
+      });
+
+      toast.success("Registro excluído!");
+      setConfirmDeleteOpen(false);
+      setProcessoParaExcluir(null);
+      await loadProcessos();
+    } catch (error: any) {
+      toast.error("Erro ao excluir: " + error.message);
+    }
+  };
+
+  const objetoLimpo = (objeto: string | null) => {
+    if (!objeto) return "—";
+    return stripHtml(objeto);
+  };
+
   const processosFiltrados = processos.filter((p) => {
     const matchTexto = !filtro || 
       p.numero_processo.toLowerCase().includes(filtro.toLowerCase()) ||
-      (p.objeto || "").toLowerCase().includes(filtro.toLowerCase()) ||
+      objetoLimpo(p.objeto).toLowerCase().includes(filtro.toLowerCase()) ||
       (p.fornecedor_vencedor_nome || "").toLowerCase().includes(filtro.toLowerCase());
     const matchStatus = filtroStatus === "todos" || p.status === filtroStatus;
     return matchTexto && matchStatus;
@@ -195,7 +240,7 @@ export function TabProcessosParaContratar({ contratoGestaoId, contratoGestaoNome
                 <TableHead className="min-w-[100px]">Valor</TableHead>
                 <TableHead className="min-w-[100px]">Status</TableHead>
                 <TableHead className="min-w-[100px]">Data</TableHead>
-                <TableHead className="text-right min-w-[120px]">Ações</TableHead>
+                <TableHead className="text-right min-w-[180px]">Ações</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -206,7 +251,9 @@ export function TabProcessosParaContratar({ contratoGestaoId, contratoGestaoNome
                     <TableCell className="font-medium text-xs sm:text-sm">{processo.numero_processo}</TableCell>
                     <TableCell className="text-xs sm:text-sm">{processo.tipo_processo}</TableCell>
                     <TableCell className="text-xs sm:text-sm">{processo.fornecedor_vencedor_nome || "—"}</TableCell>
-                    <TableCell className="text-xs sm:text-sm max-w-[200px] truncate">{processo.objeto || "—"}</TableCell>
+                    <TableCell className="text-xs sm:text-sm max-w-[200px] truncate" title={objetoLimpo(processo.objeto)}>
+                      {objetoLimpo(processo.objeto)}
+                    </TableCell>
                     <TableCell className="text-xs sm:text-sm">
                       {processo.valor_aprovado > 0 
                         ? `R$ ${processo.valor_aprovado.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}` 
@@ -222,6 +269,19 @@ export function TabProcessosParaContratar({ contratoGestaoId, contratoGestaoNome
                       {format(new Date(processo.data_finalizacao), "dd/MM/yyyy", { locale: ptBR })}
                     </TableCell>
                     <TableCell className="text-right space-x-1">
+                      {/* Visualizar */}
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="text-xs"
+                        onClick={() => {
+                          setProcessoVisualizar(processo);
+                          setDialogVisualizarOpen(true);
+                        }}
+                      >
+                        <Eye className="h-3 w-3" />
+                      </Button>
+                      {/* Dossiê */}
                       {processo.url_dossie && (
                         <Button
                           variant="outline"
@@ -233,6 +293,7 @@ export function TabProcessosParaContratar({ contratoGestaoId, contratoGestaoNome
                           Dossiê
                         </Button>
                       )}
+                      {/* Alterar Status */}
                       {canEdit && processo.status !== "cancelado" && processo.status !== "contratado" && (
                         <Button
                           variant="outline"
@@ -245,7 +306,22 @@ export function TabProcessosParaContratar({ contratoGestaoId, contratoGestaoNome
                             setDialogStatusOpen(true);
                           }}
                         >
-                          Alterar Status
+                          <Pencil className="h-3 w-3 mr-1" />
+                          Status
+                        </Button>
+                      )}
+                      {/* Excluir */}
+                      {canEdit && processo.status === "cancelado" && (
+                        <Button
+                          variant="destructive"
+                          size="sm"
+                          className="text-xs"
+                          onClick={() => {
+                            setProcessoParaExcluir(processo);
+                            setConfirmDeleteOpen(true);
+                          }}
+                        >
+                          <Trash2 className="h-3 w-3" />
                         </Button>
                       )}
                     </TableCell>
@@ -264,6 +340,9 @@ export function TabProcessosParaContratar({ contratoGestaoId, contratoGestaoNome
             <DialogTitle>Alterar Status do Processo</DialogTitle>
             <DialogDescription>
               Processo: {processoSelecionado?.numero_processo}
+              {processoSelecionado?.fornecedor_vencedor_nome && (
+                <> — Fornecedor: {processoSelecionado.fornecedor_vencedor_nome}</>
+              )}
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
@@ -308,6 +387,55 @@ export function TabProcessosParaContratar({ contratoGestaoId, contratoGestaoNome
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Dialog Visualizar */}
+      <Dialog open={dialogVisualizarOpen} onOpenChange={setDialogVisualizarOpen}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Detalhes do Processo</DialogTitle>
+          </DialogHeader>
+          {processoVisualizar && (
+            <div className="space-y-3 text-sm">
+              <div className="grid grid-cols-2 gap-2">
+                <div><span className="font-medium">Processo:</span> {processoVisualizar.numero_processo}</div>
+                <div><span className="font-medium">Tipo:</span> {processoVisualizar.tipo_processo}</div>
+                <div><span className="font-medium">Fornecedor:</span> {processoVisualizar.fornecedor_vencedor_nome || "—"}</div>
+                <div><span className="font-medium">Valor:</span> {processoVisualizar.valor_aprovado > 0 ? `R$ ${processoVisualizar.valor_aprovado.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}` : "—"}</div>
+                <div><span className="font-medium">Status:</span> {statusLabels[processoVisualizar.status] || processoVisualizar.status}</div>
+                <div><span className="font-medium">Data:</span> {format(new Date(processoVisualizar.data_finalizacao), "dd/MM/yyyy", { locale: ptBR })}</div>
+              </div>
+              <div>
+                <span className="font-medium">Objeto:</span>
+                <p className="mt-1 text-muted-foreground">{objetoLimpo(processoVisualizar.objeto)}</p>
+              </div>
+              {processoVisualizar.conta_gerencial && (
+                <div><span className="font-medium">Conta Gerencial:</span> {processoVisualizar.conta_gerencial}</div>
+              )}
+              {processoVisualizar.motivo_cancelamento && (
+                <div>
+                  <span className="font-medium">Motivo do Cancelamento:</span>
+                  <p className="mt-1 text-destructive">{processoVisualizar.motivo_cancelamento}</p>
+                </div>
+              )}
+            </div>
+          )}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDialogVisualizarOpen(false)}>Fechar</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Confirm Delete */}
+      <ConfirmDialog
+        open={confirmDeleteOpen}
+        onOpenChange={setConfirmDeleteOpen}
+        onConfirm={handleExcluir}
+        title="Excluir Registro"
+        description={`Tem certeza que deseja excluir o registro do processo "${processoParaExcluir?.numero_processo}" - ${processoParaExcluir?.fornecedor_vencedor_nome || 'sem fornecedor'}?`}
+        confirmText="Excluir"
+        cancelText="Cancelar"
+        variant="destructive"
+      />
     </div>
   );
 }

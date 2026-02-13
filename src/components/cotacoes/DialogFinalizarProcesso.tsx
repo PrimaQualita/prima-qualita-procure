@@ -3512,7 +3512,7 @@ export function DialogFinalizarProcesso({
         console.error("Erro ao atualizar status do processo:", statusError);
       }
 
-      // === CRIAR AUTOMATICAMENTE registro em processos_para_contratar ===
+      // === CRIAR AUTOMATICAMENTE registro em processos_para_contratar (um por fornecedor vencedor) ===
       try {
         const { data: processoInfo } = await supabase
           .from("processos_compras")
@@ -3521,28 +3521,59 @@ export function DialogFinalizarProcesso({
           .single();
 
         if (processoInfo) {
-          // Determinar fornecedor vencedor principal
-          const fornecedorVencedor = fornecedoresData.find(f => !f.rejeitado && f.itensVencedores.length > 0);
-          
           let tipoProcesso = "Compra Direta";
           if (processoInfo.requer_selecao) tipoProcesso = "Seleção de Fornecedores";
           if (processoInfo.credenciamento) tipoProcesso = "Credenciamento";
           if (processoInfo.contratacao_especifica) tipoProcesso = "Contratação Específica";
 
-          await supabase.from("processos_para_contratar").insert({
-            processo_compra_id: processoId,
-            contrato_gestao_id: processoInfo.contrato_gestao_id,
-            numero_processo: numeroProcesso,
-            tipo_processo: tipoProcesso,
-            data_finalizacao: new Date().toISOString(),
-            fornecedor_vencedor_nome: fornecedorVencedor?.fornecedor.razao_social || null,
-            fornecedor_vencedor_id: fornecedorVencedor?.fornecedor.id || null,
-            objeto: processoInfo.objeto_resumido || null,
-            valor_aprovado: valorTotalFechamento,
-            url_dossie: processoCompleto.url,
-            status: "pronto_para_contratar",
-          });
-          console.log("✅ Registro em processos_para_contratar criado automaticamente");
+          // Strip HTML do objeto
+          const objetoLimpo = processoInfo.objeto_resumido ? stripHtml(processoInfo.objeto_resumido) : null;
+
+          // Criar um registro para CADA fornecedor vencedor
+          const fornecedoresVencedores = fornecedoresData.filter(f => !f.rejeitado && f.itensVencedores && f.itensVencedores.length > 0);
+          
+          if (fornecedoresVencedores.length > 0) {
+            const registros = fornecedoresVencedores.map(fornData => {
+              // Calcular valor do fornecedor individualmente
+              let valorFornecedor = 0;
+              fornData.itensVencedores.forEach(item => {
+                const quantidade = item.itens_cotacao?.quantidade || 1;
+                const valorUnitario = item.valor_unitario_ofertado || 0;
+                valorFornecedor += valorUnitario * quantidade;
+              });
+
+              return {
+                processo_compra_id: processoId,
+                contrato_gestao_id: processoInfo.contrato_gestao_id,
+                numero_processo: numeroProcesso,
+                tipo_processo: tipoProcesso,
+                data_finalizacao: new Date().toISOString(),
+                fornecedor_vencedor_nome: fornData.fornecedor.razao_social || null,
+                fornecedor_vencedor_id: fornData.fornecedor.id || null,
+                objeto: objetoLimpo,
+                valor_aprovado: valorFornecedor,
+                url_dossie: processoCompleto.url,
+                status: "pronto_para_contratar",
+              };
+            });
+
+            await supabase.from("processos_para_contratar").insert(registros);
+            console.log(`✅ ${registros.length} registro(s) em processos_para_contratar criado(s) automaticamente`);
+          } else {
+            // Fallback: nenhum fornecedor vencedor identificado, criar registro genérico
+            await supabase.from("processos_para_contratar").insert({
+              processo_compra_id: processoId,
+              contrato_gestao_id: processoInfo.contrato_gestao_id,
+              numero_processo: numeroProcesso,
+              tipo_processo: tipoProcesso,
+              data_finalizacao: new Date().toISOString(),
+              objeto: objetoLimpo,
+              valor_aprovado: valorTotalFechamento,
+              url_dossie: processoCompleto.url,
+              status: "pronto_para_contratar",
+            });
+            console.log("✅ Registro genérico em processos_para_contratar criado");
+          }
         }
       } catch (ppcError) {
         console.warn("Erro ao criar registro em processos_para_contratar:", ppcError);
