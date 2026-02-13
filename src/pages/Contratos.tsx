@@ -27,8 +27,7 @@ export default function Contratos() {
   const [filtro, setFiltro] = useState("");
 
   // Determinar se o usuário tem perfil "Contrato" (pode editar)
-  const isContratoPerfil = (context?.profile as any)?.contrato === true;
-  const canEdit = isContratoPerfil;
+  const canEdit = context?.isContrato === true;
 
   useEffect(() => {
     loadContratos();
