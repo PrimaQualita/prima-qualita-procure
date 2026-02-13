@@ -2890,8 +2890,9 @@ export function DialogFinalizarProcesso({
       console.log(`📊 [Relatório Final] Processando ${fornecedoresData.length} fornecedores`);
 
       // CRÍTICO: Usar fornecedoresData que já vem com itens vencedores identificados corretamente
+      // Filtrar APENAS fornecedores que realmente ganharam itens (não rejeitados E com itens vencedores)
       const fornecedoresVencedores = fornecedoresData
-        .filter(f => !f.rejeitado)
+        .filter(f => !f.rejeitado && f.itensVencedores.length > 0)
         .map(fData => {
           const resposta = todasRespostas?.find(r => r.fornecedor_id === fData.fornecedor.id);
           const itensVencedores = fData.itensVencedores;
@@ -3107,8 +3108,8 @@ export function DialogFinalizarProcesso({
 
       const isDesconto = criterioJulgamento === 'desconto' || criterioJulgamento === 'maior_percentual_desconto';
 
-      // Filtrar apenas fornecedores não rejeitados
-      const fornecedoresNaoRejeitados = fornecedoresData.filter(f => !f.rejeitado);
+      // Filtrar APENAS fornecedores que realmente ganharam itens (não rejeitados E com itens vencedores)
+      const fornecedoresNaoRejeitados = fornecedoresData.filter(f => !f.rejeitado && f.itensVencedores.length > 0);
       
       const fornecedoresVencedores = fornecedoresNaoRejeitados.map(fData => {
         const resposta = respostas?.find(r => r.fornecedor_id === fData.fornecedor.id);
