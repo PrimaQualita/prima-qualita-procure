@@ -23,6 +23,7 @@ import DOMPurify from "dompurify";
 import { DialogEditarSelecao } from "@/components/selecoes/DialogEditarSelecao";
 import { useCanEdit } from "@/hooks/useUserContext";
 import { registrarAuditoria } from "@/lib/registrarAuditoria";
+import { AnoReferenciaFilter, extrairAnos, filtrarPorAno } from "@/components/AnoReferenciaFilter";
 
 interface Contrato {
   id: string;
@@ -40,6 +41,7 @@ interface Processo {
   valor_planilha?: number;
   requer_selecao: boolean;
   criterio_julgamento?: string;
+  ano_referencia?: number;
 }
 
 interface Selecao {
@@ -69,6 +71,7 @@ const Selecoes = () => {
   const [selecoes, setSelecoes] = useState<Selecao[]>([]);
   const [confirmDeleteSelecao, setConfirmDeleteSelecao] = useState<string | null>(null);
   const [filtro, setFiltro] = useState("");
+  const [anoSelecionado, setAnoSelecionado] = useState("todos");
   const [selecaoParaEditar, setSelecaoParaEditar] = useState<Selecao | null>(null);
 
   useEffect(() => {
@@ -383,6 +386,11 @@ const Selecoes = () => {
               </div>
             </CardHeader>
             <CardContent>
+              <AnoReferenciaFilter
+                anos={extrairAnos(processos, p => p.ano_referencia)}
+                anoSelecionado={anoSelecionado}
+                onAnoChange={setAnoSelecionado}
+              />
               <Table>
                 <TableHeader>
                   <TableRow>
@@ -401,14 +409,14 @@ const Selecoes = () => {
                         </div>
                       </TableCell>
                     </TableRow>
-                  ) : processos.length === 0 ? (
+                  ) : filtrarPorAno(processos, anoSelecionado, p => p.ano_referencia).length === 0 ? (
                     <TableRow>
                       <TableCell colSpan={3} className="text-center text-muted-foreground">
                         Nenhum processo que requer seleção de fornecedores encontrado neste contrato
                       </TableCell>
                     </TableRow>
                   ) : (
-                    processos.map((processo) => (
+                    filtrarPorAno(processos, anoSelecionado, p => p.ano_referencia).map((processo) => (
                       <TableRow key={processo.id}>
                         <TableCell className="font-medium">{processo.numero_processo_interno}</TableCell>
                         <TableCell dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(processo.objeto_resumido) }} />

@@ -38,6 +38,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { AnoReferenciaFilter, extrairAnos, filtrarPorAno } from "@/components/AnoReferenciaFilter";
 
 interface ContratoGestao {
   id: string;
@@ -81,6 +82,7 @@ export default function Contabilidade() {
   const [processos, setProcessos] = useState<Record<string, ProcessoContabilidade[]>>({});
   const [loading, setLoading] = useState(true);
   const [filtro, setFiltro] = useState("");
+  const [anoSelecionado, setAnoSelecionado] = useState("todos");
   const [dialogRespostaOpen, setDialogRespostaOpen] = useState(false);
   const [processoSelecionado, setProcessoSelecionado] = useState<ProcessoContabilidade | null>(null);
   const [tiposOperacao, setTiposOperacao] = useState<Record<string, string>>({});
@@ -583,6 +585,17 @@ export default function Contabilidade() {
               </div>
             </CardHeader>
             <CardContent>
+              {(() => {
+                const allProcessos = processos[contratoSelecionado.id] || [];
+                const getAnoFromProcesso = (p: ProcessoContabilidade) => {
+                  const match = p.processo_numero?.match(/\/(\d{4})/);
+                  return match ? parseInt(match[1]) : undefined;
+                };
+                const anos = extrairAnos(allProcessos, getAnoFromProcesso);
+                const filtrados = filtrarPorAno(allProcessos, anoSelecionado, getAnoFromProcesso);
+                return (
+                  <>
+                    <AnoReferenciaFilter anos={anos} anoSelecionado={anoSelecionado} onAnoChange={setAnoSelecionado} />
               <Table>
                 <TableHeader>
                   <TableRow>
@@ -594,7 +607,7 @@ export default function Contabilidade() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {(processos[contratoSelecionado.id] || []).map((processo) => (
+                  {filtrados.map((processo) => (
                     <TableRow key={processo.id}>
                       <TableCell className="font-medium">{processo.processo_numero}</TableCell>
                       <TableCell className="max-w-md whitespace-normal break-words">
@@ -665,6 +678,9 @@ export default function Contabilidade() {
                   ))}
                 </TableBody>
               </Table>
+                  </>
+                );
+              })()}
             </CardContent>
           </Card>
         )}

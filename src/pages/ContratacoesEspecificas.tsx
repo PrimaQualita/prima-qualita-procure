@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/input";
 import primaLogo from "@/assets/prima-qualita-logo.png";
 import { ArrowLeft, FileText, ChevronRight } from "lucide-react";
 import { toast } from "sonner";
+import { AnoReferenciaFilter, extrairAnos, filtrarPorAno } from "@/components/AnoReferenciaFilter";
 
 interface ContratoGestao {
   id: string;
@@ -34,6 +35,7 @@ export default function ContratacoesEspecificas() {
   const [processos, setProcessos] = useState<Record<string, ProcessoCompra[]>>({});
   const [loading, setLoading] = useState(true);
   const [filtro, setFiltro] = useState("");
+  const [anoSelecionado, setAnoSelecionado] = useState("todos");
 
   useEffect(() => {
     loadContratos();
@@ -175,9 +177,16 @@ export default function ContratacoesEspecificas() {
               </div>
             </CardHeader>
             <CardContent>
-              {processos[contratoSelecionado.id]?.length > 0 ? (
+              {(() => {
+                const allProcessos = processos[contratoSelecionado.id] || [];
+                const anos = extrairAnos(allProcessos, p => p.ano_referencia);
+                const filtrados = filtrarPorAno(allProcessos, anoSelecionado, p => p.ano_referencia);
+                return (
+                  <>
+                    <AnoReferenciaFilter anos={anos} anoSelecionado={anoSelecionado} onAnoChange={setAnoSelecionado} />
+                    {filtrados.length > 0 ? (
                 <div className="space-y-3">
-                  {processos[contratoSelecionado.id].map((processo) => (
+                  {filtrados.map((processo) => (
                     <div
                       key={processo.id}
                       className="flex items-center justify-between p-4 border rounded-lg hover:bg-muted/50 transition-colors"
@@ -211,6 +220,9 @@ export default function ContratacoesEspecificas() {
                   Nenhum processo de contratação específica neste contrato
                 </p>
               )}
+                  </>
+                );
+              })()}
             </CardContent>
           </Card>
         )}

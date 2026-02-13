@@ -13,6 +13,7 @@ import { TabProcessosParaContratar } from "@/components/contratos/TabProcessosPa
 import { TabContratosTerceiros } from "@/components/contratos/TabContratosTerceiros";
 import { TabAVencer } from "@/components/contratos/TabAVencer";
 import { TabVencidos } from "@/components/contratos/TabVencidos";
+import { AnoReferenciaFilter, extrairAnos, filtrarPorAno } from "@/components/AnoReferenciaFilter";
 import { stripHtml } from "@/lib/htmlUtils";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -45,6 +46,7 @@ export default function Contratos() {
   const [filtro, setFiltro] = useState("");
   const [filtroProcesso, setFiltroProcesso] = useState("");
   const [activeTab, setActiveTab] = useState("processos");
+  const [anoSelecionado, setAnoSelecionado] = useState("todos");
   
   const [processoParaContrato, setProcessoParaContrato] = useState<any>(null);
 

@@ -31,6 +31,7 @@ import { DialogProcesso } from "@/components/processos/DialogProcesso";
 import { DialogAnexosProcesso } from "@/components/processos/DialogAnexosProcesso";
 import { stripHtml, truncateText } from "@/lib/htmlUtils";
 import { registrarAuditoria } from "@/lib/registrarAuditoria";
+import { AnoReferenciaFilter, extrairAnos, filtrarPorAno } from "@/components/AnoReferenciaFilter";
 
 interface Contrato {
   id: string;
@@ -88,6 +89,7 @@ const ProcessosCompras = () => {
   // Estados para processos
   const [processos, setProcessos] = useState<Processo[]>([]);
   const [filtroProcesso, setFiltroProcesso] = useState("");
+  const [anoSelecionado, setAnoSelecionado] = useState("todos");
   const [dialogProcessoOpen, setDialogProcessoOpen] = useState(false);
   const [processoParaEditar, setProcessoParaEditar] = useState<Processo | null>(null);
   const [processoParaExcluir, setProcessoParaExcluir] = useState<string | null>(null);
@@ -445,7 +447,10 @@ const ProcessosCompras = () => {
       c.ente_federativo.toLowerCase().includes(filtroContrato.toLowerCase())
   );
 
-  const processosFiltrados = processos.filter(
+  const anosDisponiveis = extrairAnos(processos, p => p.ano_referencia);
+  const processosFiltradosPorAno = filtrarPorAno(processos, anoSelecionado, p => p.ano_referencia);
+
+  const processosFiltrados = processosFiltradosPorAno.filter(
     (p) =>
       p.numero_processo_interno.toLowerCase().includes(filtroProcesso.toLowerCase()) ||
       p.objeto_resumido.toLowerCase().includes(filtroProcesso.toLowerCase())
@@ -625,6 +630,12 @@ const ProcessosCompras = () => {
                   onChange={(e) => setFiltroProcesso(e.target.value)}
                 />
               </div>
+
+              <AnoReferenciaFilter
+                anos={anosDisponiveis}
+                anoSelecionado={anoSelecionado}
+                onAnoChange={setAnoSelecionado}
+              />
 
               {processosFiltrados.length === 0 ? (
                 <p className="text-center text-muted-foreground py-8">
