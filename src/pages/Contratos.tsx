@@ -5,7 +5,6 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Badge } from "@/components/ui/badge";
 import { ArrowLeft, ChevronRight } from "lucide-react";
 import { toast } from "sonner";
 import { useUserContext } from "@/hooks/useUserContext";
@@ -13,10 +12,7 @@ import { TabProcessosParaContratar } from "@/components/contratos/TabProcessosPa
 import { TabContratosTerceiros } from "@/components/contratos/TabContratosTerceiros";
 import { TabAVencer } from "@/components/contratos/TabAVencer";
 import { TabVencidos } from "@/components/contratos/TabVencidos";
-import { AnoReferenciaFilter, extrairAnos, filtrarPorAno } from "@/components/AnoReferenciaFilter";
-import { stripHtml } from "@/lib/htmlUtils";
-import { format } from "date-fns";
-import { ptBR } from "date-fns/locale";
+import { AnoReferenciaFilter, extrairAnos } from "@/components/AnoReferenciaFilter";
 
 interface ContratoGestao {
   id: string;
@@ -25,14 +21,8 @@ interface ContratoGestao {
   cor_fundo: string | null;
 }
 
-interface ProcessoFinalizado {
+interface ProcessoAno {
   id: string;
-  numero_processo_interno: string;
-  tipo: string;
-  objeto_resumido: string;
-  valor_estimado_anual: number;
-  data_encerramento_real: string | null;
-  centro_custo: string | null;
   ano_referencia: number | null;
 }
 
@@ -40,15 +30,16 @@ export default function Contratos() {
   const context = useUserContext();
   const [contratos, setContratos] = useState<ContratoGestao[]>([]);
   const [contratoSelecionado, setContratoSelecionado] = useState<ContratoGestao | null>(null);
-  const [processos, setProcessos] = useState<ProcessoFinalizado[]>([]);
-  const [processoSelecionado, setProcessoSelecionado] = useState<ProcessoFinalizado | null>(null);
   const [loading, setLoading] = useState(true);
-  const [loadingProcessos, setLoadingProcessos] = useState(false);
   const [filtro, setFiltro] = useState("");
-  const [filtroProcesso, setFiltroProcesso] = useState("");
-  const [activeTab, setActiveTab] = useState("processos");
+
+  // Ano de referência
+  const [processosAnos, setProcessosAnos] = useState<ProcessoAno[]>([]);
   const [anoSelecionado, setAnoSelecionado] = useState("todos");
-  
+  const [loadingProcessos, setLoadingProcessos] = useState(false);
+
+  // Sub-tabs
+  const [activeTab, setActiveTab] = useState("processos");
   const [processoParaContrato, setProcessoParaContrato] = useState<any>(null);
 
   const canEdit = context?.isContrato === true;
@@ -59,7 +50,7 @@ export default function Contratos() {
 
   useEffect(() => {
     if (contratoSelecionado) {
-      loadProcessosFinalizados(contratoSelecionado.id);
+      loadProcessosAnos(contratoSelecionado.id);
     }
   }, [contratoSelecionado]);
 
@@ -79,35 +70,42 @@ export default function Contratos() {
     }
   };
 
-  const loadProcessosFinalizados = async (contratoGestaoId: string) => {
+  const loadProcessosAnos = async (contratoGestaoId: string) => {
     setLoadingProcessos(true);
     try {
       const { data, error } = await supabase
         .from("processos_compras")
-        .select("id, numero_processo_interno, tipo, objeto_resumido, valor_estimado_anual, data_encerramento_real, centro_custo, ano_referencia")
+        .select("id, ano_referencia")
         .eq("contrato_gestao_id", contratoGestaoId)
-        .eq("status_processo", "concluido")
-        .order("data_encerramento_real", { ascending: false });
+        .eq("status_processo", "concluido");
 
       if (error) throw error;
-      setProcessos(data || []);
+      setProcessosAnos(data || []);
+      
+      // Auto-selecionar o ano mais recente se houver dados
+      const anos = extrairAnos(data || [], p => p.ano_referencia ?? undefined);
+      if (anos.length === 1) {
+        setAnoSelecionado(anos[0].toString());
+      } else {
+        setAnoSelecionado("todos");
+      }
     } catch (error: any) {
-      toast.error("Erro ao carregar processos finalizados");
+      toast.error("Erro ao carregar processos");
     } finally {
       setLoadingProcessos(false);
     }
   };
 
+  // IDs dos processos de compra filtrados pelo ano selecionado
+  const processoCompraIdsFiltrados = anoSelecionado === "todos"
+    ? processosAnos.map(p => p.id)
+    : processosAnos.filter(p => p.ano_referencia === parseInt(anoSelecionado)).map(p => p.id);
+
+  const anosDisponiveis = extrairAnos(processosAnos, p => p.ano_referencia ?? undefined);
+
   const contratosFiltrados = contratos.filter((c) =>
     c.nome_contrato.toLowerCase().includes(filtro.toLowerCase()) ||
     c.ente_federativo.toLowerCase().includes(filtro.toLowerCase())
-  );
-
-  const anosDisponiveis = extrairAnos(processos, p => p.ano_referencia ?? undefined);
-  const processosFiltradosPorAno = filtrarPorAno(processos, anoSelecionado, p => p.ano_referencia ?? undefined);
-  const processosFiltrados = processosFiltradosPorAno.filter((p) =>
-    p.numero_processo_interno.toLowerCase().includes(filtroProcesso.toLowerCase()) ||
-    stripHtml(p.objeto_resumido).toLowerCase().includes(filtroProcesso.toLowerCase())
   );
 
   const handleCriarContratoFromProcesso = (processo: any) => {
@@ -115,17 +113,12 @@ export default function Contratos() {
     setActiveTab("contratos");
   };
 
-  const handleVoltarParaProcessos = () => {
-    setProcessoSelecionado(null);
-    setProcessoParaContrato(null);
-    setActiveTab("processos");
-  };
-
   const handleVoltarParaContratos = () => {
     setContratoSelecionado(null);
-    setProcessos([]);
-    setFiltroProcesso("");
+    setProcessosAnos([]);
     setAnoSelecionado("todos");
+    setActiveTab("processos");
+    setProcessoParaContrato(null);
   };
 
   return (
@@ -196,14 +189,14 @@ export default function Contratos() {
               </div>
             </CardContent>
           </Card>
-        ) : !processoSelecionado ? (
-          /* NÍVEL 2: Processos Finalizados do Contrato de Gestão */
+        ) : (
+          /* NÍVEL 2: Ano de Referência + 4 Sub-Tabs */
           <Card>
             <CardHeader>
               <div className="flex items-center justify-between">
                 <div>
                   <CardTitle>{contratoSelecionado.nome_contrato}</CardTitle>
-                  <CardDescription>{contratoSelecionado.ente_federativo} — Processos Finalizados</CardDescription>
+                  <CardDescription>{contratoSelecionado.ente_federativo}</CardDescription>
                 </div>
                 <Button variant="outline" onClick={handleVoltarParaContratos}>
                   <ArrowLeft className="h-4 w-4 mr-2" />
@@ -211,148 +204,71 @@ export default function Contratos() {
                 </Button>
               </div>
             </CardHeader>
-            <CardContent className="p-0 sm:p-6">
-              {loadingProcessos ? (
-                <div className="text-center py-8 text-muted-foreground text-sm">Carregando processos...</div>
-              ) : (
-                <>
-                  <div className="px-4 sm:px-0 mb-4">
-                    <AnoReferenciaFilter
-                      anos={anosDisponiveis}
-                      anoSelecionado={anoSelecionado}
-                      onAnoChange={setAnoSelecionado}
-                    />
-                    <Input
-                      placeholder="Buscar processo..."
-                      value={filtroProcesso}
-                      onChange={(e) => setFiltroProcesso(e.target.value)}
-                      className="text-sm"
-                    />
-                  </div>
-                  <div className="overflow-x-auto">
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead className="min-w-[120px]">Nº Processo</TableHead>
-                          <TableHead className="min-w-[100px]">Tipo</TableHead>
-                          <TableHead className="min-w-[200px]">Objeto</TableHead>
-                          <TableHead className="min-w-[120px]">Valor Estimado</TableHead>
-                          <TableHead className="min-w-[120px]">Data Finalização</TableHead>
-                          <TableHead className="text-right min-w-[100px]">Ações</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {processosFiltrados.length === 0 ? (
-                          <TableRow>
-                            <TableCell colSpan={6} className="text-center text-muted-foreground text-xs sm:text-sm">
-                              Nenhum processo finalizado encontrado
-                            </TableCell>
-                          </TableRow>
-                        ) : (
-                          processosFiltrados.map((processo) => (
-                            <TableRow key={processo.id}>
-                              <TableCell className="font-medium text-xs sm:text-sm">{processo.numero_processo_interno}</TableCell>
-                              <TableCell className="text-xs sm:text-sm">
-                                <Badge variant="outline" className="text-xs">{processo.tipo === "compra_direta" ? "Compra Direta" : processo.tipo === "selecao" ? "Seleção" : processo.tipo}</Badge>
-                              </TableCell>
-                              <TableCell className="text-xs sm:text-sm max-w-[200px] truncate" title={stripHtml(processo.objeto_resumido)}>
-                                {stripHtml(processo.objeto_resumido)}
-                              </TableCell>
-                              <TableCell className="text-xs sm:text-sm">
-                                {processo.valor_estimado_anual > 0
-                                  ? `R$ ${processo.valor_estimado_anual.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`
-                                  : "—"}
-                              </TableCell>
-                              <TableCell className="text-xs sm:text-sm">
-                                {processo.data_encerramento_real
-                                  ? format(new Date(processo.data_encerramento_real + "T12:00:00"), "dd/MM/yyyy", { locale: ptBR })
-                                  : "—"}
-                              </TableCell>
-                              <TableCell className="text-right">
-                                <Button
-                                  variant="outline"
-                                  size="sm"
-                                  onClick={() => {
-                                    setProcessoSelecionado(processo);
-                                    setActiveTab("processos");
-                                  }}
-                                  className="text-xs"
-                                >
-                                  <ChevronRight className="h-3 w-3 sm:h-4 sm:w-4 sm:mr-2" />
-                                  <span className="hidden sm:inline">Abrir</span>
-                                </Button>
-                              </TableCell>
-                            </TableRow>
-                          ))
-                        )}
-                      </TableBody>
-                    </Table>
-                  </div>
-                </>
-              )}
-            </CardContent>
-          </Card>
-        ) : (
-          /* NÍVEL 3: Tabs dentro do Processo selecionado */
-          <Card>
-            <CardHeader>
-              <div className="flex items-center justify-between">
-                <div>
-                  <CardTitle>Processo {processoSelecionado.numero_processo_interno}</CardTitle>
-                  <CardDescription>
-                    {contratoSelecionado.nome_contrato} — {stripHtml(processoSelecionado.objeto_resumido)}
-                  </CardDescription>
-                </div>
-                <Button variant="outline" onClick={handleVoltarParaProcessos}>
-                  <ArrowLeft className="h-4 w-4 mr-2" />
-                  Voltar
-                </Button>
-              </div>
-            </CardHeader>
             <CardContent>
-              <Tabs value={activeTab} onValueChange={setActiveTab}>
-                <TabsList className="w-full justify-start flex-wrap h-auto gap-1">
-                  <TabsTrigger value="processos" className="text-xs sm:text-sm">Processos para Contratar</TabsTrigger>
-                  <TabsTrigger value="contratos" className="text-xs sm:text-sm">Contratos com Terceiros</TabsTrigger>
-                  <TabsTrigger value="vencer" className="text-xs sm:text-sm">A Vencer</TabsTrigger>
-                  <TabsTrigger value="vencidos" className="text-xs sm:text-sm">Vencidos</TabsTrigger>
-                </TabsList>
-
-                <TabsContent value="processos">
-                  <TabProcessosParaContratar
-                    contratoGestaoId={contratoSelecionado.id}
-                    contratoGestaoNome={contratoSelecionado.nome_contrato}
-                    processoCompraId={processoSelecionado.id}
-                    canEdit={canEdit}
-                    onCriarContrato={handleCriarContratoFromProcesso}
+              {loadingProcessos ? (
+                <div className="text-center py-8 text-muted-foreground text-sm">Carregando...</div>
+              ) : processosAnos.length === 0 ? (
+                <div className="text-center py-8 text-muted-foreground text-sm">
+                  Nenhum processo finalizado neste contrato de gestão
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {/* Filtro por Ano de Referência */}
+                  <AnoReferenciaFilter
+                    anos={anosDisponiveis}
+                    anoSelecionado={anoSelecionado}
+                    onAnoChange={setAnoSelecionado}
                   />
-                </TabsContent>
 
-                <TabsContent value="contratos">
-                  <TabContratosTerceiros
-                    contratoGestaoId={contratoSelecionado.id}
-                    contratoGestaoNome={contratoSelecionado.nome_contrato}
-                    processoCompraId={processoSelecionado.id}
-                    canEdit={canEdit}
-                    processoParaContrato={processoParaContrato}
-                    onProcessoContratoUsado={() => setProcessoParaContrato(null)}
-                  />
-                </TabsContent>
+                  {/* 4 Sub-Tabs dentro do ano */}
+                  <Tabs value={activeTab} onValueChange={setActiveTab}>
+                    <TabsList className="w-full justify-start flex-wrap h-auto gap-1">
+                      <TabsTrigger value="processos" className="text-xs sm:text-sm">Processos para Contratar</TabsTrigger>
+                      <TabsTrigger value="contratos" className="text-xs sm:text-sm">Contratos com Terceiros</TabsTrigger>
+                      <TabsTrigger value="vencer" className="text-xs sm:text-sm">A Vencer</TabsTrigger>
+                      <TabsTrigger value="vencidos" className="text-xs sm:text-sm">Vencidos</TabsTrigger>
+                    </TabsList>
 
-                <TabsContent value="vencer">
-                  <TabAVencer 
-                    contratoGestaoId={contratoSelecionado.id}
-                    processoCompraId={processoSelecionado.id}
-                  />
-                </TabsContent>
+                    <TabsContent value="processos">
+                      <TabProcessosParaContratar
+                        contratoGestaoId={contratoSelecionado.id}
+                        contratoGestaoNome={contratoSelecionado.nome_contrato}
+                        processoCompraIds={processoCompraIdsFiltrados}
+                        canEdit={canEdit}
+                        onCriarContrato={handleCriarContratoFromProcesso}
+                      />
+                    </TabsContent>
 
-                <TabsContent value="vencidos">
-                  <TabVencidos
-                    contratoGestaoId={contratoSelecionado.id}
-                    processoCompraId={processoSelecionado.id}
-                  />
-                </TabsContent>
-              </Tabs>
+                    <TabsContent value="contratos">
+                      <TabContratosTerceiros
+                        contratoGestaoId={contratoSelecionado.id}
+                        contratoGestaoNome={contratoSelecionado.nome_contrato}
+                        processoCompraIds={processoCompraIdsFiltrados}
+                        canEdit={canEdit}
+                        processoParaContrato={processoParaContrato}
+                        onProcessoContratoUsado={() => setProcessoParaContrato(null)}
+                      />
+                    </TabsContent>
+
+                    <TabsContent value="vencer">
+                      <TabAVencer
+                        contratoGestaoId={contratoSelecionado.id}
+                        processoCompraIds={processoCompraIdsFiltrados}
+                        canEdit={canEdit}
+                      />
+                    </TabsContent>
+
+                    <TabsContent value="vencidos">
+                      <TabVencidos
+                        contratoGestaoId={contratoSelecionado.id}
+                        contratoGestaoNome={contratoSelecionado.nome_contrato}
+                        processoCompraIds={processoCompraIdsFiltrados}
+                        canEdit={canEdit}
+                      />
+                    </TabsContent>
+                  </Tabs>
+                </div>
+              )}
             </CardContent>
           </Card>
         )}
