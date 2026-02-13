@@ -93,6 +93,7 @@ export function TabContratosTerceiros({ contratoGestaoId, contratoGestaoNome, pr
   // Dialog CRUD
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editando, setEditando] = useState<ContratoTerceiro | null>(null);
+  const [processoParaContratarId, setProcessoParaContratarId] = useState<string | null>(null);
   const [formData, setFormData] = useState({
     codigo_interno: "",
     objeto: "",
@@ -126,6 +127,7 @@ export function TabContratosTerceiros({ contratoGestaoId, contratoGestaoNome, pr
   useEffect(() => {
     if (processoParaContrato) {
       setEditando(null);
+      setProcessoParaContratarId(processoParaContrato.id || null);
       setFormData({
         codigo_interno: "",
         objeto: processoParaContrato.objeto || "",
@@ -243,6 +245,7 @@ export function TabContratosTerceiros({ contratoGestaoId, contratoGestaoNome, pr
 
       const payload = {
         contrato_gestao_id: contratoGestaoId,
+        processo_para_contratar_id: editando ? editando.processo_para_contratar_id : processoParaContratarId,
         codigo_interno: formData.codigo_interno.trim(),
         objeto: formData.objeto.trim(),
         fornecedor_id: formData.fornecedor_id || null,
@@ -300,6 +303,7 @@ export function TabContratosTerceiros({ contratoGestaoId, contratoGestaoNome, pr
 
       setDialogOpen(false);
       setEditando(null);
+      setProcessoParaContratarId(null);
       setArquivo(null);
       await loadContratos();
     } catch (error: any) {
@@ -356,6 +360,7 @@ export function TabContratosTerceiros({ contratoGestaoId, contratoGestaoNome, pr
 
   const abrirDialogCriar = () => {
     setEditando(null);
+    setProcessoParaContratarId(null);
     setFormData({
       codigo_interno: "",
       objeto: "",

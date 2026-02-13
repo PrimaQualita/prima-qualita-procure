@@ -221,12 +221,12 @@ export default function Contratos() {
                   />
 
                   {/* 4 Sub-Tabs dentro do ano */}
-                  <Tabs value={activeTab} onValueChange={setActiveTab}>
-                    <TabsList className="w-full justify-start flex-wrap h-auto gap-1">
-                      <TabsTrigger value="processos" className="text-xs sm:text-sm">Processos para Contratar</TabsTrigger>
-                      <TabsTrigger value="contratos" className="text-xs sm:text-sm">Contratos com Terceiros</TabsTrigger>
-                      <TabsTrigger value="vencer" className="text-xs sm:text-sm">A Vencer</TabsTrigger>
-                      <TabsTrigger value="vencidos" className="text-xs sm:text-sm">Vencidos</TabsTrigger>
+                   <Tabs value={activeTab} onValueChange={setActiveTab}>
+                    <TabsList className="w-full h-auto gap-0 p-0">
+                      <TabsTrigger value="processos" className="flex-1 text-xs sm:text-sm rounded-none first:rounded-l-md data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">Processos para Contratar</TabsTrigger>
+                      <TabsTrigger value="contratos" className="flex-1 text-xs sm:text-sm rounded-none data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">Contratos com Terceiros</TabsTrigger>
+                      <TabsTrigger value="vencer" className="flex-1 text-xs sm:text-sm rounded-none data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">A Vencer</TabsTrigger>
+                      <TabsTrigger value="vencidos" className="flex-1 text-xs sm:text-sm rounded-none last:rounded-r-md data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">Vencidos</TabsTrigger>
                     </TabsList>
 
                     <TabsContent value="processos">
