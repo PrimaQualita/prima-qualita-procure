@@ -3513,6 +3513,7 @@ export function DialogFinalizarProcesso({
       }
 
       // === CRIAR AUTOMATICAMENTE registro em processos_para_contratar (um por fornecedor vencedor) ===
+      // CRÍTICO: Recalcular vencedores e valores DIRETAMENTE do banco (mesma lógica da planilha final)
       try {
         const { data: processoInfo } = await supabase
           .from("processos_compras")
@@ -3526,49 +3527,239 @@ export function DialogFinalizarProcesso({
           if (processoInfo.credenciamento) tipoProcesso = "Credenciamento";
           if (processoInfo.contratacao_especifica) tipoProcesso = "Contratação Específica";
 
-          // Strip HTML do objeto
           const objetoLimpo = processoInfo.objeto_resumido ? stripHtml(processoInfo.objeto_resumido) : null;
 
-          // Criar um registro para CADA fornecedor vencedor, EXCLUINDO Banco de Preços
-          const fornecedoresVencedores = fornecedoresData.filter(f => {
-            if (f.rejeitado) return false;
-            if (!f.itensVencedores || f.itensVencedores.length === 0) return false;
-            // Excluir Banco de Preços (referência, nunca é vencedor real)
-            const nome = f.fornecedor.razao_social?.toUpperCase() || "";
-            if (nome.includes("BANCO DE PREÇOS") || nome.includes("BANCO DE PRECOS")) return false;
+          // === RECÁLCULO DIRETO DOS VENCEDORES E VALORES (igual à planilha final) ===
+          // 1. Buscar todas as respostas com dados do fornecedor
+          const { data: todasRespostas } = await supabase
+            .from("cotacao_respostas_fornecedor")
+            .select("id, fornecedor_id, rejeitado, fornecedores!inner(id, razao_social, cnpj, email)")
+            .eq("cotacao_id", cotacaoId);
+
+          // 2. Buscar todos os itens de todas as respostas
+          const todosItensResp: any[] = [];
+          for (const resp of (todasRespostas || [])) {
+            let offset = 0;
+            let hasMore = true;
+            while (hasMore) {
+              const { data: itensResp } = await supabase
+                .from("respostas_itens_fornecedor")
+                .select("id, cotacao_resposta_fornecedor_id, item_cotacao_id, valor_unitario_ofertado, percentual_desconto, itens_cotacao!inner(numero_item, descricao, lote_id, quantidade, unidade)")
+                .eq("cotacao_resposta_fornecedor_id", resp.id)
+                .range(offset, offset + 999);
+              if (itensResp && itensResp.length > 0) todosItensResp.push(...itensResp);
+              hasMore = (itensResp?.length || 0) === 1000;
+              offset += 1000;
+            }
+          }
+
+          // 3. Buscar rejeições ativas
+          const { data: rejeicoesAtivas } = await supabase
+            .from("fornecedores_rejeitados_cotacao")
+            .select("fornecedor_id, itens_afetados")
+            .eq("cotacao_id", cotacaoId)
+            .eq("revertido", false);
+
+          const { data: rejeicoesRevertidas } = await supabase
+            .from("fornecedores_rejeitados_cotacao")
+            .select("fornecedor_id")
+            .eq("cotacao_id", cotacaoId)
+            .eq("revertido", true);
+
+          const fornecedoresRevertidos = new Set(rejeicoesRevertidas?.map(r => r.fornecedor_id) || []);
+
+          // 4. Buscar compliance reprovados
+          const { data: analisesCompliance } = await supabase
+            .from("analises_compliance")
+            .select("empresas_reprovadas")
+            .eq("cotacao_id", cotacaoId);
+          const cnpjsReprovados = new Set<string>();
+          (analisesCompliance || []).forEach(a => {
+            ((a.empresas_reprovadas as string[]) || []).forEach(c => { if (c) cnpjsReprovados.add(c); });
+          });
+
+          // 5. Buscar lotes
+          const { data: lotesCot } = await supabase
+            .from("lotes_cotacao")
+            .select("id, numero_lote")
+            .eq("cotacao_id", cotacaoId);
+
+          // 6. Construir mapa de rejeições
+          const fornecedoresRejeitadosGlobal = new Set<string>();
+          const itensRejeitadosPorForn = new Map<string, Set<number>>();
+          const lotesRejeitadosPorForn = new Map<string, Set<number>>();
+          const todosNumerosItens = new Set<number>();
+          const todosNumerosLotes = new Set<number>();
+          todosItensResp.forEach(i => todosNumerosItens.add(i.itens_cotacao.numero_item));
+          lotesCot?.forEach(l => todosNumerosLotes.add(l.numero_lote));
+
+          rejeicoesAtivas?.forEach(r => {
+            const itensAfetados = (r.itens_afetados as number[]) || [];
+            if (itensAfetados.length === 0) {
+              fornecedoresRejeitadosGlobal.add(r.fornecedor_id);
+            } else if (criterioJulgamento === "por_lote") {
+              const rejeitouTodos = todosNumerosLotes.size > 0 && itensAfetados.length >= todosNumerosLotes.size &&
+                [...todosNumerosLotes].every(l => itensAfetados.includes(l));
+              if (rejeitouTodos) { fornecedoresRejeitadosGlobal.add(r.fornecedor_id); }
+              else {
+                if (!lotesRejeitadosPorForn.has(r.fornecedor_id)) lotesRejeitadosPorForn.set(r.fornecedor_id, new Set());
+                itensAfetados.forEach(n => lotesRejeitadosPorForn.get(r.fornecedor_id)!.add(n));
+              }
+            } else {
+              const rejeitouTodos = todosNumerosItens.size > 0 && itensAfetados.length >= todosNumerosItens.size &&
+                [...todosNumerosItens].every(i => itensAfetados.includes(i));
+              if (rejeitouTodos) { fornecedoresRejeitadosGlobal.add(r.fornecedor_id); }
+              else {
+                if (!itensRejeitadosPorForn.has(r.fornecedor_id)) itensRejeitadosPorForn.set(r.fornecedor_id, new Set());
+                itensAfetados.forEach(n => itensRejeitadosPorForn.get(r.fornecedor_id)!.add(n));
+              }
+            }
+          });
+
+          const ehPrecoPublicoLocal = (email?: string) => !!(email && email.includes('precos.publicos'));
+
+          // 7. Filtrar respostas válidas
+          const respostasValidas = (todasRespostas || []).filter(r => {
+            const forn = r.fornecedores as any;
+            if (ehPrecoPublicoLocal(forn?.email)) return false;
+            if (cnpjsReprovados.has(forn?.cnpj || '')) return false;
+            if (fornecedoresRejeitadosGlobal.has(r.fornecedor_id) && !fornecedoresRevertidos.has(r.fornecedor_id)) return false;
+            if (r.rejeitado && !fornecedoresRevertidos.has(r.fornecedor_id) && 
+                !itensRejeitadosPorForn.has(r.fornecedor_id) && !lotesRejeitadosPorForn.has(r.fornecedor_id)) return false;
             return true;
           });
-          
-          if (fornecedoresVencedores.length > 0) {
-            const registros = fornecedoresVencedores.map(fornData => {
-              // Calcular valor do fornecedor individualmente
-              let valorFornecedor = 0;
-              fornData.itensVencedores.forEach(item => {
-                const quantidade = item.itens_cotacao?.quantidade || 1;
-                const valorUnitario = item.valor_unitario_ofertado || 0;
-                valorFornecedor += valorUnitario * quantidade;
+
+          // 8. Calcular vencedores e valores por fornecedor
+          // Map: fornecedor_id -> { nome, id, valorTotal }
+          const valoresPorFornecedor = new Map<string, { nome: string; id: string; valorTotal: number }>();
+
+          if (criterioJulgamento === "global") {
+            // Menor valor total global
+            let menorTotal = Infinity;
+            let vencedorResp: any = null;
+            respostasValidas.forEach(resp => {
+              const itensDoForn = todosItensResp.filter(i => i.cotacao_resposta_fornecedor_id === resp.id);
+              let total = 0;
+              itensDoForn.forEach(i => {
+                if (i.valor_unitario_ofertado > 0) total += i.valor_unitario_ofertado * (i.itens_cotacao.quantidade || 1);
+              });
+              if (total > 0 && total < menorTotal) { menorTotal = total; vencedorResp = resp; }
+            });
+            if (vencedorResp) {
+              const forn = vencedorResp.fornecedores as any;
+              valoresPorFornecedor.set(vencedorResp.fornecedor_id, {
+                nome: forn.razao_social, id: forn.id, valorTotal: menorTotal
+              });
+            }
+          } else if (criterioJulgamento === "desconto" || criterioJulgamento === "maior_percentual_desconto") {
+            // Para desconto, não calcular valor em reais, usar percentual
+            todosNumerosItens.forEach(numItem => {
+              let maiorDesc = -1;
+              let vencedorId: string | null = null;
+              let vencedorNome = "";
+              let vencedorFornId = "";
+              respostasValidas.forEach(resp => {
+                if (itensRejeitadosPorForn.get(resp.fornecedor_id)?.has(numItem)) return;
+                const item = todosItensResp.find((i: any) => i.cotacao_resposta_fornecedor_id === resp.id && i.itens_cotacao.numero_item === numItem);
+                const desc = item?.percentual_desconto || 0;
+                if (desc > 0 && desc > maiorDesc) {
+                  maiorDesc = desc;
+                  vencedorId = resp.fornecedor_id;
+                  const forn = resp.fornecedores as any;
+                  vencedorNome = forn.razao_social;
+                  vencedorFornId = forn.id;
+                }
+              });
+              if (vencedorId) {
+                if (!valoresPorFornecedor.has(vencedorId)) {
+                  valoresPorFornecedor.set(vencedorId, { nome: vencedorNome, id: vencedorFornId, valorTotal: 0 });
+                }
+                // Para desconto, valor_aprovado = 0 (sem valor monetário)
+              }
+            });
+          } else if (criterioJulgamento === "por_lote") {
+            // Menor valor total por lote
+            const lotesUnicos = new Set<string>();
+            todosItensResp.forEach((i: any) => { if (i.itens_cotacao.lote_id) lotesUnicos.add(i.itens_cotacao.lote_id); });
+
+            lotesUnicos.forEach(loteId => {
+              let menorTotalLote = Infinity;
+              let vencedorResp: any = null;
+              const loteInfo = lotesCot?.find(l => l.id === loteId);
+              const numeroLote = loteInfo?.numero_lote;
+
+              respostasValidas.forEach(resp => {
+                if (lotesRejeitadosPorForn.get(resp.fornecedor_id)?.has(numeroLote!)) return;
+                const itensNoLote = todosItensResp.filter((i: any) => 
+                  i.itens_cotacao.lote_id === loteId && i.cotacao_resposta_fornecedor_id === resp.id
+                );
+                if (itensNoLote.length === 0) return;
+                let totalLote = 0;
+                itensNoLote.forEach((i: any) => {
+                  if (i.valor_unitario_ofertado > 0) totalLote += i.valor_unitario_ofertado * (i.itens_cotacao.quantidade || 1);
+                });
+                if (totalLote > 0 && totalLote < menorTotalLote) { menorTotalLote = totalLote; vencedorResp = resp; }
               });
 
-              return {
-                processo_compra_id: processoId,
-                contrato_gestao_id: processoInfo.contrato_gestao_id,
-                numero_processo: numeroProcesso,
-                tipo_processo: tipoProcesso,
-                data_finalizacao: new Date().toISOString(),
-                fornecedor_vencedor_nome: fornData.fornecedor.razao_social || null,
-                fornecedor_vencedor_id: fornData.fornecedor.id || null,
-                objeto: objetoLimpo,
-                valor_aprovado: valorFornecedor,
-                conta_gerencial: processoInfo.centro_custo || null,
-                url_dossie: processoCompleto.url,
-                status: "pronto_para_contratar",
-              };
+              if (vencedorResp) {
+                const forn = vencedorResp.fornecedores as any;
+                if (!valoresPorFornecedor.has(vencedorResp.fornecedor_id)) {
+                  valoresPorFornecedor.set(vencedorResp.fornecedor_id, { nome: forn.razao_social, id: forn.id, valorTotal: 0 });
+                }
+                valoresPorFornecedor.get(vencedorResp.fornecedor_id)!.valorTotal += menorTotalLote;
+              }
             });
+          } else {
+            // Por item: menor valor unitário por item
+            todosNumerosItens.forEach(numItem => {
+              let menorValor = Infinity;
+              let vencedorResp: any = null;
+              let valorTotalItem = 0;
+
+              respostasValidas.forEach(resp => {
+                if (itensRejeitadosPorForn.get(resp.fornecedor_id)?.has(numItem)) return;
+                const item = todosItensResp.find((i: any) => i.cotacao_resposta_fornecedor_id === resp.id && i.itens_cotacao.numero_item === numItem);
+                const valor = item?.valor_unitario_ofertado || 0;
+                if (valor > 0 && valor < menorValor) {
+                  menorValor = valor;
+                  vencedorResp = resp;
+                  valorTotalItem = valor * (item.itens_cotacao.quantidade || 1);
+                }
+              });
+
+              if (vencedorResp) {
+                const forn = vencedorResp.fornecedores as any;
+                if (!valoresPorFornecedor.has(vencedorResp.fornecedor_id)) {
+                  valoresPorFornecedor.set(vencedorResp.fornecedor_id, { nome: forn.razao_social, id: forn.id, valorTotal: 0 });
+                }
+                valoresPorFornecedor.get(vencedorResp.fornecedor_id)!.valorTotal += valorTotalItem;
+              }
+            });
+          }
+
+          console.log(`🏆 Vencedores recalculados para processos_para_contratar:`);
+          valoresPorFornecedor.forEach((v, k) => console.log(`  → ${v.nome}: R$ ${v.valorTotal.toFixed(2)}`));
+
+          // 9. Criar registros
+          if (valoresPorFornecedor.size > 0) {
+            const registros = Array.from(valoresPorFornecedor.entries()).map(([fornecedorId, dados]) => ({
+              processo_compra_id: processoId,
+              contrato_gestao_id: processoInfo.contrato_gestao_id,
+              numero_processo: numeroProcesso,
+              tipo_processo: tipoProcesso,
+              data_finalizacao: new Date().toISOString(),
+              fornecedor_vencedor_nome: dados.nome,
+              fornecedor_vencedor_id: dados.id,
+              objeto: objetoLimpo,
+              valor_aprovado: dados.valorTotal,
+              conta_gerencial: processoInfo.centro_custo || null,
+              url_dossie: processoCompleto.url,
+              status: "pronto_para_contratar",
+            }));
 
             await supabase.from("processos_para_contratar").insert(registros);
             console.log(`✅ ${registros.length} registro(s) em processos_para_contratar criado(s) automaticamente`);
           } else {
-            // Fallback: nenhum fornecedor vencedor identificado, criar registro genérico
             await supabase.from("processos_para_contratar").insert({
               processo_compra_id: processoId,
               contrato_gestao_id: processoInfo.contrato_gestao_id,
