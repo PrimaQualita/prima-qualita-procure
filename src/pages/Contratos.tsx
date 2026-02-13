@@ -33,6 +33,7 @@ interface ProcessoFinalizado {
   valor_estimado_anual: number;
   data_encerramento_real: string | null;
   centro_custo: string | null;
+  ano_referencia: number | null;
 }
 
 export default function Contratos() {
@@ -83,7 +84,7 @@ export default function Contratos() {
     try {
       const { data, error } = await supabase
         .from("processos_compras")
-        .select("id, numero_processo_interno, tipo, objeto_resumido, valor_estimado_anual, data_encerramento_real, centro_custo")
+        .select("id, numero_processo_interno, tipo, objeto_resumido, valor_estimado_anual, data_encerramento_real, centro_custo, ano_referencia")
         .eq("contrato_gestao_id", contratoGestaoId)
         .eq("status_processo", "concluido")
         .order("data_encerramento_real", { ascending: false });
@@ -102,7 +103,9 @@ export default function Contratos() {
     c.ente_federativo.toLowerCase().includes(filtro.toLowerCase())
   );
 
-  const processosFiltrados = processos.filter((p) =>
+  const anosDisponiveis = extrairAnos(processos, p => p.ano_referencia ?? undefined);
+  const processosFiltradosPorAno = filtrarPorAno(processos, anoSelecionado, p => p.ano_referencia ?? undefined);
+  const processosFiltrados = processosFiltradosPorAno.filter((p) =>
     p.numero_processo_interno.toLowerCase().includes(filtroProcesso.toLowerCase()) ||
     stripHtml(p.objeto_resumido).toLowerCase().includes(filtroProcesso.toLowerCase())
   );
@@ -122,6 +125,7 @@ export default function Contratos() {
     setContratoSelecionado(null);
     setProcessos([]);
     setFiltroProcesso("");
+    setAnoSelecionado("todos");
   };
 
   return (
@@ -213,6 +217,11 @@ export default function Contratos() {
               ) : (
                 <>
                   <div className="px-4 sm:px-0 mb-4">
+                    <AnoReferenciaFilter
+                      anos={anosDisponiveis}
+                      anoSelecionado={anoSelecionado}
+                      onAnoChange={setAnoSelecionado}
+                    />
                     <Input
                       placeholder="Buscar processo..."
                       value={filtroProcesso}
