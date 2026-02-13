@@ -3516,7 +3516,7 @@ export function DialogFinalizarProcesso({
       try {
         const { data: processoInfo } = await supabase
           .from("processos_compras")
-          .select("contrato_gestao_id, objeto_resumido, requer_selecao, credenciamento, contratacao_especifica")
+          .select("contrato_gestao_id, objeto_resumido, requer_selecao, credenciamento, contratacao_especifica, centro_custo")
           .eq("id", processoId)
           .single();
 
@@ -3529,8 +3529,15 @@ export function DialogFinalizarProcesso({
           // Strip HTML do objeto
           const objetoLimpo = processoInfo.objeto_resumido ? stripHtml(processoInfo.objeto_resumido) : null;
 
-          // Criar um registro para CADA fornecedor vencedor
-          const fornecedoresVencedores = fornecedoresData.filter(f => !f.rejeitado && f.itensVencedores && f.itensVencedores.length > 0);
+          // Criar um registro para CADA fornecedor vencedor, EXCLUINDO Banco de Preços
+          const fornecedoresVencedores = fornecedoresData.filter(f => {
+            if (f.rejeitado) return false;
+            if (!f.itensVencedores || f.itensVencedores.length === 0) return false;
+            // Excluir Banco de Preços (referência, nunca é vencedor real)
+            const nome = f.fornecedor.razao_social?.toUpperCase() || "";
+            if (nome.includes("BANCO DE PREÇOS") || nome.includes("BANCO DE PRECOS")) return false;
+            return true;
+          });
           
           if (fornecedoresVencedores.length > 0) {
             const registros = fornecedoresVencedores.map(fornData => {
@@ -3552,6 +3559,7 @@ export function DialogFinalizarProcesso({
                 fornecedor_vencedor_id: fornData.fornecedor.id || null,
                 objeto: objetoLimpo,
                 valor_aprovado: valorFornecedor,
+                conta_gerencial: processoInfo.centro_custo || null,
                 url_dossie: processoCompleto.url,
                 status: "pronto_para_contratar",
               };

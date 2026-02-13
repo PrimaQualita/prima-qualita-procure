@@ -375,7 +375,7 @@ export function TabContratosTerceiros({ contratoGestaoId, contratoGestaoNome, ca
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Código</TableHead>
+                <TableHead>Nº Contrato/Ano</TableHead>
                 <TableHead>Objeto</TableHead>
                 <TableHead>Fornecedor</TableHead>
                 <TableHead>Vigência</TableHead>
@@ -463,19 +463,27 @@ export function TabContratosTerceiros({ contratoGestaoId, contratoGestaoNome, ca
           </DialogHeader>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label>Código Interno *</Label>
-              <Input value={formData.codigo_interno} onChange={(e) => setFormData({...formData, codigo_interno: e.target.value})} />
+              <Label>Nº do Contrato/Ano *</Label>
+              <Input value={formData.codigo_interno} onChange={(e) => setFormData({...formData, codigo_interno: e.target.value})} placeholder="Ex: 001/2026" />
             </div>
             <div className="space-y-2">
               <Label>Fornecedor</Label>
-              <Select value={formData.fornecedor_id} onValueChange={(v) => setFormData({...formData, fornecedor_id: v})}>
-                <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
-                <SelectContent>
-                  {fornecedores.map(f => (
-                    <SelectItem key={f.id} value={f.id}>{f.razao_social} ({f.cnpj})</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              {formData.fornecedor_id ? (
+                <div className="flex items-center gap-2 p-2 border rounded-md bg-muted/50 min-h-[40px]">
+                  <span className="text-sm">
+                    {fornecedores.find(f => f.id === formData.fornecedor_id)?.razao_social || "Fornecedor vinculado"}
+                  </span>
+                </div>
+              ) : (
+                <Select value={formData.fornecedor_id} onValueChange={(v) => setFormData({...formData, fornecedor_id: v})}>
+                  <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
+                  <SelectContent>
+                    {fornecedores.map(f => (
+                      <SelectItem key={f.id} value={f.id}>{f.razao_social} ({f.cnpj})</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
             </div>
             <div className="space-y-2 sm:col-span-2">
               <Label>Objeto *</Label>
@@ -518,7 +526,7 @@ export function TabContratosTerceiros({ contratoGestaoId, contratoGestaoNome, ca
               <Input value={formData.criterio_reajuste} onChange={(e) => setFormData({...formData, criterio_reajuste: e.target.value})} />
             </div>
             <div className="space-y-2">
-              <Label>Conta Gerencial</Label>
+              <Label>Rubrica</Label>
               <Input value={formData.conta_gerencial} onChange={(e) => setFormData({...formData, conta_gerencial: e.target.value})} />
             </div>
             <div className="space-y-2 sm:col-span-2">
