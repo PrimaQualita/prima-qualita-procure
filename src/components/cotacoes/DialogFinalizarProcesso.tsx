@@ -3512,6 +3512,42 @@ export function DialogFinalizarProcesso({
         console.error("Erro ao atualizar status do processo:", statusError);
       }
 
+      // === CRIAR AUTOMATICAMENTE registro em processos_para_contratar ===
+      try {
+        const { data: processoInfo } = await supabase
+          .from("processos_compras")
+          .select("contrato_gestao_id, objeto_resumido, requer_selecao, credenciamento, contratacao_especifica")
+          .eq("id", processoId)
+          .single();
+
+        if (processoInfo) {
+          // Determinar fornecedor vencedor principal
+          const fornecedorVencedor = fornecedoresData.find(f => !f.rejeitado && f.itensVencedores.length > 0);
+          
+          let tipoProcesso = "Compra Direta";
+          if (processoInfo.requer_selecao) tipoProcesso = "Seleção de Fornecedores";
+          if (processoInfo.credenciamento) tipoProcesso = "Credenciamento";
+          if (processoInfo.contratacao_especifica) tipoProcesso = "Contratação Específica";
+
+          await supabase.from("processos_para_contratar").insert({
+            processo_compra_id: processoId,
+            contrato_gestao_id: processoInfo.contrato_gestao_id,
+            numero_processo: numeroProcesso,
+            tipo_processo: tipoProcesso,
+            data_finalizacao: new Date().toISOString(),
+            fornecedor_vencedor_nome: fornecedorVencedor?.fornecedor.razao_social || null,
+            fornecedor_vencedor_id: fornecedorVencedor?.fornecedor.id || null,
+            objeto: processoInfo.objeto_resumido || null,
+            valor_aprovado: valorTotalFechamento,
+            url_dossie: processoCompleto.url,
+            status: "pronto_para_contratar",
+          });
+          console.log("✅ Registro em processos_para_contratar criado automaticamente");
+        }
+      } catch (ppcError) {
+        console.warn("Erro ao criar registro em processos_para_contratar:", ppcError);
+      }
+
       const { error } = await supabase
         .from("cotacoes_precos")
         .update({

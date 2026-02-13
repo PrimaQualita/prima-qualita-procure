@@ -49,6 +49,7 @@ let cachedIsSuperintendenteExecutivo: boolean = false;
 let cachedContratosVinculados: string[] = [];
 let cachedIsColaborador: boolean = false;
 let cachedIsContabilidade: boolean = false;
+let cachedIsContrato: boolean = false;
 let profileLoaded: boolean = false;
 
 export function DashboardLayout() {
@@ -67,6 +68,7 @@ export function DashboardLayout() {
   const [contratosVinculados, setContratosVinculados] = useState<string[]>(cachedContratosVinculados);
   const [isColaborador, setIsColaborador] = useState(cachedIsColaborador);
   const [isContabilidade, setIsContabilidade] = useState(cachedIsContabilidade);
+  const [isContrato, setIsContrato] = useState(cachedIsContrato);
   const [loading, setLoading] = useState(!profileLoaded);
 
   useEffect(() => {
@@ -89,6 +91,7 @@ export function DashboardLayout() {
         cachedContratosVinculados = [];
         cachedIsColaborador = false;
         cachedIsContabilidade = false;
+        cachedIsContrato = false;
         profileLoaded = false;
         setProfile(null);
         setIsGestor(false);
@@ -99,6 +102,7 @@ export function DashboardLayout() {
         setContratosVinculados([]);
         setIsColaborador(false);
         setIsContabilidade(false);
+        setIsContrato(false);
         
         // Limpa cache de outras páginas
         clearCotacoesCache();
@@ -177,12 +181,14 @@ export function DashboardLayout() {
       cachedIsResponsavelLegal = profileData?.responsavel_legal || false;
       cachedIsSuperintendenteExecutivo = profileData?.superintendente_executivo || profileData?.gerente_financeiro || false;
       cachedIsContabilidade = profileData?.contabilidade || false;
+      cachedIsContrato = profileData?.contrato || false;
       
       setProfile(profileData);
       setIsCompliance(cachedIsCompliance);
       setIsResponsavelLegal(cachedIsResponsavelLegal);
       setIsSuperintendenteExecutivo(cachedIsSuperintendenteExecutivo);
       setIsContabilidade(cachedIsContabilidade);
+      setIsContrato(cachedIsContrato);
 
       if (profileData?.primeiro_acesso || profileData?.senha_temporaria) {
         navigate("/troca-senha");
@@ -353,6 +359,7 @@ export function DashboardLayout() {
                 isSuperintendenteExecutivo: isSuperintendenteExecutivo || cachedIsSuperintendenteExecutivo,
                 isGerenteContratos: isGerenteContratos || cachedIsGerenteContratos,
                 isContabilidade: isContabilidade || cachedIsContabilidade,
+                isContrato: isContrato || cachedIsContrato,
                 profile: profile || cachedProfile,
                 userId: user?.id || cachedUser?.id
               }} />
@@ -415,6 +422,7 @@ export function DashboardLayout() {
               isSuperintendenteExecutivo,
               isGerenteContratos,
               isContabilidade,
+              isContrato,
               profile,
               userId: user?.id
             }} />

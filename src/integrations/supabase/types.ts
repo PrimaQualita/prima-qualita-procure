@@ -663,6 +663,94 @@ export type Database = {
         }
         Relationships: []
       }
+      contratos_terceiros: {
+        Row: {
+          codigo_interno: string
+          conta_gerencial: string | null
+          contrato_gestao_id: string
+          created_at: string
+          criterio_reajuste: string | null
+          data_assinatura: string | null
+          fim_vigencia_atual: string | null
+          fornecedor_id: string | null
+          id: string
+          inicio_vigencia: string | null
+          objeto: string
+          processo_para_contratar_id: string | null
+          status: string
+          storage_path_arquivo: string | null
+          updated_at: string
+          url_arquivo_principal: string | null
+          usuario_criador_id: string | null
+          valor_atual: number | null
+          valor_inicial: number | null
+        }
+        Insert: {
+          codigo_interno: string
+          conta_gerencial?: string | null
+          contrato_gestao_id: string
+          created_at?: string
+          criterio_reajuste?: string | null
+          data_assinatura?: string | null
+          fim_vigencia_atual?: string | null
+          fornecedor_id?: string | null
+          id?: string
+          inicio_vigencia?: string | null
+          objeto: string
+          processo_para_contratar_id?: string | null
+          status?: string
+          storage_path_arquivo?: string | null
+          updated_at?: string
+          url_arquivo_principal?: string | null
+          usuario_criador_id?: string | null
+          valor_atual?: number | null
+          valor_inicial?: number | null
+        }
+        Update: {
+          codigo_interno?: string
+          conta_gerencial?: string | null
+          contrato_gestao_id?: string
+          created_at?: string
+          criterio_reajuste?: string | null
+          data_assinatura?: string | null
+          fim_vigencia_atual?: string | null
+          fornecedor_id?: string | null
+          id?: string
+          inicio_vigencia?: string | null
+          objeto?: string
+          processo_para_contratar_id?: string | null
+          status?: string
+          storage_path_arquivo?: string | null
+          updated_at?: string
+          url_arquivo_principal?: string | null
+          usuario_criador_id?: string | null
+          valor_atual?: number | null
+          valor_inicial?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "contratos_terceiros_contrato_gestao_id_fkey"
+            columns: ["contrato_gestao_id"]
+            isOneToOne: false
+            referencedRelation: "contratos_gestao"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "contratos_terceiros_fornecedor_id_fkey"
+            columns: ["fornecedor_id"]
+            isOneToOne: false
+            referencedRelation: "fornecedores"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "contratos_terceiros_processo_para_contratar_id_fkey"
+            columns: ["processo_para_contratar_id"]
+            isOneToOne: false
+            referencedRelation: "processos_para_contratar"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       cotacao_fornecedor_convites: {
         Row: {
           cotacao_id: string
@@ -917,6 +1005,68 @@ export type Database = {
             columns: ["fornecedor_id"]
             isOneToOne: false
             referencedRelation: "fornecedores"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      documentos_contrato: {
+        Row: {
+          contrato_terceiro_id: string
+          created_at: string
+          data_documento: string | null
+          id: string
+          justificativa: string | null
+          natureza: string | null
+          nome: string
+          novo_prazo: string | null
+          novo_valor: number | null
+          percentual_indice: number | null
+          storage_path: string | null
+          tipo: string
+          updated_at: string
+          url_arquivo: string | null
+          usuario_criador_id: string | null
+        }
+        Insert: {
+          contrato_terceiro_id: string
+          created_at?: string
+          data_documento?: string | null
+          id?: string
+          justificativa?: string | null
+          natureza?: string | null
+          nome: string
+          novo_prazo?: string | null
+          novo_valor?: number | null
+          percentual_indice?: number | null
+          storage_path?: string | null
+          tipo: string
+          updated_at?: string
+          url_arquivo?: string | null
+          usuario_criador_id?: string | null
+        }
+        Update: {
+          contrato_terceiro_id?: string
+          created_at?: string
+          data_documento?: string | null
+          id?: string
+          justificativa?: string | null
+          natureza?: string | null
+          nome?: string
+          novo_prazo?: string | null
+          novo_valor?: number | null
+          percentual_indice?: number | null
+          storage_path?: string | null
+          tipo?: string
+          updated_at?: string
+          url_arquivo?: string | null
+          usuario_criador_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "documentos_contrato_contrato_terceiro_id_fkey"
+            columns: ["contrato_terceiro_id"]
+            isOneToOne: false
+            referencedRelation: "contratos_terceiros"
             referencedColumns: ["id"]
           },
         ]
@@ -2356,6 +2506,85 @@ export type Database = {
           },
         ]
       }
+      processos_para_contratar: {
+        Row: {
+          conta_gerencial: string | null
+          contrato_gestao_id: string
+          created_at: string
+          data_finalizacao: string
+          fornecedor_vencedor_id: string | null
+          fornecedor_vencedor_nome: string | null
+          id: string
+          motivo_cancelamento: string | null
+          numero_processo: string
+          objeto: string | null
+          processo_compra_id: string
+          status: string
+          tipo_processo: string
+          updated_at: string
+          url_dossie: string | null
+          valor_aprovado: number | null
+        }
+        Insert: {
+          conta_gerencial?: string | null
+          contrato_gestao_id: string
+          created_at?: string
+          data_finalizacao?: string
+          fornecedor_vencedor_id?: string | null
+          fornecedor_vencedor_nome?: string | null
+          id?: string
+          motivo_cancelamento?: string | null
+          numero_processo: string
+          objeto?: string | null
+          processo_compra_id: string
+          status?: string
+          tipo_processo?: string
+          updated_at?: string
+          url_dossie?: string | null
+          valor_aprovado?: number | null
+        }
+        Update: {
+          conta_gerencial?: string | null
+          contrato_gestao_id?: string
+          created_at?: string
+          data_finalizacao?: string
+          fornecedor_vencedor_id?: string | null
+          fornecedor_vencedor_nome?: string | null
+          id?: string
+          motivo_cancelamento?: string | null
+          numero_processo?: string
+          objeto?: string | null
+          processo_compra_id?: string
+          status?: string
+          tipo_processo?: string
+          updated_at?: string
+          url_dossie?: string | null
+          valor_aprovado?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "processos_para_contratar_contrato_gestao_id_fkey"
+            columns: ["contrato_gestao_id"]
+            isOneToOne: false
+            referencedRelation: "contratos_gestao"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "processos_para_contratar_fornecedor_vencedor_id_fkey"
+            columns: ["fornecedor_vencedor_id"]
+            isOneToOne: false
+            referencedRelation: "fornecedores"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "processos_para_contratar_processo_compra_id_fkey"
+            columns: ["processo_compra_id"]
+            isOneToOne: false
+            referencedRelation: "processos_compras"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           ativo: boolean | null
@@ -2363,6 +2592,7 @@ export type Database = {
           cargo: string | null
           compliance: boolean | null
           contabilidade: boolean | null
+          contrato: boolean | null
           cpf: string
           created_at: string | null
           data_criacao: string | null
@@ -2388,6 +2618,7 @@ export type Database = {
           cargo?: string | null
           compliance?: boolean | null
           contabilidade?: boolean | null
+          contrato?: boolean | null
           cpf: string
           created_at?: string | null
           data_criacao?: string | null
@@ -2413,6 +2644,7 @@ export type Database = {
           cargo?: string | null
           compliance?: boolean | null
           contabilidade?: boolean | null
+          contrato?: boolean | null
           cpf?: string
           created_at?: string | null
           data_criacao?: string | null
