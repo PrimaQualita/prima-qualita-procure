@@ -422,7 +422,7 @@ export function TabProcessosParaContratar({ contratoGestaoId, contratoGestaoNome
                 <p className="mt-1 text-muted-foreground">{objetoLimpo(processoVisualizar.objeto)}</p>
               </div>
               {processoVisualizar.conta_gerencial && (
-                <div><span className="font-medium">Conta Gerencial:</span> {processoVisualizar.conta_gerencial}</div>
+                <div><span className="font-medium">Rubrica:</span> {processoVisualizar.conta_gerencial}</div>
               )}
               {processoVisualizar.motivo_cancelamento && (
                 <div>

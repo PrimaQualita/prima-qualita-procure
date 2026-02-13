@@ -43,6 +43,7 @@ interface Props {
 const tipoLabels: Record<string, string> = {
   termo_aditivo: "Termo Aditivo",
   apostilamento: "Apostilamento",
+  rescisao: "Rescisão",
   outros: "Outros",
 };
 
@@ -50,6 +51,7 @@ const naturezaLabels: Record<string, string> = {
   prazo: "Prazo",
   reajuste: "Reajuste",
   realinhamento: "Realinhamento",
+  quantidade: "Quantidade",
   escopo: "Escopo",
   outro: "Outro",
 };
@@ -72,6 +74,9 @@ export function DialogDocumentosContrato({
     percentual_indice: "",
     novo_valor: "",
     justificativa: "",
+    data_assinatura_doc: "",
+    data_rescisao: "",
+    inicio_vigencia_doc: "",
   });
   const [arquivo, setArquivo] = useState<File | null>(null);
   const [uploading, setUploading] = useState(false);
@@ -156,12 +161,20 @@ export function DialogDocumentosContrato({
         toast.success("Documento adicionado!");
       }
 
-      // Atualizar vigência/valor do contrato se natureza = prazo ou valor
+      // Atualizar vigência/valor do contrato conforme natureza
       if (formData.natureza === "prazo" && formData.novo_prazo) {
-        await supabase.from("contratos_terceiros").update({ fim_vigencia_atual: formData.novo_prazo }).eq("id", contratoTerceiro.id);
+        const updateData: any = { fim_vigencia_atual: formData.novo_prazo };
+        if (formData.inicio_vigencia_doc) {
+          updateData.inicio_vigencia = formData.inicio_vigencia_doc;
+        }
+        await supabase.from("contratos_terceiros").update(updateData).eq("id", contratoTerceiro.id);
       }
-      if ((formData.natureza === "reajuste" || formData.natureza === "realinhamento") && formData.novo_valor) {
+      if ((formData.natureza === "reajuste" || formData.natureza === "realinhamento" || formData.natureza === "quantidade") && formData.novo_valor) {
         await supabase.from("contratos_terceiros").update({ valor_atual: parseFloat(formData.novo_valor) }).eq("id", contratoTerceiro.id);
+      }
+      // Se é rescisão, alterar status do contrato para rescindido
+      if (formData.tipo === "rescisao") {
+        await supabase.from("contratos_terceiros").update({ status: "rescindido" }).eq("id", contratoTerceiro.id);
       }
 
       await registrarAuditoria({
@@ -222,7 +235,7 @@ export function DialogDocumentosContrato({
 
   const abrirCriar = () => {
     setEditando(null);
-    setFormData({ tipo: "termo_aditivo", nome: "", data_documento: "", natureza: "", novo_prazo: "", percentual_indice: "", novo_valor: "", justificativa: "" });
+    setFormData({ tipo: "termo_aditivo", nome: "", data_documento: "", natureza: "", novo_prazo: "", percentual_indice: "", novo_valor: "", justificativa: "", data_assinatura_doc: "", data_rescisao: "", inicio_vigencia_doc: "" });
     setArquivo(null);
     setDialogFormOpen(true);
   };
@@ -238,6 +251,9 @@ export function DialogDocumentosContrato({
       percentual_indice: doc.percentual_indice?.toString() || "",
       novo_valor: doc.novo_valor?.toString() || "",
       justificativa: doc.justificativa || "",
+      data_assinatura_doc: "",
+      data_rescisao: "",
+      inicio_vigencia_doc: "",
     });
     setArquivo(null);
     setDialogFormOpen(true);
@@ -322,6 +338,7 @@ export function DialogDocumentosContrato({
                   <SelectContent>
                     <SelectItem value="termo_aditivo">Termo Aditivo</SelectItem>
                     <SelectItem value="apostilamento">Apostilamento</SelectItem>
+                    <SelectItem value="rescisao">Rescisão</SelectItem>
                     <SelectItem value="outros">Outros</SelectItem>
                   </SelectContent>
                 </Select>
@@ -334,6 +351,7 @@ export function DialogDocumentosContrato({
                     <SelectItem value="prazo">Prazo</SelectItem>
                     <SelectItem value="reajuste">Reajuste</SelectItem>
                     <SelectItem value="realinhamento">Realinhamento</SelectItem>
+                    <SelectItem value="quantidade">Quantidade</SelectItem>
                     <SelectItem value="escopo">Escopo</SelectItem>
                     <SelectItem value="outro">Outro</SelectItem>
                   </SelectContent>
@@ -365,9 +383,35 @@ export function DialogDocumentosContrato({
                   </div>
                 </>
               )}
+              {/* Rescisão fields */}
+              {formData.tipo === "rescisao" && (
+                <>
+                  <div className="space-y-2">
+                    <Label>Data de Assinatura</Label>
+                    <Input type="date" value={formData.data_assinatura_doc} onChange={(e) => setFormData({...formData, data_assinatura_doc: e.target.value})} />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Data da Rescisão</Label>
+                    <Input type="date" value={formData.data_rescisao} onChange={(e) => setFormData({...formData, data_rescisao: e.target.value})} />
+                  </div>
+                </>
+              )}
+              {/* Campos para Termo Aditivo - Prazo e Vigência */}
+              {formData.tipo === "termo_aditivo" && formData.natureza === "prazo" && (
+                <div className="space-y-2">
+                  <Label>Início da Nova Vigência</Label>
+                  <Input type="date" value={formData.inicio_vigencia_doc} onChange={(e) => setFormData({...formData, inicio_vigencia_doc: e.target.value})} />
+                </div>
+              )}
+              {(formData.natureza === "quantidade" || formData.natureza === "reajuste" || formData.natureza === "realinhamento") && (
+                <div className="space-y-2">
+                  <Label>Novo Valor (R$)</Label>
+                  <Input type="number" step="0.01" value={formData.novo_valor} onChange={(e) => setFormData({...formData, novo_valor: e.target.value})} />
+                </div>
+              )}
               <div className="space-y-2 sm:col-span-2">
-                <Label>Justificativa</Label>
-                <Textarea value={formData.justificativa} onChange={(e) => setFormData({...formData, justificativa: e.target.value})} rows={2} />
+                <Label>Justificativa / Motivo</Label>
+                <Textarea value={formData.justificativa} onChange={(e) => setFormData({...formData, justificativa: e.target.value})} rows={2} placeholder={formData.tipo === "rescisao" ? "Motivo da rescisão..." : "Justificativa..."} />
               </div>
               <div className="space-y-2 sm:col-span-2">
                 <Label>Arquivo {editando?.url_arquivo ? "(substituir)" : ""}</Label>
