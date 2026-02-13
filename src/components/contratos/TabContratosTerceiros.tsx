@@ -39,12 +39,6 @@ interface ContratoTerceiro {
   fornecedores?: { razao_social: string; cnpj: string } | null;
 }
 
-interface Props {
-  contratoGestaoId: string;
-  contratoGestaoNome: string;
-  canEdit: boolean;
-}
-
 const statusLabels: Record<string, string> = {
   rascunho: "Rascunho",
   vigente: "Vigente",
@@ -59,7 +53,15 @@ const statusColors: Record<string, string> = {
   rescindido: "bg-red-100 text-red-800",
 };
 
-export function TabContratosTerceiros({ contratoGestaoId, contratoGestaoNome, canEdit }: Props) {
+interface Props {
+  contratoGestaoId: string;
+  contratoGestaoNome: string;
+  canEdit: boolean;
+  processoParaContrato?: any;
+  onProcessoContratoUsado?: () => void;
+}
+
+export function TabContratosTerceiros({ contratoGestaoId, contratoGestaoNome, canEdit, processoParaContrato, onProcessoContratoUsado }: Props) {
   const [contratos, setContratos] = useState<ContratoTerceiro[]>([]);
   const [loading, setLoading] = useState(true);
   const [filtro, setFiltro] = useState("");
@@ -96,6 +98,29 @@ export function TabContratosTerceiros({ contratoGestaoId, contratoGestaoNome, ca
     loadContratos();
     loadFornecedores();
   }, [contratoGestaoId]);
+
+  // Auto-abrir dialog de criação quando vier de "Criar Contrato" no ProcessosParaContratar
+  useEffect(() => {
+    if (processoParaContrato) {
+      setEditando(null);
+      setFormData({
+        codigo_interno: "",
+        objeto: processoParaContrato.objeto || "",
+        fornecedor_id: processoParaContrato.fornecedor_vencedor_id || "",
+        data_assinatura: "",
+        inicio_vigencia: "",
+        fim_vigencia_atual: "",
+        status: "rascunho",
+        valor_inicial: processoParaContrato.valor_aprovado?.toString() || "",
+        valor_atual: processoParaContrato.valor_aprovado?.toString() || "",
+        criterio_reajuste: "",
+        conta_gerencial: processoParaContrato.conta_gerencial || "",
+      });
+      setArquivo(null);
+      setDialogOpen(true);
+      onProcessoContratoUsado?.();
+    }
+  }, [processoParaContrato]);
 
   const loadContratos = async () => {
     try {

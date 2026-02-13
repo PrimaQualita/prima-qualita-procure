@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -25,6 +25,10 @@ export default function Contratos() {
   const [contratoSelecionado, setContratoSelecionado] = useState<ContratoGestao | null>(null);
   const [loading, setLoading] = useState(true);
   const [filtro, setFiltro] = useState("");
+  const [activeTab, setActiveTab] = useState("processos");
+  
+  // Dados para pré-preencher criação de contrato a partir de processo
+  const [processoParaContrato, setProcessoParaContrato] = useState<any>(null);
 
   // Determinar se o usuário tem perfil "Contrato" (pode editar)
   const canEdit = context?.isContrato === true;
@@ -53,6 +57,11 @@ export default function Contratos() {
     c.nome_contrato.toLowerCase().includes(filtro.toLowerCase()) ||
     c.ente_federativo.toLowerCase().includes(filtro.toLowerCase())
   );
+
+  const handleCriarContratoFromProcesso = (processo: any) => {
+    setProcessoParaContrato(processo);
+    setActiveTab("contratos");
+  };
 
   return (
     <div className="min-h-screen bg-background">
@@ -136,7 +145,7 @@ export default function Contratos() {
               </div>
             </CardHeader>
             <CardContent>
-              <Tabs defaultValue="processos">
+              <Tabs value={activeTab} onValueChange={setActiveTab}>
                 <TabsList className="w-full justify-start flex-wrap h-auto gap-1">
                   <TabsTrigger value="processos" className="text-xs sm:text-sm">Processos para Contratar</TabsTrigger>
                   <TabsTrigger value="contratos" className="text-xs sm:text-sm">Contratos com Terceiros</TabsTrigger>
@@ -148,6 +157,7 @@ export default function Contratos() {
                     contratoGestaoId={contratoSelecionado.id}
                     contratoGestaoNome={contratoSelecionado.nome_contrato}
                     canEdit={canEdit}
+                    onCriarContrato={handleCriarContratoFromProcesso}
                   />
                 </TabsContent>
 
@@ -156,6 +166,8 @@ export default function Contratos() {
                     contratoGestaoId={contratoSelecionado.id}
                     contratoGestaoNome={contratoSelecionado.nome_contrato}
                     canEdit={canEdit}
+                    processoParaContrato={processoParaContrato}
+                    onProcessoContratoUsado={() => setProcessoParaContrato(null)}
                   />
                 </TabsContent>
 
