@@ -38,6 +38,7 @@ interface ProcessoParaContratar {
 interface Props {
   contratoGestaoId: string;
   contratoGestaoNome: string;
+  processoCompraId?: string;
   canEdit: boolean;
   onCriarContrato?: (processo: ProcessoParaContratar) => void;
 }
@@ -63,7 +64,7 @@ const statusIcons: Record<string, any> = {
   cancelado: Ban,
 };
 
-export function TabProcessosParaContratar({ contratoGestaoId, contratoGestaoNome, canEdit, onCriarContrato }: Props) {
+export function TabProcessosParaContratar({ contratoGestaoId, contratoGestaoNome, processoCompraId, canEdit, onCriarContrato }: Props) {
   const [processos, setProcessos] = useState<ProcessoParaContratar[]>([]);
   const [loading, setLoading] = useState(true);
   const [filtro, setFiltro] = useState("");
@@ -89,11 +90,16 @@ export function TabProcessosParaContratar({ contratoGestaoId, contratoGestaoNome
 
   const loadProcessos = async () => {
     try {
-      const { data, error } = await supabase
+      let query = supabase
         .from("processos_para_contratar")
         .select("*")
-        .eq("contrato_gestao_id", contratoGestaoId)
-        .order("created_at", { ascending: false });
+        .eq("contrato_gestao_id", contratoGestaoId);
+      
+      if (processoCompraId) {
+        query = query.eq("processo_compra_id", processoCompraId);
+      }
+
+      const { data, error } = await query.order("created_at", { ascending: false });
 
       if (error) throw error;
       setProcessos(data || []);
@@ -307,7 +313,7 @@ export function TabProcessosParaContratar({ contratoGestaoId, contratoGestaoNome
                         </Button>
                       )}
                       {/* Alterar Status */}
-                      {canEdit && processo.status !== "cancelado" && processo.status !== "contratado" && (
+                      {canEdit && (
                         <Button
                           variant="outline"
                           size="sm"

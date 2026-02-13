@@ -17,6 +17,27 @@ import { ptBR } from "date-fns/locale";
 import { registrarAuditoria } from "@/lib/registrarAuditoria";
 import { DialogDocumentosContrato } from "./DialogDocumentosContrato";
 
+// Helpers para formatação de moeda
+const formatCurrency = (value: string): string => {
+  // Remove tudo que não for dígito
+  const digits = value.replace(/\D/g, "");
+  if (!digits) return "";
+  const num = parseInt(digits, 10) / 100;
+  return num.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+};
+
+const parseCurrencyToNumber = (value: string): number => {
+  if (!value) return 0;
+  // Remove pontos de milhar e troca vírgula por ponto
+  const cleaned = value.replace(/\./g, "").replace(",", ".");
+  return parseFloat(cleaned) || 0;
+};
+
+const numberToCurrencyString = (num: number | null | undefined): string => {
+  if (!num && num !== 0) return "";
+  return num.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+};
+
 interface ContratoTerceiro {
   id: string;
   contrato_gestao_id: string;
@@ -56,12 +77,13 @@ const statusColors: Record<string, string> = {
 interface Props {
   contratoGestaoId: string;
   contratoGestaoNome: string;
+  processoCompraId?: string;
   canEdit: boolean;
   processoParaContrato?: any;
   onProcessoContratoUsado?: () => void;
 }
 
-export function TabContratosTerceiros({ contratoGestaoId, contratoGestaoNome, canEdit, processoParaContrato, onProcessoContratoUsado }: Props) {
+export function TabContratosTerceiros({ contratoGestaoId, contratoGestaoNome, processoCompraId, canEdit, processoParaContrato, onProcessoContratoUsado }: Props) {
   const [contratos, setContratos] = useState<ContratoTerceiro[]>([]);
   const [loading, setLoading] = useState(true);
   const [filtro, setFiltro] = useState("");
@@ -111,8 +133,8 @@ export function TabContratosTerceiros({ contratoGestaoId, contratoGestaoNome, ca
         inicio_vigencia: "",
         fim_vigencia_atual: "",
         status: "rascunho",
-        valor_inicial: processoParaContrato.valor_aprovado?.toString() || "",
-        valor_atual: processoParaContrato.valor_aprovado?.toString() || "",
+        valor_inicial: numberToCurrencyString(processoParaContrato.valor_aprovado),
+        valor_atual: numberToCurrencyString(processoParaContrato.valor_aprovado),
         criterio_reajuste: "",
         conta_gerencial: processoParaContrato.conta_gerencial || "",
       });
@@ -124,11 +146,28 @@ export function TabContratosTerceiros({ contratoGestaoId, contratoGestaoNome, ca
 
   const loadContratos = async () => {
     try {
-      const { data, error } = await supabase
+      let query = supabase
         .from("contratos_terceiros")
         .select("*, fornecedores(razao_social, cnpj)")
-        .eq("contrato_gestao_id", contratoGestaoId)
-        .order("created_at", { ascending: false });
+        .eq("contrato_gestao_id", contratoGestaoId);
+
+      // Filter by processoCompraId through processos_para_contratar
+      if (processoCompraId) {
+        const { data: pcData } = await supabase
+          .from("processos_para_contratar")
+          .select("id")
+          .eq("processo_compra_id", processoCompraId);
+        const pcIds = pcData?.map(p => p.id) || [];
+        if (pcIds.length > 0) {
+          query = query.in("processo_para_contratar_id", pcIds);
+        } else {
+          setContratos([]);
+          setLoading(false);
+          return;
+        }
+      }
+
+      const { data, error } = await query.order("created_at", { ascending: false });
 
       if (error) throw error;
       setContratos(data || []);
@@ -197,8 +236,8 @@ export function TabContratosTerceiros({ contratoGestaoId, contratoGestaoNome, ca
         inicio_vigencia: formData.inicio_vigencia || null,
         fim_vigencia_atual: formData.fim_vigencia_atual || null,
         status: formData.status,
-        valor_inicial: parseFloat(formData.valor_inicial) || 0,
-        valor_atual: parseFloat(formData.valor_atual) || 0,
+        valor_inicial: parseCurrencyToNumber(formData.valor_inicial),
+        valor_atual: parseCurrencyToNumber(formData.valor_atual),
         criterio_reajuste: formData.criterio_reajuste || null,
         conta_gerencial: formData.conta_gerencial || null,
         url_arquivo_principal: urlArquivo,
@@ -330,8 +369,8 @@ export function TabContratosTerceiros({ contratoGestaoId, contratoGestaoNome, ca
       inicio_vigencia: contrato.inicio_vigencia || "",
       fim_vigencia_atual: contrato.fim_vigencia_atual || "",
       status: contrato.status,
-      valor_inicial: contrato.valor_inicial?.toString() || "",
-      valor_atual: contrato.valor_atual?.toString() || "",
+      valor_inicial: numberToCurrencyString(contrato.valor_inicial),
+      valor_atual: numberToCurrencyString(contrato.valor_atual),
       criterio_reajuste: contrato.criterio_reajuste || "",
       conta_gerencial: contrato.conta_gerencial || "",
     });
@@ -515,11 +554,11 @@ export function TabContratosTerceiros({ contratoGestaoId, contratoGestaoNome, ca
             </div>
             <div className="space-y-2">
               <Label>Valor Inicial (R$)</Label>
-              <Input type="number" step="0.01" value={formData.valor_inicial} onChange={(e) => setFormData({...formData, valor_inicial: e.target.value})} />
+              <Input value={formData.valor_inicial} onChange={(e) => setFormData({...formData, valor_inicial: formatCurrency(e.target.value)})} placeholder="0,00" />
             </div>
             <div className="space-y-2">
               <Label>Valor Atual (R$)</Label>
-              <Input type="number" step="0.01" value={formData.valor_atual} onChange={(e) => setFormData({...formData, valor_atual: e.target.value})} />
+              <Input value={formData.valor_atual} onChange={(e) => setFormData({...formData, valor_atual: formatCurrency(e.target.value)})} placeholder="0,00" />
             </div>
             <div className="space-y-2">
               <Label>Critério de Reajuste</Label>
