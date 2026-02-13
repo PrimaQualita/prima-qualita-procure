@@ -3409,14 +3409,14 @@ export function DialogFinalizarProcesso({
   };
 
   const finalizarProcesso = async () => {
-    // Buscar se o processo foi enviado para seleção
+    // CRÍTICO: Usar requer_selecao do processo (não enviado_para_selecao) para determinar o tipo de autorização
     const { data: cotacaoCheck } = await supabase
       .from("cotacoes_precos")
-      .select("enviado_para_selecao")
+      .select("processos_compras!inner(requer_selecao)")
       .eq("id", cotacaoId)
       .single();
 
-    const foiParaSelecao = cotacaoCheck?.enviado_para_selecao || false;
+    const foiParaSelecao = (cotacaoCheck as any)?.processos_compras?.requer_selecao || false;
     const tipoAutorizacaoEsperado = foiParaSelecao ? 'selecao_fornecedores' : 'compra_direta';
     const nomeAutorizacao = foiParaSelecao ? 'Seleção de Fornecedores' : 'Compra Direta';
 
