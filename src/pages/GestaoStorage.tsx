@@ -317,6 +317,19 @@ export default function GestaoStorage() {
                   }),
                   showView: resultado.estatisticasPorCategoria?.capas_processo?.porProcesso?.length > 0
                 },
+                // Contratos com Terceiros
+                {
+                  key: 'contratos_terceiros',
+                  title: 'Contratos com Terceiros',
+                  colorClass: 'border-emerald-200 bg-emerald-50/50',
+                  description: 'Arquivos de contratos e aditivos',
+                  data: resultado.estatisticasPorCategoria?.contratos_terceiros,
+                  onClick: () => setDocumentosGrupo({
+                    nome: 'Contratos com Terceiros',
+                    documentos: resultado.estatisticasPorCategoria?.contratos_terceiros?.detalhes || []
+                  }),
+                  showView: resultado.estatisticasPorCategoria?.contratos_terceiros?.detalhes?.length > 0
+                },
                 // Cotações
                 {
                   key: 'cotacoes',
@@ -738,6 +751,7 @@ export default function GestaoStorage() {
         onOpenChange={() => setDocumentosGrupo(null)}
         titulo={documentosGrupo?.nome || ''}
         documentos={documentosGrupo?.documentos || []}
+        onDocumentoDeletado={executarAnalise}
       />
 
       <DialogArquivosOrfaos

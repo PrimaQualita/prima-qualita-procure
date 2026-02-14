@@ -1,19 +1,25 @@
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Search, Eye } from "lucide-react";
+import { Search, Eye, Trash2 } from "lucide-react";
 import { useState, useMemo } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import { toast } from "sonner";
 
 interface DialogDocumentosSimplesProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   titulo: string;
   documentos: any[];
+  onDocumentoDeletado?: () => void;
 }
 
-export function DialogDocumentosSimples({ open, onOpenChange, titulo, documentos }: DialogDocumentosSimplesProps) {
+export function DialogDocumentosSimples({ open, onOpenChange, titulo, documentos, onDocumentoDeletado }: DialogDocumentosSimplesProps) {
   const [search, setSearch] = useState("");
+  const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
+  const [docParaDeletar, setDocParaDeletar] = useState<any>(null);
+  const [deletando, setDeletando] = useState(false);
 
   const documentosFiltrados = useMemo(() => {
     if (!search.trim()) return documentos;
@@ -22,6 +28,36 @@ export function DialogDocumentosSimples({ open, onOpenChange, titulo, documentos
       doc.fileName.toLowerCase().includes(termo)
     );
   }, [documentos, search]);
+
+  const handleDeletar = async () => {
+    if (!docParaDeletar) return;
+    setDeletando(true);
+    try {
+      let cleanPath = docParaDeletar.path || '';
+      
+      // Extract the storage path
+      if (cleanPath.includes('processo-anexos/')) {
+        const match = cleanPath.match(/processo-anexos\/(.+?)(?:\?|$)/);
+        if (match) cleanPath = match[1];
+      }
+      if (cleanPath.startsWith('processo-anexos/')) {
+        cleanPath = cleanPath.replace('processo-anexos/', '');
+      }
+
+      if (cleanPath) {
+        const { error } = await supabase.storage.from('processo-anexos').remove([cleanPath]);
+        if (error) throw error;
+        toast.success("Arquivo deletado do storage!");
+        setConfirmDeleteOpen(false);
+        setDocParaDeletar(null);
+        onDocumentoDeletado?.();
+      }
+    } catch (error: any) {
+      toast.error("Erro ao deletar: " + error.message);
+    } finally {
+      setDeletando(false);
+    }
+  };
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -84,6 +120,15 @@ export function DialogDocumentosSimples({ open, onOpenChange, titulo, documentos
                   >
                     <Eye className="h-4 w-4" />
                   </Button>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    className="h-8 w-8 p-0 text-destructive hover:text-destructive"
+                    onClick={() => { setDocParaDeletar(doc); setConfirmDeleteOpen(true); }}
+                    title="Deletar arquivo do storage"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
                 </div>
               </div>
             );
@@ -94,6 +139,17 @@ export function DialogDocumentosSimples({ open, onOpenChange, titulo, documentos
             </div>
           )}
         </div>
+
+        <ConfirmDialog
+          open={confirmDeleteOpen}
+          onOpenChange={setConfirmDeleteOpen}
+          onConfirm={handleDeletar}
+          title="Deletar Arquivo"
+          description={`Tem certeza que deseja deletar "${docParaDeletar?.fileName}" do storage? Esta ação é irreversível.`}
+          confirmText={deletando ? "Deletando..." : "Deletar"}
+          cancelText="Cancelar"
+          variant="destructive"
+        />
       </DialogContent>
     </Dialog>
   );

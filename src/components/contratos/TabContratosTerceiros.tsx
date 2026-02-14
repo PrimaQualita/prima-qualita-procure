@@ -216,6 +216,10 @@ export function TabContratosTerceiros({ contratoGestaoId, contratoGestaoNome, pr
       toast.error("Preencha os campos obrigatórios (Código e Objeto)");
       return;
     }
+    if (!arquivo && !editando?.url_arquivo_principal) {
+      toast.error("Anexe o arquivo principal do contrato");
+      return;
+    }
 
     try {
       setUploading(true);
@@ -299,6 +303,12 @@ export function TabContratosTerceiros({ contratoGestaoId, contratoGestaoNome, pr
           },
         });
         toast.success("Contrato criado!");
+
+        // Marcar processo como contratado
+        const ppcId = processoParaContratarId;
+        if (ppcId) {
+          await supabase.from("processos_para_contratar").update({ status: "contratado" }).eq("id", ppcId);
+        }
       }
 
       setDialogOpen(false);

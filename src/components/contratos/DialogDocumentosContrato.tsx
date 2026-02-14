@@ -113,6 +113,10 @@ export function DialogDocumentosContrato({
       toast.error("Informe o nome do documento");
       return;
     }
+    if (!arquivo && !editando?.url_arquivo) {
+      toast.error("Anexe um arquivo ao documento");
+      return;
+    }
 
     try {
       setUploading(true);
@@ -136,6 +140,9 @@ export function DialogDocumentosContrato({
         storagePath = path;
       }
 
+      const parsedPercentual = formData.percentual_indice ? parseFloat(formData.percentual_indice.replace(/\./g, "").replace(",", ".")) : null;
+      const parsedNovoValor = formData.novo_valor ? parseFloat(formData.novo_valor.replace(/\./g, "").replace(",", ".")) : null;
+
       const payload = {
         contrato_terceiro_id: contratoTerceiro.id,
         tipo: formData.tipo,
@@ -143,8 +150,8 @@ export function DialogDocumentosContrato({
         data_documento: formData.data_documento || null,
         natureza: formData.natureza || null,
         novo_prazo: formData.novo_prazo || null,
-        percentual_indice: formData.percentual_indice ? parseFloat(formData.percentual_indice) : null,
-        novo_valor: formData.novo_valor ? parseFloat(formData.novo_valor) : null,
+        percentual_indice: parsedPercentual && !isNaN(parsedPercentual) ? parsedPercentual : null,
+        novo_valor: parsedNovoValor && !isNaN(parsedNovoValor) ? parsedNovoValor : null,
         justificativa: formData.justificativa || null,
         url_arquivo: urlArquivo,
         storage_path: storagePath,
@@ -163,14 +170,17 @@ export function DialogDocumentosContrato({
 
       // Atualizar vigência/valor do contrato conforme natureza
       if (formData.natureza === "prazo" && formData.novo_prazo) {
-        const updateData: any = { fim_vigencia_atual: formData.novo_prazo };
+        const updateData: any = { fim_vigencia_atual: formData.novo_prazo, status: "vigente" };
         if (formData.inicio_vigencia_doc) {
           updateData.inicio_vigencia = formData.inicio_vigencia_doc;
         }
         await supabase.from("contratos_terceiros").update(updateData).eq("id", contratoTerceiro.id);
       }
       if ((formData.natureza === "reajuste" || formData.natureza === "realinhamento" || formData.natureza === "quantidade") && formData.novo_valor) {
-        await supabase.from("contratos_terceiros").update({ valor_atual: parseFloat(formData.novo_valor) }).eq("id", contratoTerceiro.id);
+        const novoValorNum = parseFloat(formData.novo_valor.replace(/\./g, "").replace(",", "."));
+        if (!isNaN(novoValorNum)) {
+          await supabase.from("contratos_terceiros").update({ valor_atual: novoValorNum }).eq("id", contratoTerceiro.id);
+        }
       }
       // Se é rescisão, alterar status do contrato para rescindido
       if (formData.tipo === "rescisao") {
@@ -249,7 +259,7 @@ export function DialogDocumentosContrato({
       natureza: doc.natureza || "",
       novo_prazo: doc.novo_prazo || "",
       percentual_indice: doc.percentual_indice?.toString() || "",
-      novo_valor: doc.novo_valor?.toString() || "",
+      novo_valor: doc.novo_valor ? doc.novo_valor.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : "",
       justificativa: doc.justificativa || "",
       data_assinatura_doc: "",
       data_rescisao: "",
@@ -372,16 +382,21 @@ export function DialogDocumentosContrato({
                 </div>
               )}
               {(formData.natureza === "reajuste" || formData.natureza === "realinhamento") && (
-                <>
-                  <div className="space-y-2">
-                    <Label>Percentual / Índice</Label>
-                    <Input type="number" step="0.01" value={formData.percentual_indice} onChange={(e) => setFormData({...formData, percentual_indice: e.target.value})} />
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Novo Valor (R$)</Label>
-                    <Input type="number" step="0.01" value={formData.novo_valor} onChange={(e) => setFormData({...formData, novo_valor: e.target.value})} />
-                  </div>
-                </>
+                <div className="space-y-2">
+                  <Label>Percentual / Índice</Label>
+                  <Input type="number" step="0.01" value={formData.percentual_indice} onChange={(e) => setFormData({...formData, percentual_indice: e.target.value})} />
+                </div>
+              )}
+              {(formData.natureza === "reajuste" || formData.natureza === "realinhamento" || formData.natureza === "quantidade") && (
+                <div className="space-y-2">
+                  <Label>Novo Valor (R$)</Label>
+                  <Input value={formData.novo_valor} onChange={(e) => {
+                    const digits = e.target.value.replace(/\D/g, "");
+                    if (!digits) { setFormData({...formData, novo_valor: ""}); return; }
+                    const num = parseInt(digits, 10) / 100;
+                    setFormData({...formData, novo_valor: num.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })});
+                  }} placeholder="0,00" />
+                </div>
               )}
               {/* Rescisão fields */}
               {formData.tipo === "rescisao" && (
@@ -401,12 +416,6 @@ export function DialogDocumentosContrato({
                 <div className="space-y-2">
                   <Label>Início da Nova Vigência</Label>
                   <Input type="date" value={formData.inicio_vigencia_doc} onChange={(e) => setFormData({...formData, inicio_vigencia_doc: e.target.value})} />
-                </div>
-              )}
-              {(formData.natureza === "quantidade" || formData.natureza === "reajuste" || formData.natureza === "realinhamento") && (
-                <div className="space-y-2">
-                  <Label>Novo Valor (R$)</Label>
-                  <Input type="number" step="0.01" value={formData.novo_valor} onChange={(e) => setFormData({...formData, novo_valor: e.target.value})} />
                 </div>
               )}
               <div className="space-y-2 sm:col-span-2">

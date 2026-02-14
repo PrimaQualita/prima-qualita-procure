@@ -84,16 +84,19 @@ export function TabAVencer({ contratoGestaoId, processoCompraIds, canEdit }: Pro
     return "bg-green-100 text-green-800";
   };
 
-  // Separar contratos que vencem em até 45 dias (alertas)
-  const contratosAlerta = contratos.filter(c => {
+  // Only show contracts expiring within 45 days (the purpose of this tab)
+  const contratosAVencer = contratos.filter(c => {
     const dias = getDiasRestantes(c.fim_vigencia_atual);
     return dias >= 0 && dias <= 45;
   });
 
+  // Separar contratos que vencem em até 45 dias (alertas)
+  const contratosAlerta = contratosAVencer;
+
   if (loading) return <div className="text-center py-8 text-muted-foreground text-sm">Carregando...</div>;
 
-  if (contratos.length === 0) {
-    return <div className="text-center py-8 text-muted-foreground text-sm">Nenhum contrato vigente com data de vencimento definida</div>;
+  if (contratosAVencer.length === 0) {
+    return <div className="text-center py-8 text-muted-foreground text-sm">Nenhum contrato a vencer nos próximos 45 dias</div>;
   }
 
   return (
@@ -133,7 +136,7 @@ export function TabAVencer({ contratoGestaoId, processoCompraIds, canEdit }: Pro
             </TableRow>
           </TableHeader>
           <TableBody>
-            {contratos.map((c) => {
+            {contratosAVencer.map((c) => {
               const dias = getDiasRestantes(c.fim_vigencia_atual);
               return (
                 <TableRow key={c.id}>

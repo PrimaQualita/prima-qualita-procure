@@ -1134,6 +1134,7 @@ Deno.serve(async (req) => {
 
     // Calcular estatísticas por categoria
     const estatisticasPorCategoria = {
+      contratos_terceiros: { arquivos: 0, tamanho: 0, detalhes: [] as any[] },
       documentos_fornecedores: { arquivos: 0, tamanho: 0, detalhes: [] as any[], porFornecedor: new Map<string, any>() },
       documentos_antigos: { 
         arquivos: 0, 
@@ -1681,6 +1682,21 @@ Deno.serve(async (req) => {
       if (pathSemBucket.startsWith('documentos_finalizados/')) {
         console.log(`⚠️ Arquivo em documentos_finalizados/ SEM referência no banco: ${fileName}`);
         // NÃO adicionar em arquivosJaCategorizados - deixar para verificação de órfãos
+        continue;
+      }
+
+      // Contratos com terceiros (arquivos de contratos e documentos de contrato)
+      if (pathSemBucket.startsWith('contratos/')) {
+        const temReferencia = pathsDB.has(path) || nomeArquivoDB.has(fileName);
+        if (temReferencia) {
+          estatisticasPorCategoria.contratos_terceiros.arquivos++;
+          estatisticasPorCategoria.contratos_terceiros.tamanho += metadata.size;
+          estatisticasPorCategoria.contratos_terceiros.detalhes.push({ path, fileName, size: metadata.size });
+          arquivosJaCategorizados.add(path);
+          console.log(`✅ Categorizado como CONTRATO COM TERCEIRO: ${fileName}`);
+        } else {
+          console.log(`⚠️ Arquivo em contratos/ SEM referência no banco: ${fileName}`);
+        }
         continue;
       }
       
@@ -3835,6 +3851,11 @@ Deno.serve(async (req) => {
           tamanhoMB: Number((estatisticasPorCategoria.respostas_contabilidade.tamanho / (1024 * 1024)).toFixed(2)),
           detalhes: estatisticasPorCategoria.respostas_contabilidade.detalhes,
           porProcesso: Array.from(estatisticasPorCategoria.respostas_contabilidade.porProcesso!.values())
+        },
+        contratos_terceiros: {
+          arquivos: estatisticasPorCategoria.contratos_terceiros.arquivos,
+          tamanhoMB: Number((estatisticasPorCategoria.contratos_terceiros.tamanho / (1024 * 1024)).toFixed(2)),
+          detalhes: estatisticasPorCategoria.contratos_terceiros.detalhes
         },
         outros: {
           arquivos: estatisticasPorCategoria.outros.arquivos,
