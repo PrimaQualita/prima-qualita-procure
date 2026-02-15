@@ -49,6 +49,7 @@ const statusLabels: Record<string, string> = {
   em_contratacao: "Em Contratação",
   contratado: "Contratado",
   cancelado: "Cancelado",
+  ignorado: "Ignorado",
 };
 
 const statusColors: Record<string, string> = {
@@ -56,6 +57,7 @@ const statusColors: Record<string, string> = {
   em_contratacao: "bg-yellow-100 text-yellow-800",
   contratado: "bg-green-100 text-green-800",
   cancelado: "bg-red-100 text-red-800",
+  ignorado: "bg-gray-100 text-gray-800",
 };
 
 const statusIcons: Record<string, any> = {
@@ -69,7 +71,7 @@ export function TabProcessosParaContratar({ contratoGestaoId, contratoGestaoNome
   const [processos, setProcessos] = useState<ProcessoParaContratar[]>([]);
   const [loading, setLoading] = useState(true);
   const [filtro, setFiltro] = useState("");
-  const [filtroStatus, setFiltroStatus] = useState("todos");
+  const [filtroStatus, setFiltroStatus] = useState("pendentes");
   
   // Dialog alteração de status
   const [dialogStatusOpen, setDialogStatusOpen] = useState(false);
@@ -116,15 +118,15 @@ export function TabProcessosParaContratar({ contratoGestaoId, contratoGestaoNome
 
   const handleAlterarStatus = async () => {
     if (!processoSelecionado || !novoStatus) return;
-    if (novoStatus === "cancelado" && !motivoCancelamento.trim()) {
-      toast.error("Informe o motivo do cancelamento");
+    if ((novoStatus === "cancelado" || novoStatus === "ignorado") && !motivoCancelamento.trim()) {
+      toast.error(novoStatus === "ignorado" ? "Informe o motivo para ignorar" : "Informe o motivo do cancelamento");
       return;
     }
 
     try {
       const statusAnterior = processoSelecionado.status;
       const updateData: any = { status: novoStatus };
-      if (novoStatus === "cancelado") {
+      if (novoStatus === "cancelado" || novoStatus === "ignorado") {
         updateData.motivo_cancelamento = motivoCancelamento;
       }
 
@@ -201,7 +203,11 @@ export function TabProcessosParaContratar({ contratoGestaoId, contratoGestaoNome
       p.numero_processo.toLowerCase().includes(filtro.toLowerCase()) ||
       objetoLimpo(p.objeto).toLowerCase().includes(filtro.toLowerCase()) ||
       (p.fornecedor_vencedor_nome || "").toLowerCase().includes(filtro.toLowerCase());
-    const matchStatus = filtroStatus === "todos" || p.status === filtroStatus;
+    const matchStatus = filtroStatus === "todos" 
+      ? true 
+      : filtroStatus === "pendentes"
+        ? (p.status !== "contratado" && p.status !== "cancelado" && p.status !== "ignorado")
+        : p.status === filtroStatus;
     return matchTexto && matchStatus;
   });
 
@@ -223,11 +229,13 @@ export function TabProcessosParaContratar({ contratoGestaoId, contratoGestaoNome
             <SelectValue placeholder="Status" />
           </SelectTrigger>
           <SelectContent>
+            <SelectItem value="pendentes">Pendentes</SelectItem>
             <SelectItem value="todos">Todos os status</SelectItem>
             <SelectItem value="pronto_para_contratar">Pronto para Contratar</SelectItem>
             <SelectItem value="em_contratacao">Em Contratação</SelectItem>
             <SelectItem value="contratado">Contratado</SelectItem>
             <SelectItem value="cancelado">Cancelado</SelectItem>
+            <SelectItem value="ignorado">Ignorado</SelectItem>
           </SelectContent>
         </Select>
       </div>
@@ -289,6 +297,23 @@ export function TabProcessosParaContratar({ contratoGestaoId, contratoGestaoNome
                         >
                           <Plus className="h-3 w-3 mr-1" />
                           Contrato
+                        </Button>
+                      )}
+                      {/* Ignorar Contratação */}
+                      {canEdit && (processo.status === "pronto_para_contratar" || processo.status === "em_contratacao") && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="text-xs"
+                          onClick={() => {
+                            setProcessoSelecionado(processo);
+                            setNovoStatus("ignorado");
+                            setMotivoCancelamento("");
+                            setDialogStatusOpen(true);
+                          }}
+                        >
+                          <Ban className="h-3 w-3 mr-1" />
+                          Ignorar
                         </Button>
                       )}
                       {/* Visualizar */}
@@ -384,6 +409,9 @@ export function TabProcessosParaContratar({ contratoGestaoId, contratoGestaoNome
                   {processoSelecionado?.status !== "cancelado" && (
                     <SelectItem value="cancelado">Cancelado</SelectItem>
                   )}
+                  {processoSelecionado?.status !== "ignorado" && (
+                    <SelectItem value="ignorado">Ignorado</SelectItem>
+                  )}
                   {processoSelecionado?.status !== "pronto_para_contratar" && (
                     <SelectItem value="pronto_para_contratar">Pronto para Contratar</SelectItem>
                   )}
@@ -391,13 +419,13 @@ export function TabProcessosParaContratar({ contratoGestaoId, contratoGestaoNome
               </Select>
             </div>
 
-            {novoStatus === "cancelado" && (
+            {(novoStatus === "cancelado" || novoStatus === "ignorado") && (
               <div className="space-y-2">
-                <Label>Motivo do Cancelamento *</Label>
+                <Label>{novoStatus === "ignorado" ? "Motivo *" : "Motivo do Cancelamento *"}</Label>
                 <Textarea
                   value={motivoCancelamento}
                   onChange={(e) => setMotivoCancelamento(e.target.value)}
-                  placeholder="Informe o motivo do cancelamento..."
+                  placeholder={novoStatus === "ignorado" ? "Informe o motivo para ignorar a contratação..." : "Informe o motivo do cancelamento..."}
                   rows={3}
                 />
               </div>
