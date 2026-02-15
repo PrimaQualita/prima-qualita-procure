@@ -43,7 +43,6 @@ interface Props {
 const tipoLabels: Record<string, string> = {
   termo_aditivo: "Termo Aditivo",
   apostilamento: "Apostilamento",
-  rescisao: "Rescisão",
   outros: "Outros",
 };
 
@@ -53,6 +52,7 @@ const naturezaLabels: Record<string, string> = {
   realinhamento: "Realinhamento",
   quantidade: "Quantidade",
   escopo: "Escopo",
+  rescisao: "Rescisão",
   outro: "Outro",
 };
 
@@ -126,18 +126,19 @@ export function DialogDocumentosContrato({
       if (arquivo) {
         const safeName = sanitizeFileName(arquivo.name);
         const path = `contratos/${contratoTerceiro.contrato_gestao_id}/${contratoTerceiro.codigo_interno}/docs/${Date.now()}_${safeName}`;
+        const oldStoragePath = editando?.storage_path || null;
         
         const { error: uploadError } = await supabase.storage.from("processo-anexos").upload(path, arquivo);
         if (uploadError) throw uploadError;
 
-        // Deletar anterior
-        if (editando?.storage_path) {
-          await supabase.storage.from("processo-anexos").remove([editando.storage_path]);
-        }
-
         const { data: urlData } = supabase.storage.from("processo-anexos").getPublicUrl(path);
         urlArquivo = urlData.publicUrl;
         storagePath = path;
+
+        // Deletar anterior APÓS sucesso do upload
+        if (oldStoragePath) {
+          await supabase.storage.from("processo-anexos").remove([oldStoragePath]);
+        }
       }
 
       const parsedPercentual = formData.percentual_indice ? parseFloat(formData.percentual_indice.replace(/\./g, "").replace(",", ".")) : null;
@@ -182,9 +183,19 @@ export function DialogDocumentosContrato({
           await supabase.from("contratos_terceiros").update({ valor_atual: novoValorNum }).eq("id", contratoTerceiro.id);
         }
       }
-      // Se é rescisão, alterar status do contrato para rescindido
-      if (formData.tipo === "rescisao") {
+      // Se natureza é rescisão, alterar status do contrato para rescindido
+      if (formData.natureza === "rescisao") {
         await supabase.from("contratos_terceiros").update({ status: "rescindido" }).eq("id", contratoTerceiro.id);
+      }
+
+      // Buscar numero_processo para auditoria
+      let numProcesso = '';
+      if (contratoTerceiro.processo_para_contratar_id) {
+        const { data: ppc } = await supabase.from("processos_para_contratar").select("processo_compra_id").eq("id", contratoTerceiro.processo_para_contratar_id).maybeSingle();
+        if (ppc?.processo_compra_id) {
+          const { data: pc } = await supabase.from("processos_compras").select("numero_processo_interno").eq("id", ppc.processo_compra_id).maybeSingle();
+          numProcesso = pc?.numero_processo_interno || '';
+        }
       }
 
       await registrarAuditoria({
@@ -197,6 +208,7 @@ export function DialogDocumentosContrato({
           natureza: naturezaLabels[formData.natureza] || formData.natureza,
           contrato_codigo: contratoTerceiro.codigo_interno,
           contrato_gestao: contratoGestaoNome,
+          numero_processo: numProcesso,
           arquivo_substituido: arquivo && editando ? 'Sim' : 'Não',
         },
       });
@@ -222,6 +234,16 @@ export function DialogDocumentosContrato({
       const { error } = await supabase.from("documentos_contrato").delete().eq("id", docParaExcluir.id);
       if (error) throw error;
 
+      // Buscar numero_processo para auditoria
+      let numProcesso = '';
+      if (contratoTerceiro.processo_para_contratar_id) {
+        const { data: ppc } = await supabase.from("processos_para_contratar").select("processo_compra_id").eq("id", contratoTerceiro.processo_para_contratar_id).maybeSingle();
+        if (ppc?.processo_compra_id) {
+          const { data: pc } = await supabase.from("processos_compras").select("numero_processo_interno").eq("id", ppc.processo_compra_id).maybeSingle();
+          numProcesso = pc?.numero_processo_interno || '';
+        }
+      }
+
       await registrarAuditoria({
         acao: 'exclusão',
         entidade: 'Documento de Contrato',
@@ -231,6 +253,7 @@ export function DialogDocumentosContrato({
           nome_documento: docParaExcluir.nome,
           contrato_codigo: contratoTerceiro.codigo_interno,
           contrato_gestao: contratoGestaoNome,
+          numero_processo: numProcesso,
         },
       });
 
@@ -348,7 +371,6 @@ export function DialogDocumentosContrato({
                   <SelectContent>
                     <SelectItem value="termo_aditivo">Termo Aditivo</SelectItem>
                     <SelectItem value="apostilamento">Apostilamento</SelectItem>
-                    <SelectItem value="rescisao">Rescisão</SelectItem>
                     <SelectItem value="outros">Outros</SelectItem>
                   </SelectContent>
                 </Select>
@@ -363,6 +385,7 @@ export function DialogDocumentosContrato({
                     <SelectItem value="realinhamento">Realinhamento</SelectItem>
                     <SelectItem value="quantidade">Quantidade</SelectItem>
                     <SelectItem value="escopo">Escopo</SelectItem>
+                    <SelectItem value="rescisao">Rescisão</SelectItem>
                     <SelectItem value="outro">Outro</SelectItem>
                   </SelectContent>
                 </Select>
@@ -398,8 +421,8 @@ export function DialogDocumentosContrato({
                   }} placeholder="0,00" />
                 </div>
               )}
-              {/* Rescisão fields */}
-              {formData.tipo === "rescisao" && (
+              {/* Rescisão fields - quando natureza é rescisão */}
+              {formData.natureza === "rescisao" && (
                 <>
                   <div className="space-y-2">
                     <Label>Data de Assinatura</Label>
