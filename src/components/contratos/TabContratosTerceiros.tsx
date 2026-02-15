@@ -364,11 +364,18 @@ export function TabContratosTerceiros({ contratoGestaoId, contratoGestaoNome, pr
         await supabase.storage.from("processo-anexos").remove(pathsToDelete);
       }
 
+      const processoParaContratarId = contratoParaExcluir.processo_para_contratar_id;
+
       const { error } = await supabase
         .from("contratos_terceiros")
         .delete()
         .eq("id", contratoParaExcluir.id);
       if (error) throw error;
+
+      // Reverter processo para contratar para "pronto_para_contratar"
+      if (processoParaContratarId) {
+        await supabase.from("processos_para_contratar").update({ status: "pronto_para_contratar" }).eq("id", processoParaContratarId);
+      }
 
       // Buscar numero_processo para auditoria
       let numProcesso = '';
@@ -545,19 +552,17 @@ export function TabContratosTerceiros({ contratoGestaoId, contratoGestaoNome, pr
                     )}
                     {canEdit && (
                       <>
-                        <Button variant="outline" size="sm" className="text-xs" onClick={() => abrirDialogEditar(contrato)}>
+                         <Button variant="outline" size="sm" className="text-xs" onClick={() => abrirDialogEditar(contrato)}>
                           <Pencil className="h-3 w-3" />
                         </Button>
-                        {contrato.status === "rascunho" && (
-                          <Button
-                            variant="destructive"
-                            size="sm"
-                            className="text-xs"
-                            onClick={() => { setContratoParaExcluir(contrato); setConfirmDeleteOpen(true); }}
-                          >
-                            <Trash2 className="h-3 w-3" />
-                          </Button>
-                        )}
+                        <Button
+                          variant="destructive"
+                          size="sm"
+                          className="text-xs"
+                          onClick={() => { setContratoParaExcluir(contrato); setConfirmDeleteOpen(true); }}
+                        >
+                          <Trash2 className="h-3 w-3" />
+                        </Button>
                       </>
                     )}
                   </TableCell>
