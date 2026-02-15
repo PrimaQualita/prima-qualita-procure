@@ -12,7 +12,8 @@ import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Plus, Pencil, Trash2, FileText, Upload, Eye, Download } from "lucide-react";
 import { toast } from "sonner";
-import { format } from "date-fns";
+import { format, differenceInDays } from "date-fns";
+import { toZonedTime } from "date-fns-tz";
 import { ptBR } from "date-fns/locale";
 import { registrarAuditoria } from "@/lib/registrarAuditoria";
 import { DialogDocumentosContrato } from "./DialogDocumentosContrato";
@@ -230,6 +231,7 @@ export function TabContratosTerceiros({ contratoGestaoId, contratoGestaoNome, pr
       if (arquivo) {
         const safeName = sanitizeFileName(arquivo.name);
         const path = `contratos/${contratoGestaoId}/${formData.codigo_interno}/${Date.now()}_${safeName}`;
+        const oldStoragePath = editando?.storage_path_arquivo || null;
         
         const { error: uploadError } = await supabase.storage
           .from("processo-anexos")
@@ -237,14 +239,14 @@ export function TabContratosTerceiros({ contratoGestaoId, contratoGestaoNome, pr
 
         if (uploadError) throw uploadError;
 
-        // Deletar arquivo anterior se existir
-        if (editando?.storage_path_arquivo) {
-          await supabase.storage.from("processo-anexos").remove([editando.storage_path_arquivo]);
-        }
-
         const { data: urlData } = supabase.storage.from("processo-anexos").getPublicUrl(path);
         urlArquivo = urlData.publicUrl;
         storagePath = path;
+
+        // Deletar arquivo anterior APÓS sucesso do upload
+        if (oldStoragePath) {
+          await supabase.storage.from("processo-anexos").remove([oldStoragePath]);
+        }
       }
 
       const payload = {
@@ -272,6 +274,16 @@ export function TabContratosTerceiros({ contratoGestaoId, contratoGestaoNome, pr
           .eq("id", editando.id);
         if (error) throw error;
 
+        // Buscar numero_processo para auditoria
+        let numProcesso = '';
+        if (editando.processo_para_contratar_id) {
+          const { data: ppc } = await supabase.from("processos_para_contratar").select("processo_compra_id").eq("id", editando.processo_para_contratar_id).maybeSingle();
+          if (ppc?.processo_compra_id) {
+            const { data: pc } = await supabase.from("processos_compras").select("numero_processo_interno").eq("id", ppc.processo_compra_id).maybeSingle();
+            numProcesso = pc?.numero_processo_interno || '';
+          }
+        }
+
         await registrarAuditoria({
           acao: 'edição',
           entidade: 'Contrato com Terceiro',
@@ -281,6 +293,7 @@ export function TabContratosTerceiros({ contratoGestaoId, contratoGestaoNome, pr
             codigo_interno: formData.codigo_interno,
             contrato_gestao: contratoGestaoNome,
             objeto: formData.objeto,
+            numero_processo: numProcesso,
             arquivo_substituido: arquivo ? 'Sim' : 'Não',
           },
         });
@@ -292,6 +305,16 @@ export function TabContratosTerceiros({ contratoGestaoId, contratoGestaoNome, pr
           .insert({ ...payload, usuario_criador_id: user?.id });
         if (error) throw error;
 
+        // Buscar numero_processo para auditoria
+        let numProcesso = '';
+        if (processoParaContratarId) {
+          const { data: ppc } = await supabase.from("processos_para_contratar").select("processo_compra_id").eq("id", processoParaContratarId).maybeSingle();
+          if (ppc?.processo_compra_id) {
+            const { data: pc } = await supabase.from("processos_compras").select("numero_processo_interno").eq("id", ppc.processo_compra_id).maybeSingle();
+            numProcesso = pc?.numero_processo_interno || '';
+          }
+        }
+
         await registrarAuditoria({
           acao: 'criação',
           entidade: 'Contrato com Terceiro',
@@ -300,6 +323,7 @@ export function TabContratosTerceiros({ contratoGestaoId, contratoGestaoNome, pr
             codigo_interno: formData.codigo_interno,
             contrato_gestao: contratoGestaoNome,
             objeto: formData.objeto,
+            numero_processo: numProcesso,
           },
         });
         toast.success("Contrato criado!");
@@ -346,6 +370,16 @@ export function TabContratosTerceiros({ contratoGestaoId, contratoGestaoNome, pr
         .eq("id", contratoParaExcluir.id);
       if (error) throw error;
 
+      // Buscar numero_processo para auditoria
+      let numProcesso = '';
+      if (contratoParaExcluir.processo_para_contratar_id) {
+        const { data: ppc } = await supabase.from("processos_para_contratar").select("processo_compra_id").eq("id", contratoParaExcluir.processo_para_contratar_id).maybeSingle();
+        if (ppc?.processo_compra_id) {
+          const { data: pc } = await supabase.from("processos_compras").select("numero_processo_interno").eq("id", ppc.processo_compra_id).maybeSingle();
+          numProcesso = pc?.numero_processo_interno || '';
+        }
+      }
+
       await registrarAuditoria({
         acao: 'exclusão',
         entidade: 'Contrato com Terceiro',
@@ -355,6 +389,7 @@ export function TabContratosTerceiros({ contratoGestaoId, contratoGestaoNome, pr
           codigo_interno: contratoParaExcluir.codigo_interno,
           contrato_gestao: contratoGestaoNome,
           objeto: contratoParaExcluir.objeto,
+          numero_processo: numProcesso,
           arquivos_removidos: pathsToDelete.length,
         },
       });
@@ -474,6 +509,16 @@ export function TabContratosTerceiros({ contratoGestaoId, contratoGestaoNome, pr
                     <Badge className={`text-xs ${statusColors[contrato.status] || ""}`}>
                       {statusLabels[contrato.status] || contrato.status}
                     </Badge>
+                    {contrato.status === "vigente" && contrato.fim_vigencia_atual && (() => {
+                      const hoje = toZonedTime(new Date(), "America/Sao_Paulo");
+                      const fimDate = new Date(contrato.fim_vigencia_atual + "T23:59:59-03:00");
+                      const dias = differenceInDays(fimDate, hoje);
+                      if (dias >= 0) {
+                        return <span className={`text-[10px] block ${dias <= 45 ? "text-red-600 font-semibold" : "text-muted-foreground"}`}>{dias} dias</span>;
+                      } else {
+                        return <span className="text-[10px] block text-red-600 font-semibold">Vencido</span>;
+                      }
+                    })()}
                   </TableCell>
                   <TableCell className="text-right space-x-1">
                     <Button
