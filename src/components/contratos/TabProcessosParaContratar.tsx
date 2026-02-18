@@ -5,7 +5,8 @@ import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { ExternalLink, FileText, Clock, CheckCircle, Ban, Pencil, Trash2, Eye, Plus } from "lucide-react";
+import { ExternalLink, FileText, Clock, CheckCircle, Ban, Pencil, Trash2, Eye, Plus, MoreHorizontal } from "lucide-react";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -286,91 +287,62 @@ export function TabProcessosParaContratar({ contratoGestaoId, contratoGestaoNome
                     <TableCell className="text-xs sm:text-sm">
                       {format(new Date(processo.data_finalizacao), "dd/MM/yyyy", { locale: ptBR })}
                     </TableCell>
-                    <TableCell className="text-right space-x-1">
-                      {/* Criar Contrato */}
-                      {canEdit && (processo.status === "pronto_para_contratar" || processo.status === "em_contratacao") && onCriarContrato && (
-                        <Button
-                          variant="default"
-                          size="sm"
-                          className="text-xs"
-                          onClick={() => onCriarContrato(processo)}
-                        >
-                          <Plus className="h-3 w-3 mr-1" />
-                          Contrato
-                        </Button>
-                      )}
-                      {/* Ignorar Contratação */}
-                      {canEdit && (processo.status === "pronto_para_contratar" || processo.status === "em_contratacao") && (
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="text-xs"
-                          onClick={() => {
-                            setProcessoSelecionado(processo);
-                            setNovoStatus("ignorado");
-                            setMotivoCancelamento("");
-                            setDialogStatusOpen(true);
-                          }}
-                        >
-                          <Ban className="h-3 w-3 mr-1" />
-                          Ignorar
-                        </Button>
-                      )}
-                      {/* Visualizar */}
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="text-xs"
-                        onClick={() => {
-                          setProcessoVisualizar(processo);
-                          setDialogVisualizarOpen(true);
-                        }}
-                      >
-                        <Eye className="h-3 w-3" />
-                      </Button>
-                      {/* Dossiê */}
-                      {processo.url_dossie && (
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="text-xs"
-                          onClick={() => window.open(processo.url_dossie!, "_blank")}
-                        >
-                          <ExternalLink className="h-3 w-3 mr-1" />
-                          Dossiê
-                        </Button>
-                      )}
-                      {/* Alterar Status */}
-                      {canEdit && (
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="text-xs"
-                          onClick={() => {
-                            setProcessoSelecionado(processo);
-                            setNovoStatus("");
-                            setMotivoCancelamento("");
-                            setDialogStatusOpen(true);
-                          }}
-                        >
-                          <Pencil className="h-3 w-3 mr-1" />
-                          Status
-                        </Button>
-                      )}
-                      {/* Excluir */}
-                      {canEdit && processo.status === "cancelado" && (
-                        <Button
-                          variant="destructive"
-                          size="sm"
-                          className="text-xs"
-                          onClick={() => {
-                            setProcessoParaExcluir(processo);
-                            setConfirmDeleteOpen(true);
-                          }}
-                        >
-                          <Trash2 className="h-3 w-3" />
-                        </Button>
-                      )}
+                    <TableCell className="text-right">
+                      <div className="flex items-center justify-end gap-1">
+                        {/* Criar Contrato - botão principal */}
+                        {canEdit && (processo.status === "pronto_para_contratar" || processo.status === "em_contratacao") && onCriarContrato && (
+                          <Button
+                            variant="default"
+                            size="sm"
+                            className="text-xs"
+                            onClick={() => onCriarContrato(processo)}
+                          >
+                            <Plus className="h-3 w-3 mr-1" />
+                            Contrato
+                          </Button>
+                        )}
+                        {/* Menu de ações secundárias */}
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button variant="outline" size="sm" className="text-xs px-2">
+                              <MoreHorizontal className="h-4 w-4" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            <DropdownMenuItem onClick={() => { setProcessoVisualizar(processo); setDialogVisualizarOpen(true); }}>
+                              <Eye className="h-3.5 w-3.5 mr-2" />
+                              Visualizar
+                            </DropdownMenuItem>
+                            {processo.url_dossie && (
+                              <DropdownMenuItem onClick={() => window.open(processo.url_dossie!, "_blank")}>
+                                <ExternalLink className="h-3.5 w-3.5 mr-2" />
+                                Dossiê
+                              </DropdownMenuItem>
+                            )}
+                            {canEdit && (
+                              <>
+                                <DropdownMenuSeparator />
+                                <DropdownMenuItem onClick={() => { setProcessoSelecionado(processo); setNovoStatus(""); setMotivoCancelamento(""); setDialogStatusOpen(true); }}>
+                                  <Pencil className="h-3.5 w-3.5 mr-2" />
+                                  Alterar Status
+                                </DropdownMenuItem>
+                                {(processo.status === "pronto_para_contratar" || processo.status === "em_contratacao") && (
+                                  <DropdownMenuItem onClick={() => { setProcessoSelecionado(processo); setNovoStatus("ignorado"); setMotivoCancelamento(""); setDialogStatusOpen(true); }}>
+                                    <Ban className="h-3.5 w-3.5 mr-2" />
+                                    Ignorar
+                                  </DropdownMenuItem>
+                                )}
+                                {processo.status === "cancelado" && (
+                                  <DropdownMenuItem className="text-destructive" onClick={() => { setProcessoParaExcluir(processo); setConfirmDeleteOpen(true); }}>
+                                    <Trash2 className="h-3.5 w-3.5 mr-2" />
+                                    Excluir
+                                  </DropdownMenuItem>
+                                )}
+                              </>
+                            )}
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </div>
                     </TableCell>
                   </TableRow>
                 );
