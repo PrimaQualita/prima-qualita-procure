@@ -98,6 +98,11 @@ Deno.serve(async (req) => {
         { tabela: 'recursos_inabilitacao_selecao', coluna: 'url_pdf_resposta' },
         { tabela: 'respostas_recursos', coluna: 'url_documento' },
         { tabela: 'documentos_antigos', coluna: 'url_arquivo' },
+        // Contratos com terceiros e documentos de contrato
+        { tabela: 'documentos_contrato', coluna: 'url_arquivo' },
+        { tabela: 'documentos_contrato', coluna: 'storage_path' },
+        { tabela: 'contratos_terceiros', coluna: 'url_arquivo_principal', apenasLimparUrl: true },
+        { tabela: 'contratos_terceiros', coluna: 'storage_path_arquivo', apenasLimparUrl: true },
         // Propostas de cotação/seleção - limpar apenas campos de URL, não deleta o registro inteiro
         { tabela: 'cotacao_respostas_fornecedor', coluna: 'url_pdf_proposta', apenasLimparUrl: true },
         { tabela: 'selecao_propostas_fornecedor', coluna: 'url_pdf_proposta', apenasLimparUrl: true },
