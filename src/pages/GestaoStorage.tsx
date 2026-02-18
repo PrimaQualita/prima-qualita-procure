@@ -715,6 +715,7 @@ export default function GestaoStorage() {
                         else if (ref.includes('autorizacoes/')) tipo = 'Autorização';
                         else if (ref.includes('habilitacao/')) tipo = 'Habilitação';
                         else if (ref.includes('recursos/')) tipo = 'Recurso';
+                        else if (ref.includes('contratos/')) tipo = 'Contrato';
                         
                         return (
                           <div key={i} className="flex items-center justify-between gap-2 py-1 border-b border-red-200/50 last:border-0">
