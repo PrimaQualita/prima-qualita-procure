@@ -2350,15 +2350,15 @@ export function DialogSessaoLances({
       };
       
       // Buscar dados da seleção para o título
-      const { data: selecaoInfo } = await supabase
+      const { data: selecaoInfoPlanilha } = await supabase
         .from("selecoes_fornecedores")
-        .select("numero_selecao, processos_compras(numero_processo_interno, objeto_resumido)")
+        .select("numero_selecao, cotacao_relacionada_id, processos_compras(numero_processo_interno, objeto_resumido)")
         .eq("id", selecaoId)
         .single();
       
-      const numSelecao = selecaoInfo?.numero_selecao || "-";
-      const numProcesso = (selecaoInfo?.processos_compras as any)?.numero_processo_interno || "-";
-      const objetoProcesso = (selecaoInfo?.processos_compras as any)?.objeto_resumido || "Objeto do Processo";
+      const numSelecao = selecaoInfoPlanilha?.numero_selecao || "-";
+      const numProcesso = (selecaoInfoPlanilha?.processos_compras as any)?.numero_processo_interno || "-";
+      const objetoProcesso = (selecaoInfoPlanilha?.processos_compras as any)?.objeto_resumido || "Objeto do Processo";
       
       // Função para remover tags HTML
       const stripHtml = (html: string) => {
@@ -2433,10 +2433,142 @@ export function DialogSessaoLances({
         }));
       }
 
-      // Agrupar lances por item/lote - USANDO TODOS OS LANCES (incluindo inabilitados)
+      // ========== BUSCAR PROPOSTAS ORIGINAIS PARA INCLUIR COMO "PRIMEIROS LANCES" ==========
+      const { data: propostasParaPlanilha } = await supabase
+        .from("selecao_propostas_fornecedor")
+        .select("id, fornecedor_id, fornecedores(id, razao_social, cnpj), data_envio")
+        .eq("selecao_id", selecaoId);
+
+      const propostaIdsPlanilha = (propostasParaPlanilha || []).map((p: any) => p.id);
+      
+      const { data: itensPropostasPlanilha } = propostaIdsPlanilha.length > 0
+        ? await supabase
+            .from("selecao_respostas_itens_fornecedor")
+            .select("proposta_id, numero_item, lote_id, valor_unitario_ofertado, valor_total_item, desclassificado")
+            .in("proposta_id", propostaIdsPlanilha)
+        : { data: [] };
+
+      // Mapear proposta_id -> dados do fornecedor e data
+      const propostaToFornecedorPlanilha = new Map<string, any>();
+      (propostasParaPlanilha || []).forEach((p: any) => {
+        propostaToFornecedorPlanilha.set(p.id, {
+          fornecedor_id: p.fornecedor_id,
+          fornecedores: p.fornecedores,
+          data_envio: p.data_envio
+        });
+      });
+
+      // Buscar lotes para mapear lote_id -> numero_lote (para por_lote)
+      let loteIdToNumeroPlanilha = new Map<string, number>();
+      if (isPorLoteLocal) {
+        const cotacaoRelId = selecaoInfoPlanilha?.cotacao_relacionada_id || "";
+        if (cotacaoRelId) {
+          const { data: lotesDataPlanilha } = await supabase
+            .from("lotes_cotacao")
+            .select("id, numero_lote")
+            .eq("cotacao_id", cotacaoRelId);
+          (lotesDataPlanilha || []).forEach((l: any) => loteIdToNumeroPlanilha.set(l.id, l.numero_lote));
+        } else {
+          // Fallback: usar lotes do props
+          lotes.forEach(l => loteIdToNumeroPlanilha.set(l.id, l.numero_lote));
+        }
+      }
+
+      // Montar propostas como "lances iniciais" por item/lote
+      const propostasComoLances = new Map<number, any[]>(); // Map<numero_item_ou_lote, lance-like[]>
+
+      if (isPorLoteLocal) {
+        // Agrupar por lote+fornecedor, somar valor total do lote
+        const totalPorLoteFornecedor = new Map<string, { fornecedorId: string; fornecedores: any; valorTotal: number; dataEnvio: string }>();
+        (itensPropostasPlanilha || []).forEach((ip: any) => {
+          const propostaInfo = propostaToFornecedorPlanilha.get(ip.proposta_id);
+          if (!propostaInfo) return;
+          const loteId = ip.lote_id;
+          if (!loteId) return;
+          const numeroLote = loteIdToNumeroPlanilha.get(loteId);
+          if (numeroLote === undefined) return;
+          const totalItem = Number(ip.valor_total_item) || (Number(ip.valor_unitario_ofertado || 0) * Number(ip.quantidade || 0));
+          if (totalItem <= 0) return;
+          const key = `${numeroLote}_${propostaInfo.fornecedor_id}`;
+          if (!totalPorLoteFornecedor.has(key)) {
+            totalPorLoteFornecedor.set(key, { fornecedorId: propostaInfo.fornecedor_id, fornecedores: propostaInfo.fornecedores, valorTotal: 0, dataEnvio: propostaInfo.data_envio });
+          }
+          totalPorLoteFornecedor.get(key)!.valorTotal += totalItem;
+        });
+        totalPorLoteFornecedor.forEach((dados, key) => {
+          const numeroLote = parseInt(key.split('_')[0]);
+          if (!propostasComoLances.has(numeroLote)) propostasComoLances.set(numeroLote, []);
+          propostasComoLances.get(numeroLote)!.push({
+            id: `proposta_${dados.fornecedorId}_${numeroLote}`,
+            fornecedor_id: dados.fornecedorId,
+            fornecedores: dados.fornecedores,
+            valor_lance: dados.valorTotal,
+            data_hora_lance: dados.dataEnvio || new Date().toISOString(),
+            numero_item: numeroLote,
+            tipo_lance: 'proposta_inicial',
+            _isProposta: true,
+          });
+        });
+      } else if (isGlobalLocal) {
+        // Agrupar por fornecedor, somar tudo em item 0
+        const totalPorFornecedor = new Map<string, { fornecedores: any; valorTotal: number; dataEnvio: string }>();
+        (itensPropostasPlanilha || []).forEach((ip: any) => {
+          const propostaInfo = propostaToFornecedorPlanilha.get(ip.proposta_id);
+          if (!propostaInfo) return;
+          const valorUnit = Number(ip.valor_unitario_ofertado || 0);
+          const totalItem = Number(ip.valor_total_item) || valorUnit * Number(ip.quantidade || 0);
+          if (totalItem <= 0) return;
+          if (!totalPorFornecedor.has(propostaInfo.fornecedor_id)) {
+            totalPorFornecedor.set(propostaInfo.fornecedor_id, { fornecedores: propostaInfo.fornecedores, valorTotal: 0, dataEnvio: propostaInfo.data_envio });
+          }
+          totalPorFornecedor.get(propostaInfo.fornecedor_id)!.valorTotal += totalItem;
+        });
+        totalPorFornecedor.forEach((dados, fornecedorId) => {
+          if (!propostasComoLances.has(0)) propostasComoLances.set(0, []);
+          propostasComoLances.get(0)!.push({
+            id: `proposta_${fornecedorId}_0`,
+            fornecedor_id: fornecedorId,
+            fornecedores: dados.fornecedores,
+            valor_lance: dados.valorTotal,
+            data_hora_lance: dados.dataEnvio || new Date().toISOString(),
+            numero_item: 0,
+            tipo_lance: 'proposta_inicial',
+            _isProposta: true,
+          });
+        });
+      } else {
+        // Por item
+        (itensPropostasPlanilha || []).forEach((ip: any) => {
+          const propostaInfo = propostaToFornecedorPlanilha.get(ip.proposta_id);
+          if (!propostaInfo) return;
+          const valorUnit = Number(ip.valor_unitario_ofertado || 0);
+          if (valorUnit <= 0) return;
+          const numeroItem = ip.numero_item;
+          if (!propostasComoLances.has(numeroItem)) propostasComoLances.set(numeroItem, []);
+          propostasComoLances.get(numeroItem)!.push({
+            id: `proposta_${propostaInfo.fornecedor_id}_${numeroItem}`,
+            fornecedor_id: propostaInfo.fornecedor_id,
+            fornecedores: propostaInfo.fornecedores,
+            valor_lance: valorUnit,
+            data_hora_lance: propostaInfo.data_envio || new Date().toISOString(),
+            numero_item: numeroItem,
+            tipo_lance: 'proposta_inicial',
+            _isProposta: true,
+          });
+        });
+      }
+
+      // Agrupar lances por item/lote - USANDO TODOS OS LANCES (incluindo inabilitados) + PROPOSTAS COMO LANCES INICIAIS
       const lancesGroupedByItem = elementosParaIterar.map(elemento => {
         const lancesElemento = getLancesCompletosDoItem(elemento.numero);
-        return { elemento, lances: lancesElemento };
+        const propostasElemento = propostasComoLances.get(elemento.numero) || [];
+        
+        // Filtrar propostas de fornecedores que JÁ possuem lance (para não duplicar)
+        const fornecedoresComLance = new Set(lancesElemento.map(l => l.fornecedor_id));
+        const propostasNovas = propostasElemento.filter(p => !fornecedoresComLance.has(p.fornecedor_id));
+        
+        // Combinar: lances reais + propostas de fornecedores sem lance
+        return { elemento, lances: [...lancesElemento, ...propostasNovas] };
       });
 
       let yPosition = yStart + 22;
@@ -2513,9 +2645,19 @@ export function DialogSessaoLances({
           const temInabilitadoNoItem = lancesDoItem.some(l => isInabilitadoNoItem(l.fornecedor_id, elemento.numero));
           if (temInabilitadoNoItem) temInabilitado = true;
 
-          // Reordenar: fornecedores válidos primeiro (ordenados por valor), inabilitados depois
-          const lancesValidos = lancesDoItem.filter(l => !isInabilitadoNoItem(l.fornecedor_id, elemento.numero));
+          // Verificar desclassificação por preço (proposta acima do estimado)
+          const isDesclassificadoPorPrecoPlanilha = (lance: any): boolean => {
+            if (!lance._isProposta) return false;
+            const valorEstimado = estimativasItens.get(elemento.numero);
+            if (!valorEstimado || valorEstimado === 0) return false;
+            const isDescontoLocal = criterioJulgamento === "desconto";
+            return isDescontoLocal ? lance.valor_lance < valorEstimado : lance.valor_lance > valorEstimado;
+          };
+
+          // Reordenar: fornecedores válidos primeiro (ordenados por valor), inabilitados e desclassificados depois
+          const lancesValidos = lancesDoItem.filter(l => !isInabilitadoNoItem(l.fornecedor_id, elemento.numero) && !isDesclassificadoPorPrecoPlanilha(l));
           const lancesInabilitados = lancesDoItem.filter(l => isInabilitadoNoItem(l.fornecedor_id, elemento.numero));
+          const lancesDesclassificados = lancesDoItem.filter(l => !isInabilitadoNoItem(l.fornecedor_id, elemento.numero) && isDesclassificadoPorPrecoPlanilha(l));
           
           // Ordenar lances válidos por valor (MELHOR VALOR VENCE - sem priorizar negociação)
           const isDesconto = criterioJulgamento === "desconto";
@@ -2528,21 +2670,33 @@ export function DialogSessaoLances({
             }
           });
           
-          const lancesOrdenados = [...lancesValidosOrdenados, ...lancesInabilitados];
+          const lancesOrdenados = [...lancesValidosOrdenados, ...lancesDesclassificados, ...lancesInabilitados];
+
+          let temDesclassificado = false;
 
           const tableData = lancesOrdenados.map((lance, idx) => {
             const isNegociacao = lance.tipo_lance === "negociacao";
+            const isProposta = lance._isProposta === true;
+            const isDesclassificado = isDesclassificadoPorPrecoPlanilha(lance);
             const valorFormatado = formatValorLance(lance.valor_lance);
             const isInabilitado = isInabilitadoNoItem(lance.fornecedor_id, elemento.numero);
             
-            // Posição: só conta para fornecedores válidos
-            const posicaoExibida = isInabilitado ? "-" : `${lancesValidosOrdenados.findIndex(l => l.id === lance.id) + 1}º`;
+            if (isDesclassificado) temDesclassificado = true;
+            
+            // Posição: só conta para fornecedores válidos (não inabilitados e não desclassificados)
+            const posicaoExibida = (isInabilitado || isDesclassificado) ? "-" : `${lancesValidosOrdenados.findIndex(l => l.id === lance.id) + 1}º`;
+            
+            // Valor formatado com indicadores
+            let valorExibido = valorFormatado;
+            if (isNegociacao) valorExibido = `${valorFormatado} *`;
+            if (isProposta && !isDesclassificado) valorExibido = `${valorFormatado} ◆`;
+            if (isDesclassificado) valorExibido = `${valorFormatado} ✗`;
             
             return {
               data: [
                 posicaoExibida,
                 `${lance.fornecedores?.razao_social || "N/A"}\n${formatCNPJ(lance.fornecedores?.cnpj || "")}`,
-                isNegociacao ? `${valorFormatado} *` : valorFormatado,
+                valorExibido,
                 new Date(lance.data_hora_lance).toLocaleString("pt-BR", {
                   day: "2-digit",
                   month: "2-digit",
@@ -2554,7 +2708,9 @@ export function DialogSessaoLances({
               ],
               isInabilitado,
               isNegociacao,
-              isVencedor: !isInabilitado && lancesValidosOrdenados.findIndex(l => l.id === lance.id) === 0
+              isProposta,
+              isDesclassificado,
+              isVencedor: !isInabilitado && !isDesclassificado && lancesValidosOrdenados.findIndex(l => l.id === lance.id) === 0
             };
           });
 
@@ -2604,7 +2760,12 @@ export function DialogSessaoLances({
                   data.cell.styles.textColor = [220, 38, 38]; // Vermelho
                   data.cell.styles.fillColor = [254, 226, 226]; // Fundo vermelho claro
                 }
-                // Destacar primeira posição (vencedor) - apenas se não for inabilitado
+                // Destacar desclassificados em laranja
+                else if (rowInfo?.isDesclassificado) {
+                  data.cell.styles.textColor = [194, 65, 12]; // Laranja escuro
+                  data.cell.styles.fillColor = [255, 237, 213]; // Fundo laranja claro
+                }
+                // Destacar primeira posição (vencedor) - apenas se não for inabilitado/desclassificado
                 else if (rowInfo?.isVencedor) {
                   data.cell.styles.fillColor = [254, 249, 195];
                   data.cell.styles.fontStyle = "bold";
@@ -2613,19 +2774,43 @@ export function DialogSessaoLances({
                 if (data.column.index === 2 && rowInfo?.isNegociacao && !rowInfo?.isInabilitado) {
                   data.cell.styles.textColor = [22, 163, 74];
                 }
+                // Destacar propostas iniciais (azul)
+                if (data.column.index === 2 && rowInfo?.isProposta && !rowInfo?.isInabilitado && !rowInfo?.isDesclassificado) {
+                  data.cell.styles.textColor = [37, 99, 235]; // Azul
+                }
               }
             },
           });
 
           yPosition = (doc as any).lastAutoTable.finalY + 8;
           
-          // Legenda de negociação se houver lances de negociação
+          // Legendas
           const temNegociacao = lancesDoItem.some(l => l.tipo_lance === "negociacao");
+          const temProposta = lancesDoItem.some(l => (l as any)._isProposta && !isDesclassificadoPorPrecoPlanilha(l));
+          
           if (temNegociacao) {
             doc.setFontSize(7);
             doc.setFont("helvetica", "italic");
             doc.setTextColor(22, 163, 74);
             doc.text("* Valor obtido por negociação", margin + 3, yPosition);
+            doc.setTextColor(0, 0, 0);
+            yPosition += 5;
+          }
+          
+          if (temProposta) {
+            doc.setFontSize(7);
+            doc.setFont("helvetica", "italic");
+            doc.setTextColor(37, 99, 235);
+            doc.text("◆ Valor da proposta inicial (sem lance registrado)", margin + 3, yPosition);
+            doc.setTextColor(0, 0, 0);
+            yPosition += 5;
+          }
+          
+          if (temDesclassificado) {
+            doc.setFontSize(7);
+            doc.setFont("helvetica", "italic");
+            doc.setTextColor(194, 65, 12);
+            doc.text("✗ Proposta desclassificada (valor acima do estimado)", margin + 3, yPosition);
             doc.setTextColor(0, 0, 0);
             yPosition += 5;
           }
@@ -2638,7 +2823,7 @@ export function DialogSessaoLances({
             doc.text("Linhas em vermelho indicam empresa inabilitada", margin + 3, yPosition);
             doc.setTextColor(0, 0, 0);
             yPosition += 8;
-          } else if (temNegociacao) {
+          } else if (temNegociacao || temProposta || temDesclassificado) {
             yPosition += 3;
           }
         }

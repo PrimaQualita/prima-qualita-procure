@@ -818,6 +818,7 @@ export function DialogAnaliseDocumentalSelecao({
           console.log(`🔍 [ANÁLISE DOC] Item ${itemNum}: ${lancesDoItem.length} lances para segundo colocado (critério: ${isDesconto ? 'desconto' : 'preço'})`);
           
           // Encontrar primeiro fornecedor que não está inabilitado neste item
+          let encontrou = false;
           for (const lance of lancesDoItem) {
             const inabFornecedor = inabilitacoesMap.get(lance.fornecedor_id);
             const estaInabilitadoNoItem = inabFornecedor && inabFornecedor.itens_afetados.includes(itemNum);
@@ -829,7 +830,90 @@ export function DialogAnaliseDocumentalSelecao({
                 valor_lance: lance.valor_lance,
                 fornecedor: lance.fornecedores
               });
+              encontrou = true;
               break;
+            }
+          }
+          
+          // FALLBACK: Se não encontrou segundo colocado nos lances, buscar nas propostas originais
+          if (!encontrou && propostasOriginais && propostasOriginais.length > 0) {
+            console.log(`🔍 [ANÁLISE DOC] Item ${itemNum}: Buscando segundo colocado nas PROPOSTAS ORIGINAIS (fallback)`);
+            
+            if (isPorLote) {
+              // Para por_lote: agrupar propostas por lote+fornecedor, somar totais, encontrar menor
+              const totalPorFornecedor = new Map<string, { fornecedorId: string; fornecedor: any; valorTotal: number }>();
+              
+              (propostasOriginais || []).forEach((proposta: any) => {
+                if (proposta?.desclassificado) return;
+                const loteId = proposta.lote_id;
+                if (!loteId) return;
+                const numeroLote = loteIdToNumeroGlobal.get(loteId);
+                if (numeroLote !== itemNum) return;
+                
+                const fornecedorId = (proposta.selecao_propostas_fornecedor as any)?.fornecedor_id;
+                if (!fornecedorId) return;
+                
+                // Verificar se está inabilitado
+                const inabFornecedor = inabilitacoesMap.get(fornecedorId);
+                if (inabFornecedor && inabFornecedor.itens_afetados.includes(itemNum)) return;
+                
+                const valorUnit = Number(proposta.valor_unitario_ofertado) || 0;
+                const totalItem = Number(proposta.valor_total_item) > 0 
+                  ? Number(proposta.valor_total_item) 
+                  : valorUnit * Number(proposta.quantidade || 0);
+                if (totalItem <= 0 || valorUnit <= 0) return;
+                
+                const fornecedor = (proposta.selecao_propostas_fornecedor as any)?.fornecedores;
+                if (!totalPorFornecedor.has(fornecedorId)) {
+                  totalPorFornecedor.set(fornecedorId, { fornecedorId, fornecedor, valorTotal: 0 });
+                }
+                totalPorFornecedor.get(fornecedorId)!.valorTotal += totalItem;
+              });
+              
+              // Ordenar e pegar o melhor
+              const fornecedoresOrdenados = Array.from(totalPorFornecedor.values())
+                .sort((a, b) => isDesconto ? b.valorTotal - a.valorTotal : a.valorTotal - b.valorTotal);
+              
+              if (fornecedoresOrdenados.length > 0) {
+                const melhor = fornecedoresOrdenados[0];
+                console.log(`✅ [ANÁLISE DOC] Segundo colocado encontrado (via proposta) para lote ${itemNum}: ${melhor.fornecedor?.razao_social} (valor: ${melhor.valorTotal})`);
+                segundosColocadosMap.set(itemNum, {
+                  fornecedor_id: melhor.fornecedorId,
+                  valor_lance: melhor.valorTotal,
+                  fornecedor: melhor.fornecedor
+                });
+              }
+            } else {
+              // Para por_item ou global: buscar propostas do item específico
+              const propostasDoItem = (propostasOriginais || [])
+                .filter((p: any) => {
+                  if (p?.desclassificado) return false;
+                  const pNumero = isPorLote ? 0 : p.numero_item;
+                  if (pNumero !== itemNum) return false;
+                  const fornecedorId = (p.selecao_propostas_fornecedor as any)?.fornecedor_id;
+                  if (!fornecedorId) return false;
+                  const inabFornecedor = inabilitacoesMap.get(fornecedorId);
+                  if (inabFornecedor && inabFornecedor.itens_afetados.includes(itemNum)) return false;
+                  const valorUnit = Number(p.valor_unitario_ofertado) || 0;
+                  return valorUnit > 0;
+                })
+                .sort((a: any, b: any) => {
+                  const valA = Number(a.valor_unitario_ofertado) || 0;
+                  const valB = Number(b.valor_unitario_ofertado) || 0;
+                  return isDesconto ? valB - valA : valA - valB;
+                });
+              
+              if (propostasDoItem.length > 0) {
+                const melhor = propostasDoItem[0];
+                const fornecedor = (melhor.selecao_propostas_fornecedor as any)?.fornecedores;
+                const fornecedorId = (melhor.selecao_propostas_fornecedor as any)?.fornecedor_id;
+                console.log(`✅ [ANÁLISE DOC] Segundo colocado encontrado (via proposta) para item ${itemNum}: ${fornecedor?.razao_social} (valor: ${melhor.valor_unitario_ofertado})`);
+                segundosColocadosMap.set(itemNum, {
+                  fornecedor_id: fornecedorId,
+                  valor_lance: Number(melhor.valor_unitario_ofertado) || 0,
+                  fornecedor: fornecedor
+                });
+              }
             }
           }
         }
