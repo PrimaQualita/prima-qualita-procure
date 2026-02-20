@@ -2563,12 +2563,9 @@ export function DialogSessaoLances({
         const lancesElemento = getLancesCompletosDoItem(elemento.numero);
         const propostasElemento = propostasComoLances.get(elemento.numero) || [];
         
-        // Filtrar propostas de fornecedores que JÁ possuem lance (para não duplicar)
-        const fornecedoresComLance = new Set(lancesElemento.map(l => l.fornecedor_id));
-        const propostasNovas = propostasElemento.filter(p => !fornecedoresComLance.has(p.fornecedor_id));
-        
-        // Combinar: lances reais + propostas de fornecedores sem lance
-        return { elemento, lances: [...lancesElemento, ...propostasNovas] };
+        // SEMPRE incluir propostas, mesmo se o fornecedor já tem lances
+        // As propostas representam os valores iniciais oferecidos
+        return { elemento, lances: [...lancesElemento, ...propostasElemento] };
       });
 
       let yPosition = yStart + 22;
@@ -2646,6 +2643,7 @@ export function DialogSessaoLances({
           if (temInabilitadoNoItem) temInabilitado = true;
 
           // Verificar desclassificação por preço (proposta acima do estimado)
+          // Aplica-se a propostas iniciais (_isProposta) - lances normais já são validados no momento do registro
           const isDesclassificadoPorPrecoPlanilha = (lance: any): boolean => {
             if (!lance._isProposta) return false;
             const valorEstimado = estimativasItens.get(elemento.numero);
@@ -2653,6 +2651,11 @@ export function DialogSessaoLances({
             const isDescontoLocal = criterioJulgamento === "desconto";
             return isDescontoLocal ? lance.valor_lance < valorEstimado : lance.valor_lance > valorEstimado;
           };
+
+          // Se TODOS os lances/propostas válidos são inabilitados ou desclassificados, marcar como FRACASSADO
+          const todosInvalidosOuDesclassificados = lancesDoItem.every(l => 
+            isInabilitadoNoItem(l.fornecedor_id, elemento.numero) || isDesclassificadoPorPrecoPlanilha(l)
+          );
 
           // Reordenar: fornecedores válidos primeiro (ordenados por valor), inabilitados e desclassificados depois
           const lancesValidos = lancesDoItem.filter(l => !isInabilitadoNoItem(l.fornecedor_id, elemento.numero) && !isDesclassificadoPorPrecoPlanilha(l));
@@ -2783,6 +2786,16 @@ export function DialogSessaoLances({
           });
 
           yPosition = (doc as any).lastAutoTable.finalY + 8;
+          
+          // Indicador FRACASSADO quando todos os lances/propostas são inabilitados ou desclassificados
+          if (todosInvalidosOuDesclassificados) {
+            doc.setFontSize(9);
+            doc.setFont("helvetica", "bold");
+            doc.setTextColor(220, 38, 38);
+            doc.text(`${elemento.isLote ? 'Lote' : 'Item'} FRACASSADO - Nenhuma empresa classificada`, margin + 3, yPosition);
+            doc.setTextColor(0, 0, 0);
+            yPosition += 8;
+          }
           
           // Legendas
           const temNegociacao = lancesDoItem.some(l => l.tipo_lance === "negociacao");

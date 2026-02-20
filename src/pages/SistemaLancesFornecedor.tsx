@@ -861,53 +861,66 @@ const SistemaLancesFornecedor = () => {
           }
         }
       } else {
-        // COM LANCES: calcular vencedores pelos lances
-        // Agrupar por item/lote e identificar vencedor de cada
+        // COM LANCES: calcular vencedores pelos lances CONSIDERANDO INABILITAÇÕES
+        // Buscar inabilitações ativas
+        const { data: inabilitacoesAtivas } = await supabase
+          .from("fornecedores_inabilitados_selecao")
+          .select("fornecedor_id, itens_afetados")
+          .eq("selecao_id", selecao.id)
+          .eq("revertido", false);
+
+        const inabilitacoesPorFornecedor = new Map<string, Set<number>>();
+        const fornecedoresInabilitadosGlobalmente = new Set<string>();
+        inabilitacoesAtivas?.forEach((inab: any) => {
+          if (!inab.itens_afetados || inab.itens_afetados.length === 0) {
+            fornecedoresInabilitadosGlobalmente.add(inab.fornecedor_id);
+          } else {
+            if (!inabilitacoesPorFornecedor.has(inab.fornecedor_id)) {
+              inabilitacoesPorFornecedor.set(inab.fornecedor_id, new Set());
+            }
+            inab.itens_afetados.forEach((item: number) => {
+              inabilitacoesPorFornecedor.get(inab.fornecedor_id)!.add(item);
+            });
+          }
+        });
+
+        // Filtrar lances válidos (não inabilitados)
+        const lancesValidos = todosLances.filter((lance: any) => {
+          if (fornecedoresInabilitadosGlobalmente.has(lance.fornecedor_id)) return false;
+          const itensInab = inabilitacoesPorFornecedor.get(lance.fornecedor_id);
+          if (itensInab?.has(lance.numero_item)) return false;
+          return true;
+        });
+
         const vencedoresPorItem = new Map<number, string>();
         const itensPorFornecedor = new Map<number, { fornecedor_id: string; valor: number }[]>();
         
-        todosLances.forEach((lance: any) => {
+        lancesValidos.forEach((lance: any) => {
           const key = lance.numero_item;
           if (!itensPorFornecedor.has(key)) {
             itensPorFornecedor.set(key, []);
           }
           
-          // Verificar se já existe lance deste fornecedor para este item
           const lancesItem = itensPorFornecedor.get(key)!;
           const existente = lancesItem.find(l => l.fornecedor_id === lance.fornecedor_id);
           
           if (!existente) {
             lancesItem.push({ fornecedor_id: lance.fornecedor_id, valor: lance.valor_lance });
           } else {
-            // Atualizar se for melhor lance
             if (ehDesconto) {
-              if (lance.valor_lance > existente.valor) {
-                existente.valor = lance.valor_lance;
-              }
+              if (lance.valor_lance > existente.valor) existente.valor = lance.valor_lance;
             } else {
-              if (lance.valor_lance < existente.valor) {
-                existente.valor = lance.valor_lance;
-              }
+              if (lance.valor_lance < existente.valor) existente.valor = lance.valor_lance;
             }
           }
         });
         
-        // Identificar vencedor de cada item
         itensPorFornecedor.forEach((lances, numeroItem) => {
           if (lances.length === 0) return;
-          
-          // Ordenar: desconto = maior vence, preço = menor vence
-          const ordenado = [...lances].sort((a, b) => {
-            if (ehDesconto) {
-              return b.valor - a.valor; // Maior primeiro
-            }
-            return a.valor - b.valor; // Menor primeiro
-          });
-          
+          const ordenado = [...lances].sort((a, b) => ehDesconto ? b.valor - a.valor : a.valor - b.valor);
           vencedoresPorItem.set(numeroItem, ordenado[0].fornecedor_id);
         });
         
-        // Verificar se o fornecedor atual é vencedor em algum item
         vencedoresPorItem.forEach((vencedorId) => {
           if (vencedorId === proposta.fornecedor_id) {
             fornecedorEhVencedor = true;
