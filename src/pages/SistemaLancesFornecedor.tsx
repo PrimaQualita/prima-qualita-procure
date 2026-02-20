@@ -797,34 +797,28 @@ const SistemaLancesFornecedor = () => {
     if (!selecao?.id || !proposta?.fornecedor_id) return;
     
     try {
-      // 1. Verificar se existe ata para esta seleção e se fornecedor assinou
+      // 1. Verificar se a sessão está finalizada
+      if (!selecao.sessao_finalizada) {
+        setEhVencedor(false);
+        return;
+      }
+      
+      // Verificar se existe ata assinada (para o estado assinouAta, usado em outros lugares)
       const { data: atas } = await supabase
         .from("atas_selecao")
         .select("id")
         .eq("selecao_id", selecao.id);
       
-      if (!atas || atas.length === 0) {
-        setAssinouAta(false);
-        setEhVencedor(false);
-        return;
-      }
-      
-      const ataIds = atas.map(a => a.id);
-      
-      const { data: assinatura } = await supabase
-        .from("atas_assinaturas_fornecedor")
-        .select("status_assinatura, ata_id")
-        .eq("fornecedor_id", proposta.fornecedor_id)
-        .in("ata_id", ataIds)
-        .eq("status_assinatura", "aceito")
-        .maybeSingle();
-      
-      const fornecedorAssinouAta = !!assinatura;
-      setAssinouAta(fornecedorAssinouAta);
-      
-      if (!fornecedorAssinouAta) {
-        setEhVencedor(false);
-        return;
+      if (atas && atas.length > 0) {
+        const ataIds = atas.map(a => a.id);
+        const { data: assinatura } = await supabase
+          .from("atas_assinaturas_fornecedor")
+          .select("status_assinatura")
+          .eq("fornecedor_id", proposta.fornecedor_id)
+          .in("ata_id", ataIds)
+          .eq("status_assinatura", "aceito")
+          .maybeSingle();
+        setAssinouAta(!!assinatura);
       }
       
       // 2. Identificar vencedores DINAMICAMENTE (não depender de indicativo_lance_vencedor)
@@ -3196,7 +3190,7 @@ const SistemaLancesFornecedor = () => {
         )}
 
         {/* Card de Proposta Realinhada - Quando fornecedor assinou ata e é vencedor */}
-        {assinouAta && ehVencedor && (
+        {ehVencedor && selecao?.sessao_finalizada && (
           <Card className="border-green-500/50 bg-green-500/10">
             <CardHeader className="pb-3">
               <CardTitle className="flex items-center gap-2 text-green-700">
