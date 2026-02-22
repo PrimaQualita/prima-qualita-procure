@@ -662,6 +662,22 @@ export function DialogAnaliseDocumentalSelecao({
       
       console.log(`🎯 [ANÁLISE DOC] Critério é desconto?`, isDesconto, `| isPorLote?`, isPorLote, `| isGlobal?`, selecaoData?.criterios_julgamento === 'global');
       
+      // Helper para verificar desclassificação por preço (acima do estimado)
+      const isDesclassificadoPorPreco = (num: number, valor: number): boolean => {
+        let est = 0;
+        if (isPorLote) {
+          est = estimativaSubtotalPorLote.get(num) || 0;
+        } else if (selecaoData?.criterios_julgamento === 'global' && num === 0) {
+          est = estimativaTotalGlobal || 0;
+        } else {
+          est = (estimativasPorItem.get(num) as number) || 0;
+        }
+        if (est === 0) return false;
+        if (isDesconto) return valor < est;
+        const toCents = (v: number) => Math.round((Number(v) + Number.EPSILON) * 100);
+        return toCents(valor) > toCents(est);
+      };
+
       // Processar itens com lances
       lancePorItem.forEach((lances, numeroItem) => {
         console.log(`📊 [ANÁLISE DOC] Processando ${isPorLote ? 'lote' : 'item'} ${numeroItem} com ${lances.length} lances`);
@@ -675,11 +691,17 @@ export function DialogAnaliseDocumentalSelecao({
           }
         });
         
-        const vencedor = lancesOrdenados[0];
-        const tipoVencedor = vencedor.tipo_lance === 'negociacao' ? 'NEGOCIAÇÃO' : 'LANCE';
-        console.log(`🏆 [ANÁLISE DOC] ${isPorLote ? 'Lote' : 'Item'} ${numeroItem}: Vencedor por ${tipoVencedor} -`, vencedor.fornecedores?.razao_social, `- valor:`, vencedor.valor_lance);
+        // Filtrar lances classificados (valor dentro do estimado)
+        const lancesClassificados = lancesOrdenados.filter(l => !isDesclassificadoPorPreco(numeroItem, l.valor_lance));
         
-        vencedoresData.push(vencedor);
+        if (lancesClassificados.length > 0) {
+          const vencedor = lancesClassificados[0];
+          const tipoVencedor = vencedor.tipo_lance === 'negociacao' ? 'NEGOCIAÇÃO' : 'LANCE';
+          console.log(`🏆 [ANÁLISE DOC] ${isPorLote ? 'Lote' : 'Item'} ${numeroItem}: Vencedor por ${tipoVencedor} -`, vencedor.fornecedores?.razao_social, `- valor:`, vencedor.valor_lance);
+          vencedoresData.push(vencedor);
+        } else {
+          console.log(`⚠️ [ANÁLISE DOC] ${isPorLote ? 'Lote' : 'Item'} ${numeroItem}: Todos os lances estão acima do estimado - FRACASSADO`);
+        }
       });
       
       // Processar itens/lotes SEM lances (mas com propostas classificadas)
@@ -817,21 +839,7 @@ export function DialogAnaliseDocumentalSelecao({
           
           console.log(`🔍 [ANÁLISE DOC] Item ${itemNum}: ${lancesDoItem.length} lances para segundo colocado (critério: ${isDesconto ? 'desconto' : 'preço'})`);
           
-          // Helper: verificar se valor está acima do estimado (desclassificado por preço)
-          const isDesclassificadoPorPrecoSegundo = (num: number, valor: number): boolean => {
-            let est = 0;
-            if (isPorLote) {
-              est = estimativaSubtotalPorLote.get(num) || 0;
-            } else if (selecaoData?.criterios_julgamento === 'global' && num === 0) {
-              est = estimativaTotalGlobal || 0;
-            } else {
-              est = (estimativasPorItem.get(num) as number) || 0;
-            }
-            if (est === 0) return false;
-            if (isDesconto) return valor < est;
-            const toCents = (v: number) => Math.round((Number(v) + Number.EPSILON) * 100);
-            return toCents(valor) > toCents(est);
-          };
+          // Reutilizar isDesclassificadoPorPreco definido acima
 
           // Encontrar primeiro fornecedor que não está inabilitado E não desclassificado por preço
           let encontrou = false;
@@ -841,7 +849,7 @@ export function DialogAnaliseDocumentalSelecao({
             
             if (!estaInabilitadoNoItem) {
               // Verificar se o valor está acima do estimado (desclassificado por preço)
-              if (isDesclassificadoPorPrecoSegundo(itemNum, lance.valor_lance)) {
+              if (isDesclassificadoPorPreco(itemNum, lance.valor_lance)) {
                 console.log(`🚫 [ANÁLISE DOC] Segundo colocado ${lance.fornecedores?.razao_social} desclassificado por preço no item ${itemNum} (valor: ${lance.valor_lance})`);
                 continue;
               }
@@ -885,7 +893,7 @@ export function DialogAnaliseDocumentalSelecao({
                 if (totalItem <= 0 || valorUnit <= 0) return;
                 
                 // Verificar desclassificação por preço (acima do estimado)
-                if (isDesclassificadoPorPrecoSegundo(itemNum, totalItem)) {
+                if (isDesclassificadoPorPreco(itemNum, totalItem)) {
                   console.log(`🚫 [ANÁLISE DOC] Fornecedor ${fornecedorId} desclassificado por preço (proposta) no lote ${itemNum} (valor: ${totalItem})`);
                   return;
                 }
@@ -924,7 +932,7 @@ export function DialogAnaliseDocumentalSelecao({
                   const valorUnit = Number(p.valor_unitario_ofertado) || 0;
                   if (valorUnit <= 0) return false;
                   // Verificar desclassificação por preço
-                  if (isDesclassificadoPorPrecoSegundo(itemNum, valorUnit)) return false;
+                  if (isDesclassificadoPorPreco(itemNum, valorUnit)) return false;
                   return true;
                 })
                 .sort((a: any, b: any) => {
