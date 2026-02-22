@@ -657,6 +657,34 @@ export function DialogAnaliseDocumentalSelecao({
         });
       }
       
+      // ====== CARREGAR INABILITAÇÕES ANTES de determinar vencedores (igual ao Controle de Lances) ======
+      const { data: inabilitacoesPreLoad } = await supabase
+        .from("fornecedores_inabilitados_selecao")
+        .select("*")
+        .eq("selecao_id", selecaoId)
+        .eq("revertido", false);
+
+      const inabilitacoesPreMap = new Map<string, number[]>();
+      (inabilitacoesPreLoad || []).forEach((inab: any) => {
+        const existing = inabilitacoesPreMap.get(inab.fornecedor_id);
+        if (existing) {
+          const todosItens = [...new Set([...existing, ...(inab.itens_afetados || [])])];
+          inabilitacoesPreMap.set(inab.fornecedor_id, todosItens);
+        } else {
+          inabilitacoesPreMap.set(inab.fornecedor_id, inab.itens_afetados || []);
+        }
+      });
+
+      console.log(`🚫 [ANÁLISE DOC] Inabilitações pré-carregadas:`, Array.from(inabilitacoesPreMap.entries()));
+
+      // Helper: verificar se fornecedor está inabilitado para um item/lote (igual ao Controle de Lances)
+      const isInabilitadoNoItem = (fornecedorId: string, numeroItem: number): boolean => {
+        const itensAfetados = inabilitacoesPreMap.get(fornecedorId);
+        if (!itensAfetados) return false; // Não está inabilitado
+        if (itensAfetados.length === 0) return true; // Inabilitação geral (sem itens específicos)
+        return itensAfetados.includes(numeroItem);
+      };
+
       // Para cada item, ordenar e pegar o vencedor
       const vencedoresData: any[] = [];
       
@@ -682,8 +710,11 @@ export function DialogAnaliseDocumentalSelecao({
       lancePorItem.forEach((lances, numeroItem) => {
         console.log(`📊 [ANÁLISE DOC] Processando ${isPorLote ? 'lote' : 'item'} ${numeroItem} com ${lances.length} lances`);
         
+        // CRÍTICO: Filtrar inabilitados PRIMEIRO (igual ao Controle de Lances)
+        const lancesNaoInabilitados = lances.filter(l => !isInabilitadoNoItem(l.fornecedor_id, numeroItem));
+        
         // Ordenar: DESCRESCENTE para desconto (maior primeiro), ASCENDENTE para preço (menor primeiro)
-        const lancesOrdenados = [...lances].sort((a, b) => {
+        const lancesOrdenados = [...lancesNaoInabilitados].sort((a, b) => {
           if (isDesconto) {
             return b.valor_lance - a.valor_lance;
           } else {
@@ -700,7 +731,7 @@ export function DialogAnaliseDocumentalSelecao({
           console.log(`🏆 [ANÁLISE DOC] ${isPorLote ? 'Lote' : 'Item'} ${numeroItem}: Vencedor por ${tipoVencedor} -`, vencedor.fornecedores?.razao_social, `- valor:`, vencedor.valor_lance);
           vencedoresData.push(vencedor);
         } else {
-          console.log(`⚠️ [ANÁLISE DOC] ${isPorLote ? 'Lote' : 'Item'} ${numeroItem}: Todos os lances estão acima do estimado - FRACASSADO`);
+          console.log(`⚠️ [ANÁLISE DOC] ${isPorLote ? 'Lote' : 'Item'} ${numeroItem}: Todos os lances válidos estão acima do estimado ou inabilitados - FRACASSADO`);
         }
       });
       
@@ -721,9 +752,12 @@ export function DialogAnaliseDocumentalSelecao({
            estimativa = (estimativasPorItem.get(numeroItem) as number) || 0;
          }
         
-        // Filtrar propostas classificadas (valor <= estimativa ou desconto >= estimativa)
+        // Filtrar propostas classificadas (valor <= estimativa ou desconto >= estimativa) E não inabilitadas
         const propostasClassificadas = propostas.filter((p: any) => {
           const valor = Number(p.valor_unitario_ofertado) || 0;
+          // Filtrar inabilitados (igual ao Controle de Lances)
+          const fornecedorId = (p.selecao_propostas_fornecedor as any)?.fornecedor_id;
+          if (fornecedorId && isInabilitadoNoItem(fornecedorId, numeroItem)) return false;
           if (estimativa === 0) return valor > 0; // Se não há estimativa, qualquer valor válido é aceito
           return isDesconto ? valor >= estimativa : valor <= estimativa;
         });
@@ -756,21 +790,12 @@ export function DialogAnaliseDocumentalSelecao({
       
       console.log(`✅ [ANÁLISE DOC] Vencedores dinâmicos identificados:`, vencedoresData.length);
 
-      // Buscar inabilitações ativas
-      const { data: inabilitacoes, error: inabilitacoesError } = await supabase
-        .from("fornecedores_inabilitados_selecao")
-        .select("*")
-        .eq("selecao_id", selecaoId)
-        .eq("revertido", false);
-
-      if (inabilitacoesError) throw inabilitacoesError;
-
+      // Reutilizar inabilitações já carregadas acima (inabilitacoesPreLoad)
       const inabilitacoesMap = new Map<string, FornecedorInabilitado>();
-      (inabilitacoes || []).forEach((inab: any) => {
+      (inabilitacoesPreLoad || []).forEach((inab: any) => {
         const existing = inabilitacoesMap.get(inab.fornecedor_id);
         if (existing) {
-          // Acumular itens de múltiplas inabilitações do mesmo fornecedor
-          const todosItens = [...new Set([...existing.itens_afetados, ...inab.itens_afetados])];
+          const todosItens = [...new Set([...existing.itens_afetados, ...(inab.itens_afetados || [])])];
           const motivos = existing.motivo_inabilitacao !== inab.motivo_inabilitacao 
             ? `${existing.motivo_inabilitacao}; ${inab.motivo_inabilitacao}`
             : existing.motivo_inabilitacao;
@@ -783,7 +808,7 @@ export function DialogAnaliseDocumentalSelecao({
           inabilitacoesMap.set(inab.fornecedor_id, {
             id: inab.id,
             fornecedor_id: inab.fornecedor_id,
-            itens_afetados: inab.itens_afetados,
+            itens_afetados: inab.itens_afetados || [],
             motivo_inabilitacao: inab.motivo_inabilitacao,
             data_inabilitacao: inab.data_inabilitacao,
             revertido: inab.revertido,
@@ -798,7 +823,7 @@ export function DialogAnaliseDocumentalSelecao({
           motivo: inab.motivo_inabilitacao
         })));
 
-      // Identificar itens que foram inabilitados e precisam ir para segundo colocado
+      // Como já filtramos inabilitados nos vencedoresData, verificar se ainda há itens residuais
       const itensInabilitadosParaSegundo: number[] = [];
       (vencedoresData || []).forEach((lance: any) => {
         const inab = inabilitacoesMap.get(lance.fornecedor_id);
