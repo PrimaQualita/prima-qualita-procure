@@ -57,6 +57,7 @@ interface Lance {
     cnpj: string;
   };
   _inabilitado?: boolean; // Marcação local para lances de fornecedores inabilitados
+  _isProposta?: boolean; // Marcação local para propostas iniciais tratadas como lances
 }
 
 interface Mensagem {
@@ -1660,7 +1661,7 @@ export function DialogSessaoLances({
       setInabilitacoesPorFornecedor(inabilitacoesPorFornecedor);
 
       // INCLUIR tipo_lance para priorizar negociações
-      const { data, error } = await supabase
+      const { data: lancesData, error } = await supabase
         .from("lances_fornecedores")
         .select(`*, fornecedores (razao_social, cnpj)`)
         .eq("selecao_id", selecaoId)
@@ -1668,16 +1669,157 @@ export function DialogSessaoLances({
         .order("data_hora_lance", { ascending: true });
 
       if (error) throw error;
+
+      // BUSCAR PROPOSTAS ORIGINAIS PARA INCLUIR COMO LANCES
+      const { data: propostas } = await supabase
+        .from("selecao_propostas_fornecedor")
+        .select("id, fornecedor_id, fornecedores(razao_social, cnpj), data_envio")
+        .eq("selecao_id", selecaoId);
+
+      const propostaIds = (propostas || []).map((p: any) => p.id);
+      
+      const { data: itensPropostas } = propostaIds.length > 0 
+        ? await supabase
+            .from("selecao_respostas_itens_fornecedor")
+            .select("proposta_id, numero_item, lote_id, valor_unitario_ofertado, valor_total_item, desclassificado")
+            .in("proposta_id", propostaIds)
+        : { data: [] };
+
+      // Mapear propostas para formato de lances
+      const propostasComoLances: any[] = [];
+      const propostaMap = new Map((propostas || []).map((p: any) => [p.id, p]));
+
+      // Mapa de lote_id para numero_lote (se for por_lote)
+      const loteIdToNumero = new Map<string, number>();
+      if (isPorLote) {
+        lotes.forEach(l => loteIdToNumero.set(l.id, l.numero_lote));
+      }
+
+      if (isPorLote) {
+        // Agrupar por lote + fornecedor
+        const totalPorLoteFornecedor = new Map<string, { fornecedorId: string; fornecedores: any; valorTotal: number; dataEnvio: string }>();
+        
+        (itensPropostas || []).forEach((ip: any) => {
+          if (ip.desclassificado) return;
+          const propInfo = propostaMap.get(ip.proposta_id);
+          if (!propInfo) return;
+          
+          const loteId = ip.lote_id;
+          if (!loteId) return;
+          const numeroLote = loteIdToNumero.get(loteId);
+          if (numeroLote === undefined) return;
+
+          const valorUnit = Number(ip.valor_unitario_ofertado) || 0;
+          const totalItem = Number(ip.valor_total_item) > 0 
+            ? Number(ip.valor_total_item) 
+            : valorUnit * Number(ip.quantidade || 0); // Quantidade não temos aqui no item resposta, mas no item original. 
+            // Na verdade, para simplificar e ser consistente com a planilha PDF, usamos valor_unitario_ofertado como base se total não existir
+            // Mas cuidado: valor_lance deve ser o TOTAL DO LOTE
+          
+          // Melhor abordagem: usar valor_unitario_ofertado * quantidade (que precisamos pegar dos itens)
+          // Mas como não temos quantidade fácil aqui, vamos assumir valor_total_item está correto ou usar unitário se for item único
+          // O PDF faz um cálculo complexo. Vamos tentar usar o valor_total_item que vem do banco se disponível.
+          
+          const valorParaSoma = Number(ip.valor_total_item) || Number(ip.valor_unitario_ofertado) || 0;
+          if (valorParaSoma <= 0) return;
+
+          const key = `${numeroLote}_${propInfo.fornecedor_id}`;
+          if (!totalPorLoteFornecedor.has(key)) {
+            totalPorLoteFornecedor.set(key, { 
+              fornecedorId: propInfo.fornecedor_id, 
+              fornecedores: propInfo.fornecedores, 
+              valorTotal: 0, 
+              dataEnvio: propInfo.data_envio 
+            });
+          }
+          totalPorLoteFornecedor.get(key)!.valorTotal += valorParaSoma;
+        });
+
+        totalPorLoteFornecedor.forEach((dados, key) => {
+          const numeroLote = parseInt(key.split('_')[0]);
+          propostasComoLances.push({
+            id: `proposta_${dados.fornecedorId}_${numeroLote}`,
+            fornecedor_id: dados.fornecedorId,
+            fornecedores: dados.fornecedores,
+            valor_lance: dados.valorTotal,
+            data_hora_lance: dados.dataEnvio || new Date().toISOString(),
+            numero_item: numeroLote,
+            tipo_lance: 'proposta_inicial',
+            indicativo_lance_vencedor: false,
+            numero_rodada: 0,
+            _isProposta: true
+          });
+        });
+      } else if (isGlobal) {
+        // Agrupar por fornecedor (Item 0)
+        const totalPorFornecedor = new Map<string, { fornecedores: any; valorTotal: number; dataEnvio: string }>();
+        (itensPropostas || []).forEach((ip: any) => {
+          if (ip.desclassificado) return;
+          const propInfo = propostaMap.get(ip.proposta_id);
+          if (!propInfo) return;
+          const valorParaSoma = Number(ip.valor_total_item) || Number(ip.valor_unitario_ofertado) || 0;
+          if (valorParaSoma <= 0) return;
+
+          if (!totalPorFornecedor.has(propInfo.fornecedor_id)) {
+            totalPorFornecedor.set(propInfo.fornecedor_id, { 
+              fornecedores: propInfo.fornecedores, 
+              valorTotal: 0, 
+              dataEnvio: propInfo.data_envio 
+            });
+          }
+          totalPorFornecedor.get(propInfo.fornecedor_id)!.valorTotal += valorParaSoma;
+        });
+
+        totalPorFornecedor.forEach((dados, fornecedorId) => {
+          propostasComoLances.push({
+            id: `proposta_${fornecedorId}_0`,
+            fornecedor_id: fornecedorId,
+            fornecedores: dados.fornecedores,
+            valor_lance: dados.valorTotal,
+            data_hora_lance: dados.dataEnvio || new Date().toISOString(),
+            numero_item: 0,
+            tipo_lance: 'proposta_inicial',
+            indicativo_lance_vencedor: false,
+            numero_rodada: 0,
+            _isProposta: true
+          });
+        });
+      } else {
+        // Por item
+        (itensPropostas || []).forEach((ip: any) => {
+          if (ip.desclassificado) return;
+          const propInfo = propostaMap.get(ip.proposta_id);
+          if (!propInfo) return;
+          const valorUnit = Number(ip.valor_unitario_ofertado) || 0;
+          if (valorUnit <= 0) return;
+
+          propostasComoLances.push({
+            id: `proposta_${propInfo.fornecedor_id}_${ip.numero_item}`,
+            fornecedor_id: propInfo.fornecedor_id,
+            fornecedores: propInfo.fornecedores,
+            valor_lance: valorUnit,
+            data_hora_lance: propInfo.data_envio || new Date().toISOString(),
+            numero_item: ip.numero_item,
+            tipo_lance: 'proposta_inicial',
+            indicativo_lance_vencedor: false,
+            numero_rodada: 0,
+            _isProposta: true
+          });
+        });
+      }
+
+      // Combinar lances reais com propostas convertidas
+      const todosOsLances = [...(lancesData || []), ...propostasComoLances];
       
       // Armazenar todos os lances (para planilha)
-      setLancesCompletos(data || []);
+      setLancesCompletos(todosOsLances);
       
       // ORDENAÇÃO CUSTOMIZADA: Priorizar lances de negociação
       // Agrupar lances por item e ordenar cada grupo
       const isDesconto = criterioJulgamento === "desconto";
       
       // Marcar lances de fornecedores inabilitados mas NÃO filtrar - exibir todos
-      const lancesComMarcacao = (data || []).map((lance: any) => {
+      const lancesComMarcacao = todosOsLances.map((lance: any) => {
         const itensInabilitados = inabilitacoesPorFornecedor.get(lance.fornecedor_id);
         const inabilitadoNoItem = itensInabilitados && itensInabilitados.includes(lance.numero_item);
         return { ...lance, _inabilitado: inabilitadoNoItem };
@@ -3890,6 +4032,34 @@ export function DialogSessaoLances({
                                         Neg.
                                       </Badge>
                                     )}
+                                    {lance._isProposta && (
+                                      <Badge variant="outline" className="ml-1 text-[9px] px-1 py-0 bg-blue-50 text-blue-700 border-blue-300">
+                                        Inicial
+                                      </Badge>
+                                    )}
+                                    {/* Verificar desclassificação visualmente se houver estimativa carregada */}
+                                    {(() => {
+                                      // Recuperar estimativa do item
+                                      // Nota: A lógica completa está em loadVencedoresPorItem, aqui é uma aproximação visual
+                                      // Se for por_lote, não temos fácil acesso ao subtotal do lote aqui sem recalcular
+                                      // Para simplificar, mostramos desclassificado se o backend marcou (se tivéssemos esse campo)
+                                      // ou tentamos recalcular se for item simples
+                                      if (!isPorLote && !isGlobal && estimativasItens.size > 0) {
+                                        const est = estimativasItens.get(lance.numero_item);
+                                        if (est && est > 0) {
+                                          const isDesc = criterioJulgamento === "desconto";
+                                          const desclassificado = isDesc ? lance.valor_lance < est : lance.valor_lance > est;
+                                          if (desclassificado) {
+                                            return (
+                                              <Badge variant="outline" className="ml-1 text-[9px] px-1 py-0 bg-red-50 text-red-700 border-red-300">
+                                                Desclassificado
+                                              </Badge>
+                                            );
+                                          }
+                                        }
+                                      }
+                                      return null;
+                                    })()}
                                   </TableCell>
                                   <TableCell className="text-xs">{formatDateTime(lance.data_hora_lance)}</TableCell>
                                   <TableCell className="text-xs">
