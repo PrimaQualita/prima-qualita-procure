@@ -731,7 +731,98 @@ export function DialogAnaliseDocumentalSelecao({
           console.log(`🏆 [ANÁLISE DOC] ${isPorLote ? 'Lote' : 'Item'} ${numeroItem}: Vencedor por ${tipoVencedor} -`, vencedor.fornecedores?.razao_social, `- valor:`, vencedor.valor_lance);
           vencedoresData.push(vencedor);
         } else {
-          console.log(`⚠️ [ANÁLISE DOC] ${isPorLote ? 'Lote' : 'Item'} ${numeroItem}: Todos os lances válidos estão acima do estimado ou inabilitados - FRACASSADO`);
+          // FALLBACK: Todos os lances filtrados (inabilitados ou acima do estimado)
+          // Buscar vencedor nas propostas originais (igual ao Controle de Lances)
+          console.log(`🔍 [ANÁLISE DOC] ${isPorLote ? 'Lote' : 'Item'} ${numeroItem}: Sem lances válidos - buscando FALLBACK em propostas originais...`);
+          
+          let encontrouFallback = false;
+          
+          if (isPorLote && propostasOriginais && propostasOriginais.length > 0) {
+            // Para por_lote: agrupar propostas do lote por fornecedor, somar totais
+            const totalPorFornecedor = new Map<string, { fornecedorId: string; fornecedor: any; valorTotal: number }>();
+            
+            (propostasOriginais || []).forEach((proposta: any) => {
+              if (proposta?.desclassificado) return;
+              const loteId = proposta.lote_id;
+              if (!loteId) return;
+              const numeroLote = loteIdToNumeroGlobal.get(loteId);
+              if (numeroLote !== numeroItem) return;
+              
+              const fornecedorId = (proposta.selecao_propostas_fornecedor as any)?.fornecedor_id;
+              if (!fornecedorId) return;
+              
+              // Filtrar inabilitados
+              if (isInabilitadoNoItem(fornecedorId, numeroItem)) return;
+              
+              const valorUnit = Number(proposta.valor_unitario_ofertado) || 0;
+              const totalItem = Number(proposta.valor_total_item) > 0 
+                ? Number(proposta.valor_total_item) 
+                : valorUnit * Number(proposta.quantidade || 0);
+              if (totalItem <= 0 || valorUnit <= 0) return;
+              
+              const fornecedor = (proposta.selecao_propostas_fornecedor as any)?.fornecedores;
+              if (!totalPorFornecedor.has(fornecedorId)) {
+                totalPorFornecedor.set(fornecedorId, { fornecedorId, fornecedor, valorTotal: 0 });
+              }
+              totalPorFornecedor.get(fornecedorId)!.valorTotal += totalItem;
+            });
+            
+            // Filtrar desclassificados por preço e ordenar
+            const fornecedoresOrdenados = Array.from(totalPorFornecedor.values())
+              .filter(f => !isDesclassificadoPorPreco(numeroItem, f.valorTotal))
+              .sort((a, b) => isDesconto ? b.valorTotal - a.valorTotal : a.valorTotal - b.valorTotal);
+            
+            if (fornecedoresOrdenados.length > 0) {
+              const melhor = fornecedoresOrdenados[0];
+              console.log(`🏆 [ANÁLISE DOC] Lote ${numeroItem}: Vencedor por PROPOSTA ORIGINAL (fallback) -`, melhor.fornecedor?.razao_social, `- valor:`, melhor.valorTotal);
+              vencedoresData.push({
+                numero_item: numeroItem,
+                valor_lance: melhor.valorTotal,
+                fornecedor_id: melhor.fornecedorId,
+                tipo_lance: 'proposta_original',
+                fornecedores: melhor.fornecedor
+              });
+              encontrouFallback = true;
+            }
+          } else if (!isPorLote && propostasOriginais && propostasOriginais.length > 0) {
+            // Para por_item/global: buscar propostas do item
+            const propostasDoItem = (propostasOriginais || [])
+              .filter((p: any) => {
+                if (p?.desclassificado) return false;
+                if (p.numero_item !== numeroItem) return false;
+                const fornecedorId = (p.selecao_propostas_fornecedor as any)?.fornecedor_id;
+                if (!fornecedorId) return false;
+                if (isInabilitadoNoItem(fornecedorId, numeroItem)) return false;
+                const valorUnit = Number(p.valor_unitario_ofertado) || 0;
+                if (valorUnit <= 0) return false;
+                if (isDesclassificadoPorPreco(numeroItem, valorUnit)) return false;
+                return true;
+              })
+              .sort((a: any, b: any) => {
+                const valA = Number(a.valor_unitario_ofertado) || 0;
+                const valB = Number(b.valor_unitario_ofertado) || 0;
+                return isDesconto ? valB - valA : valA - valB;
+              });
+            
+            if (propostasDoItem.length > 0) {
+              const melhor = propostasDoItem[0];
+              const fornecedor = (melhor.selecao_propostas_fornecedor as any)?.fornecedores;
+              const fornecedorId = (melhor.selecao_propostas_fornecedor as any)?.fornecedor_id;
+              console.log(`🏆 [ANÁLISE DOC] Item ${numeroItem}: Vencedor por PROPOSTA ORIGINAL (fallback) -`, fornecedor?.razao_social, `- valor:`, melhor.valor_unitario_ofertado);
+              vencedoresData.push({
+                numero_item: numeroItem,
+                valor_lance: Number(melhor.valor_unitario_ofertado) || 0,
+                fornecedor_id: fornecedorId,
+                tipo_lance: 'proposta_original',
+                fornecedores: fornecedor
+              });
+              encontrouFallback = true;
+            }
+          }
+          
+          if (!encontrouFallback) {
+            console.log(`⚠️ [ANÁLISE DOC] ${isPorLote ? 'Lote' : 'Item'} ${numeroItem}: Nenhum lance válido nem proposta classificada - FRACASSADO`);
+          }
         }
       });
       
