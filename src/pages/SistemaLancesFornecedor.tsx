@@ -33,6 +33,7 @@ import { format } from "date-fns";
 import { ChatSelecao } from "@/components/selecoes/ChatSelecao";
 import { gerarPropostaSelecaoPDF } from "@/lib/gerarPropostaSelecaoPDF";
 import { gerarRecursoPDF } from "@/lib/gerarRecursoPDF";
+import { fornecedorEhVencedorAtualSelecao } from "@/lib/selecaoVencedoresAtuais";
 
 interface Item {
   id: string;
@@ -821,120 +822,28 @@ const SistemaLancesFornecedor = () => {
         setAssinouAta(!!assinatura);
       }
       
-      // 2. Identificar vencedores DINAMICAMENTE (não depender de indicativo_lance_vencedor)
-      const { data: todosLances } = await supabase
-        .from("lances_fornecedores")
-        .select("*")
-        .eq("selecao_id", selecao.id)
-        .order("data_hora_lance", { ascending: false });
-      
-      // Buscar critério de julgamento
-      const criterio = selecao?.criterios_julgamento || "por_item";
-      const ehDesconto = criterio === "desconto" || criterio === "maior_percentual_desconto";
-      
-      let fornecedorEhVencedor = false;
-      
-      if (!todosLances || todosLances.length === 0) {
-        // SEM LANCES: verificar vitória pela proposta inicial
-        console.log("ℹ️ Nenhum lance registrado - verificando propostas iniciais...");
-        
-        const { data: todasPropostas } = await supabase
-          .from("selecao_propostas_fornecedor")
-          .select("id, fornecedor_id, valor_total_proposta")
-          .eq("selecao_id", selecao.id);
-        
-        if (todasPropostas && todasPropostas.length > 0) {
-          // Ordenar: desconto = descendente (maior vence), preço = ascendente (menor vence)
-          const propostasOrdenadas = [...todasPropostas].sort((a, b) => 
-            ehDesconto ? (b.valor_total_proposta || 0) - (a.valor_total_proposta || 0) : (a.valor_total_proposta || 0) - (b.valor_total_proposta || 0)
-          );
-          
-          const vencedor = propostasOrdenadas[0];
-          if (vencedor && vencedor.fornecedor_id === proposta.fornecedor_id) {
-            fornecedorEhVencedor = true;
-          }
-        }
-      } else {
-        // COM LANCES: calcular vencedores pelos lances CONSIDERANDO INABILITAÇÕES
-        // Buscar inabilitações ativas
-        const { data: inabilitacoesAtivas } = await supabase
-          .from("fornecedores_inabilitados_selecao")
-          .select("fornecedor_id, itens_afetados")
-          .eq("selecao_id", selecao.id)
-          .eq("revertido", false);
+      // 2. Identificar vencedor atual com lógica dinâmica centralizada
+      const fornecedorEhVencedor = await fornecedorEhVencedorAtualSelecao(
+        selecao.id,
+        proposta.fornecedor_id,
+      );
 
-        const inabilitacoesPorFornecedor = new Map<string, Set<number>>();
-        const fornecedoresInabilitadosGlobalmente = new Set<string>();
-        inabilitacoesAtivas?.forEach((inab: any) => {
-          if (!inab.itens_afetados || inab.itens_afetados.length === 0) {
-            fornecedoresInabilitadosGlobalmente.add(inab.fornecedor_id);
-          } else {
-            if (!inabilitacoesPorFornecedor.has(inab.fornecedor_id)) {
-              inabilitacoesPorFornecedor.set(inab.fornecedor_id, new Set());
-            }
-            inab.itens_afetados.forEach((item: number) => {
-              inabilitacoesPorFornecedor.get(inab.fornecedor_id)!.add(item);
-            });
-          }
-        });
-
-        // Filtrar lances válidos (não inabilitados)
-        const lancesValidos = todosLances.filter((lance: any) => {
-          if (fornecedoresInabilitadosGlobalmente.has(lance.fornecedor_id)) return false;
-          const itensInab = inabilitacoesPorFornecedor.get(lance.fornecedor_id);
-          if (itensInab?.has(lance.numero_item)) return false;
-          return true;
-        });
-
-        const vencedoresPorItem = new Map<number, string>();
-        const itensPorFornecedor = new Map<number, { fornecedor_id: string; valor: number }[]>();
-        
-        lancesValidos.forEach((lance: any) => {
-          const key = lance.numero_item;
-          if (!itensPorFornecedor.has(key)) {
-            itensPorFornecedor.set(key, []);
-          }
-          
-          const lancesItem = itensPorFornecedor.get(key)!;
-          const existente = lancesItem.find(l => l.fornecedor_id === lance.fornecedor_id);
-          
-          if (!existente) {
-            lancesItem.push({ fornecedor_id: lance.fornecedor_id, valor: lance.valor_lance });
-          } else {
-            if (ehDesconto) {
-              if (lance.valor_lance > existente.valor) existente.valor = lance.valor_lance;
-            } else {
-              if (lance.valor_lance < existente.valor) existente.valor = lance.valor_lance;
-            }
-          }
-        });
-        
-        itensPorFornecedor.forEach((lances, numeroItem) => {
-          if (lances.length === 0) return;
-          const ordenado = [...lances].sort((a, b) => ehDesconto ? b.valor - a.valor : a.valor - b.valor);
-          vencedoresPorItem.set(numeroItem, ordenado[0].fornecedor_id);
-        });
-        
-        vencedoresPorItem.forEach((vencedorId) => {
-          if (vencedorId === proposta.fornecedor_id) {
-            fornecedorEhVencedor = true;
-          }
-        });
-      }
-      
       setEhVencedor(fornecedorEhVencedor);
-      
+
       // 3. Verificar se já enviou proposta realinhada
-      if (fornecedorEhVencedor) {
-        const { data: propostaRealinhada } = await supabase
-          .from("propostas_realinhadas")
-          .select("id")
-          .eq("selecao_id", selecao.id)
-          .eq("fornecedor_id", proposta.fornecedor_id)
-          .maybeSingle();
-        
-        setJaEnviouPropostaRealinhada(!!propostaRealinhada);
+      if (!fornecedorEhVencedor) {
+        setJaEnviouPropostaRealinhada(false);
+        return;
       }
+
+      const { data: propostaRealinhada } = await supabase
+        .from("propostas_realinhadas")
+        .select("id")
+        .eq("selecao_id", selecao.id)
+        .eq("fornecedor_id", proposta.fornecedor_id)
+        .maybeSingle();
+
+      setJaEnviouPropostaRealinhada(!!propostaRealinhada);
     } catch (error) {
       console.error("Erro ao carregar status de proposta realinhada:", error);
     }
