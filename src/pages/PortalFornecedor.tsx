@@ -16,6 +16,7 @@ import GestaoDocumentosFornecedor from "@/components/fornecedores/GestaoDocument
 import { NotificacaoRejeicao } from "@/components/fornecedores/NotificacaoRejeicao";
 import { Input } from "@/components/ui/input";
 import { atualizarAtaComAssinaturas } from "@/lib/gerarAtaSelecaoPDF";
+import { fornecedorEhVencedorAtualSelecao } from "@/lib/selecaoVencedoresAtuais";
 
 export default function PortalFornecedor() {
   const navigate = useNavigate();
@@ -90,6 +91,7 @@ export default function PortalFornecedor() {
     
     const interval = setInterval(() => {
       loadInabilitacoesPendentes(fornecedor.id);
+      loadInabilitacoesSelecaoPendentes(fornecedor.id);
     }, 10000); // Atualiza a cada 10 segundos
     
     return () => clearInterval(interval);
@@ -503,23 +505,18 @@ export default function PortalFornecedor() {
       const agora = new Date(utc + (3600000 * -3));
       
       const rejeicoesValidas = (rejeicoes || []).filter(rejeicao => {
-        // Só exibe se status é sem_recurso ou null
-        if (rejeicao.status_recurso && 
-            rejeicao.status_recurso !== 'sem_recurso') {
+        // Se o prazo já foi marcado como expirado no banco, não exibir
+        if (rejeicao.prazo_recurso_expirado) return false;
+
+        // Após manifestar ciência/intenção (sim ou não), não manter alerta no portal
+        if (rejeicao.data_manifestacao_intencao) return false;
+
+        // Se já avançou para outro status de recurso, não exibir alerta inicial
+        if (rejeicao.status_recurso && rejeicao.status_recurso !== 'sem_recurso') {
           return false;
         }
-        
-        // Se tem prazo_recurso_expirado = true, ignorar
-        if (rejeicao.prazo_recurso_expirado) return false;
-        
-        // Se já manifestou interesse, verificar se está dentro das 24h
-        if (rejeicao.data_manifestacao_intencao) {
-          const dataManifestacao = new Date(rejeicao.data_manifestacao_intencao);
-          const limite24h = new Date(dataManifestacao.getTime() + 24 * 60 * 60 * 1000);
-          return agora < limite24h;
-        }
-        
-        // Se não manifestou interesse, verificar se está dentro dos 5 minutos
+
+        // Sem manifestação: exibir apenas dentro da janela de 5 minutos
         const dataRejeicao = new Date(rejeicao.data_rejeicao);
         const limiteCincoMin = new Date(dataRejeicao.getTime() + 5 * 60 * 1000);
         return agora < limiteCincoMin;
@@ -594,29 +591,24 @@ export default function PortalFornecedor() {
 
       // Filtrar apenas os que ainda podem recorrer:
       // - Sem intenção declarada E dentro do prazo de 5 minutos
-      // - OU com intenção de recorrer mas sem recurso enviado ainda (aguardando_recurso)
       const agora = new Date();
       const PRAZO_MANIFESTACAO_MS = 5 * 60 * 1000; // 5 minutos em milissegundos
       
       const pendentes = inabilitacoesComRecurso.filter(inab => {
-        // Se declinou (deseja_recorrer = false), não mostrar
-        if (inab.intencao_declarada && inab.deseja_recorrer === false) {
+        // Após ciência (sim ou não), ocultar alerta no portal
+        if (inab.intencao_declarada) {
           return false;
         }
-        // Se já tem recurso enviado/respondido, não mostrar
+
+        // Se já tem recurso enviado/respondido, também não mostrar
         if (inab.status_recurso && inab.status_recurso !== 'aguardando_recurso') {
           return false;
         }
-        // Se não manifestou intenção, verificar se ainda está dentro do prazo de 5 minutos
-        if (!inab.intencao_declarada) {
-          const dataInabilitacao = new Date(inab.data_inabilitacao);
-          const tempoDecorrido = agora.getTime() - dataInabilitacao.getTime();
-          // Se passou mais de 5 minutos sem manifestação, não mostrar mais
-          if (tempoDecorrido > PRAZO_MANIFESTACAO_MS) {
-            return false;
-          }
-        }
-        return true;
+
+        // Sem manifestação: exibir somente dentro da janela de 5 minutos
+        const dataInabilitacao = new Date(inab.data_inabilitacao);
+        const tempoDecorrido = agora.getTime() - dataInabilitacao.getTime();
+        return tempoDecorrido <= PRAZO_MANIFESTACAO_MS;
       });
       
       console.log("✅ Inabilitações seleção encontradas:", pendentes);
@@ -694,74 +686,12 @@ export default function PortalFornecedor() {
 
         const propostaOriginalId = propostaIdPorSelecao.get(selecaoId) || null;
 
-        // CRÍTICO: Calcular DINAMICAMENTE se o fornecedor venceu algum item/lote
-        // NÃO confiar em indicativo_lance_vencedor (pode estar desatualizado)
-        
-        // Buscar critério de julgamento via processo de compras
-        const { data: selecaoData } = await supabase
-          .from("selecoes_fornecedores")
-          .select("processo_compra_id, processos_compras(criterio_julgamento)")
-          .eq("id", selecaoId)
-          .single();
-        
-        const criterio = (selecaoData?.processos_compras as any)?.criterio_julgamento || "por_item";
-        const ehDesconto = criterio === "maior_percentual_desconto" || criterio === "desconto";
-        
-        // Buscar TODOS os lances da seleção para calcular vencedores
-        const { data: todosLances } = await supabase
-          .from("lances_fornecedores")
-          .select("id, numero_item, fornecedor_id, valor_lance")
-          .eq("selecao_id", selecaoId);
-        
-        let fornecedorVenceuAlgumItem = false;
-        
-        if (!todosLances || todosLances.length === 0) {
-          // SEM LANCES: verificar vitória pela proposta inicial
-          console.log(`ℹ️ Nenhum lance na seleção ${selecaoId} - verificando propostas iniciais...`);
-          
-          // Buscar todas as propostas da seleção
-          const { data: todasPropostas } = await supabase
-            .from("selecao_propostas_fornecedor")
-            .select("id, fornecedor_id, valor_total_proposta")
-            .eq("selecao_id", selecaoId);
-          
-          if (todasPropostas && todasPropostas.length > 0) {
-            // Ordenar: desconto = descendente (maior vence), preço = ascendente (menor vence)
-            const propostasOrdenadas = [...todasPropostas].sort((a, b) => 
-              ehDesconto ? (b.valor_total_proposta || 0) - (a.valor_total_proposta || 0) : (a.valor_total_proposta || 0) - (b.valor_total_proposta || 0)
-            );
-            
-            const vencedor = propostasOrdenadas[0];
-            if (vencedor && vencedor.fornecedor_id === fornecedorId) {
-              fornecedorVenceuAlgumItem = true;
-            }
-          }
-        } else {
-          // COM LANCES: verificar vitória pelos lances
-          // Agrupar lances por item e identificar vencedor dinamicamente
-          const lancesPorItem = new Map<number, typeof todosLances>();
-          for (const lance of todosLances) {
-            const numItem = lance.numero_item || 0;
-            if (!lancesPorItem.has(numItem)) {
-              lancesPorItem.set(numItem, []);
-            }
-            lancesPorItem.get(numItem)!.push(lance);
-          }
-          
-          for (const [_numItem, lancesItem] of lancesPorItem) {
-            // Ordenar: desconto = descendente (maior vence), preço = ascendente (menor vence)
-            const lancesOrdenados = [...lancesItem].sort((a, b) => 
-              ehDesconto ? b.valor_lance - a.valor_lance : a.valor_lance - b.valor_lance
-            );
-            
-            const vencedor = lancesOrdenados[0];
-            if (vencedor && vencedor.fornecedor_id === fornecedorId) {
-              fornecedorVenceuAlgumItem = true;
-              break;
-            }
-          }
-        }
-        
+        // CRÍTICO: validar vencedor atual pela lógica dinâmica centralizada
+        const fornecedorVenceuAlgumItem = await fornecedorEhVencedorAtualSelecao(
+          selecaoId,
+          fornecedorId,
+        );
+
         if (!fornecedorVenceuAlgumItem) {
           console.log(`⚠️ Fornecedor não venceu nenhum item na seleção ${selecaoId} - ignorando proposta realinhada`);
           continue;
@@ -847,7 +777,10 @@ export default function PortalFornecedor() {
       console.log("PDF da ata atualizado com sucesso!");
 
       toast.success("Ata assinada digitalmente com sucesso!");
-      await loadAtasPendentes(fornecedor.id);
+      await Promise.all([
+        loadAtasPendentes(fornecedor.id),
+        loadPropostasRealinhadasPendentes(fornecedor.id),
+      ]);
     } catch (error) {
       console.error("Erro ao assinar ata:", error);
       toast.error("Erro ao assinar ata: " + (error as Error).message);
