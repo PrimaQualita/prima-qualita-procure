@@ -120,7 +120,8 @@ export async function gerarPropostaSelecaoPDF(
   dataEnvioProposta: string,
   itensAtualizados?: Array<{ numero_item: number; descricao: string; quantidade: number; unidade: string; marca: string | null; valor_unitario_ofertado: number; lote_id?: string; numero_lote?: number; descricao_lote?: string }>,
   criterioJulgamento?: string,
-  comprovantes: File[] = []
+  comprovantes: File[] = [],
+  tipoProcesso?: string
 ): Promise<{ url: string; nome: string; hash: string; protocolo: string }> {
   try {
     console.log('📎 Comprovantes recebidos na função:', comprovantes.length);
@@ -397,9 +398,12 @@ export async function gerarPropostaSelecaoPDF(
       // Ordenar lotes por número
       const lotesOrdenados = Array.from(lotes.values()).sort((a, b) => a.numero_lote - b.numero_lote);
 
+      const ocultarMarca = tipoProcesso && tipoProcesso !== 'material';
+
       // Preparar dados para autoTable com estrutura por lote
       const tableData: any[] = [];
       const loteSubtotals: { [key: number]: number } = {};
+      const numCols = ocultarMarca ? 6 : 7;
 
       for (const lote of lotesOrdenados) {
         // Linha de título do lote
@@ -416,17 +420,20 @@ export async function gerarPropostaSelecaoPDF(
           const valorTotalItem = itemCotado ? item.quantidade * item.valor_unitario_ofertado : 0;
           subtotalLote += valorTotalItem;
           
-          tableData.push({
+          const rowData: any = {
             isLoteTitle: false,
             isSubtotal: false,
             item: item.numero_item.toString(),
             descricao: sanitizarTexto(item.descricao),
             quantidade: item.quantidade.toString(),
             unidade: sanitizarTexto(item.unidade),
-            marca: sanitizarTexto(item.marca || ''),
             valorUnitario: itemCotado ? `R$ ${formatarMoeda(item.valor_unitario_ofertado)}` : '-',
             valorTotal: itemCotado ? `R$ ${formatarMoeda(valorTotalItem)}` : '-'
-          });
+          };
+          if (!ocultarMarca) {
+            rowData.marca = sanitizarTexto(item.marca || '');
+          }
+          tableData.push(rowData);
         });
 
         loteSubtotals[lote.numero_lote] = subtotalLote;
@@ -440,15 +447,32 @@ export async function gerarPropostaSelecaoPDF(
       }
 
       // Larguras de coluna
-      const colWidths = {
-        item: 12,
-        descricao: 65,
-        quantidade: 15,
-        unidade: 15,
-        marca: 25,
-        valorUnitario: 25,
-        valorTotal: 23
-      };
+      const colWidths = ocultarMarca
+        ? { item: 12, descricao: 75, quantidade: 18, unidade: 18, valorUnitario: 28, valorTotal: 29 }
+        : { item: 12, descricao: 65, quantidade: 15, unidade: 15, marca: 25, valorUnitario: 25, valorTotal: 23 };
+
+      const headRow = ocultarMarca
+        ? ['Item', 'Descrição', 'Qtd', 'Unid', 'Vlr Unit.', 'Vlr Total']
+        : ['Item', 'Descrição', 'Qtd', 'Unid', 'Marca', 'Vlr Unit.', 'Vlr Total'];
+
+      const columnStylesLote: any = ocultarMarca
+        ? {
+            0: { cellWidth: colWidths.item, halign: 'center', textColor: [0, 0, 0] },
+            1: { cellWidth: colWidths.descricao, halign: 'justify', textColor: [0, 0, 0] },
+            2: { cellWidth: colWidths.quantidade, halign: 'center', textColor: [0, 0, 0] },
+            3: { cellWidth: colWidths.unidade, halign: 'center', textColor: [0, 0, 0] },
+            4: { cellWidth: colWidths.valorUnitario, halign: 'right', textColor: [0, 0, 0] },
+            5: { cellWidth: colWidths.valorTotal, halign: 'right', textColor: [0, 0, 0] }
+          }
+        : {
+            0: { cellWidth: colWidths.item, halign: 'center', textColor: [0, 0, 0] },
+            1: { cellWidth: colWidths.descricao, halign: 'justify', textColor: [0, 0, 0] },
+            2: { cellWidth: colWidths.quantidade, halign: 'center', textColor: [0, 0, 0] },
+            3: { cellWidth: colWidths.unidade, halign: 'center', textColor: [0, 0, 0] },
+            4: { cellWidth: colWidths.marca, halign: 'center', textColor: [0, 0, 0] },
+            5: { cellWidth: colWidths.valorUnitario, halign: 'right', textColor: [0, 0, 0] },
+            6: { cellWidth: colWidths.valorTotal, halign: 'right', textColor: [0, 0, 0] }
+          };
 
       // Usar autoTable para renderização robusta com quebra de página
       autoTable(doc, {
@@ -463,10 +487,10 @@ export async function gerarPropostaSelecaoPDF(
           overflow: 'linebreak',
           lineColor: [200, 200, 200],
           lineWidth: 0.3,
-          textColor: [0, 0, 0] // Garantir texto preto em todas as células
+          textColor: [0, 0, 0]
         },
         bodyStyles: {
-          textColor: [0, 0, 0], // Forçar texto preto no corpo da tabela
+          textColor: [0, 0, 0],
           font: 'helvetica',
           fontStyle: 'normal'
         },
@@ -476,23 +500,18 @@ export async function gerarPropostaSelecaoPDF(
           fontStyle: 'bold',
           halign: 'center'
         },
-        columnStyles: {
-          0: { cellWidth: colWidths.item, halign: 'center', textColor: [0, 0, 0] },
-          1: { cellWidth: colWidths.descricao, halign: 'justify', textColor: [0, 0, 0] },
-          2: { cellWidth: colWidths.quantidade, halign: 'center', textColor: [0, 0, 0] },
-          3: { cellWidth: colWidths.unidade, halign: 'center', textColor: [0, 0, 0] },
-          4: { cellWidth: colWidths.marca, halign: 'center', textColor: [0, 0, 0] },
-          5: { cellWidth: colWidths.valorUnitario, halign: 'right', textColor: [0, 0, 0] },
-          6: { cellWidth: colWidths.valorTotal, halign: 'right', textColor: [0, 0, 0] }
-        },
-        head: [['Item', 'Descrição', 'Qtd', 'Unid', 'Marca', 'Vlr Unit.', 'Vlr Total']],
+        columnStyles: columnStylesLote,
+        head: [headRow],
         body: tableData.map(row => {
           if (row.isLoteTitle) {
-            return [{ content: row.loteDescricao, colSpan: 7, styles: { fillColor: [220, 220, 220], fontStyle: 'bold', halign: 'left' } }];
+            return [{ content: row.loteDescricao, colSpan: numCols, styles: { fillColor: [220, 220, 220], fontStyle: 'bold', halign: 'left' } }];
           } else if (row.isSubtotal) {
-            return [{ content: `Subtotal ${row.loteDescricao}:`, colSpan: 6, styles: { fillColor: [240, 240, 240], fontStyle: 'bold', halign: 'left' } }, 
+            return [{ content: `Subtotal ${row.loteDescricao}:`, colSpan: numCols - 1, styles: { fillColor: [240, 240, 240], fontStyle: 'bold', halign: 'left' } }, 
                     { content: row.subtotal, styles: { fillColor: [240, 240, 240], fontStyle: 'bold', halign: 'right' } }];
           } else {
+            if (ocultarMarca) {
+              return [row.item, row.descricao, row.quantidade, row.unidade, row.valorUnitario, row.valorTotal];
+            }
             return [row.item, row.descricao, row.quantidade, row.unidade, row.marca, row.valorUnitario, row.valorTotal];
           }
         }),
@@ -593,6 +612,7 @@ export async function gerarPropostaSelecaoPDF(
 
     } else {
       // ============ LÓGICA ORIGINAL PARA OUTROS CRITÉRIOS ============
+      const ocultarMarcaStd = tipoProcesso && tipoProcesso !== 'material';
 
     // Desenhar borda externa da tabela (perímetro)
     let tabelaY = y - 5;
@@ -615,31 +635,46 @@ export async function gerarPropostaSelecaoPDF(
     
     // Posições das linhas verticais (divisores) - ajustadas para evitar overflow
     const colPositions = isDesconto 
-      ? [
-          margemEsquerda + 12,   // Fim Item
-          margemEsquerda + 82,   // Fim Descrição
-          margemEsquerda + 96,   // Fim Qtd
-          margemEsquerda + 110,  // Fim Unid
-          margemEsquerda + 140   // Fim Marca (% Desconto vai até o fim sem linha)
-        ]
-      : [
-          margemEsquerda + 12,   // Fim Item
-          margemEsquerda + 77,   // Fim Descrição
-          margemEsquerda + 92,   // Fim Qtd
-          margemEsquerda + 107,  // Fim Unid
-          margemEsquerda + 132,  // Fim Marca
-          margemEsquerda + 157   // Fim Valor Unitário
-        ];
+      ? (ocultarMarcaStd
+        ? [
+            margemEsquerda + 12,   // Fim Item
+            margemEsquerda + 95,   // Fim Descrição (expandida)
+            margemEsquerda + 112,  // Fim Qtd
+            margemEsquerda + 140   // Fim Unid (% Desconto vai até o fim)
+          ]
+        : [
+            margemEsquerda + 12,   // Fim Item
+            margemEsquerda + 82,   // Fim Descrição
+            margemEsquerda + 96,   // Fim Qtd
+            margemEsquerda + 110,  // Fim Unid
+            margemEsquerda + 140   // Fim Marca (% Desconto vai até o fim sem linha)
+          ])
+      : (ocultarMarcaStd
+        ? [
+            margemEsquerda + 12,   // Fim Item
+            margemEsquerda + 92,   // Fim Descrição (expandida)
+            margemEsquerda + 110,  // Fim Qtd
+            margemEsquerda + 132,  // Fim Unid
+            margemEsquerda + 157   // Fim Valor Unitário
+          ]
+        : [
+            margemEsquerda + 12,   // Fim Item
+            margemEsquerda + 77,   // Fim Descrição
+            margemEsquerda + 92,   // Fim Qtd
+            margemEsquerda + 107,  // Fim Unid
+            margemEsquerda + 132,  // Fim Marca
+            margemEsquerda + 157   // Fim Valor Unitário
+          ]);
     
     // Centros das colunas calculados com base nas bordas
     const colItemCenter = margemEsquerda + (colPositions[0] - margemEsquerda) / 2;
     const colDescCenter = colPositions[0] + (colPositions[1] - colPositions[0]) / 2;
     const colQtdCenter = colPositions[1] + (colPositions[2] - colPositions[1]) / 2;
     const colUniCenter = colPositions[2] + (colPositions[3] - colPositions[2]) / 2;
-    const colMarcaCenter = colPositions[3] + (colPositions[4] - colPositions[3]) / 2;
-    const colValorUnitCenter = isDesconto ? undefined : colPositions[4] + (colPositions[5] - colPositions[4]) / 2;
-    const colValorTotalCenter = isDesconto ? undefined : colPositions[5] + (margemEsquerda + larguraUtil - colPositions[5]) / 2;
-    const colDescontoCenter = isDesconto ? colPositions[4] + (margemEsquerda + larguraUtil - colPositions[4]) / 2 : undefined;
+    const colMarcaCenter = ocultarMarcaStd ? undefined : colPositions[3] + (colPositions[4] - colPositions[3]) / 2;
+    const colValorUnitCenter = isDesconto ? undefined : (ocultarMarcaStd ? colPositions[3] + (colPositions[4] - colPositions[3]) / 2 : colPositions[4] + (colPositions[5] - colPositions[4]) / 2);
+    const colValorTotalCenter = isDesconto ? undefined : (ocultarMarcaStd ? colPositions[4] + (margemEsquerda + larguraUtil - colPositions[4]) / 2 : colPositions[5] + (margemEsquerda + larguraUtil - colPositions[5]) / 2);
+    const colDescontoCenter = isDesconto ? (ocultarMarcaStd ? colPositions[3] + (margemEsquerda + larguraUtil - colPositions[3]) / 2 : colPositions[4] + (margemEsquerda + larguraUtil - colPositions[4]) / 2) : undefined;
     
     // Posição X para descrição (alinhada à esquerda com padding)
     const colDesc = colPositions[0] + 2;
@@ -651,7 +686,7 @@ export async function gerarPropostaSelecaoPDF(
     doc.text('Descrição', colDescCenter, headerYCenter, { align: 'center' });
     doc.text('Qtd', colQtdCenter, headerYCenter, { align: 'center' });
     doc.text('Unid', colUniCenter, headerYCenter, { align: 'center' });
-    doc.text('Marca', colMarcaCenter, headerYCenter, { align: 'center' });
+    if (!ocultarMarcaStd) doc.text('Marca', colMarcaCenter!, headerYCenter, { align: 'center' });
     
     if (isDesconto) {
       doc.text('% Desconto', colDescontoCenter!, headerYCenter, { align: 'center' });
@@ -736,7 +771,7 @@ export async function gerarPropostaSelecaoPDF(
         doc.text('Descrição', colDescCenter, headerYCenterNew, { align: 'center' });
         doc.text('Qtd', colQtdCenter, headerYCenterNew, { align: 'center' });
         doc.text('Unid', colUniCenter, headerYCenterNew, { align: 'center' });
-        doc.text('Marca', colMarcaCenter, headerYCenterNew, { align: 'center' });
+        if (!ocultarMarcaStd) doc.text('Marca', colMarcaCenter!, headerYCenterNew, { align: 'center' });
         
         if (isDesconto) {
           doc.text('% Desconto', colDescontoCenter!, headerYCenterNew, { align: 'center' });
@@ -815,7 +850,7 @@ export async function gerarPropostaSelecaoPDF(
       
       // Quantidade e Marca - centralizados horizontalmente
       doc.text(item.quantidade.toString(), colQtdCenter, yVerticalCenter, { align: 'center' });
-      doc.text(sanitizarTexto(item.marca || ''), colMarcaCenter, yVerticalCenter, { align: 'center' });
+      if (!ocultarMarcaStd) doc.text(sanitizarTexto(item.marca || ''), colMarcaCenter!, yVerticalCenter, { align: 'center' });
       
       // Unidade - com quebra de linha se necessário, centralizada verticalmente
       const unidadeLinhas = doc.splitTextToSize(sanitizarTexto(item.unidade), unidadeLargura);
@@ -844,7 +879,8 @@ export async function gerarPropostaSelecaoPDF(
         doc.text(descontoTexto, valorDescontoRight, yVerticalCenter, { align: 'right' });
       } else {
         // Valores em moeda - alinhados à direita dentro de suas colunas
-        const valorUnitRight = colPositions[5] - 2;
+        const idxValorUnit = ocultarMarcaStd ? 4 : 5;
+        const valorUnitRight = colPositions[idxValorUnit - 1] + (colPositions[idxValorUnit] ? colPositions[idxValorUnit] - colPositions[idxValorUnit - 1] : margemEsquerda + larguraUtil - colPositions[idxValorUnit - 1]) - 2;
         const valorTotalRight = margemEsquerda + larguraUtil - 2;
         const valorUnitTexto = itemCotado ? `R$ ${formatarMoeda(item.valor_unitario_ofertado)}` : '-';
         const valorTotalTexto = itemCotado ? `R$ ${formatarMoeda(valorTotalItem)}` : '-';
