@@ -118,7 +118,8 @@ export const gerarPropostaRealinhadaPDF = async (
   itens: ItemPropostaRealinhada[],
   fornecedor: DadosFornecedor,
   processo: DadosProcesso,
-  observacoes?: string
+  observacoes?: string,
+  tipoProcesso?: string
 ): Promise<{ pdfBlob: Blob; pdfUrl: string; protocolo: string }> => {
   const doc = new jsPDF();
   const pageWidth = doc.internal.pageSize.getWidth();
@@ -254,8 +255,13 @@ export const gerarPropostaRealinhadaPDF = async (
   doc.text('ITENS DA PROPOSTA REALINHADA', margin, yPos);
   yPos += 5;
 
-  // Cabeçalhos da tabela - SEM coluna de Lote (lote será linha de título)
-  const headers = [['Item', 'Descrição', 'Qtd', 'Un', 'Marca', 'Vlr Unit.', 'Vlr Total']];
+  const ocultarMarca = tipoProcesso && tipoProcesso !== 'material';
+  const numCols = ocultarMarca ? 6 : 7;
+
+  // Cabeçalhos da tabela
+  const headers = ocultarMarca
+    ? [['Item', 'Descrição', 'Qtd', 'Un', 'Vlr Unit.', 'Vlr Total']]
+    : [['Item', 'Descrição', 'Qtd', 'Un', 'Marca', 'Vlr Unit.', 'Vlr Total']];
 
   // Dados da tabela
   let valorTotal = 0;
@@ -282,7 +288,7 @@ export const gerarPropostaRealinhadaPDF = async (
       tableData.push([
         { 
           content: `LOTE ${numeroLote}`, 
-          colSpan: 7, 
+          colSpan: numCols, 
           styles: { 
             fontStyle: 'bold', 
             fillColor: [220, 220, 220],
@@ -295,48 +301,38 @@ export const gerarPropostaRealinhadaPDF = async (
       itensLote.forEach(item => {
         subtotalLote += item.valor_total;
         valorTotal += item.valor_total;
-        tableData.push([
-          item.numero_item.toString(),
-          sanitizarTexto(item.descricao),
-          item.quantidade.toString(),
-          item.unidade,
-          item.marca || '',
-          `R$ ${formatarMoeda(item.valor_unitario)}`,
-          `R$ ${formatarMoeda(item.valor_total)}`
-        ]);
+        const row = ocultarMarca
+          ? [item.numero_item.toString(), sanitizarTexto(item.descricao), item.quantidade.toString(), item.unidade, `R$ ${formatarMoeda(item.valor_unitario)}`, `R$ ${formatarMoeda(item.valor_total)}`]
+          : [item.numero_item.toString(), sanitizarTexto(item.descricao), item.quantidade.toString(), item.unidade, item.marca || '', `R$ ${formatarMoeda(item.valor_unitario)}`, `R$ ${formatarMoeda(item.valor_total)}`];
+        tableData.push(row);
       });
       
       // Linha de subtotal do lote
       tableData.push([
-        { content: `SUBTOTAL LOTE ${numeroLote}`, colSpan: 6, styles: { fontStyle: 'bold', fillColor: [230, 230, 230], halign: 'right' } },
+        { content: `SUBTOTAL LOTE ${numeroLote}`, colSpan: numCols - 1, styles: { fontStyle: 'bold', fillColor: [230, 230, 230], halign: 'right' } },
         { content: `R$ ${formatarMoeda(subtotalLote)}`, styles: { fontStyle: 'bold', fillColor: [230, 230, 230], halign: 'right' } }
       ]);
     });
   } else {
     itensOrdenados.forEach(item => {
       valorTotal += item.valor_total;
-      tableData.push([
-        item.numero_item.toString(),
-        sanitizarTexto(item.descricao),
-        item.quantidade.toString(),
-        item.unidade,
-        item.marca || '',
-        `R$ ${formatarMoeda(item.valor_unitario)}`,
-        `R$ ${formatarMoeda(item.valor_total)}`
-      ]);
+      const row = ocultarMarca
+        ? [item.numero_item.toString(), sanitizarTexto(item.descricao), item.quantidade.toString(), item.unidade, `R$ ${formatarMoeda(item.valor_unitario)}`, `R$ ${formatarMoeda(item.valor_total)}`]
+        : [item.numero_item.toString(), sanitizarTexto(item.descricao), item.quantidade.toString(), item.unidade, item.marca || '', `R$ ${formatarMoeda(item.valor_unitario)}`, `R$ ${formatarMoeda(item.valor_total)}`];
+      tableData.push(row);
     });
   }
 
   // Linha de total geral com valor por extenso
   const extensoTotal = valorPorExtenso(valorTotal).toUpperCase();
   tableData.push([
-    { content: 'VALOR TOTAL DA PROPOSTA', colSpan: 6, styles: { fontStyle: 'bold', fillColor: [0, 75, 140], textColor: [255, 255, 255], halign: 'right' } },
+    { content: 'VALOR TOTAL DA PROPOSTA', colSpan: numCols - 1, styles: { fontStyle: 'bold', fillColor: [0, 75, 140], textColor: [255, 255, 255], halign: 'right' } },
     { content: `R$ ${formatarMoeda(valorTotal)}`, styles: { fontStyle: 'bold', fillColor: [0, 75, 140], textColor: [255, 255, 255], halign: 'right' } }
   ]);
   
   // Linha com valor por extenso
   tableData.push([
-    { content: `(${extensoTotal})`, colSpan: 7, styles: { fontStyle: 'normal', fillColor: [0, 75, 140], textColor: [255, 255, 255], halign: 'justify', fontSize: 7 } }
+    { content: `(${extensoTotal})`, colSpan: numCols, styles: { fontStyle: 'normal', fillColor: [0, 75, 140], textColor: [255, 255, 255], halign: 'justify', fontSize: 7 } }
   ]);
 
   // Gerar tabela com descrição justificada e colunas centralizadas verticalmente
@@ -456,13 +452,24 @@ export const gerarPropostaRealinhadaPDF = async (
       valign: 'middle',
     },
     columnStyles: {
-      0: { cellWidth: 12, halign: 'center', valign: 'middle', textColor: [0, 0, 0] },
-      1: { cellWidth: 60, halign: 'left', valign: 'middle', textColor: [0, 0, 0] },
-      2: { cellWidth: 15, halign: 'center', valign: 'middle', textColor: [0, 0, 0] },
-      3: { cellWidth: 15, halign: 'center', valign: 'middle', textColor: [0, 0, 0] },
-      4: { cellWidth: 25, halign: 'center', valign: 'middle', textColor: [0, 0, 0] },
-      5: { cellWidth: 25, halign: 'right', valign: 'middle', textColor: [0, 0, 0] },
-      6: { cellWidth: 28, halign: 'right', valign: 'middle', textColor: [0, 0, 0] },
+      ...(ocultarMarca
+        ? {
+            0: { cellWidth: 12, halign: 'center', valign: 'middle', textColor: [0, 0, 0] },
+            1: { cellWidth: 75, halign: 'left', valign: 'middle', textColor: [0, 0, 0] },
+            2: { cellWidth: 18, halign: 'center', valign: 'middle', textColor: [0, 0, 0] },
+            3: { cellWidth: 18, halign: 'center', valign: 'middle', textColor: [0, 0, 0] },
+            4: { cellWidth: 28, halign: 'right', valign: 'middle', textColor: [0, 0, 0] },
+            5: { cellWidth: 29, halign: 'right', valign: 'middle', textColor: [0, 0, 0] },
+          }
+        : {
+            0: { cellWidth: 12, halign: 'center', valign: 'middle', textColor: [0, 0, 0] },
+            1: { cellWidth: 60, halign: 'left', valign: 'middle', textColor: [0, 0, 0] },
+            2: { cellWidth: 15, halign: 'center', valign: 'middle', textColor: [0, 0, 0] },
+            3: { cellWidth: 15, halign: 'center', valign: 'middle', textColor: [0, 0, 0] },
+            4: { cellWidth: 25, halign: 'center', valign: 'middle', textColor: [0, 0, 0] },
+            5: { cellWidth: 25, halign: 'right', valign: 'middle', textColor: [0, 0, 0] },
+            6: { cellWidth: 28, halign: 'right', valign: 'middle', textColor: [0, 0, 0] },
+          }),
     },
     rowPageBreak: 'auto',
     didParseCell: (data) => {

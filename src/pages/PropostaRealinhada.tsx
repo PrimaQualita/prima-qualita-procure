@@ -1115,7 +1115,8 @@ const PropostaRealinhada = () => {
           objeto_resumido: processo.objeto_resumido,
           criterio_julgamento: criterioJulgamento,
         },
-        observacoes
+        observacoes,
+        processo?.tipo
       );
 
       // Criar proposta realinhada com URL do PDF

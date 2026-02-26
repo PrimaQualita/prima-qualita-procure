@@ -999,34 +999,36 @@ const ParticiparSelecao = () => {
         console.log("✅ Validação global OK - todos os itens preenchidos");
       }
 
-      // VALIDAÇÃO OBRIGATÓRIA DE MARCA E VALOR: devem ser preenchidos juntos
-      const itensSemMarca = itens.filter(item => {
-        const resposta = respostas[item.id];
-        const temValor = resposta?.valor_unitario_ofertado && resposta.valor_unitario_ofertado > 0;
-        const temMarca = resposta?.marca_ofertada && resposta.marca_ofertada.trim() !== '';
-        return temValor && !temMarca;
-      });
+      // VALIDAÇÃO OBRIGATÓRIA DE MARCA E VALOR: devem ser preenchidos juntos (apenas para tipo "material")
+      if (processo?.tipo === "material") {
+        const itensSemMarca = itens.filter(item => {
+          const resposta = respostas[item.id];
+          const temValor = resposta?.valor_unitario_ofertado && resposta.valor_unitario_ofertado > 0;
+          const temMarca = resposta?.marca_ofertada && resposta.marca_ofertada.trim() !== '';
+          return temValor && !temMarca;
+        });
 
-      if (itensSemMarca.length > 0) {
-        const numerosItens = itensSemMarca.map(item => item.numero_item).join(', ');
-        toast.error(`Preencha a marca para os itens com valor/desconto ofertado: ${numerosItens}`);
-        setSubmitting(false);
-        return;
-      }
+        if (itensSemMarca.length > 0) {
+          const numerosItens = itensSemMarca.map(item => item.numero_item).join(', ');
+          toast.error(`Preencha a marca para os itens com valor/desconto ofertado: ${numerosItens}`);
+          setSubmitting(false);
+          return;
+        }
 
-      // VALIDAÇÃO REVERSA: se preencher marca, deve preencher valor/desconto
-      const itensSemValor = itens.filter(item => {
-        const resposta = respostas[item.id];
-        const temValor = resposta?.valor_unitario_ofertado && resposta.valor_unitario_ofertado > 0;
-        const temMarca = resposta?.marca_ofertada && resposta.marca_ofertada.trim() !== '';
-        return temMarca && !temValor;
-      });
+        // VALIDAÇÃO REVERSA: se preencher marca, deve preencher valor/desconto
+        const itensSemValor = itens.filter(item => {
+          const resposta = respostas[item.id];
+          const temValor = resposta?.valor_unitario_ofertado && resposta.valor_unitario_ofertado > 0;
+          const temMarca = resposta?.marca_ofertada && resposta.marca_ofertada.trim() !== '';
+          return temMarca && !temValor;
+        });
 
-      if (itensSemValor.length > 0) {
-        const numerosItens = itensSemValor.map(item => item.numero_item).join(', ');
-        toast.error(`Preencha o valor/desconto para os itens com marca informada: ${numerosItens}`);
-        setSubmitting(false);
-        return;
+        if (itensSemValor.length > 0) {
+          const numerosItens = itensSemValor.map(item => item.numero_item).join(', ');
+          toast.error(`Preencha o valor/desconto para os itens com marca informada: ${numerosItens}`);
+          setSubmitting(false);
+          return;
+        }
       }
 
       const valorTotal = calcularValorTotal();
@@ -1184,7 +1186,8 @@ const ParticiparSelecao = () => {
           new Date().toISOString(),
           undefined,
           criterioJulgamento,
-          arquivosComprovantes
+          arquivosComprovantes,
+          processo?.tipo
         );
 
         // Capturar o protocolo gerado
