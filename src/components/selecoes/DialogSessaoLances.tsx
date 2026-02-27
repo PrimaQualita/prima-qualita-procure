@@ -2700,13 +2700,20 @@ export function DialogSessaoLances({
         });
       }
 
-      // Agrupar lances por item/lote - USANDO TODOS OS LANCES (incluindo inabilitados) + PROPOSTAS COMO LANCES INICIAIS
+      // Buscar lances reais diretamente do banco (não depender de lancesCompletos state que pode estar desatualizado)
+      const { data: lancesReaisPlanilha } = await supabase
+        .from("lances_fornecedores")
+        .select(`*, fornecedores (razao_social, cnpj)`)
+        .eq("selecao_id", selecaoId)
+        .order("numero_item", { ascending: true })
+        .order("data_hora_lance", { ascending: true });
+
+      // Agrupar lances por item/lote - USANDO LANCES DO BANCO + PROPOSTAS COMO LANCES INICIAIS
       const lancesGroupedByItem = elementosParaIterar.map(elemento => {
-        const lancesElemento = getLancesCompletosDoItem(elemento.numero);
+        const lancesElemento = (lancesReaisPlanilha || []).filter((l: any) => l.numero_item === elemento.numero);
         const propostasElemento = propostasComoLances.get(elemento.numero) || [];
         
-        // SEMPRE incluir propostas, mesmo se o fornecedor já tem lances
-        // As propostas representam os valores iniciais oferecidos
+        // Combinar lances reais com propostas iniciais
         return { elemento, lances: [...lancesElemento, ...propostasElemento] };
       });
 
@@ -3119,37 +3126,10 @@ export function DialogSessaoLances({
 
       let valorTotalGeral = 0;
       
-      // Para critério global no mapa resumo: mostrar TODOS os itens individuais com unidade/quantidade
-      // O vencedor global é aplicado a todos os itens
+      // Para critério global: usar formato simplificado (linha única com total)
       let elementosResumo = elementosParaIterar;
       const vencedorGlobal = isGlobalLocal ? getVencedorItem(0) : null;
       let useGlobalResumoFormat = isGlobalLocal;
-      
-      if (isGlobalLocal && itens.length > 0) {
-        elementosResumo = itens.map(item => ({
-          numero: item.numero_item,
-          descricao: item.descricao,
-          quantidade: item.quantidade || 1,
-          unidade: item.unidade || "UN",
-          isLote: false,
-          isGlobal: false,
-        }));
-        useGlobalResumoFormat = false; // Usar formato padrão com 8 colunas
-      }
-      
-      // Buscar valores unitários do vencedor global por item (para exibir no mapa resumo)
-      let valoresVencedorGlobalPorItem = new Map<number, number>();
-      if (isGlobalLocal && vencedorGlobal && todasPropostasItens) {
-        todasPropostasItens.forEach((ip: any) => {
-          const fornecedorId = ip.selecao_propostas_fornecedor?.fornecedor_id;
-          if (fornecedorId === vencedorGlobal.fornecedor_id) {
-            const valorUnit = Number(ip.valor_unitario_ofertado) || 0;
-            if (valorUnit > 0) {
-              valoresVencedorGlobalPorItem.set(ip.numero_item, valorUnit);
-            }
-          }
-        });
-      }
       
       // Usar elementos preparados anteriormente (lotes ou itens conforme critério)
       const resumoData = elementosResumo.map(elemento => {
@@ -3220,15 +3200,11 @@ export function DialogSessaoLances({
         // Calcular valores SOMENTE se há vencedor efetivo (não para FRACASSADO/DESERTO)
         const isNegociacao = vencedorEfetivo?.tipo_lance === "negociacao";
         
-        // Para global expandido: usar valor unitário do vencedor global por item
+        // Calcular valores formatados
         let valorUnitarioFormatado: string;
         let valorTotal: number;
         
-        if (isGlobalLocal && vencedorEfetivo) {
-          const valorUnitItem = valoresVencedorGlobalPorItem.get(elemento.numero) || 0;
-          valorUnitarioFormatado = valorUnitItem > 0 ? formatValorLance(valorUnitItem) : "-";
-          valorTotal = valorUnitItem * quantidade;
-        } else if (!vencedorEfetivo) {
+        if (!vencedorEfetivo) {
           valorUnitarioFormatado = "-";
           valorTotal = 0;
         } else if (criterioJulgamento === "desconto") {
