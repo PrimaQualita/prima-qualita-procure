@@ -2804,18 +2804,15 @@ export function DialogSessaoLances({
           const lancesInabilitados = lancesDoItem.filter(l => isInabilitadoNoItem(l.fornecedor_id, elemento.numero));
           const lancesDesclassificados = lancesDoItem.filter(l => !isInabilitadoNoItem(l.fornecedor_id, elemento.numero) && isDesclassificadoPorPrecoPlanilha(l));
           
-          // Ordenar lances válidos por valor (MELHOR VALOR VENCE - sem priorizar negociação)
+          // Ordenar TODOS os grupos por valor (MELHOR VALOR VENCE - sem priorizar negociação)
           const isDesconto = criterioJulgamento === "desconto";
-          const lancesValidosOrdenados = lancesValidos.sort((a, b) => {
-            // Ordenar por valor conforme critério
-            if (isDesconto) {
-              return b.valor_lance - a.valor_lance; // Maior desconto primeiro (DECRESCENTE)
-            } else {
-              return a.valor_lance - b.valor_lance; // Menor preço primeiro (CRESCENTE)
-            }
-          });
+          const sortByValor = (a: any, b: any) => isDesconto ? b.valor_lance - a.valor_lance : a.valor_lance - b.valor_lance;
           
-          const lancesOrdenados = [...lancesValidosOrdenados, ...lancesDesclassificados, ...lancesInabilitados];
+          const lancesValidosOrdenados = lancesValidos.sort(sortByValor);
+          const lancesDesclassificadosOrdenados = lancesDesclassificados.sort(sortByValor);
+          const lancesInabilitadosOrdenados = lancesInabilitados.sort(sortByValor);
+          
+          const lancesOrdenados = [...lancesValidosOrdenados, ...lancesDesclassificadosOrdenados, ...lancesInabilitadosOrdenados];
 
           let temDesclassificado = false;
 
@@ -3122,9 +3119,41 @@ export function DialogSessaoLances({
 
       let valorTotalGeral = 0;
       
+      // Para critério global no mapa resumo: mostrar TODOS os itens individuais com unidade/quantidade
+      // O vencedor global é aplicado a todos os itens
+      let elementosResumo = elementosParaIterar;
+      const vencedorGlobal = isGlobalLocal ? getVencedorItem(0) : null;
+      let useGlobalResumoFormat = isGlobalLocal;
+      
+      if (isGlobalLocal && itens.length > 0) {
+        elementosResumo = itens.map(item => ({
+          numero: item.numero_item,
+          descricao: item.descricao,
+          quantidade: item.quantidade || 1,
+          unidade: item.unidade || "UN",
+          isLote: false,
+          isGlobal: false,
+        }));
+        useGlobalResumoFormat = false; // Usar formato padrão com 8 colunas
+      }
+      
+      // Buscar valores unitários do vencedor global por item (para exibir no mapa resumo)
+      let valoresVencedorGlobalPorItem = new Map<number, number>();
+      if (isGlobalLocal && vencedorGlobal && todasPropostasItens) {
+        todasPropostasItens.forEach((ip: any) => {
+          const fornecedorId = ip.selecao_propostas_fornecedor?.fornecedor_id;
+          if (fornecedorId === vencedorGlobal.fornecedor_id) {
+            const valorUnit = Number(ip.valor_unitario_ofertado) || 0;
+            if (valorUnit > 0) {
+              valoresVencedorGlobalPorItem.set(ip.numero_item, valorUnit);
+            }
+          }
+        });
+      }
+      
       // Usar elementos preparados anteriormente (lotes ou itens conforme critério)
-      const resumoData = elementosParaIterar.map(elemento => {
-        const vencedor = getVencedorItem(elemento.numero);
+      const resumoData = elementosResumo.map(elemento => {
+        const vencedor = isGlobalLocal ? vencedorGlobal : getVencedorItem(elemento.numero);
         const quantidade = elemento.quantidade || 1;
         
         // Buscar marca da proposta do fornecedor vencedor (não aplicável para lotes ou global)
@@ -3153,52 +3182,63 @@ export function DialogSessaoLances({
         let statusSemVencedor = "DESERTO";
         let vencedorEfetivo = vencedor;
         
-        // Verificar se houve proposta ENVIADA para este item/lote (para distinguir DESERTO)
-        const tevePropostaEnviada = elemento.isLote 
-          ? lotesComPropostaEnviada.has(elemento.numero)
-          : itensComPropostaEnviada.has(elemento.numero);
-        
-        // Verificar se há proposta CLASSIFICADA (não desclassificada, valor <= estimado, fornecedor habilitado)
-        const tevePropostaClassificada = elemento.isLote
-          ? lotesComPropostaClassificada.has(elemento.numero)
-          : itensComPropostaClassificada.has(elemento.numero);
-        
-        // Verificar se todos os lances estão desclassificados por preço
-        const todosDesclassificados = todosLancesDesclassificadosPorPreco(elemento.numero);
-        
-        // Se houve proposta enviada mas nenhuma classificada, sempre é FRACASSADO (mesmo que exista "vencedor" salvo)
-        if (elemento.isLote && tevePropostaEnviada && !tevePropostaClassificada) {
-          vencedorEfetivo = null;
-          statusSemVencedor = "FRACASSADO";
-        } else if (!vencedor) {
-          // Se houve proposta ENVIADA mas nenhuma CLASSIFICADA, é FRACASSADO
-          if (tevePropostaEnviada && !tevePropostaClassificada) {
+        // Para critério global no formato expandido, não verificar DESERTO/FRACASSADO por item
+        if (!isGlobalLocal) {
+          // Verificar se houve proposta ENVIADA para este item/lote (para distinguir DESERTO)
+          const tevePropostaEnviada = elemento.isLote 
+            ? lotesComPropostaEnviada.has(elemento.numero)
+            : itensComPropostaEnviada.has(elemento.numero);
+          
+          // Verificar se há proposta CLASSIFICADA (não desclassificada, valor <= estimado, fornecedor habilitado)
+          const tevePropostaClassificada = elemento.isLote
+            ? lotesComPropostaClassificada.has(elemento.numero)
+            : itensComPropostaClassificada.has(elemento.numero);
+          
+          // Verificar se todos os lances estão desclassificados por preço
+          const todosDesclassificados = todosLancesDesclassificadosPorPreco(elemento.numero);
+          
+          // Se houve proposta enviada mas nenhuma classificada, sempre é FRACASSADO (mesmo que exista "vencedor" salvo)
+          if (elemento.isLote && tevePropostaEnviada && !tevePropostaClassificada) {
+            vencedorEfetivo = null;
             statusSemVencedor = "FRACASSADO";
-          } else if (tevePropostaEnviada) {
-            // Houve proposta classificada mas não há vencedor (caso estranho, mas tratamos)
+          } else if (!vencedor) {
+            // Se houve proposta ENVIADA mas nenhuma CLASSIFICADA, é FRACASSADO
+            if (tevePropostaEnviada && !tevePropostaClassificada) {
+              statusSemVencedor = "FRACASSADO";
+            } else if (tevePropostaEnviada) {
+              // Houve proposta classificada mas não há vencedor (caso estranho, mas tratamos)
+              statusSemVencedor = "FRACASSADO";
+            }
+            // Se não houve proposta, permanece DESERTO
+          } else if (todosDesclassificados && !tevePropostaClassificada) {
+            // Há um vencedor potencial, mas todos os lances e propostas excedem o valor estimado
+            vencedorEfetivo = null;
             statusSemVencedor = "FRACASSADO";
           }
-          // Se não houve proposta, permanece DESERTO
-        } else if (todosDesclassificados && !tevePropostaClassificada) {
-          // Há um vencedor potencial, mas todos os lances e propostas excedem o valor estimado
-          vencedorEfetivo = null;
-          statusSemVencedor = "FRACASSADO";
         }
 
         // Calcular valores SOMENTE se há vencedor efetivo (não para FRACASSADO/DESERTO)
         const isNegociacao = vencedorEfetivo?.tipo_lance === "negociacao";
-        const valorUnitarioFormatado = vencedorEfetivo ? formatValorLance(vencedorEfetivo.valor_lance) : "-";
         
-        // Para desconto, não faz sentido calcular valor total (desconto não se multiplica por quantidade)
-        // Para lote, o valor do lance já é o valor total do lote
+        // Para global expandido: usar valor unitário do vencedor global por item
+        let valorUnitarioFormatado: string;
         let valorTotal: number;
-        if (!vencedorEfetivo) {
-          valorTotal = 0; // Sem vencedor efetivo = sem valor
+        
+        if (isGlobalLocal && vencedorEfetivo) {
+          const valorUnitItem = valoresVencedorGlobalPorItem.get(elemento.numero) || 0;
+          valorUnitarioFormatado = valorUnitItem > 0 ? formatValorLance(valorUnitItem) : "-";
+          valorTotal = valorUnitItem * quantidade;
+        } else if (!vencedorEfetivo) {
+          valorUnitarioFormatado = "-";
+          valorTotal = 0;
         } else if (criterioJulgamento === "desconto") {
+          valorUnitarioFormatado = formatValorLance(vencedorEfetivo.valor_lance);
           valorTotal = 0;
         } else if (elemento.isLote) {
-          valorTotal = vencedorEfetivo.valor_lance; // Lance do lote já é o valor total
+          valorUnitarioFormatado = formatValorLance(vencedorEfetivo.valor_lance);
+          valorTotal = vencedorEfetivo.valor_lance;
         } else {
+          valorUnitarioFormatado = formatValorLance(vencedorEfetivo.valor_lance);
           valorTotal = vencedorEfetivo.valor_lance * quantidade;
         }
         const valorTotalFormatado = (!vencedorEfetivo || criterioJulgamento === "desconto") ? "-" : formatCurrency(valorTotal);
@@ -3208,21 +3248,9 @@ export function DialogSessaoLances({
           valorTotalGeral += valorTotal;
         }
         
-        // Para critério global, retornar colunas com Vencedor entre Descrição e Unidade
-        // Usar "-" quando unidade ou quantidade não estiverem definidos
-        if (isGlobalLocal) {
-          return [
-            identificador,
-            descricaoLimpaResumo,
-            vencedorEfetivo?.fornecedores?.razao_social || statusSemVencedor,
-            elemento.unidade && elemento.unidade.trim() !== "" ? elemento.unidade : "-",
-            elemento.quantidade && elemento.quantidade > 0 ? quantidade.toString() : "-",
-          ];
-        }
-        
         return [
           identificador,
-          descricaoLimpaResumo, // Descrição sem duplicação
+          descricaoLimpaResumo,
           vencedorEfetivo?.fornecedores?.razao_social || statusSemVencedor,
           marca,
           (elemento.isLote) ? "-" : quantidade.toString(),
@@ -3232,8 +3260,8 @@ export function DialogSessaoLances({
         ];
       });
 
-      // Adicionar linha de valor total (apenas se não for desconto e não for global)
-      if (criterioJulgamento !== "desconto" && !isGlobalLocal) {
+      // Adicionar linha de valor total (apenas se não for desconto)
+      if (criterioJulgamento !== "desconto") {
         resumoData.push([
           "",
           "",
@@ -3313,7 +3341,7 @@ export function DialogSessaoLances({
 
       autoTable(doc, {
         startY: resumoStartY,
-        head: isGlobalLocal ? headGlobal : headPadrao,
+        head: useGlobalResumoFormat ? headGlobal : headPadrao,
         body: resumoData,
         theme: "striped",
         styles: { 
@@ -3329,7 +3357,7 @@ export function DialogSessaoLances({
           halign: "center",
           valign: "middle"
         },
-        columnStyles: isGlobalLocal ? columnStylesGlobal : columnStylesPadrao,
+        columnStyles: useGlobalResumoFormat ? columnStylesGlobal : columnStylesPadrao,
         alternateRowStyles: {
           fillColor: [224, 242, 241] // Verde claro do logo
         },
