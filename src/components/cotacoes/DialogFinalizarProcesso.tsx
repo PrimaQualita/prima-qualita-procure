@@ -3738,7 +3738,211 @@ export function DialogFinalizarProcesso({
             });
           }
 
-          console.log(`🏆 Vencedores recalculados para processos_para_contratar:`);
+          // === OVERRIDE: Quando processo tem seleção, usar valores da sessão de lances ===
+          if (processoInfo.requer_selecao) {
+            try {
+              const { data: selecaoData } = await supabase
+                .from("selecoes_fornecedores")
+                .select("id, criterios_julgamento, cotacao_relacionada_id")
+                .eq("cotacao_relacionada_id", cotacaoId)
+                .order("created_at", { ascending: false })
+                .limit(1)
+                .maybeSingle();
+
+              if (selecaoData) {
+                const selecaoIdPPC = selecaoData.id;
+                const criterioSelecao = selecaoData.criterios_julgamento || criterioJulgamento;
+
+                // Buscar lances da sessão
+                const { data: lancesSelecao } = await supabase
+                  .from("lances_fornecedores")
+                  .select("fornecedor_id, numero_item, valor_lance, fornecedores!inner(id, razao_social)")
+                  .eq("selecao_id", selecaoIdPPC);
+
+                // Buscar propostas da seleção
+                const { data: propostasSelecao } = await supabase
+                  .from("selecao_propostas_fornecedor")
+                  .select("id, fornecedor_id, fornecedores!inner(id, razao_social)")
+                  .eq("selecao_id", selecaoIdPPC);
+
+                const propostaIdsSel = (propostasSelecao || []).map((p: any) => p.id);
+                const { data: respostasSelecao } = propostaIdsSel.length > 0
+                  ? await supabase
+                      .from("selecao_respostas_itens_fornecedor")
+                      .select("proposta_id, numero_item, lote_id, valor_unitario_ofertado, valor_total_item")
+                      .in("proposta_id", propostaIdsSel)
+                  : { data: [] };
+
+                // Buscar inabilitações
+                const { data: inabilitacoesSel } = await supabase
+                  .from("fornecedores_inabilitados_selecao")
+                  .select("fornecedor_id, itens_afetados")
+                  .eq("selecao_id", selecaoIdPPC)
+                  .eq("revertido", false);
+
+                const fornInabGlobal = new Set<string>();
+                const fornInabItens = new Map<string, Set<number>>();
+                (inabilitacoesSel || []).forEach((inab: any) => {
+                  const itensAf = (inab.itens_afetados as number[]) || [];
+                  if (itensAf.length === 0) {
+                    fornInabGlobal.add(inab.fornecedor_id);
+                  } else {
+                    if (!fornInabItens.has(inab.fornecedor_id)) fornInabItens.set(inab.fornecedor_id, new Set());
+                    itensAf.forEach(n => fornInabItens.get(inab.fornecedor_id)!.add(n));
+                  }
+                });
+
+                const isInab = (fid: string, num: number) => {
+                  if (fornInabGlobal.has(fid)) return true;
+                  return fornInabItens.get(fid)?.has(num) || false;
+                };
+
+                // Mapear proposta_id -> fornecedor
+                const propIdToForn = new Map<string, { fornecedor_id: string; fornecedores: any }>();
+                (propostasSelecao || []).forEach((p: any) => propIdToForn.set(p.id, { fornecedor_id: p.fornecedor_id, fornecedores: p.fornecedores }));
+
+                // Buscar lotes para mapeamento
+                let loteIdToNumSel = new Map<string, number>();
+                if (criterioSelecao === "por_lote") {
+                  const cotRelId = selecaoData.cotacao_relacionada_id;
+                  if (cotRelId) {
+                    const { data: lotesSel } = await supabase.from("lotes_cotacao").select("id, numero_lote").eq("cotacao_id", cotRelId);
+                    (lotesSel || []).forEach((l: any) => loteIdToNumSel.set(l.id, l.numero_lote));
+                  }
+                }
+
+                const novoValores = new Map<string, { nome: string; id: string; valorTotal: number }>();
+
+                // === Calcular por critério usando lances (prioridade) e propostas (fallback) ===
+                if (criterioSelecao === "global") {
+                  // Melhor lance global por fornecedor
+                  const totalLancePorForn = new Map<string, { nome: string; id: string; valor: number }>();
+                  (lancesSelecao || []).forEach((l: any) => {
+                    if (isInab(l.fornecedor_id, 0)) return;
+                    const atual = totalLancePorForn.get(l.fornecedor_id);
+                    if (!atual || l.valor_lance < atual.valor) {
+                      totalLancePorForn.set(l.fornecedor_id, { nome: (l.fornecedores as any).razao_social, id: (l.fornecedores as any).id, valor: l.valor_lance });
+                    }
+                  });
+                  // Se há lances, usar o menor
+                  if (totalLancePorForn.size > 0) {
+                    let melhor: any = null;
+                    totalLancePorForn.forEach((v, k) => { if (!melhor || v.valor < melhor.valor) melhor = { ...v, fornecedorId: k }; });
+                    if (melhor) novoValores.set(melhor.fornecedorId, { nome: melhor.nome, id: melhor.id, valorTotal: melhor.valor });
+                  } else {
+                    // Fallback: propostas
+                    const totalPropPorForn = new Map<string, { nome: string; id: string; valorTotal: number }>();
+                    (respostasSelecao || []).forEach((r: any) => {
+                      const info = propIdToForn.get(r.proposta_id);
+                      if (!info || isInab(info.fornecedor_id, 0)) return;
+                      const qt = Number(r.valor_total_item || 0) > 0 ? Number(r.valor_total_item) : Number(r.valor_unitario_ofertado || 0);
+                      if (qt <= 0) return;
+                      if (!totalPropPorForn.has(info.fornecedor_id)) totalPropPorForn.set(info.fornecedor_id, { nome: (info.fornecedores as any).razao_social, id: (info.fornecedores as any).id, valorTotal: 0 });
+                      totalPropPorForn.get(info.fornecedor_id)!.valorTotal += qt;
+                    });
+                    let melhorProp: any = null;
+                    totalPropPorForn.forEach((v, k) => { if (!melhorProp || v.valorTotal < melhorProp.valorTotal) melhorProp = { ...v, fornecedorId: k }; });
+                    if (melhorProp) novoValores.set(melhorProp.fornecedorId, { nome: melhorProp.nome, id: melhorProp.id, valorTotal: melhorProp.valorTotal });
+                  }
+                } else if (criterioSelecao === "por_lote") {
+                  // Por lote: melhor lance por lote
+                  const melhorLancePorLote = new Map<number, { fornecedorId: string; nome: string; id: string; valor: number }>();
+                  (lancesSelecao || []).forEach((l: any) => {
+                    const numLote = l.numero_item;
+                    if (isInab(l.fornecedor_id, numLote)) return;
+                    const atual = melhorLancePorLote.get(numLote);
+                    if (!atual || l.valor_lance < atual.valor) {
+                      melhorLancePorLote.set(numLote, { fornecedorId: l.fornecedor_id, nome: (l.fornecedores as any).razao_social, id: (l.fornecedores as any).id, valor: l.valor_lance });
+                    }
+                  });
+                  // Fallback para propostas por lote sem lance
+                  const lotesComLance = new Set(melhorLancePorLote.keys());
+                  const totalPropPorLoteForn = new Map<string, { nome: string; id: string; valorTotal: number }>();
+                  (respostasSelecao || []).forEach((r: any) => {
+                    if (!r.lote_id) return;
+                    const numLote = loteIdToNumSel.get(r.lote_id);
+                    if (numLote === undefined || lotesComLance.has(numLote)) return;
+                    const info = propIdToForn.get(r.proposta_id);
+                    if (!info || isInab(info.fornecedor_id, numLote)) return;
+                    const vt = Number(r.valor_total_item || 0) > 0 ? Number(r.valor_total_item) : Number(r.valor_unitario_ofertado || 0);
+                    if (vt <= 0) return;
+                    const key = `${numLote}_${info.fornecedor_id}`;
+                    if (!totalPropPorLoteForn.has(key)) totalPropPorLoteForn.set(key, { nome: (info.fornecedores as any).razao_social, id: (info.fornecedores as any).id, valorTotal: 0 });
+                    totalPropPorLoteForn.get(key)!.valorTotal += vt;
+                  });
+                  // Acumular valores por fornecedor
+                  melhorLancePorLote.forEach((dados) => {
+                    if (!novoValores.has(dados.fornecedorId)) novoValores.set(dados.fornecedorId, { nome: dados.nome, id: dados.id, valorTotal: 0 });
+                    novoValores.get(dados.fornecedorId)!.valorTotal += dados.valor;
+                  });
+                  // Adicionar fallback de propostas
+                  const menorPropPorLote = new Map<number, { fornecedorId: string; nome: string; id: string; valor: number }>();
+                  totalPropPorLoteForn.forEach((dados, key) => {
+                    const numLote = parseInt(key.split('_')[0]);
+                    const fornId = key.split('_')[1];
+                    const atual = menorPropPorLote.get(numLote);
+                    if (!atual || dados.valorTotal < atual.valor) menorPropPorLote.set(numLote, { fornecedorId: fornId, nome: dados.nome, id: dados.id, valor: dados.valorTotal });
+                  });
+                  menorPropPorLote.forEach((dados) => {
+                    if (!novoValores.has(dados.fornecedorId)) novoValores.set(dados.fornecedorId, { nome: dados.nome, id: dados.id, valorTotal: 0 });
+                    novoValores.get(dados.fornecedorId)!.valorTotal += dados.valor;
+                  });
+                } else {
+                  // Por item: melhor lance por item, fallback para proposta
+                  const melhorLancePorItem = new Map<number, { fornecedorId: string; nome: string; id: string; valor: number }>();
+                  (lancesSelecao || []).forEach((l: any) => {
+                    const numItem = l.numero_item;
+                    if (isInab(l.fornecedor_id, numItem)) return;
+                    const atual = melhorLancePorItem.get(numItem);
+                    if (!atual || l.valor_lance < atual.valor) {
+                      melhorLancePorItem.set(numItem, { fornecedorId: l.fornecedor_id, nome: (l.fornecedores as any).razao_social, id: (l.fornecedores as any).id, valor: l.valor_lance });
+                    }
+                  });
+                  const itensComLance = new Set(melhorLancePorItem.keys());
+                  // Fallback propostas para itens sem lance
+                  const melhorPropPorItem = new Map<number, { fornecedorId: string; nome: string; id: string; valor: number }>();
+                  (respostasSelecao || []).forEach((r: any) => {
+                    const numItem = r.numero_item;
+                    if (itensComLance.has(numItem)) return;
+                    const info = propIdToForn.get(r.proposta_id);
+                    if (!info || isInab(info.fornecedor_id, numItem)) return;
+                    const vu = Number(r.valor_unitario_ofertado || 0);
+                    if (vu <= 0) return;
+                    const atual = melhorPropPorItem.get(numItem);
+                    if (!atual || vu < atual.valor) melhorPropPorItem.set(numItem, { fornecedorId: info.fornecedor_id, nome: (info.fornecedores as any).razao_social, id: (info.fornecedores as any).id, valor: vu });
+                  });
+                  // Buscar quantidade dos itens
+                  const { data: itensCotSel } = await supabase.from("itens_cotacao").select("numero_item, quantidade").eq("cotacao_id", cotacaoId);
+                  const qtdPorItem = new Map<number, number>();
+                  (itensCotSel || []).forEach((i: any) => qtdPorItem.set(i.numero_item, i.quantidade || 1));
+
+                  // Acumular lances
+                  melhorLancePorItem.forEach((dados, numItem) => {
+                    const qtd = qtdPorItem.get(numItem) || 1;
+                    if (!novoValores.has(dados.fornecedorId)) novoValores.set(dados.fornecedorId, { nome: dados.nome, id: dados.id, valorTotal: 0 });
+                    novoValores.get(dados.fornecedorId)!.valorTotal += dados.valor * qtd;
+                  });
+                  // Acumular propostas fallback
+                  melhorPropPorItem.forEach((dados, numItem) => {
+                    const qtd = qtdPorItem.get(numItem) || 1;
+                    if (!novoValores.has(dados.fornecedorId)) novoValores.set(dados.fornecedorId, { nome: dados.nome, id: dados.id, valorTotal: 0 });
+                    novoValores.get(dados.fornecedorId)!.valorTotal += dados.valor * qtd;
+                  });
+                }
+
+                if (novoValores.size > 0) {
+                  valoresPorFornecedor.clear();
+                  novoValores.forEach((v, k) => valoresPorFornecedor.set(k, v));
+                  console.log(`🔄 Valores recalculados com dados da seleção de fornecedores (lances/propostas):`);
+                  novoValores.forEach((v, k) => console.log(`  → ${v.nome}: R$ ${v.valorTotal.toFixed(2)}`));
+                }
+              }
+            } catch (selecaoError) {
+              console.warn("Erro ao recalcular com dados da seleção:", selecaoError);
+            }
+          }
+
+          console.log(`🏆 Vencedores finais para processos_para_contratar:`);
           valoresPorFornecedor.forEach((v, k) => console.log(`  → ${v.nome}: R$ ${v.valorTotal.toFixed(2)}`));
 
           // 9. Criar registros
