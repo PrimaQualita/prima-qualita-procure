@@ -2629,16 +2629,20 @@ export function DialogSessaoLances({
           if (!loteId) return;
           const numeroLote = loteIdToNumeroPlanilha.get(loteId);
           if (numeroLote === undefined) return;
-          const totalItem = Number(ip.valor_total_item) || (Number(ip.valor_unitario_ofertado || 0) * Number(ip.quantidade || 0));
-          if (totalItem <= 0) return;
+
+          // Mesmo fallback usado no carregamento de lances da tela
+          const valorParaSoma = Number(ip.valor_total_item) || Number(ip.valor_unitario_ofertado) || 0;
+          if (valorParaSoma <= 0) return;
+
           const key = `${numeroLote}_${propostaInfo.fornecedor_id}`;
           if (!totalPorLoteFornecedor.has(key)) {
             totalPorLoteFornecedor.set(key, { fornecedorId: propostaInfo.fornecedor_id, fornecedores: propostaInfo.fornecedores, valorTotal: 0, dataEnvio: propostaInfo.data_envio });
           }
-          totalPorLoteFornecedor.get(key)!.valorTotal += totalItem;
+          totalPorLoteFornecedor.get(key)!.valorTotal += valorParaSoma;
         });
+
         totalPorLoteFornecedor.forEach((dados, key) => {
-          const numeroLote = parseInt(key.split('_')[0]);
+          const numeroLote = parseInt(key.split('_')[0], 10);
           if (!propostasComoLances.has(numeroLote)) propostasComoLances.set(numeroLote, []);
           propostasComoLances.get(numeroLote)!.push({
             id: `proposta_${dados.fornecedorId}_${numeroLote}`,
@@ -2657,14 +2661,17 @@ export function DialogSessaoLances({
         (itensPropostasPlanilha || []).forEach((ip: any) => {
           const propostaInfo = propostaToFornecedorPlanilha.get(ip.proposta_id);
           if (!propostaInfo) return;
-          const valorUnit = Number(ip.valor_unitario_ofertado || 0);
-          const totalItem = Number(ip.valor_total_item) || valorUnit * Number(ip.quantidade || 0);
-          if (totalItem <= 0) return;
+
+          // Mesmo fallback usado no carregamento de lances da tela
+          const valorParaSoma = Number(ip.valor_total_item) || Number(ip.valor_unitario_ofertado) || 0;
+          if (valorParaSoma <= 0) return;
+
           if (!totalPorFornecedor.has(propostaInfo.fornecedor_id)) {
             totalPorFornecedor.set(propostaInfo.fornecedor_id, { fornecedores: propostaInfo.fornecedores, valorTotal: 0, dataEnvio: propostaInfo.data_envio });
           }
-          totalPorFornecedor.get(propostaInfo.fornecedor_id)!.valorTotal += totalItem;
+          totalPorFornecedor.get(propostaInfo.fornecedor_id)!.valorTotal += valorParaSoma;
         });
+
         totalPorFornecedor.forEach((dados, fornecedorId) => {
           if (!propostasComoLances.has(0)) propostasComoLances.set(0, []);
           propostasComoLances.get(0)!.push({
@@ -2683,9 +2690,13 @@ export function DialogSessaoLances({
         (itensPropostasPlanilha || []).forEach((ip: any) => {
           const propostaInfo = propostaToFornecedorPlanilha.get(ip.proposta_id);
           if (!propostaInfo) return;
-          const valorUnit = Number(ip.valor_unitario_ofertado || 0);
+
+          const numeroItem = Number(ip.numero_item);
+          if (!Number.isFinite(numeroItem)) return;
+
+          const valorUnit = Number(ip.valor_unitario_ofertado) || 0;
           if (valorUnit <= 0) return;
-          const numeroItem = ip.numero_item;
+
           if (!propostasComoLances.has(numeroItem)) propostasComoLances.set(numeroItem, []);
           propostasComoLances.get(numeroItem)!.push({
             id: `proposta_${propostaInfo.fornecedor_id}_${numeroItem}`,
@@ -2837,9 +2848,11 @@ export function DialogSessaoLances({
             
             // Valor formatado com indicadores
             let valorExibido = valorFormatado;
-            if (isNegociacao) valorExibido = `${valorFormatado} *`;
-            if (isProposta && !isDesclassificado) valorExibido = `${valorFormatado} ◆`;
-            if (isDesclassificado) valorExibido = `${valorFormatado} ✗`;
+            if (isNegociacao) valorExibido = `${valorFormatado} †`;
+            if (isProposta) valorExibido = `${valorFormatado} *`;
+            if (isDesclassificado) {
+              valorExibido = isProposta ? `${valorFormatado} * ✗` : `${valorFormatado} ✗`;
+            }
             
             return {
               data: [
@@ -2945,13 +2958,13 @@ export function DialogSessaoLances({
           
           // Legendas
           const temNegociacao = lancesDoItem.some(l => l.tipo_lance === "negociacao");
-          const temProposta = lancesDoItem.some(l => (l as any)._isProposta && !isDesclassificadoPorPrecoPlanilha(l));
+          const temProposta = lancesDoItem.some(l => (l as any)._isProposta);
           
           if (temNegociacao) {
             doc.setFontSize(7);
             doc.setFont("helvetica", "italic");
             doc.setTextColor(22, 163, 74);
-            doc.text("* Valor obtido por negociação", margin + 3, yPosition);
+            doc.text("† Valor obtido por negociação", margin + 3, yPosition);
             doc.setTextColor(0, 0, 0);
             yPosition += 5;
           }
@@ -2960,7 +2973,7 @@ export function DialogSessaoLances({
             doc.setFontSize(7);
             doc.setFont("helvetica", "italic");
             doc.setTextColor(37, 99, 235);
-            doc.text("◆ Valor da proposta inicial (sem lance registrado)", margin + 3, yPosition);
+            doc.text("* Valor da proposta inicial enviada pelo fornecedor", margin + 3, yPosition);
             doc.setTextColor(0, 0, 0);
             yPosition += 5;
           }
