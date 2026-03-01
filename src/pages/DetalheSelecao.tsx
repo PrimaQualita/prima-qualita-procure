@@ -1023,6 +1023,129 @@ const [itens, setItens] = useState<Item[]>([]);
         console.error("Erro ao atualizar status da seleção:", selecaoError);
       }
 
+      // === CRIAR AUTOMATICAMENTE registro em processos_para_contratar (um por fornecedor vencedor) ===
+      try {
+        const criterioJulgamento = processo.criterio_julgamento || 'por_item';
+        const isDesconto = criterioJulgamento === 'desconto' || criterioJulgamento === 'maior_percentual_desconto';
+        const objetoLimpo = processo.objeto_resumido ? processo.objeto_resumido.replace(/<[^>]*>/g, '').trim() : null;
+        const tipoProcesso = "Seleção de Fornecedores";
+
+        // Buscar lances da seleção com dados do fornecedor
+        const { data: lancesAll } = await supabase
+          .from("lances_fornecedores")
+          .select("fornecedor_id, numero_item, valor_lance, fornecedores!inner(id, razao_social, cnpj)")
+          .eq("selecao_id", selecaoId!);
+
+        // Buscar inabilitações ativas
+        const { data: inabilitados } = await supabase
+          .from("fornecedores_inabilitados_selecao")
+          .select("fornecedor_id, itens_afetados")
+          .eq("selecao_id", selecaoId!)
+          .eq("revertido", false);
+
+        const inabPorItem = new Map<string, Set<number>>();
+        (inabilitados || []).forEach((inab: any) => {
+          if (!inabPorItem.has(inab.fornecedor_id)) inabPorItem.set(inab.fornecedor_id, new Set());
+          if (Array.isArray(inab.itens_afetados)) {
+            inab.itens_afetados.forEach((n: number) => inabPorItem.get(inab.fornecedor_id)!.add(n));
+          }
+        });
+        const estaInab = (fid: string, num: number) => inabPorItem.get(fid)?.has(num) || false;
+
+        // Filtrar lances excluindo Banco de Preços e inabilitados
+        const lancesValidos = (lancesAll || []).filter((l: any) => {
+          const forn = l.fornecedores as any;
+          if (forn?.cnpj === '' || (forn?.razao_social || '').toLowerCase().includes('banco de preços')) return false;
+          return !estaInab(l.fornecedor_id, l.numero_item);
+        });
+
+        // Calcular vencedores com valores
+        const valoresPorFornecedor = new Map<string, { nome: string; id: string; valorTotal: number }>();
+
+        if (criterioJulgamento === 'global') {
+          const lancesGlobal = lancesValidos.filter((l: any) => l.numero_item === 0);
+          if (lancesGlobal.length > 0) {
+            const sorted = lancesGlobal.sort((a: any, b: any) => isDesconto ? b.valor_lance - a.valor_lance : a.valor_lance - b.valor_lance);
+            const v = sorted[0];
+            const forn = v.fornecedores as any;
+            valoresPorFornecedor.set(v.fornecedor_id, { nome: forn.razao_social, id: forn.id, valorTotal: isDesconto ? 0 : v.valor_lance });
+          }
+        } else if (criterioJulgamento === 'por_lote') {
+          const loteMap = new Map<number, any[]>();
+          lancesValidos.forEach((l: any) => {
+            if (!loteMap.has(l.numero_item)) loteMap.set(l.numero_item, []);
+            loteMap.get(l.numero_item)!.push(l);
+          });
+          loteMap.forEach((lancesLote) => {
+            const sorted = lancesLote.sort((a: any, b: any) => isDesconto ? b.valor_lance - a.valor_lance : a.valor_lance - b.valor_lance);
+            const v = sorted[0];
+            if (v?.fornecedores) {
+              const forn = v.fornecedores as any;
+              if (!valoresPorFornecedor.has(v.fornecedor_id)) {
+                valoresPorFornecedor.set(v.fornecedor_id, { nome: forn.razao_social, id: forn.id, valorTotal: 0 });
+              }
+              if (!isDesconto) valoresPorFornecedor.get(v.fornecedor_id)!.valorTotal += v.valor_lance;
+            }
+          });
+        } else {
+          // por_item
+          const itemMap = new Map<number, any[]>();
+          lancesValidos.forEach((l: any) => {
+            if (!itemMap.has(l.numero_item)) itemMap.set(l.numero_item, []);
+            itemMap.get(l.numero_item)!.push(l);
+          });
+          itemMap.forEach((lancesItem) => {
+            const sorted = lancesItem.sort((a: any, b: any) => isDesconto ? b.valor_lance - a.valor_lance : a.valor_lance - b.valor_lance);
+            const v = sorted[0];
+            if (v?.fornecedores) {
+              const forn = v.fornecedores as any;
+              if (!valoresPorFornecedor.has(v.fornecedor_id)) {
+                valoresPorFornecedor.set(v.fornecedor_id, { nome: forn.razao_social, id: forn.id, valorTotal: 0 });
+              }
+              if (!isDesconto) valoresPorFornecedor.get(v.fornecedor_id)!.valorTotal += v.valor_lance;
+            }
+          });
+        }
+
+        console.log(`🏆 Vencedores finais para processos_para_contratar (seleção):`);
+        valoresPorFornecedor.forEach((v) => console.log(`  → ${v.nome}: R$ ${v.valorTotal.toFixed(2)}`));
+
+        if (valoresPorFornecedor.size > 0) {
+          const registros = Array.from(valoresPorFornecedor.entries()).map(([, dados]) => ({
+            processo_compra_id: processo.id,
+            contrato_gestao_id: processo.contrato_gestao_id,
+            numero_processo: processo.numero_processo_interno,
+            tipo_processo: tipoProcesso,
+            data_finalizacao: new Date().toISOString(),
+            fornecedor_vencedor_nome: dados.nome,
+            fornecedor_vencedor_id: dados.id,
+            objeto: objetoLimpo,
+            valor_aprovado: dados.valorTotal,
+            conta_gerencial: processo.centro_custo || null,
+            url_dossie: result.url,
+            status: "pronto_para_contratar",
+          }));
+
+          await supabase.from("processos_para_contratar").insert(registros);
+          console.log(`✅ ${registros.length} registro(s) em processos_para_contratar criado(s) automaticamente (seleção)`);
+        } else {
+          await supabase.from("processos_para_contratar").insert({
+            processo_compra_id: processo.id,
+            contrato_gestao_id: processo.contrato_gestao_id,
+            numero_processo: processo.numero_processo_interno,
+            tipo_processo: tipoProcesso,
+            data_finalizacao: new Date().toISOString(),
+            objeto: objetoLimpo,
+            valor_aprovado: valorTotalFechamento,
+            url_dossie: result.url,
+            status: "pronto_para_contratar",
+          });
+          console.log("✅ Registro genérico em processos_para_contratar criado (seleção)");
+        }
+      } catch (ppcError) {
+        console.warn("Erro ao criar registro em processos_para_contratar (seleção):", ppcError);
+      }
+
       // Recarregar dados
       await loadProcessoCompleto(processo.id);
       await loadSelecao();
