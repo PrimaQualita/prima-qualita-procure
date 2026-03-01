@@ -2578,7 +2578,7 @@ export function DialogSessaoLances({
       // ========== BUSCAR PROPOSTAS ORIGINAIS PARA INCLUIR COMO "PRIMEIROS LANCES" ==========
       const { data: propostasParaPlanilha } = await supabase
         .from("selecao_propostas_fornecedor")
-        .select("id, fornecedor_id, fornecedores(id, razao_social, cnpj), data_envio")
+        .select("id, fornecedor_id, fornecedores(id, razao_social, cnpj), data_envio_proposta")
         .eq("selecao_id", selecaoId);
 
       const propostaIdsPlanilha = (propostasParaPlanilha || []).map((p: any) => p.id);
@@ -2596,7 +2596,7 @@ export function DialogSessaoLances({
         propostaToFornecedorPlanilha.set(p.id, {
           fornecedor_id: p.fornecedor_id,
           fornecedores: p.fornecedores,
-          data_envio: p.data_envio
+          data_envio: p.data_envio_proposta
         });
       });
 
