@@ -510,14 +510,14 @@ const Dashboard = () => {
             </Card>
           </div>
         ) : (
-          <div className={`grid ${gridClass(processosComparativos.length)} gap-4 mb-6`}>
+          <div className="flex flex-col gap-4 mb-6">
             {processosComparativos.map(tipo => (
               <Card key={tipo} className="shadow-sm hover:shadow-md transition-shadow">
                 <CardHeader className="pb-2">
-                  <CardTitle className="text-xs">{TIPO_LABELS[tipo]}</CardTitle>
+                  <CardTitle className="text-sm">{TIPO_LABELS[tipo]}</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <DashboardBIChart data={gerarDadosPorContrato(tipo)} chartType={tipoGraficoGlobal} title={TIPO_LABELS[tipo]} height={220} />
+                  <DashboardBIChart data={gerarDadosPorContrato(tipo)} chartType={tipoGraficoGlobal} title={TIPO_LABELS[tipo]} height={300} />
                 </CardContent>
               </Card>
             ))}
