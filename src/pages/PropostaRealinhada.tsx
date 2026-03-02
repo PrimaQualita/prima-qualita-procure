@@ -250,12 +250,13 @@ const PropostaRealinhada = () => {
           return;
         }
 
-        toast.error("Você não tem itens vencedores nesta seleção");
-        return;
+        // Fornecedor confirmado como vencedor mas não ganhou via lances diretos
+        // Cair para lógica de propostas originais abaixo
+        console.log("📄 Fornecedor é vencedor mas não por lances diretos, verificando propostas...");
       }
 
-      // SEM LANCES: Identificar vencedor pela proposta original (menor valor_total_proposta)
-      console.log("📄 Sem lances registrados, identificando vencedor pelas propostas originais");
+      // FALLBACK: Identificar vencedor pela proposta original (sem lances ou lances não determinaram vencedor para este fornecedor)
+      console.log("📄 Identificando vencedor pelas propostas originais (fallback)");
 
       const { data: todasPropostas } = await supabase
         .from("selecao_propostas_fornecedor")
@@ -717,7 +718,31 @@ const PropostaRealinhada = () => {
 
       // ======= LÓGICA POR CRITÉRIO =======
       if (criterio === "por_lote") {
-        // Calcular totais por lote para cada fornecedor válido
+        // Buscar lances existentes para considerar lances + propostas
+        const { data: lancesExistentes } = await supabase
+          .from("lances_fornecedores")
+          .select("fornecedor_id, numero_item, valor_lance")
+          .eq("selecao_id", selecaoId);
+
+        // Mapa de lances: numero_item(=lote) → Map<fornecedorId, melhorValor>
+        const lancesPorLote = new Map<number, Map<string, number>>();
+        (lancesExistentes || []).forEach((lance: any) => {
+          const fId = String(lance.fornecedor_id);
+          const lote = Number(lance.numero_item || 0);
+          const valor = Number(lance.valor_lance || 0);
+          if (!Number.isFinite(lote) || valor <= 0) return;
+          if (fornecedoresInabilitadosGlobalmente.has(fId)) return;
+          if (inabilitacoesPorFornecedor.get(fId)?.has(lote)) return;
+
+          if (!lancesPorLote.has(lote)) lancesPorLote.set(lote, new Map());
+          const porF = lancesPorLote.get(lote)!;
+          const atual = porF.get(fId);
+          if (atual == null || (ehDesconto ? valor > atual : valor < atual)) {
+            porF.set(fId, valor);
+          }
+        });
+
+        // Calcular totais por lote para cada fornecedor válido (propostas)
         const totaisPorLotePorFornecedor = new Map<number, Map<string, number>>();
 
         for (const proposta of todasPropostas) {
@@ -746,8 +771,11 @@ const PropostaRealinhada = () => {
           }
         }
 
-        // Identificar vencedor de cada lote e verificar se é este fornecedor
-        totaisPorLotePorFornecedor.forEach((mapaFornecedores, numeroLote) => {
+        // Combinar todos os lotes (lances + propostas)
+        const todosLotes = new Set<number>([...lancesPorLote.keys(), ...totaisPorLotePorFornecedor.keys()]);
+
+        // Identificar vencedor de cada lote (lances têm prioridade sobre propostas)
+        todosLotes.forEach((numeroLote) => {
           // Calcular estimativa do lote
           let estimativaLote = 0;
           itensCotacao.forEach((ic: any) => {
@@ -758,15 +786,34 @@ const PropostaRealinhada = () => {
             }
           });
 
-          // Ordenar fornecedores pelo valor (desconto = maior, preço = menor)
-          const fornecedoresOrdenados = Array.from(mapaFornecedores.entries())
-            .filter(([, valor]) => estimativaLote === 0 || valor <= estimativaLote) // Excluir FRACASSADO
-            .sort((a, b) => ehDesconto ? b[1] - a[1] : a[1] - b[1]);
+          // Tentar primeiro por lances
+          let vencedorId: string | null = null;
+          let valorVencedor = 0;
 
-          if (fornecedoresOrdenados.length === 0) return; // Lote fracassado
+          const lancesDoLote = lancesPorLote.get(numeroLote);
+          if (lancesDoLote && lancesDoLote.size > 0) {
+            const candidatos = Array.from(lancesDoLote.entries())
+              .filter(([, valor]) => estimativaLote === 0 || valor <= estimativaLote)
+              .sort((a, b) => ehDesconto ? b[1] - a[1] : a[1] - b[1]);
+            if (candidatos.length > 0) {
+              [vencedorId, valorVencedor] = candidatos[0];
+            }
+          }
 
-          const [vencedorId, valorVencedor] = fornecedoresOrdenados[0];
-          if (vencedorId !== fornecedorId) return; // Este fornecedor não venceu este lote
+          // Se não encontrou por lance, tentar por proposta
+          if (!vencedorId) {
+            const propostasDoLote = totaisPorLotePorFornecedor.get(numeroLote);
+            if (propostasDoLote && propostasDoLote.size > 0) {
+              const candidatos = Array.from(propostasDoLote.entries())
+                .filter(([, valor]) => estimativaLote === 0 || valor <= estimativaLote)
+                .sort((a, b) => ehDesconto ? b[1] - a[1] : a[1] - b[1]);
+              if (candidatos.length > 0) {
+                [vencedorId, valorVencedor] = candidatos[0];
+              }
+            }
+          }
+
+          if (!vencedorId || vencedorId !== fornecedorId) return; // Não venceu este lote
 
           lotesMap.set(numeroLote, valorVencedor);
           totalGanho += valorVencedor;
