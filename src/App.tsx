@@ -103,6 +103,7 @@ const App = () => {
             <Route path="/verificar-planilha" element={<VerificarPlanilha />} />
             <Route path="/verificar-encaminhamento" element={<VerificarEncaminhamento />} />
             <Route path="/verificar-analise-compliance" element={<VerificarAnaliseCompliance />} />
+            <Route path="/verificar-ata" element={<VerificarAta />} />
             
             {/* Rotas com sidebar */}
             <Route element={<DashboardLayout />}>
