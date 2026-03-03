@@ -20,20 +20,33 @@ interface Notificacao {
 
 export function SolicitacoesDocumentosProcesso() {
   const [notificacoes, setNotificacoes] = useState<Notificacao[]>([]);
+  const [userId, setUserId] = useState<string | null>(null);
   const navigate = useNavigate();
   const { toast } = useToast();
 
   useEffect(() => {
-    loadNotificacoes();
-    const interval = setInterval(loadNotificacoes, 30000);
-    return () => clearInterval(interval);
+    const init = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        setUserId(user.id);
+        loadNotificacoes(user.id);
+      }
+    };
+    init();
   }, []);
 
-  const loadNotificacoes = async () => {
+  useEffect(() => {
+    if (!userId) return;
+    const interval = setInterval(() => loadNotificacoes(userId), 30000);
+    return () => clearInterval(interval);
+  }, [userId]);
+
+  const loadNotificacoes = async (uid: string) => {
     try {
       const { data, error } = await supabase
         .from("notificacoes_documentos_processo")
         .select("*")
+        .eq("destinatario_id", uid)
         .eq("atendida", false)
         .order("created_at", { ascending: false });
 
