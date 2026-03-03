@@ -3250,42 +3250,26 @@ export function DialogSessaoLances({
       });
 
       // Adicionar linha de valor total (apenas se não for desconto)
-      if (criterioJulgamento !== "desconto") {
-        if (isGlobalLocal) {
-          resumoData.push([
-            "",
-            "",
-            "",
-            "",
-            "",
-            "",
-            "VALOR TOTAL:",
-            formatCurrency(valorTotalGeral)
-          ]);
-        } else {
-          resumoData.push([
-            "",
-            "",
-            "",
-            "",
-            "",
-            "",
-            "VALOR TOTAL:",
-            formatCurrency(valorTotalGeral)
-          ]);
-        }
+      if (criterioJulgamento !== "desconto" && !isGlobalLocal) {
+        resumoData.push([
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "VALOR TOTAL:",
+          formatCurrency(valorTotalGeral)
+        ]);
       }
 
-      // Para critério global: transformar resumoData para 6 colunas (sem Unidade e Quantidade)
+      // Para critério global: transformar resumoData para 3 colunas (Item, Descrição, Vencedor)
       let resumoDataFinal = resumoData;
       if (isGlobalLocal) {
         resumoDataFinal = resumoData.map(row => [
           row[0], // Item
           row[1], // Descrição
           row[2], // Vencedor
-          row[3], // Marca
-          row[6], // Valor Unit.
-          row[7], // Valor Total
         ]);
       }
 
@@ -3306,8 +3290,20 @@ export function DialogSessaoLances({
       
       const ocultarColunasMarcaQtdUn = isPorLoteLocal;
 
-      // Cabeçalho e colunas específicos para critério global (sem Unidade e Quantidade)
-      const headGlobal = [["Item", "Descrição", "Vencedor", "Marca", criterioJulgamento === "desconto" ? "% Desconto" : "Valor Unit.", criterioJulgamento === "desconto" ? "-" : "Valor Total"]];
+      // Largura total da tabela (paisagem A4 = ~297mm, com margens de 14mm cada lado = 269mm úteis)
+      const larguraTotalTabela = landscapeWidth - 28; // 28 = 14 + 14 de margem
+
+      // Cabeçalho e colunas específicos para critério global (apenas Item, Descrição, Vencedor)
+      const headGlobal = [["Item", "Descrição", "Vencedor"]];
+      const colGlobalItem = 20;
+      const colGlobalVencedor = 80;
+      const colGlobalDescricao = larguraTotalTabela - colGlobalItem - colGlobalVencedor;
+      const columnStylesGlobal = {
+        0: { cellWidth: colGlobalItem, halign: "center" as const, fontStyle: "bold" as const },
+        1: { cellWidth: colGlobalDescricao, halign: "justify" as const },
+        2: { cellWidth: colGlobalVencedor, halign: "left" as const },
+      };
+
       const headPadrao = [[
         colunaIdentificador, 
         "Descrição", 
@@ -3319,27 +3315,7 @@ export function DialogSessaoLances({
         criterioJulgamento === "desconto" ? "-" : "Valor Total"
       ]];
 
-      // Largura total da tabela (paisagem A4 = ~297mm, com margens de 14mm cada lado = 269mm úteis)
-      const larguraTotalTabela = landscapeWidth - 28; // 28 = 14 + 14 de margem
-      
-      // Larguras ajustadas para critério global (6 colunas: Item, Descrição, Vencedor, Marca, Valor Unit., Valor Total)
-      const colGlobalItem = 18;
-      const colGlobalVencedor = 65;
-      const colGlobalMarca = 35;
-      const colGlobalValorUnit = 35;
-      const colGlobalValorTotal = 35;
-      const colGlobalDescricao = larguraTotalTabela - colGlobalItem - colGlobalVencedor - colGlobalMarca - colGlobalValorUnit - colGlobalValorTotal;
-      const columnStylesGlobal = {
-        0: { cellWidth: colGlobalItem, halign: "center" as const, fontStyle: "bold" as const },
-        1: { cellWidth: colGlobalDescricao, halign: "justify" as const },
-        2: { cellWidth: colGlobalVencedor, halign: "left" as const },
-        3: { cellWidth: colGlobalMarca, halign: "center" as const },
-        4: { cellWidth: colGlobalValorUnit, halign: "right" as const, fontStyle: "bold" as const },
-        5: { cellWidth: colGlobalValorTotal, halign: "right" as const, fontStyle: "bold" as const },
-      };
-
       // Calcular larguras proporcionais para tabela superior ter mesma largura que inferior
-      // Total: larguraTotalTabela = landscapeWidth - 28
       const colItemWidth = 15;
       const colMarcaWidth = 30;
       const colQtdWidth = 18;
@@ -3347,7 +3323,6 @@ export function DialogSessaoLances({
       const colValorUnitWidth = 30;
       const colValorTotalWidth = 30;
       const colVencedorWidth = 55;
-      // Descrição pega o restante
       const colDescricaoWidth = larguraTotalTabela - colItemWidth - colVencedorWidth - colMarcaWidth - colQtdWidth - colUnWidth - colValorUnitWidth - colValorTotalWidth;
 
       const columnStylesPadrao = {
@@ -3397,8 +3372,9 @@ export function DialogSessaoLances({
           }
         },
         didParseCell: (data) => {
+          if (isGlobalLocal) return; // Global não tem colunas de valor nem linha de total
           // Destacar valores de negociação
-          const valorColIndices = isGlobalLocal ? [4, 5] : [6, 7];
+          const valorColIndices = [6, 7];
           if (valorColIndices.includes(data.column.index) && data.section === "body") {
             const cellText = String(data.cell.raw);
             if (cellText.includes("*")) {
@@ -3406,8 +3382,7 @@ export function DialogSessaoLances({
             }
           }
           // Estilizar linha de total
-          const currentData = useGlobalResumoFormat ? resumoDataFinal : resumoData;
-          if (criterioJulgamento !== "desconto" && data.section === "body" && data.row.index === currentData.length - 1) {
+          if (criterioJulgamento !== "desconto" && data.section === "body" && data.row.index === resumoData.length - 1) {
             data.cell.styles.fillColor = [0, 128, 128]; // Verde do logo
             data.cell.styles.textColor = [255, 255, 255];
             data.cell.styles.fontStyle = "bold";
