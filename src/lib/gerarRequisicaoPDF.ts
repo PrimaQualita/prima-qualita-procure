@@ -188,7 +188,13 @@ export const gerarRequisicaoPDF = async (dados: DadosRequisicao): Promise<Blob> 
   
   const linhasParagrafo2 = doc.splitTextToSize(paragrafo2, 170);
   doc.text(linhasParagrafo2, 20, yPos, { align: 'justify', maxWidth: 170 });
-  yPos += linhasParagrafo2.length * 5 + 15;
+  yPos += linhasParagrafo2.length * 5 + 6;
+
+  // Parágrafo final - Termo de Referência
+  const paragrafo3 = 'Segue anexo o Termo de Referência, que é parte integrante desta Requisição, contendo as especificações técnicas e demais condições necessárias para a aquisição.';
+  const linhasParagrafo3 = doc.splitTextToSize(paragrafo3, 170);
+  doc.text(linhasParagrafo3, 20, yPos, { align: 'justify', maxWidth: 170 });
+  yPos += linhasParagrafo3.length * 5 + 15;
 
   // Local e data - usar "Rio Bonito" para contratos especiais
   const dataAtual = new Date().toLocaleDateString('pt-BR', {
