@@ -128,7 +128,7 @@ export function AppSidebar({
     };
   }, [profile?.id]);
 
-  // Carregar contagem de alertas de contratos (a vencer + vencidos sem tratamento)
+  // Carregar contagem de alertas de contratos (apenas vigentes: a vencer ≤45 dias OU já vencidos)
   useEffect(() => {
     if (!profile?.id) return;
 
@@ -138,7 +138,8 @@ export function AppSidebar({
 
         const { data, error } = await supabase
           .from("contratos_terceiros")
-          .select("id, fim_vigencia_atual, status, ciente_nao_renovar")
+          .select("id, fim_vigencia_atual, ciente_nao_renovar")
+          .eq("status", "vigente")
           .not("fim_vigencia_atual", "is", null);
 
         if (error) throw error;
@@ -147,14 +148,12 @@ export function AppSidebar({
         const contratosValidos = (data || []).filter((c) => !c.ciente_nao_renovar);
 
         const aVencer = contratosValidos.filter((c) => {
-          if (c.status !== "vigente") return false;
           const fimDate = new Date(c.fim_vigencia_atual + "T23:59:59-03:00");
           const dias = differenceInDays(fimDate, hoje);
           return dias >= 0 && dias <= 45;
         });
 
         const vencidos = contratosValidos.filter((c) => {
-          if (c.status === "encerrado" || c.status === "rescindido") return false;
           const fimDate = new Date(c.fim_vigencia_atual + "T23:59:59-03:00");
           return fimDate < hoje;
         });

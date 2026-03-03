@@ -49,6 +49,7 @@ export default function Contratos() {
   const [countAVencer, setCountAVencer] = useState(0);
   const [countVencidos, setCountVencidos] = useState(0);
   const [globalAlerts, setGlobalAlerts] = useState({ aVencer: 0, vencidos: 0, total: 0 });
+  const [alertsPorCG, setAlertsPorCG] = useState<Record<string, number>>({});
 
   const canEdit = context?.isContrato === true;
 
@@ -67,8 +68,9 @@ export default function Contratos() {
 
       let query = supabase
         .from("contratos_terceiros")
-        .select("id, fim_vigencia_atual, status, ciente_nao_renovar")
+        .select("id, fim_vigencia_atual, ciente_nao_renovar")
         .eq("contrato_gestao_id", contratoGestaoId)
+        .eq("status", "vigente")
         .not("fim_vigencia_atual", "is", null);
 
       if (filterPcIds.length > 0) {
@@ -80,19 +82,17 @@ export default function Contratos() {
 
       const hoje = toZonedTime(new Date(), "America/Sao_Paulo");
 
-      // A Vencer: vigentes com <= 45 dias restantes
+      // A Vencer: vigentes com <= 45 dias restantes (query já filtra status=vigente)
       const aVencer = data.filter(c => {
-        if (c.status !== "vigente") return false;
         const fimDate = new Date(c.fim_vigencia_atual + "T23:59:59-03:00");
         const dias = differenceInDays(fimDate, hoje);
         return dias >= 0 && dias <= 45;
       });
       setCountAVencer(aVencer.length);
 
-      // Vencidos: expirados E não marcados como ciente E não encerrados/rescindidos
+      // Vencidos: já expirados E não marcados como ciente (query já filtra status=vigente)
       const vencidos = data.filter(c => {
         if (c.ciente_nao_renovar) return false;
-        if (c.status === "encerrado" || c.status === "rescindido") return false;
         const fimDate = new Date(c.fim_vigencia_atual + "T23:59:59-03:00");
         return fimDate < hoje;
       });
@@ -106,7 +106,8 @@ export default function Contratos() {
     try {
       const { data, error } = await supabase
         .from("contratos_terceiros")
-        .select("id, fim_vigencia_atual, status, ciente_nao_renovar")
+        .select("id, fim_vigencia_atual, ciente_nao_renovar, contrato_gestao_id")
+        .eq("status", "vigente")
         .not("fim_vigencia_atual", "is", null);
 
       if (error) throw error;
@@ -114,20 +115,27 @@ export default function Contratos() {
       const hoje = toZonedTime(new Date(), "America/Sao_Paulo");
       const contratosValidos = (data || []).filter(c => !c.ciente_nao_renovar);
 
-      const aVencer = contratosValidos.filter(c => {
-        if (c.status !== "vigente") return false;
+      let totalAVencer = 0;
+      let totalVencidos = 0;
+      const porCG: Record<string, number> = {};
+
+      for (const c of contratosValidos) {
         const fimDate = new Date(c.fim_vigencia_atual + "T23:59:59-03:00");
         const dias = differenceInDays(fimDate, hoje);
-        return dias >= 0 && dias <= 45;
-      }).length;
+        const isAVencer = dias >= 0 && dias <= 45;
+        const isVencido = fimDate < hoje;
 
-      const vencidos = contratosValidos.filter(c => {
-        if (c.status === "encerrado" || c.status === "rescindido") return false;
-        const fimDate = new Date(c.fim_vigencia_atual + "T23:59:59-03:00");
-        return fimDate < hoje;
-      }).length;
+        if (isAVencer) {
+          totalAVencer++;
+          porCG[c.contrato_gestao_id] = (porCG[c.contrato_gestao_id] || 0) + 1;
+        } else if (isVencido) {
+          totalVencidos++;
+          porCG[c.contrato_gestao_id] = (porCG[c.contrato_gestao_id] || 0) + 1;
+        }
+      }
 
-      setGlobalAlerts({ aVencer, vencidos, total: aVencer + vencidos });
+      setGlobalAlerts({ aVencer: totalAVencer, vencidos: totalVencidos, total: totalAVencer + totalVencidos });
+      setAlertsPorCG(porCG);
     } catch {
       // silent
     }
@@ -292,7 +300,16 @@ export default function Contratos() {
                           key={contrato.id}
                           style={contrato.cor_fundo ? { backgroundColor: contrato.cor_fundo } : undefined}
                         >
-                          <TableCell className="font-medium text-xs sm:text-sm">{contrato.nome_contrato}</TableCell>
+                          <TableCell className="font-medium text-xs sm:text-sm">
+                            <span className="flex items-center gap-2">
+                              {contrato.nome_contrato}
+                              {(alertsPorCG[contrato.id] || 0) > 0 && (
+                                <Badge variant="destructive" className="h-5 px-1.5 text-xs">
+                                  {alertsPorCG[contrato.id]}
+                                </Badge>
+                              )}
+                            </span>
+                          </TableCell>
                           <TableCell className="text-xs sm:text-sm">{contrato.ente_federativo}</TableCell>
                           <TableCell className="text-right">
                             <Button
