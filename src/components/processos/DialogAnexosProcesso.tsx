@@ -871,6 +871,13 @@ export function DialogAnexosProcesso({
             const isCapaProcesso = tipo === "capa_processo";
             const isRequisicao = tipo === "requisicao";
             const isAutorizacaoDespesa = tipo === "autorizacao_despesa";
+            const isTermoReferencia = tipo === "termo_referencia";
+
+            // Verificar dependências sequenciais
+            const requisicaoExiste = !!getAnexoPorTipo("requisicao");
+            const termoReferenciaExiste = !!getAnexoPorTipo("termo_referencia");
+            const bloqueadoTermoReferencia = isTermoReferencia && !requisicaoExiste;
+            const bloqueadoAutorizacao = isAutorizacaoDespesa && !termoReferenciaExiste;
 
             return (
               <div key={tipo} className="border rounded-lg p-4">
@@ -940,8 +947,8 @@ export function DialogAnexosProcesso({
                         {gerandoRequisicao ? "Gerando..." : "Gerar Requisição"}
                       </Button>
                     )}
-                    {/* Botão Gerar Autorização - apenas para superintendente executivo */}
-                    {isAutorizacaoDespesa && isSuperintendenteExecutivo && (
+                    {/* Botão Gerar Autorização - apenas para superintendente executivo e após Termo de Referência */}
+                    {isAutorizacaoDespesa && isSuperintendenteExecutivo && !bloqueadoAutorizacao && (
                       <Button
                         size="sm"
                         variant="default"
@@ -957,7 +964,8 @@ export function DialogAnexosProcesso({
                     {/* Requisição: APENAS Gerente de Contratos vinculado */}
                     {/* Capa e Termo: gestor/colaborador */}
                     {/* Autorização de despesa NÃO pode ser anexada manualmente - apenas gerada */}
-                    {!isAutorizacaoDespesa && (
+                    {/* Termo de Referência: bloqueado até Requisição existir */}
+                    {!isAutorizacaoDespesa && !bloqueadoTermoReferencia && (
                       (isRequisicao && isGerenteContratos) || 
                       (!isRequisicao && isGestorOuColaborador)
                     ) && (
@@ -985,8 +993,20 @@ export function DialogAnexosProcesso({
                         </Button>
                       </>
                     )}
+                    {/* Mensagem de bloqueio - Termo de Referência aguardando Requisição */}
+                    {bloqueadoTermoReferencia && (
+                      <p className="text-sm text-muted-foreground italic">
+                        Gere a Requisição primeiro para liberar o upload do Termo de Referência
+                      </p>
+                    )}
+                    {/* Mensagem de bloqueio - Autorização aguardando Termo de Referência */}
+                    {bloqueadoAutorizacao && isSuperintendenteExecutivo && (
+                      <p className="text-sm text-muted-foreground italic">
+                        Anexe o Termo de Referência primeiro para liberar a geração da Autorização de Despesa
+                      </p>
+                    )}
                     {/* Mensagem para gerente de contratos ou responsável legal sem acesso */}
-                    {(isGerenteContratos || isResponsavelLegal) && !isGestorOuColaborador && !isRequisicao && !isAutorizacaoDespesa && (
+                    {(isGerenteContratos || isResponsavelLegal) && !isGestorOuColaborador && !isRequisicao && !isAutorizacaoDespesa && !bloqueadoTermoReferencia && (
                       <p className="text-sm text-muted-foreground italic">
                         Documento não disponível para seu perfil
                       </p>
