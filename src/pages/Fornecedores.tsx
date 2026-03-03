@@ -477,78 +477,14 @@ export default function Fornecedores() {
     if (!fornecedorParaExcluir) return;
 
     try {
-      // 1. Buscar o user_id do fornecedor ANTES de excluir
-      const { data: fornecedorData, error: fetchError } = await supabase
-        .from("fornecedores")
-        .select("user_id")
-        .eq("id", fornecedorParaExcluir)
-        .single();
+      const { data, error } = await supabase.functions.invoke("deletar-fornecedor", {
+        body: { fornecedorId: fornecedorParaExcluir },
+      });
 
-      if (fetchError) {
-        console.error("Erro ao buscar fornecedor:", fetchError);
-        throw fetchError;
-      }
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
 
-      console.log("Fornecedor encontrado, user_id:", fornecedorData?.user_id);
-
-      // 2. Deletar documentos do fornecedor
-      const { error: docError } = await supabase
-        .from("documentos_fornecedor")
-        .delete()
-        .eq("fornecedor_id", fornecedorParaExcluir);
-
-      if (docError) {
-        console.error("Erro ao deletar documentos:", docError);
-        throw docError;
-      }
-
-      // 3. Deletar respostas de due diligence
-      const { error: respostasError } = await supabase
-        .from("respostas_due_diligence_fornecedor")
-        .delete()
-        .eq("fornecedor_id", fornecedorParaExcluir);
-
-      if (respostasError) {
-        console.error("Erro ao deletar respostas due diligence:", respostasError);
-        throw respostasError;
-      }
-
-      // 4. PRESERVAR propostas de cotação - NÃO deletar cotacao_respostas_fornecedor
-      // As propostas ficarão com fornecedor_id órfão mas serão exibidas corretamente
-      console.log("Propostas de cotação preservadas para fornecedor:", fornecedorParaExcluir);
-
-      // 5. Deletar o registro de fornecedor PRIMEIRO (antes do usuário auth)
-      const { error: deleteError } = await supabase
-        .from("fornecedores")
-        .delete()
-        .eq("id", fornecedorParaExcluir);
-
-      if (deleteError) {
-        console.error("Erro ao deletar fornecedor:", deleteError);
-        throw deleteError;
-      }
-
-      // 6. Se o fornecedor tinha user_id, deletar o usuário de autenticação POR ÚLTIMO
-      if (fornecedorData?.user_id) {
-        console.log("Chamando edge function para deletar usuário:", fornecedorData.user_id);
-        
-        const { data: deleteUserData, error: authError } = await supabase.functions.invoke(
-          "deletar-usuario-admin",
-          {
-            body: { userId: fornecedorData.user_id },
-          }
-        );
-
-        console.log("Resposta da edge function:", deleteUserData, authError);
-
-        if (authError) {
-          console.error("Erro ao deletar usuário de autenticação:", authError);
-          // Não retornar aqui - o fornecedor já foi deletado
-          toast.warning("Fornecedor excluído, mas erro ao remover acesso. Contate o suporte.");
-        }
-      }
-
-      toast.success("Fornecedor excluído com sucesso! Propostas de cotação foram preservadas.");
+      toast.success("Fornecedor excluído com sucesso!");
       loadFornecedores();
     } catch (error: any) {
       console.error("Erro no processo de exclusão:", error);
