@@ -11,6 +11,7 @@ import { AlertCircle } from "lucide-react";
 import { SolicitacoesAutorizacao } from "@/components/dashboard/SolicitacoesAutorizacao";
 import { SolicitacoesHomologacao } from "@/components/dashboard/SolicitacoesHomologacao";
 import { SolicitacoesAutorizacaoSelecao } from "@/components/dashboard/SolicitacoesAutorizacaoSelecao";
+import { SolicitacoesDocumentosProcesso } from "@/components/dashboard/SolicitacoesDocumentosProcesso";
 import { atualizarAtaComAssinaturas } from "@/lib/gerarAtaSelecaoPDF";
 import { DashboardBIFilters } from "@/components/dashboard/DashboardBIFilters";
 import { DashboardBIKPIs } from "@/components/dashboard/DashboardBIKPIs";
@@ -439,6 +440,11 @@ const Dashboard = () => {
             <SolicitacoesHomologacao />
           </div>
         )}
+
+        {/* Notificações de solicitação de documentos (Gerente de Contratos e Superintendente) */}
+        <div className="mb-4">
+          <SolicitacoesDocumentosProcesso />
+        </div>
 
         <div className="flex items-center gap-3 mb-4">
           <BarChart3 className="h-6 w-6 text-primary" />

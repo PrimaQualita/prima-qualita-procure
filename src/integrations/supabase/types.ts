@@ -2221,6 +2221,70 @@ export type Database = {
           },
         ]
       }
+      notificacoes_documentos_processo: {
+        Row: {
+          atendida: boolean
+          contrato_gestao_nome: string | null
+          created_at: string
+          destinatario_id: string
+          id: string
+          lida: boolean
+          numero_processo: string
+          objeto_processo: string
+          processo_compra_id: string
+          remetente_id: string
+          tipo_notificacao: string
+        }
+        Insert: {
+          atendida?: boolean
+          contrato_gestao_nome?: string | null
+          created_at?: string
+          destinatario_id: string
+          id?: string
+          lida?: boolean
+          numero_processo: string
+          objeto_processo: string
+          processo_compra_id: string
+          remetente_id: string
+          tipo_notificacao: string
+        }
+        Update: {
+          atendida?: boolean
+          contrato_gestao_nome?: string | null
+          created_at?: string
+          destinatario_id?: string
+          id?: string
+          lida?: boolean
+          numero_processo?: string
+          objeto_processo?: string
+          processo_compra_id?: string
+          remetente_id?: string
+          tipo_notificacao?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "notificacoes_documentos_processo_destinatario_id_fkey"
+            columns: ["destinatario_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "notificacoes_documentos_processo_processo_compra_id_fkey"
+            columns: ["processo_compra_id"]
+            isOneToOne: false
+            referencedRelation: "processos_compras"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "notificacoes_documentos_processo_remetente_id_fkey"
+            columns: ["remetente_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       notificacoes_fornecedor: {
         Row: {
           created_at: string | null

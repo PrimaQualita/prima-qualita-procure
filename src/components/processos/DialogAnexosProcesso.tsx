@@ -20,7 +20,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import { FileUp, Download, Trash2, CheckCircle, XCircle, FileText } from "lucide-react";
+import { FileUp, Download, Trash2, CheckCircle, XCircle, FileText, Send } from "lucide-react";
 import { Label } from "@/components/ui/label";
 import { gerarCapaProcessoPDF } from "@/lib/gerarCapaProcessoPDF";
 import { gerarRequisicaoPDF } from "@/lib/gerarRequisicaoPDF";
@@ -70,6 +70,7 @@ export function DialogAnexosProcesso({
   const [gerandoCapa, setGerandoCapa] = useState(false);
   const [gerandoRequisicao, setGerandoRequisicao] = useState(false);
   const [gerandoAutorizacao, setGerandoAutorizacao] = useState(false);
+  const [enviandoNotificacao, setEnviandoNotificacao] = useState<string | null>(null);
   
   // Permissões do usuário
   const [isGerenteContratos, setIsGerenteContratos] = useState(false);
@@ -787,6 +788,96 @@ export function DialogAnexosProcesso({
     }
   };
 
+  const handleEnviarNotificacao = async (tipoNotificacao: 'requisicao' | 'autorizacao_despesa') => {
+    setEnviandoNotificacao(tipoNotificacao);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error("Usuário não autenticado");
+
+      // Buscar dados do processo
+      const { data: processo, error: processoError } = await supabase
+        .from("processos_compras")
+        .select(`
+          numero_processo_interno,
+          objeto_resumido,
+          contrato_gestao_id,
+          contratos_gestao:contrato_gestao_id (
+            nome_contrato
+          )
+        `)
+        .eq("id", processoId)
+        .single();
+
+      if (processoError || !processo) throw new Error("Processo não encontrado");
+
+      const contrato = processo.contratos_gestao as any;
+      let destinatarios: string[] = [];
+
+      if (tipoNotificacao === 'requisicao') {
+        // Buscar gerentes de contratos vinculados ao contrato de gestão deste processo
+        const { data: gerentes } = await supabase
+          .from("gerentes_contratos_gestao")
+          .select("usuario_id")
+          .eq("contrato_gestao_id", processo.contrato_gestao_id);
+
+        destinatarios = (gerentes || []).map(g => g.usuario_id);
+        if (destinatarios.length === 0) {
+          toast({ title: "Nenhum Gerente de Contratos vinculado a este contrato de gestão", variant: "destructive" });
+          return;
+        }
+      } else {
+        // Buscar superintendentes executivos
+        const { data: supers } = await supabase
+          .from("profiles")
+          .select("id")
+          .eq("superintendente_executivo", true)
+          .eq("ativo", true);
+
+        destinatarios = (supers || []).map(s => s.id);
+        if (destinatarios.length === 0) {
+          toast({ title: "Nenhum Superintendente Executivo encontrado", variant: "destructive" });
+          return;
+        }
+      }
+
+      // Criar notificações para todos os destinatários
+      const notificacoes = destinatarios.map(destId => ({
+        processo_compra_id: processoId,
+        tipo_notificacao: tipoNotificacao,
+        destinatario_id: destId,
+        remetente_id: user.id,
+        numero_processo: processo.numero_processo_interno,
+        objeto_processo: processo.objeto_resumido,
+        contrato_gestao_nome: contrato?.nome_contrato || null,
+      }));
+
+      const { error: insertError } = await supabase
+        .from("notificacoes_documentos_processo")
+        .insert(notificacoes);
+
+      if (insertError) throw insertError;
+
+      const labelTipo = tipoNotificacao === 'requisicao' 
+        ? 'Gerente(s) de Contratos' 
+        : 'Superintendente(s) Executivo(s)';
+
+      toast({
+        title: "Notificação enviada!",
+        description: `Solicitação enviada para ${destinatarios.length} ${labelTipo}.`,
+      });
+    } catch (error: any) {
+      console.error("Erro ao enviar notificação:", error);
+      toast({
+        title: "Erro ao enviar notificação",
+        description: error.message,
+        variant: "destructive",
+      });
+    } finally {
+      setEnviandoNotificacao(null);
+    }
+  };
+
+
   if (loading) {
     return (
       <Dialog open={open} onOpenChange={onOpenChange}>
@@ -920,108 +1011,132 @@ export function DialogAnexosProcesso({
                     </div>
                   </div>
                 ) : (
-                  <div className="flex items-center gap-2">
-                    {/* Botão Gerar Capa - apenas para gestor/colaborador */}
-                    {isCapaProcesso && isGestorOuColaborador && (
-                      <Button
-                        size="sm"
-                        variant="default"
-                        onClick={handleGerarCapa}
-                        disabled={gerandoCapa}
-                        className="flex-1"
-                      >
-                        <FileText className="h-4 w-4 mr-2" />
-                        {gerandoCapa ? "Gerando Capa..." : "Gerar Capa do Processo"}
-                      </Button>
-                    )}
-                    {/* Botão Gerar Requisição - apenas para gerentes de contratos vinculados ao contrato */}
-                    {isRequisicao && isGerenteContratos && (
-                      <Button
-                        size="sm"
-                        variant="default"
-                        onClick={handleGerarRequisicao}
-                        disabled={gerandoRequisicao}
-                        className="flex-1"
-                      >
-                        <FileText className="h-4 w-4 mr-2" />
-                        {gerandoRequisicao ? "Gerando..." : "Gerar Requisição"}
-                      </Button>
-                    )}
-                    {/* Botão Gerar Autorização - apenas para superintendente executivo e após Termo de Referência */}
-                    {isAutorizacaoDespesa && isSuperintendenteExecutivo && !bloqueadoAutorizacao && (
-                      <Button
-                        size="sm"
-                        variant="default"
-                        onClick={handleGerarAutorizacaoDespesa}
-                        disabled={gerandoAutorizacao}
-                        className="flex-1"
-                      >
-                        <FileText className="h-4 w-4 mr-2" />
-                        {gerandoAutorizacao ? "Gerando..." : "Gerar Autorização"}
-                      </Button>
-                    )}
-                    {/* Botão Anexar PDF */}
-                    {/* Requisição: APENAS Gerente de Contratos vinculado */}
-                    {/* Capa e Termo: gestor/colaborador */}
-                    {/* Autorização de despesa NÃO pode ser anexada manualmente - apenas gerada */}
-                    {/* Termo de Referência: bloqueado até Requisição existir */}
-                    {!isAutorizacaoDespesa && !bloqueadoTermoReferencia && (
-                      (isRequisicao && isGerenteContratos) || 
-                      (!isRequisicao && isGestorOuColaborador)
-                    ) && (
-                      <>
-                        <input
-                          type="file"
-                          id={`file-${tipo}`}
-                          className="hidden"
-                          accept=".pdf"
-                          onChange={(e) => {
-                            const file = e.target.files?.[0];
-                            if (file) handleFileUpload(tipo, file);
-                          }}
-                          disabled={isUploading}
-                        />
+                  <div className="space-y-2">
+                    <div className="flex items-center gap-2">
+                      {/* Botão Gerar Capa - apenas para gestor/colaborador */}
+                      {isCapaProcesso && isGestorOuColaborador && (
                         <Button
                           size="sm"
-                          variant="outline"
-                          onClick={() => document.getElementById(`file-${tipo}`)?.click()}
-                          disabled={isUploading}
-                          className={(isCapaProcesso && isGestorOuColaborador) || ((isRequisicao && (isGerenteContratos || isGestorOuColaborador))) ? "flex-1" : "w-full"}
+                          variant="default"
+                          onClick={handleGerarCapa}
+                          disabled={gerandoCapa}
+                          className="flex-1"
                         >
-                          <FileUp className="h-4 w-4 mr-2" />
-                          {isUploading ? "Enviando..." : "Anexar PDF"}
+                          <FileText className="h-4 w-4 mr-2" />
+                          {gerandoCapa ? "Gerando Capa..." : "Gerar Capa do Processo"}
                         </Button>
-                      </>
+                      )}
+                      {/* Botão Gerar Requisição - apenas para gerentes de contratos vinculados ao contrato */}
+                      {isRequisicao && isGerenteContratos && (
+                        <Button
+                          size="sm"
+                          variant="default"
+                          onClick={handleGerarRequisicao}
+                          disabled={gerandoRequisicao}
+                          className="flex-1"
+                        >
+                          <FileText className="h-4 w-4 mr-2" />
+                          {gerandoRequisicao ? "Gerando..." : "Gerar Requisição"}
+                        </Button>
+                      )}
+                      {/* Botão Gerar Autorização - apenas para superintendente executivo e após Termo de Referência */}
+                      {isAutorizacaoDespesa && isSuperintendenteExecutivo && !bloqueadoAutorizacao && (
+                        <Button
+                          size="sm"
+                          variant="default"
+                          onClick={handleGerarAutorizacaoDespesa}
+                          disabled={gerandoAutorizacao}
+                          className="flex-1"
+                        >
+                          <FileText className="h-4 w-4 mr-2" />
+                          {gerandoAutorizacao ? "Gerando..." : "Gerar Autorização"}
+                        </Button>
+                      )}
+                      {/* Botão Anexar PDF */}
+                      {!isAutorizacaoDespesa && !bloqueadoTermoReferencia && (
+                        (isRequisicao && isGerenteContratos) || 
+                        (!isRequisicao && isGestorOuColaborador)
+                      ) && (
+                        <>
+                          <input
+                            type="file"
+                            id={`file-${tipo}`}
+                            className="hidden"
+                            accept=".pdf"
+                            onChange={(e) => {
+                              const file = e.target.files?.[0];
+                              if (file) handleFileUpload(tipo, file);
+                            }}
+                            disabled={isUploading}
+                          />
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => document.getElementById(`file-${tipo}`)?.click()}
+                            disabled={isUploading}
+                            className={(isCapaProcesso && isGestorOuColaborador) || ((isRequisicao && (isGerenteContratos || isGestorOuColaborador))) ? "flex-1" : "w-full"}
+                          >
+                            <FileUp className="h-4 w-4 mr-2" />
+                            {isUploading ? "Enviando..." : "Anexar PDF"}
+                          </Button>
+                        </>
+                      )}
+                      {/* Mensagem de bloqueio - Termo de Referência aguardando Requisição */}
+                      {bloqueadoTermoReferencia && (
+                        <p className="text-sm text-muted-foreground italic">
+                          Gere a Requisição primeiro para liberar o upload do Termo de Referência
+                        </p>
+                      )}
+                      {/* Mensagem de bloqueio - Autorização aguardando Termo de Referência */}
+                      {bloqueadoAutorizacao && isSuperintendenteExecutivo && (
+                        <p className="text-sm text-muted-foreground italic">
+                          Anexe o Termo de Referência primeiro para liberar a geração da Autorização de Despesa
+                        </p>
+                      )}
+                      {/* Mensagem para gerente de contratos ou responsável legal sem acesso */}
+                      {(isGerenteContratos || isResponsavelLegal) && !isGestorOuColaborador && !isRequisicao && !isAutorizacaoDespesa && !bloqueadoTermoReferencia && (
+                        <p className="text-sm text-muted-foreground italic">
+                          Documento não disponível para seu perfil
+                        </p>
+                      )}
+                      {/* Mensagem para quem não é gerente de contratos na requisição */}
+                      {isRequisicao && !isGerenteContratos && !isGestorOuColaborador && (
+                        <p className="text-sm text-muted-foreground italic">
+                          Apenas Gerente de Contratos vinculado pode gerar a Requisição
+                        </p>
+                      )}
+                      {/* Mensagem para quem não é superintendente executivo na autorização */}
+                      {isAutorizacaoDespesa && !isSuperintendenteExecutivo && !isGestorOuColaborador && (
+                        <p className="text-sm text-muted-foreground italic">
+                          Apenas Superintendente Executivo pode gerar a Autorização de Despesa
+                        </p>
+                      )}
+                    </div>
+                    {/* Botão Solicitar - Requisição (gestor/colaborador envia para gerente) */}
+                    {isRequisicao && isGestorOuColaborador && !isGerenteContratos && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => handleEnviarNotificacao('requisicao')}
+                        disabled={enviandoNotificacao === 'requisicao'}
+                        className="w-full border-primary/40 text-primary hover:bg-primary/10"
+                      >
+                        <Send className="h-4 w-4 mr-2" />
+                        {enviandoNotificacao === 'requisicao' ? "Enviando..." : "Solicitar ao Gerente de Contratos"}
+                      </Button>
                     )}
-                    {/* Mensagem de bloqueio - Termo de Referência aguardando Requisição */}
-                    {bloqueadoTermoReferencia && (
-                      <p className="text-sm text-muted-foreground italic">
-                        Gere a Requisição primeiro para liberar o upload do Termo de Referência
-                      </p>
-                    )}
-                    {/* Mensagem de bloqueio - Autorização aguardando Termo de Referência */}
-                    {bloqueadoAutorizacao && isSuperintendenteExecutivo && (
-                      <p className="text-sm text-muted-foreground italic">
-                        Anexe o Termo de Referência primeiro para liberar a geração da Autorização de Despesa
-                      </p>
-                    )}
-                    {/* Mensagem para gerente de contratos ou responsável legal sem acesso */}
-                    {(isGerenteContratos || isResponsavelLegal) && !isGestorOuColaborador && !isRequisicao && !isAutorizacaoDespesa && !bloqueadoTermoReferencia && (
-                      <p className="text-sm text-muted-foreground italic">
-                        Documento não disponível para seu perfil
-                      </p>
-                    )}
-                    {/* Mensagem para quem não é gerente de contratos na requisição */}
-                    {isRequisicao && !isGerenteContratos && (
-                      <p className="text-sm text-muted-foreground italic">
-                        Apenas Gerente de Contratos vinculado pode gerar a Requisição
-                      </p>
-                    )}
-                    {/* Mensagem para quem não é superintendente executivo na autorização */}
-                    {isAutorizacaoDespesa && !isSuperintendenteExecutivo && (
-                      <p className="text-sm text-muted-foreground italic">
-                        Apenas Superintendente Executivo pode gerar a Autorização de Despesa
-                      </p>
+                    {/* Botão Solicitar - Autorização (gestor/colaborador envia para superintendente) */}
+                    {isAutorizacaoDespesa && isGestorOuColaborador && !isSuperintendenteExecutivo && !bloqueadoAutorizacao && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => handleEnviarNotificacao('autorizacao_despesa')}
+                        disabled={enviandoNotificacao === 'autorizacao_despesa'}
+                        className="w-full border-primary/40 text-primary hover:bg-primary/10"
+                      >
+                        <Send className="h-4 w-4 mr-2" />
+                        {enviandoNotificacao === 'autorizacao_despesa' ? "Enviando..." : "Solicitar ao Superintendente Executivo"}
+                      </Button>
                     )}
                   </div>
                 )}
