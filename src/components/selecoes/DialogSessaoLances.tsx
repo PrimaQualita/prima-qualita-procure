@@ -2851,7 +2851,7 @@ export function DialogSessaoLances({
             if (isNegociacao) valorExibido = `${valorFormatado} †`;
             if (isProposta) valorExibido = `${valorFormatado} *`;
             if (isDesclassificado) {
-              valorExibido = isProposta ? `${valorFormatado} * ✗` : `${valorFormatado} ✗`;
+              valorExibido = isProposta ? `${valorFormatado} *` : valorFormatado;
             }
             
             return {
@@ -2982,7 +2982,7 @@ export function DialogSessaoLances({
             doc.setFontSize(7);
             doc.setFont("helvetica", "italic");
             doc.setTextColor(194, 65, 12);
-            doc.text("✗ Proposta desclassificada (valor acima do estimado)", margin + 3, yPosition);
+            doc.text("' Proposta desclassificada (valor acima do estimado)", margin + 3, yPosition);
             doc.setTextColor(0, 0, 0);
             yPosition += 5;
           }
