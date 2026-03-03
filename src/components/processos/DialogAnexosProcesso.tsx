@@ -840,8 +840,24 @@ export function DialogAnexosProcesso({
         }
       }
 
-      // Criar notificações para todos os destinatários
-      const notificacoes = destinatarios.map(destId => ({
+      // Verificar se já existem notificações pendentes para este processo/tipo
+      const { data: existentes } = await supabase
+        .from("notificacoes_documentos_processo")
+        .select("destinatario_id")
+        .eq("processo_compra_id", processoId)
+        .eq("tipo_notificacao", tipoNotificacao)
+        .eq("atendida", false);
+
+      const destinatariosJaNotificados = new Set((existentes || []).map((e: any) => e.destinatario_id));
+      const novosDestinatarios = destinatarios.filter(d => !destinatariosJaNotificados.has(d));
+
+      if (novosDestinatarios.length === 0) {
+        toast({ title: "Solicitação já enviada", description: "Já existe uma solicitação pendente para este processo." });
+        return;
+      }
+
+      // Criar notificações apenas para destinatários que ainda não foram notificados
+      const notificacoes = novosDestinatarios.map(destId => ({
         processo_compra_id: processoId,
         tipo_notificacao: tipoNotificacao,
         destinatario_id: destId,
