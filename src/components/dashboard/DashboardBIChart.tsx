@@ -70,8 +70,19 @@ export function DashboardBIChart({ data, chartType, title, height = 280 }: Props
             outerRadius={90}
             paddingAngle={2}
             dataKey="value"
-            label={false}
-            labelLine={false}
+            label={({ name, percent, cx, cy, midAngle, innerRadius, outerRadius }) => {
+              if (percent < 0.05) return null;
+              const RADIAN = Math.PI / 180;
+              const radius = outerRadius + 20;
+              const x = cx + radius * Math.cos(-midAngle * RADIAN);
+              const y = cy + radius * Math.sin(-midAngle * RADIAN);
+              return (
+                <text x={x} y={y} fill="hsl(var(--foreground))" textAnchor={x > cx ? "start" : "end"} dominantBaseline="central" fontSize={10}>
+                  {`${name}: ${(percent * 100).toFixed(0)}%`}
+                </text>
+              );
+            }}
+            labelLine={true}
           >
             {data.map((_, i) => (
               <Cell key={i} fill={BI_COLORS[i % BI_COLORS.length]} />
