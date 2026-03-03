@@ -144,6 +144,7 @@ export function AppSidebar({
 
         const hoje = toZonedTime(new Date(), "America/Sao_Paulo");
         const aVencer = data.filter(c => {
+          if (c.ciente_nao_renovar) return false;
           const fimDate = new Date(c.fim_vigencia_atual + "T23:59:59-03:00");
           const dias = differenceInDays(fimDate, hoje);
           return dias >= 0 && dias <= 45;

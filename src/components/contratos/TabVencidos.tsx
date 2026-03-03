@@ -58,8 +58,7 @@ export function TabVencidos({ contratoGestaoId, contratoGestaoNome, processoComp
       let query = supabase
         .from("contratos_terceiros")
         .select("*, fornecedores(razao_social)")
-        .eq("contrato_gestao_id", contratoGestaoId)
-        .not("fim_vigencia_atual", "is", null);
+        .eq("contrato_gestao_id", contratoGestaoId);
 
       if (pcIds.length > 0) {
         query = query.in("processo_para_contratar_id", pcIds);
@@ -69,9 +68,13 @@ export function TabVencidos({ contratoGestaoId, contratoGestaoNome, processoComp
 
       if (error) throw error;
 
-      // Filter only expired contracts (using Brasília timezone)
+      // Filter: expired contracts OR contracts with status rescindido/encerrado (regardless of expiration)
       const hoje = toZonedTime(new Date(), "America/Sao_Paulo");
       const vencidos = (data || []).filter(c => {
+        // Always show rescindido/encerrado contracts
+        if (c.status === "rescindido" || c.status === "encerrado") return true;
+        // Also show expired contracts
+        if (!c.fim_vigencia_atual) return false;
         const fimVigencia = new Date(c.fim_vigencia_atual + "T23:59:59-03:00");
         return fimVigencia < hoje;
       });
