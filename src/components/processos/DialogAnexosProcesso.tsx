@@ -649,10 +649,10 @@ export function DialogAnexosProcesso({
       // Marcar TODAS as notificações de requisição deste processo como atendidas (para todos os destinatários)
       await supabase
         .from("notificacoes_documentos_processo")
-        .update({ atendida: true, lida: true })
+        .update({ status_notificacao: "gerada", atendida: true, lida: true })
         .eq("processo_compra_id", processoId)
         .eq("tipo_notificacao", "requisicao")
-        .eq("atendida", false);
+        .eq("status_notificacao", "pendente");
       
       await loadAnexos();
     } catch (error: any) {
@@ -786,10 +786,10 @@ export function DialogAnexosProcesso({
       // Marcar TODAS as notificações de autorização deste processo como atendidas (para todos os destinatários)
       await supabase
         .from("notificacoes_documentos_processo")
-        .update({ atendida: true, lida: true })
+        .update({ status_notificacao: "gerada", atendida: true, lida: true })
         .eq("processo_compra_id", processoId)
         .eq("tipo_notificacao", "autorizacao_despesa")
-        .eq("atendida", false);
+        .eq("status_notificacao", "pendente");
       
       await loadAnexos();
     } catch (error: any) {
@@ -862,7 +862,7 @@ export function DialogAnexosProcesso({
         .select("destinatario_id")
         .eq("processo_compra_id", processoId)
         .eq("tipo_notificacao", tipoNotificacao)
-        .eq("atendida", false);
+        .eq("status_notificacao", "pendente");
 
       const destinatariosJaNotificados = new Set((existentes || []).map((e: any) => e.destinatario_id));
       const novosDestinatarios = destinatarios.filter(d => !destinatariosJaNotificados.has(d));
@@ -881,6 +881,7 @@ export function DialogAnexosProcesso({
         numero_processo: processo.numero_processo_interno,
         objeto_processo: processo.objeto_resumido,
         contrato_gestao_nome: contrato?.nome_contrato || null,
+        status_notificacao: "pendente",
       }));
 
       const { error: insertError } = await supabase

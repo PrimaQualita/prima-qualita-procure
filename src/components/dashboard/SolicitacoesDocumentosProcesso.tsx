@@ -67,7 +67,7 @@ export function SolicitacoesDocumentosProcesso() {
         .from("notificacoes_documentos_processo")
         .select("*, processos_compras:processo_compra_id (contrato_gestao_id)")
         .eq("destinatario_id", uid)
-        .eq("atendida", false)
+        .eq("status_notificacao", "pendente")
         .order("created_at", { ascending: false });
 
       if (error) throw error;
@@ -110,7 +110,7 @@ export function SolicitacoesDocumentosProcesso() {
       if (notificacoesConcluidas.length > 0) {
         await supabase
           .from("notificacoes_documentos_processo")
-          .update({ atendida: true, lida: true })
+          .update({ status_notificacao: "gerada", atendida: true, lida: true })
           .in("id", notificacoesConcluidas.map(n => n.id));
       }
 
@@ -138,10 +138,10 @@ export function SolicitacoesDocumentosProcesso() {
       // Marcar TODAS as notificações do mesmo processo/tipo como atendidas
       const { error } = await supabase
         .from("notificacoes_documentos_processo")
-        .update({ atendida: true, lida: true })
+        .update({ status_notificacao: "atendida_manual", atendida: true, lida: true })
         .eq("processo_compra_id", notificacao.processo_compra_id)
         .eq("tipo_notificacao", notificacao.tipo_notificacao)
-        .eq("atendida", false);
+        .eq("status_notificacao", "pendente");
 
       if (error) throw error;
       setNotificacoes(prev => prev.filter(n => 
