@@ -262,6 +262,12 @@ const Dashboard = () => {
       }
     });
 
+    // When a specific month is selected, show only that month
+    if (mesSelecionado !== "todos") {
+      return [{ name: mesSelecionado, value: porMes[mesSelecionado] || 0 }];
+    }
+
+    // Annual view: show all 12 months
     return meses.map(m => ({ name: m, value: porMes[m] || 0 }));
   };
 
@@ -352,7 +358,7 @@ const Dashboard = () => {
 
   return (
     <div className="min-h-screen bg-background">
-      <div className="container mx-auto px-2 sm:px-4 py-4 sm:py-6">
+      <div className="max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 py-6">
         {(isCompliance || isSuperintendenteExecutivo) && processosPendentesCompliance > 0 && (
           <Alert variant="destructive" className="mb-4">
             <AlertCircle className="h-4 w-4" />
