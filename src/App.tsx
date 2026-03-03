@@ -63,14 +63,12 @@ const fixEncodedUrl = () => {
   return false;
 };
 
-// Se URL está mal formada, redireciona e não renderiza nada
-const urlNeedsFixing = fixEncodedUrl();
+// Se URL está mal formada, tenta corrigir sem bloquear renderização
+fixEncodedUrl();
 
 const App = () => {
-  // Se está redirecionando, não renderiza nada
-  if (urlNeedsFixing) {
-    return null;
-  }
+  // Mantém fallback visível mesmo se URL estiver sendo corrigida,
+  // evitando tela totalmente em branco em casos de falha/intermitência de redirect.
 
   return (
     <QueryClientProvider client={queryClient}>
