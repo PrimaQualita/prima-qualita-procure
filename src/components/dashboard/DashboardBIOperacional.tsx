@@ -234,37 +234,37 @@ export function DashboardBIOperacional({
         </Button>
       </div>
 
+      {/* Seletor de tipo de processo — sempre visível */}
+      <div className="bg-card border rounded-2xl shadow-sm p-5 mb-6">
+        <div className="flex items-center gap-2 mb-4">
+          <div className="h-7 w-7 rounded-lg bg-primary/10 flex items-center justify-center">
+            <ClipboardList className="h-3.5 w-3.5 text-primary" />
+          </div>
+          <h3 className="text-sm font-bold text-foreground tracking-wide">Tipo de Processo</h3>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          {MODULO_KEYS.map(key => {
+            const config = MODULO_CONFIG[key];
+            const isActive = moduloSelecionado === key;
+            const Icon = config.icon;
+            return (
+              <Button
+                key={key}
+                size="sm"
+                variant={isActive ? "default" : "outline"}
+                className={`text-xs h-9 rounded-lg px-4 gap-1.5 transition-all ${isActive ? "shadow-md" : "hover:border-primary/40"}`}
+                onClick={() => setModuloSelecionado(key)}
+              >
+                <Icon className="h-3.5 w-3.5" />
+                {config.label}
+              </Button>
+            );
+          })}
+        </div>
+      </div>
+
       {modoVisualizacao === "individual" ? (
         <>
-          {/* Seletor de tipo de processo */}
-          <div className="bg-card border rounded-2xl shadow-sm p-5 mb-6">
-            <div className="flex items-center gap-2 mb-4">
-              <div className="h-7 w-7 rounded-lg bg-primary/10 flex items-center justify-center">
-                <ClipboardList className="h-3.5 w-3.5 text-primary" />
-              </div>
-              <h3 className="text-sm font-bold text-foreground tracking-wide">Tipo de Processo</h3>
-            </div>
-            <div className="flex flex-wrap gap-2">
-              {MODULO_KEYS.map(key => {
-                const config = MODULO_CONFIG[key];
-                const isActive = moduloSelecionado === key;
-                const Icon = config.icon;
-                return (
-                  <Button
-                    key={key}
-                    size="sm"
-                    variant={isActive ? "default" : "outline"}
-                    className={`text-xs h-9 rounded-lg px-4 gap-1.5 transition-all ${isActive ? "shadow-md" : "hover:border-primary/40"}`}
-                    onClick={() => setModuloSelecionado(key)}
-                  >
-                    <Icon className="h-3.5 w-3.5" />
-                    {config.label}
-                  </Button>
-                );
-              })}
-            </div>
-          </div>
-
           {/* KPI Cards do módulo selecionado */}
           <div className="mb-6">
             <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">
@@ -297,19 +297,14 @@ export function DashboardBIOperacional({
             </TooltipProvider>
           </div>
 
-          {/* Gráfico */}
+          {/* Gráficos lado a lado */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-6">
             <Card className="shadow-sm hover:shadow-md transition-shadow">
               <CardHeader className="pb-2">
                 <CardTitle className="text-sm">{MODULO_CONFIG[selectedKey]?.label} — Situação Atual</CardTitle>
               </CardHeader>
               <CardContent>
-                <DashboardBIChart
-                  data={chartData}
-                  chartType={chartType}
-                  title={MODULO_CONFIG[selectedKey]?.label || ""}
-                  height={300}
-                />
+                <DashboardBIChart data={chartData} chartType={chartType} title={MODULO_CONFIG[selectedKey]?.label || ""} height={300} />
               </CardContent>
             </Card>
             <Card className="shadow-sm hover:shadow-md transition-shadow">
@@ -317,58 +312,67 @@ export function DashboardBIOperacional({
                 <CardTitle className="text-sm">Distribuição Percentual</CardTitle>
               </CardHeader>
               <CardContent>
-                <DashboardBIChart
-                  data={chartData}
-                  chartType="pizza"
-                  title="Distribuição"
-                  height={300}
-                />
+                <DashboardBIChart data={chartData} chartType="pizza" title="Distribuição" height={300} />
               </CardContent>
             </Card>
           </div>
         </>
       ) : (
         <>
-          {/* MODO COMPARATIVO: Todos os módulos com seus KPIs em gráficos */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-4 mb-6">
-            {comparativoModuloData.map(mod => {
-              const Icon = mod.icon;
+          {/* MODO COMPARATIVO: KPIs do módulo selecionado em gráfico grande + cards detalhados */}
+          <div className="mb-6">
+            <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">
+              Comparativo — {MODULO_CONFIG[selectedKey]?.label} (Total: {selectedTotal})
+            </h3>
+          </div>
+
+          {/* Gráfico principal grande */}
+          <Card className="shadow-sm hover:shadow-md transition-shadow mb-6">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm">
+                Comparativo de KPIs — {MODULO_CONFIG[selectedKey]?.label}
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <DashboardBIChart data={chartData} chartType={chartType} title={MODULO_CONFIG[selectedKey]?.label || ""} height={380} />
+            </CardContent>
+          </Card>
+
+          {/* Grid: cada KPI em um card individual com valor + % */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
+            {selectedItems.map((item, i) => {
+              const ItemIcon = item.icon;
+              const percentage = selectedTotal > 0 ? ((item.value / selectedTotal) * 100).toFixed(1) : "0";
               return (
-                <Card key={mod.key} className="shadow-sm hover:shadow-md transition-shadow">
+                <Card key={i} className="shadow-sm hover:shadow-md transition-shadow">
                   <CardHeader className="pb-2">
                     <CardTitle className="text-sm flex items-center gap-2">
-                      <Icon className="h-4 w-4 text-primary" />
-                      {mod.label}
-                      <span className="ml-auto text-xs font-normal text-muted-foreground">
-                        Total: {mod.total}
-                      </span>
+                      <ItemIcon className="h-4 w-4 text-primary" />
+                      {item.name}
+                      <span className="ml-auto text-lg font-bold">{item.value}</span>
                     </CardTitle>
                   </CardHeader>
                   <CardContent>
                     <DashboardBIChart
-                      data={mod.chartData}
-                      chartType={chartType}
-                      title={mod.label}
-                      height={220}
+                      data={[{ name: item.name, value: item.value }, { name: "Restante", value: selectedTotal - item.value }]}
+                      chartType="pizza"
+                      title={item.name}
+                      height={160}
                     />
+                    <p className="text-center text-xs text-muted-foreground mt-1">{percentage}% do total</p>
                   </CardContent>
                 </Card>
               );
             })}
           </div>
 
-          {/* Resumo Geral Comparativo */}
+          {/* Gráfico de distribuição geral */}
           <Card className="shadow-sm hover:shadow-md transition-shadow mb-6">
             <CardHeader className="pb-2">
-              <CardTitle className="text-sm">Resumo Geral — Todos os Módulos</CardTitle>
+              <CardTitle className="text-sm">Distribuição Percentual — {MODULO_CONFIG[selectedKey]?.label}</CardTitle>
             </CardHeader>
             <CardContent>
-              <DashboardBIChart
-                data={comparativoModuloData.map(m => ({ name: m.label, value: m.total }))}
-                chartType={chartType}
-                title="Comparativo Geral"
-                height={320}
-              />
+              <DashboardBIChart data={chartData} chartType="pizza" title="Distribuição" height={320} />
             </CardContent>
           </Card>
         </>
