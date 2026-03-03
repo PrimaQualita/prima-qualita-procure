@@ -63,12 +63,27 @@ export function SolicitacoesDocumentosProcesso() {
         contratosVinculados = (vinculos || []).map(v => v.contrato_gestao_id);
       }
 
-      const { data, error } = await supabase
+      // Buscar TODAS as notificações pendentes (não filtrar por destinatario_id)
+      // para que usuários que ganharam o perfil depois também vejam
+      let query = supabase
         .from("notificacoes_documentos_processo")
         .select("*, processos_compras:processo_compra_id (contrato_gestao_id)")
-        .eq("destinatario_id", uid)
         .eq("status_notificacao", "pendente")
         .order("created_at", { ascending: false });
+
+      // Filtrar por tipo baseado nas permissões atuais do usuário
+      const tiposPermitidos: string[] = [];
+      if (isSuperintendente) tiposPermitidos.push("autorizacao_despesa");
+      if (isGerenteContratos && contratosVinculados.length > 0) tiposPermitidos.push("requisicao");
+
+      if (tiposPermitidos.length === 0) {
+        setNotificacoes([]);
+        return;
+      }
+
+      query = query.in("tipo_notificacao", tiposPermitidos);
+
+      const { data, error } = await query;
 
       if (error) throw error;
 
