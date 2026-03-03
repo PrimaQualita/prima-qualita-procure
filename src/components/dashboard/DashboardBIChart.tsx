@@ -13,6 +13,8 @@ const BI_COLORS = [
   "#f97316", // orange extra
   "#06b6d4", // cyan extra
   "#ec4899", // pink extra
+  "#14b8a6", // teal extra
+  "#a855f7", // violet extra
 ];
 
 export type ChartType = "barras" | "vela" | "pareto" | "pizza" | "ranking";
