@@ -729,6 +729,31 @@ const PropostaRealinhada = () => {
 
       const ehDesconto = criterio === "desconto" || criterio === "maior_percentual_desconto";
 
+      // Em por_lote, numero_item pode se repetir em lotes diferentes.
+      // Priorizar sempre lote_id para evitar cruzamento incorreto de lotes.
+      const obterNumeroLoteDoItem = (item: any): number => {
+        if (item?.lote_id) {
+          const matchPorLoteId = itensCotacao.find(
+            (ic: any) => String(ic.lote_id) === String(item.lote_id)
+          );
+          const numeroLote = Number(matchPorLoteId?.lotes_cotacao?.numero_lote || 0);
+          if (Number.isFinite(numeroLote) && numeroLote > 0) {
+            return numeroLote;
+          }
+        }
+
+        // Fallback legado: só usar numero_item se ele for único na cotação.
+        const candidatosMesmoNumero = itensCotacao.filter(
+          (ic: any) => Number(ic.numero_item) === Number(item?.numero_item)
+        );
+        if (candidatosMesmoNumero.length === 1) {
+          return Number(candidatosMesmoNumero[0]?.lotes_cotacao?.numero_lote || 0);
+        }
+
+        const numeroLoteInformado = Number(item?.numero_lote || 0);
+        return Number.isFinite(numeroLoteInformado) ? numeroLoteInformado : 0;
+      };
+
       // ======= LÓGICA POR CRITÉRIO =======
       if (criterio === "por_lote") {
         // Buscar lances existentes para considerar lances + propostas
@@ -763,11 +788,7 @@ const PropostaRealinhada = () => {
 
           const itens = proposta.selecao_respostas_itens_fornecedor || [];
           for (const item of itens) {
-            const itemCotacao = itensCotacao.find((ic: any) =>
-              (ic.lote_id === item.lote_id && ic.numero_item === item.numero_item) ||
-              ic.numero_item === item.numero_item
-            );
-            const numeroLote = itemCotacao?.lotes_cotacao?.numero_lote || 0;
+            const numeroLote = obterNumeroLoteDoItem(item);
             if (numeroLote === 0) continue;
 
             // Verificar inabilitação granular por lote
@@ -833,11 +854,8 @@ const PropostaRealinhada = () => {
 
           // Adicionar itens deste lote
           const meusItensLote = meusItens.filter((item: any) => {
-            const itemCotacao = itensCotacao.find((ic: any) =>
-              (ic.lote_id === item.lote_id && ic.numero_item === item.numero_item) ||
-              ic.numero_item === item.numero_item
-            );
-            return itemCotacao?.lotes_cotacao?.numero_lote === numeroLote;
+            const numeroLoteItem = obterNumeroLoteDoItem(item);
+            return numeroLoteItem === numeroLote;
           });
 
           meusItensLote.forEach((itemProposta: any) => {
