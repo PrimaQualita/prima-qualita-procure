@@ -40,7 +40,8 @@ export function DashboardBIKPIs({ kpiData, label }: Props) {
       value: kpiData.tendencia === "up" ? "↑ Alta" : kpiData.tendencia === "down" ? "↓ Baixa" : "→ Estável",
       icon: kpiData.tendencia === "up" ? TrendingUp : kpiData.tendencia === "down" ? TrendingDown : Minus,
       color: "text-green-900 dark:text-green-100",
-      bgColor: "bg-green-100 border-green-300 dark:bg-green-950/50 dark:border-green-700",
+      bgColor: "bg-green-200 border-green-400 dark:bg-green-900/60 dark:border-green-600",
+      isText: true,
       tooltip: "Direção da tendência com base no crescimento: Alta (>5%), Baixa (<-5%) ou Estável.",
     },
     {
@@ -48,7 +49,7 @@ export function DashboardBIKPIs({ kpiData, label }: Props) {
       value: kpiData.contratoMaisAtivo || "—",
       icon: Building2,
       color: "text-blue-900 dark:text-blue-100",
-      bgColor: "bg-blue-100 border-blue-300 dark:bg-blue-950/50 dark:border-blue-600",
+      bgColor: "bg-blue-200 border-blue-400 dark:bg-blue-900/60 dark:border-blue-600",
       isText: true,
       tooltip: "Contrato de gestão com maior quantidade de registros no período.",
     },
@@ -57,7 +58,7 @@ export function DashboardBIKPIs({ kpiData, label }: Props) {
       value: kpiData.mediaMenusal.toFixed(1),
       icon: Calendar,
       color: "text-green-900 dark:text-green-100",
-      bgColor: "bg-green-50 border-green-200 dark:bg-green-950/30 dark:border-green-800",
+      bgColor: "bg-green-200 border-green-400 dark:bg-green-900/60 dark:border-green-600",
       tooltip: "Média de registros por mês considerando apenas meses com dados.",
     },
     {
@@ -65,7 +66,7 @@ export function DashboardBIKPIs({ kpiData, label }: Props) {
       value: kpiData.maiorVolume,
       icon: TrendingUp,
       color: "text-blue-900 dark:text-blue-100",
-      bgColor: "bg-blue-50 border-blue-200 dark:bg-blue-950/30 dark:border-blue-800",
+      bgColor: "bg-blue-200 border-blue-400 dark:bg-blue-900/60 dark:border-blue-600",
       tooltip: "Maior quantidade de registros em um único mês no período.",
     },
     {
@@ -73,7 +74,7 @@ export function DashboardBIKPIs({ kpiData, label }: Props) {
       value: kpiData.menorVolume,
       icon: TrendingDown,
       color: "text-green-900 dark:text-green-100",
-      bgColor: "bg-green-50/50 border-green-200 dark:bg-green-950/20 dark:border-green-800",
+      bgColor: "bg-green-200 border-green-400 dark:bg-green-900/60 dark:border-green-600",
       tooltip: "Menor quantidade de registros em um único mês no período.",
     },
   ];
@@ -93,7 +94,7 @@ export function DashboardBIKPIs({ kpiData, label }: Props) {
                     <card.icon className={`h-4 w-4 ${card.color}`} />
                     <span className="text-[11px] font-medium text-muted-foreground truncate">{card.title}</span>
                   </div>
-                  <p className={`font-bold ${card.color} ${card.isText ? "text-[9px] leading-snug break-words whitespace-normal" : "text-lg"}`} title={String(card.value)}>
+                  <p className={`font-bold ${card.color} ${card.isText ? "text-[10px] leading-tight break-words whitespace-normal" : "text-lg"}`} title={String(card.value)}>
                     {card.value}
                   </p>
                 </div>

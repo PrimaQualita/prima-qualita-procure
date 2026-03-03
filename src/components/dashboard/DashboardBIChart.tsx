@@ -50,6 +50,12 @@ export function DashboardBIChart({ data, chartType, title, height = 280 }: Props
       })
     : data;
 
+  const getColorByValueRank = (value: number, values: number[]) => {
+    const uniqueSortedValues = [...new Set(values)].sort((a, b) => b - a);
+    const rank = uniqueSortedValues.findIndex(v => v === value);
+    return BI_COLORS[(rank >= 0 ? rank : 0) % BI_COLORS.length];
+  };
+
   if (chartType === "pizza") {
     return (
       <ResponsiveContainer width="100%" height={height}>
@@ -97,10 +103,8 @@ export function DashboardBIChart({ data, chartType, title, height = 280 }: Props
           <Tooltip contentStyle={tooltipStyle} />
           <Bar dataKey="value" name="Quantidade" radius={[4, 4, 0, 0]}>
             {(isHorizontal ? [...data].sort((a, b) => a.value - b.value) : data).map((entry, i, arr) => {
-              // Gradient color based on value rank: highest=green, lowest=red
-              const sorted = [...arr].sort((a, b) => b.value - a.value);
-              const rank = sorted.findIndex(s => s.name === entry.name);
-              return <Cell key={i} fill={BI_COLORS[rank % BI_COLORS.length]} />;
+              // Same quantity must use the same color
+              return <Cell key={i} fill={getColorByValueRank(entry.value, arr.map(item => item.value))} />;
             })}
           </Bar>
         </BarChart>
@@ -118,8 +122,8 @@ export function DashboardBIChart({ data, chartType, title, height = 280 }: Props
           <YAxis yAxisId="right" orientation="right" domain={[0, 100]} tick={{ fontSize: 10 }} stroke="hsl(var(--muted-foreground))" unit="%" />
           <Tooltip contentStyle={tooltipStyle} />
           <Bar yAxisId="left" dataKey="value" name="Quantidade" radius={[4, 4, 0, 0]}>
-            {paretoData.map((_, i) => (
-              <Cell key={i} fill={BI_COLORS[i % BI_COLORS.length]} />
+            {paretoData.map((entry, i, arr) => (
+              <Cell key={i} fill={getColorByValueRank(entry.value, arr.map(item => item.value))} />
             ))}
           </Bar>
           <Line yAxisId="right" type="monotone" dataKey="acumulado" stroke="#dc2626" strokeWidth={2} dot={{ r: 3 }} name="% Acumulado" />
