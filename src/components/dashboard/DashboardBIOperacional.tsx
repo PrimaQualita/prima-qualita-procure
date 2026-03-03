@@ -339,7 +339,7 @@ export function DashboardBIOperacional({
           </Card>
 
           {/* Grid: cada KPI em um card individual com valor + % */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
             {selectedItems.map((item, i) => {
               const ItemIcon = item.icon;
               const percentage = selectedTotal > 0 ? ((item.value / selectedTotal) * 100).toFixed(1) : "0";
@@ -355,11 +355,11 @@ export function DashboardBIOperacional({
                   <CardContent>
                     <DashboardBIChart
                       data={[{ name: item.name, value: item.value }, { name: "Restante", value: selectedTotal - item.value }]}
-                      chartType="pizza"
+                      chartType={chartType}
                       title={item.name}
-                      height={160}
+                      height={220}
                     />
-                    <p className="text-center text-xs text-muted-foreground mt-1">{percentage}% do total</p>
+                    <p className="text-center text-xs text-muted-foreground mt-2">{percentage}% do total</p>
                   </CardContent>
                 </Card>
               );
