@@ -85,21 +85,35 @@ export function SolicitacoesDocumentosProcesso() {
         return false;
       });
 
-      setNotificacoes(notificacoesFiltradas);
+      // Deduplicar: manter apenas a mais recente por processo/tipo
+      const seen = new Map<string, any>();
+      for (const n of notificacoesFiltradas) {
+        const key = `${n.processo_compra_id}_${n.tipo_notificacao}`;
+        if (!seen.has(key)) {
+          seen.set(key, n);
+        }
+      }
+
+      setNotificacoes(Array.from(seen.values()));
     } catch (error) {
       console.error("Erro ao carregar notificações:", error);
     }
   };
 
-  const handleMarcarAtendida = async (id: string) => {
+  const handleMarcarAtendida = async (notificacao: Notificacao) => {
     try {
+      // Marcar TODAS as notificações do mesmo processo/tipo como atendidas
       const { error } = await supabase
         .from("notificacoes_documentos_processo")
         .update({ atendida: true, lida: true })
-        .eq("id", id);
+        .eq("processo_compra_id", notificacao.processo_compra_id)
+        .eq("tipo_notificacao", notificacao.tipo_notificacao)
+        .eq("atendida", false);
 
       if (error) throw error;
-      setNotificacoes(prev => prev.filter(n => n.id !== id));
+      setNotificacoes(prev => prev.filter(n => 
+        !(n.processo_compra_id === notificacao.processo_compra_id && n.tipo_notificacao === notificacao.tipo_notificacao)
+      ));
     } catch (error) {
       console.error("Erro ao marcar notificação:", error);
     }
@@ -161,7 +175,7 @@ export function SolicitacoesDocumentosProcesso() {
                     <Button
                       size="sm"
                       variant="ghost"
-                      onClick={() => handleMarcarAtendida(notif.id)}
+                      onClick={() => handleMarcarAtendida(notif)}
                       title="Marcar como atendida"
                     >
                       <Check className="h-4 w-4" />
@@ -211,7 +225,7 @@ export function SolicitacoesDocumentosProcesso() {
                     <Button
                       size="sm"
                       variant="ghost"
-                      onClick={() => handleMarcarAtendida(notif.id)}
+                      onClick={() => handleMarcarAtendida(notif)}
                       title="Marcar como atendida"
                     >
                       <Check className="h-4 w-4" />
