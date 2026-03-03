@@ -48,6 +48,7 @@ export default function Contratos() {
   // Notification counts
   const [countAVencer, setCountAVencer] = useState(0);
   const [countVencidos, setCountVencidos] = useState(0);
+  const [globalAlerts, setGlobalAlerts] = useState({ aVencer: 0, vencidos: 0, total: 0 });
 
   const canEdit = context?.isContrato === true;
 
@@ -101,9 +102,47 @@ export default function Contratos() {
     }
   }, []);
 
+  const loadGlobalNotificationCounts = useCallback(async () => {
+    try {
+      const { data, error } = await supabase
+        .from("contratos_terceiros")
+        .select("id, fim_vigencia_atual, status, ciente_nao_renovar")
+        .not("fim_vigencia_atual", "is", null);
+
+      if (error) throw error;
+
+      const hoje = toZonedTime(new Date(), "America/Sao_Paulo");
+      const contratosValidos = (data || []).filter(c => !c.ciente_nao_renovar);
+
+      const aVencer = contratosValidos.filter(c => {
+        if (c.status !== "vigente") return false;
+        const fimDate = new Date(c.fim_vigencia_atual + "T23:59:59-03:00");
+        const dias = differenceInDays(fimDate, hoje);
+        return dias >= 0 && dias <= 45;
+      }).length;
+
+      const vencidos = contratosValidos.filter(c => {
+        if (c.status === "encerrado" || c.status === "rescindido") return false;
+        const fimDate = new Date(c.fim_vigencia_atual + "T23:59:59-03:00");
+        return fimDate < hoje;
+      }).length;
+
+      setGlobalAlerts({ aVencer, vencidos, total: aVencer + vencidos });
+    } catch {
+      // silent
+    }
+  }, []);
+
   useEffect(() => {
     loadContratos();
-  }, []);
+    loadGlobalNotificationCounts();
+
+    const interval = setInterval(() => {
+      loadGlobalNotificationCounts();
+    }, 60000);
+
+    return () => clearInterval(interval);
+  }, [loadGlobalNotificationCounts]);
 
   useEffect(() => {
     if (contratoSelecionado) {
@@ -176,6 +215,7 @@ export default function Contratos() {
     if (contratoSelecionado) {
       loadNotificationCounts(contratoSelecionado.id, processoCompraIdsFiltrados);
     }
+    loadGlobalNotificationCounts();
   };
 
   const anosDisponiveis = extrairAnos(processosAnos, p => p.ano_referencia ?? undefined);
@@ -215,6 +255,13 @@ export default function Contratos() {
               </CardDescription>
             </CardHeader>
             <CardContent className="p-0 sm:p-6">
+              {globalAlerts.total > 0 && (
+                <div className="mx-4 sm:mx-0 mb-4 rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-foreground">
+                  <span className="font-medium">Pendências de contratos no sistema:</span>{" "}
+                  <span className="font-semibold">{globalAlerts.total}</span>
+                  {" "}(A vencer: <span className="font-semibold">{globalAlerts.aVencer}</span> · Vencidos: <span className="font-semibold">{globalAlerts.vencidos}</span>)
+                </div>
+              )}
               <div className="px-4 sm:px-0 mb-4">
                 <Input
                   placeholder="Buscar contrato de gestão..."
@@ -282,6 +329,13 @@ export default function Contratos() {
               </div>
             </CardHeader>
             <CardContent>
+              {globalAlerts.total > 0 && (
+                <div className="mb-4 rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-foreground">
+                  <span className="font-medium">Pendências de contratos no sistema:</span>{" "}
+                  <span className="font-semibold">{globalAlerts.total}</span>
+                  {" "}(A vencer: <span className="font-semibold">{globalAlerts.aVencer}</span> · Vencidos: <span className="font-semibold">{globalAlerts.vencidos}</span>)
+                </div>
+              )}
               {loadingProcessos ? (
                 <div className="text-center py-8 text-muted-foreground text-sm">Carregando...</div>
               ) : processosAnos.length === 0 ? (

@@ -12,41 +12,47 @@ const Index = () => {
   useEffect(() => {
     // Check if user is already logged in and redirect appropriately
     const checkSession = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      
-      // Se não há sessão, não faz nada - apenas exibe a landing page
-      if (!session) {
-        return;
-      }
+      try {
+        const {
+          data: { session },
+        } = await supabase.auth.getSession();
 
-      // Se há sessão, verificar tipo de usuário e redirecionar
-      // Verificar se é fornecedor (independente do status de aprovação)
-      const { data: fornecedorData } = await supabase
-        .from("fornecedores")
-        .select("id, status_aprovacao")
-        .eq("user_id", session.user.id)
-        .maybeSingle();
-
-      if (fornecedorData) {
-        // É fornecedor - redirecionar para portal (mesmo pendente pode acessar)
-        navigate("/portal-fornecedor");
-        return;
-      }
-
-      // Verificar se é usuário interno
-      const { data: profileData } = await supabase
-        .from("profiles")
-        .select("primeiro_acesso, senha_temporaria")
-        .eq("id", session.user.id)
-        .maybeSingle();
-
-      if (profileData) {
-        // É usuário interno
-        if (profileData.primeiro_acesso || profileData.senha_temporaria) {
-          navigate("/troca-senha");
-        } else {
-          navigate("/dashboard");
+        // Se não há sessão, não faz nada - apenas exibe a landing page
+        if (!session) {
+          return;
         }
+
+        // Se há sessão, verificar tipo de usuário e redirecionar
+        // Verificar se é fornecedor (independente do status de aprovação)
+        const { data: fornecedorData } = await supabase
+          .from("fornecedores")
+          .select("id, status_aprovacao")
+          .eq("user_id", session.user.id)
+          .maybeSingle();
+
+        if (fornecedorData) {
+          // É fornecedor - redirecionar para portal (mesmo pendente pode acessar)
+          navigate("/portal-fornecedor");
+          return;
+        }
+
+        // Verificar se é usuário interno
+        const { data: profileData } = await supabase
+          .from("profiles")
+          .select("primeiro_acesso, senha_temporaria")
+          .eq("id", session.user.id)
+          .maybeSingle();
+
+        if (profileData) {
+          // É usuário interno
+          if (profileData.primeiro_acesso || profileData.senha_temporaria) {
+            navigate("/troca-senha");
+          } else {
+            navigate("/dashboard");
+          }
+        }
+      } catch (error) {
+        console.error("Falha ao verificar sessão inicial:", error);
       }
     };
     
