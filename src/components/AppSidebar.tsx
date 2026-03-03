@@ -138,9 +138,10 @@ export function AppSidebar({
 
         const { data, error } = await supabase
           .from("contratos_terceiros")
-          .select("id, fim_vigencia_atual, ciente_nao_renovar")
+          .select("id, fim_vigencia_atual, ciente_nao_renovar, processo_para_contratar_id")
           .eq("status", "vigente")
-          .not("fim_vigencia_atual", "is", null);
+          .not("fim_vigencia_atual", "is", null)
+          .not("processo_para_contratar_id", "is", null);
 
         if (error) throw error;
 
