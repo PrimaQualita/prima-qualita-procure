@@ -93,7 +93,7 @@ export function DashboardBIKPIs({ kpiData, label }: Props) {
                     <card.icon className={`h-4 w-4 ${card.color}`} />
                     <span className="text-[11px] font-medium text-muted-foreground truncate">{card.title}</span>
                   </div>
-                  <p className={`text-xl font-bold ${card.color} ${card.isText ? "text-sm leading-tight" : ""} truncate`}>
+                  <p className={`font-bold ${card.color} ${card.isText ? "text-[10px] leading-tight break-words" : "text-xl"}`} title={String(card.value)}>
                     {card.value}
                   </p>
                 </div>
