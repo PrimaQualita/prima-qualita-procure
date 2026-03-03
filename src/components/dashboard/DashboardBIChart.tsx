@@ -70,9 +70,8 @@ export function DashboardBIChart({ data, chartType, title, height = 280 }: Props
             outerRadius={90}
             paddingAngle={2}
             dataKey="value"
-            label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
+            label={false}
             labelLine={false}
-            style={{ fontSize: "10px" }}
           >
             {data.map((_, i) => (
               <Cell key={i} fill={BI_COLORS[i % BI_COLORS.length]} />
