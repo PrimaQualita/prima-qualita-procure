@@ -1,0 +1,2 @@
+ALTER TABLE public.documentos_contrato DROP CONSTRAINT documentos_contrato_natureza_check;
+ALTER TABLE public.documentos_contrato ADD CONSTRAINT documentos_contrato_natureza_check CHECK (natureza = ANY (ARRAY['prazo'::text, 'reajuste'::text, 'realinhamento'::text, 'escopo'::text, 'quantidade'::text, 'rescisao'::text, 'outro'::text]));
