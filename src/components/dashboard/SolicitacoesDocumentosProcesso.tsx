@@ -43,15 +43,49 @@ export function SolicitacoesDocumentosProcesso() {
 
   const loadNotificacoes = async (uid: string) => {
     try {
+      // Buscar perfil do usuário para verificar permissões atuais
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("superintendente_executivo, gerente_contratos")
+        .eq("id", uid)
+        .single();
+
+      const isSuperintendente = profile?.superintendente_executivo || false;
+      const isGerenteContratos = profile?.gerente_contratos || false;
+
+      // Buscar contratos vinculados (se gerente de contratos)
+      let contratosVinculados: string[] = [];
+      if (isGerenteContratos) {
+        const { data: vinculos } = await supabase
+          .from("gerentes_contratos_gestao")
+          .select("contrato_gestao_id")
+          .eq("usuario_id", uid);
+        contratosVinculados = (vinculos || []).map(v => v.contrato_gestao_id);
+      }
+
       const { data, error } = await supabase
         .from("notificacoes_documentos_processo")
-        .select("*")
+        .select("*, processos_compras:processo_compra_id (contrato_gestao_id)")
         .eq("destinatario_id", uid)
         .eq("atendida", false)
         .order("created_at", { ascending: false });
 
       if (error) throw error;
-      setNotificacoes((data as any[]) || []);
+
+      // Filtrar: só mostrar notificações para as quais o usuário AINDA tem permissão
+      const notificacoesFiltradas = ((data as any[]) || []).filter(n => {
+        if (n.tipo_notificacao === 'autorizacao_despesa') {
+          return isSuperintendente;
+        }
+        if (n.tipo_notificacao === 'requisicao') {
+          if (!isGerenteContratos || contratosVinculados.length === 0) return false;
+          const contratoId = n.processos_compras?.contrato_gestao_id;
+          return contratoId && contratosVinculados.includes(contratoId);
+        }
+        return false;
+      });
+
+      setNotificacoes(notificacoesFiltradas);
     } catch (error) {
       console.error("Erro ao carregar notificações:", error);
     }
