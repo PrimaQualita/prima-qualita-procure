@@ -1,5 +1,5 @@
-import { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useState, useEffect, useRef } from "react";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -67,6 +67,7 @@ interface Processo {
 
 const ProcessosCompras = () => {
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const { toast } = useToast();
   const [loading, setLoading] = useState(true);
   const [isGestor, setIsGestor] = useState(false);
@@ -76,6 +77,7 @@ const ProcessosCompras = () => {
   const [isSuperintendenteExecutivo, setIsSuperintendenteExecutivo] = useState(false);
   const [contratosVinculados, setContratosVinculados] = useState<string[]>([]);
   const [userId, setUserId] = useState<string | null>(null);
+  const abrirAnexosProcessado = useRef(false);
   
   // Estados para contratos
   const [contratos, setContratos] = useState<Contrato[]>([]);
@@ -114,6 +116,50 @@ const ProcessosCompras = () => {
       loadProcessos(contratoSelecionado.id);
     }
   }, [contratoSelecionado]);
+
+  // Auto-abrir anexos de um processo quando vindo de notificação
+  useEffect(() => {
+    const abrirAnexosId = searchParams.get("abrirAnexos");
+    if (!abrirAnexosId || abrirAnexosProcessado.current || loading) return;
+    if (contratos.length === 0) return;
+
+    const abrirAnexosAutomaticamente = async () => {
+      abrirAnexosProcessado.current = true;
+      // Limpar o param da URL
+      searchParams.delete("abrirAnexos");
+      setSearchParams(searchParams, { replace: true });
+
+      try {
+        // Buscar o processo pelo ID
+        const { data: processo, error } = await supabase
+          .from("processos_compras")
+          .select("*")
+          .eq("id", abrirAnexosId)
+          .single();
+
+        if (error || !processo) {
+          toast({ title: "Processo não encontrado", variant: "destructive" });
+          return;
+        }
+
+        // Selecionar o contrato correspondente
+        const contrato = contratos.find(c => c.id === processo.contrato_gestao_id);
+        if (contrato) {
+          setContratoSelecionado(contrato);
+        }
+
+        // Aguardar um tick para o estado atualizar, então abrir o dialog
+        setTimeout(() => {
+          setProcessoParaAnexos(processo as Processo);
+          setDialogAnexosOpen(true);
+        }, 300);
+      } catch (err) {
+        console.error("Erro ao abrir anexos automaticamente:", err);
+      }
+    };
+
+    abrirAnexosAutomaticamente();
+  }, [searchParams, contratos, loading]);
 
   const checkAuth = async () => {
     const { data: { session } } = await supabase.auth.getSession();
