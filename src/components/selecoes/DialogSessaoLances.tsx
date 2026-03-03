@@ -3157,7 +3157,7 @@ export function DialogSessaoLances({
         // Formatar número/identificador: "-" para global, romano para lote, número para item
         let identificador: string;
         if (isGlobalItem) {
-          identificador = "-";
+          identificador = String(elemento.numero).padStart(2, '0');
         } else if (elemento.isLote) {
           identificador = toRoman(elemento.numero);
         } else {
@@ -3251,15 +3251,41 @@ export function DialogSessaoLances({
 
       // Adicionar linha de valor total (apenas se não for desconto)
       if (criterioJulgamento !== "desconto") {
-        resumoData.push([
-          "",
-          "",
-          "",
-          "",
-          "",
-          "",
-          "VALOR TOTAL:",
-          formatCurrency(valorTotalGeral)
+        if (isGlobalLocal) {
+          resumoData.push([
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "VALOR TOTAL:",
+            formatCurrency(valorTotalGeral)
+          ]);
+        } else {
+          resumoData.push([
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "VALOR TOTAL:",
+            formatCurrency(valorTotalGeral)
+          ]);
+        }
+      }
+
+      // Para critério global: transformar resumoData para 6 colunas (sem Unidade e Quantidade)
+      let resumoDataFinal = resumoData;
+      if (isGlobalLocal) {
+        resumoDataFinal = resumoData.map(row => [
+          row[0], // Item
+          row[1], // Descrição
+          row[2], // Vencedor
+          row[3], // Marca
+          row[6], // Valor Unit.
+          row[7], // Valor Total
         ]);
       }
 
@@ -3271,7 +3297,7 @@ export function DialogSessaoLances({
       // Cabeçalho adaptado para lote, global ou item
       let colunaIdentificador: string;
       if (isGlobalLocal) {
-        colunaIdentificador = "-";
+        colunaIdentificador = "Item";
       } else if (isPorLoteLocal) {
         colunaIdentificador = "Lote";
       } else {
@@ -3280,8 +3306,8 @@ export function DialogSessaoLances({
       
       const ocultarColunasMarcaQtdUn = isPorLoteLocal;
 
-      // Cabeçalho e colunas específicos para critério global (com coluna Vencedor)
-      const headGlobal = [["Item", "Descrição", "Vencedor", "Unidade", "Quantidade"]];
+      // Cabeçalho e colunas específicos para critério global (sem Unidade e Quantidade)
+      const headGlobal = [["Item", "Descrição", "Vencedor", "Marca", criterioJulgamento === "desconto" ? "% Desconto" : "Valor Unit.", criterioJulgamento === "desconto" ? "-" : "Valor Total"]];
       const headPadrao = [[
         colunaIdentificador, 
         "Descrição", 
@@ -3296,13 +3322,20 @@ export function DialogSessaoLances({
       // Largura total da tabela (paisagem A4 = ~297mm, com margens de 14mm cada lado = 269mm úteis)
       const larguraTotalTabela = landscapeWidth - 28; // 28 = 14 + 14 de margem
       
-      // Larguras ajustadas para critério global (5 colunas: Item, Descrição, Vencedor, Unidade, Quantidade)
+      // Larguras ajustadas para critério global (6 colunas: Item, Descrição, Vencedor, Marca, Valor Unit., Valor Total)
+      const colGlobalItem = 18;
+      const colGlobalVencedor = 65;
+      const colGlobalMarca = 35;
+      const colGlobalValorUnit = 35;
+      const colGlobalValorTotal = 35;
+      const colGlobalDescricao = larguraTotalTabela - colGlobalItem - colGlobalVencedor - colGlobalMarca - colGlobalValorUnit - colGlobalValorTotal;
       const columnStylesGlobal = {
-        0: { cellWidth: 15, halign: "center" as const, fontStyle: "bold" as const },
-        1: { cellWidth: larguraTotalTabela - 15 - 60 - 35 - 35, halign: "justify" as const }, // Descrição ocupa o restante
-        2: { cellWidth: 60, halign: "left" as const }, // Vencedor
-        3: { cellWidth: 35, halign: "center" as const },
-        4: { cellWidth: 35, halign: "center" as const },
+        0: { cellWidth: colGlobalItem, halign: "center" as const, fontStyle: "bold" as const },
+        1: { cellWidth: colGlobalDescricao, halign: "justify" as const },
+        2: { cellWidth: colGlobalVencedor, halign: "left" as const },
+        3: { cellWidth: colGlobalMarca, halign: "center" as const },
+        4: { cellWidth: colGlobalValorUnit, halign: "right" as const, fontStyle: "bold" as const },
+        5: { cellWidth: colGlobalValorTotal, halign: "right" as const, fontStyle: "bold" as const },
       };
 
       // Calcular larguras proporcionais para tabela superior ter mesma largura que inferior
@@ -3331,7 +3364,7 @@ export function DialogSessaoLances({
       autoTable(doc, {
         startY: resumoStartY,
         head: useGlobalResumoFormat ? headGlobal : headPadrao,
-        body: resumoData,
+        body: useGlobalResumoFormat ? resumoDataFinal : resumoData,
         theme: "striped",
         styles: { 
           fontSize: 8,
@@ -3364,15 +3397,17 @@ export function DialogSessaoLances({
           }
         },
         didParseCell: (data) => {
-          // Destacar valores de negociação (apenas para critérios não-global)
-          if (!isGlobalLocal && (data.column.index === 6 || data.column.index === 7) && data.section === "body") {
+          // Destacar valores de negociação
+          const valorColIndices = isGlobalLocal ? [4, 5] : [6, 7];
+          if (valorColIndices.includes(data.column.index) && data.section === "body") {
             const cellText = String(data.cell.raw);
             if (cellText.includes("*")) {
               data.cell.styles.textColor = [0, 128, 128]; // Verde do logo
             }
           }
-          // Estilizar linha de total (apenas para critérios não-global e não-desconto)
-          if (!isGlobalLocal && criterioJulgamento !== "desconto" && data.section === "body" && data.row.index === resumoData.length - 1) {
+          // Estilizar linha de total
+          const currentData = useGlobalResumoFormat ? resumoDataFinal : resumoData;
+          if (criterioJulgamento !== "desconto" && data.section === "body" && data.row.index === currentData.length - 1) {
             data.cell.styles.fillColor = [0, 128, 128]; // Verde do logo
             data.cell.styles.textColor = [255, 255, 255];
             data.cell.styles.fontStyle = "bold";
