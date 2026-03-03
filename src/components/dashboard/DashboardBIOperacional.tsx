@@ -13,7 +13,6 @@ const CHART_OPTIONS: { value: ChartType; icon: any; label: string }[] = [
   { value: "pizza", icon: PieChart, label: "Pizza" },
   { value: "vela", icon: CandlestickChart, label: "Vela" },
   { value: "pareto", icon: BarChart3, label: "Pareto" },
-  { value: "ranking", icon: Trophy, label: "Ranking" },
 ];
 
 function ComparativoKPICard({ item, percentage, selectedTotal }: { item: any; percentage: string; selectedTotal: number }) {
