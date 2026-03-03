@@ -91,7 +91,9 @@ Deno.serve(async (req) => {
       { data: avaliacoes },
       { data: propostasSelecaoDB },
       { data: propostasRealinhadasDB },
-      { data: encaminhamentosContabilidadeDB }
+      { data: encaminhamentosContabilidadeDB },
+      { data: contratosTerceirosDB },
+      { data: documentosContratoDB }
     ] = await Promise.all([
       supabase.from('atas_selecao').select(`
         url_arquivo, 
@@ -186,6 +188,39 @@ Deno.serve(async (req) => {
         selecoes_fornecedores(
           processo_compra_id,
           processos_compras(numero_processo_interno, objeto_resumido, credenciamento)
+        )
+      `),
+      supabase.from('contratos_terceiros').select(`
+        id,
+        codigo_interno,
+        objeto,
+        contrato_gestao_id,
+        url_arquivo_principal,
+        storage_path_arquivo,
+        processo_para_contratar_id,
+        contratos_gestao!inner(nome_contrato),
+        processos_para_contratar(
+          processo_compra_id,
+          processos_compras(numero_processo_interno, objeto_resumido)
+        )
+      `),
+      supabase.from('documentos_contrato').select(`
+        id,
+        nome,
+        tipo,
+        url_arquivo,
+        storage_path,
+        contrato_terceiro_id,
+        contratos_terceiros!inner(
+          codigo_interno,
+          objeto,
+          contrato_gestao_id,
+          processo_para_contratar_id,
+          contratos_gestao!inner(nome_contrato),
+          processos_para_contratar(
+            processo_compra_id,
+            processos_compras(numero_processo_interno, objeto_resumido)
+          )
         )
       `)
     ]);
@@ -491,6 +526,89 @@ Deno.serve(async (req) => {
       }
     }
     console.log(`📋 Encaminhamentos à contabilidade mapeados: ${encContabilidadeMap.size}`);
+
+    // Processar contratos com terceiros - criar mapa com detalhes por processo
+    const contratosMap = new Map<string, {
+      contratoId: string;
+      codigoInterno: string;
+      objeto: string;
+      contratoGestaoNome: string;
+      processoNumero: string;
+      processoObjeto: string;
+      processoId: string;
+    }>();
+    if (contratosTerceirosDB) {
+      for (const ct of contratosTerceirosDB) {
+        const contratoGestao = (ct as any).contratos_gestao;
+        const processoParaContratar = (ct as any).processos_para_contratar;
+        const processo = processoParaContratar?.processos_compras;
+        
+        let objetoLimpo = processo?.objeto_resumido || ct.objeto || '';
+        objetoLimpo = objetoLimpo.replace(/<[^>]+>/g, '').trim();
+        
+        const info = {
+          contratoId: ct.id,
+          codigoInterno: ct.codigo_interno,
+          objeto: ct.objeto,
+          contratoGestaoNome: contratoGestao?.nome_contrato || '',
+          processoNumero: processo?.numero_processo_interno || '',
+          processoObjeto: objetoLimpo,
+          processoId: processoParaContratar?.processo_compra_id || '',
+        };
+        
+        // Mapear o arquivo principal do contrato
+        if (ct.storage_path_arquivo || ct.url_arquivo_principal) {
+          let path = ct.storage_path_arquivo || ct.url_arquivo_principal;
+          if (path.includes('processo-anexos/')) path = path.split('processo-anexos/')[1]?.split('?')[0] || path;
+          path = path.split('?')[0];
+          contratosMap.set(path, info);
+          nomesBonitos.set(path, `Contrato ${ct.codigo_interno}`);
+        }
+      }
+    }
+    console.log(`📋 Contratos com terceiros mapeados: ${contratosMap.size}`);
+
+    // Processar documentos de contrato (aditivos, apostilamentos) - criar mapa
+    const documentosContratoMap = new Map<string, {
+      documentoNome: string;
+      documentoTipo: string;
+      codigoInterno: string;
+      objeto: string;
+      contratoGestaoNome: string;
+      processoNumero: string;
+      processoObjeto: string;
+      processoId: string;
+    }>();
+    if (documentosContratoDB) {
+      for (const doc of documentosContratoDB) {
+        const contrato = (doc as any).contratos_terceiros;
+        const contratoGestao = contrato?.contratos_gestao;
+        const processoParaContratar = contrato?.processos_para_contratar;
+        const processo = processoParaContratar?.processos_compras;
+        
+        let objetoLimpo = processo?.objeto_resumido || contrato?.objeto || '';
+        objetoLimpo = objetoLimpo.replace(/<[^>]+>/g, '').trim();
+        
+        if (doc.storage_path || doc.url_arquivo) {
+          let path = doc.storage_path || doc.url_arquivo;
+          if (path.includes('processo-anexos/')) path = path.split('processo-anexos/')[1]?.split('?')[0] || path;
+          path = path.split('?')[0];
+          
+          documentosContratoMap.set(path, {
+            documentoNome: doc.nome,
+            documentoTipo: doc.tipo,
+            codigoInterno: contrato?.codigo_interno || '',
+            objeto: contrato?.objeto || '',
+            contratoGestaoNome: contratoGestao?.nome_contrato || '',
+            processoNumero: processo?.numero_processo_interno || '',
+            processoObjeto: objetoLimpo,
+            processoId: processoParaContratar?.processo_compra_id || '',
+          });
+          nomesBonitos.set(path, doc.nome);
+        }
+      }
+    }
+    console.log(`📋 Documentos de contrato mapeados: ${documentosContratoMap.size}`);
 
     // Processar análises de Compliance
     if (analisesCompliance) {
@@ -1134,7 +1252,8 @@ Deno.serve(async (req) => {
 
     // Calcular estatísticas por categoria
     const estatisticasPorCategoria = {
-      contratos_terceiros: { arquivos: 0, tamanho: 0, detalhes: [] as any[] },
+      contratos_terceiros: { arquivos: 0, tamanho: 0, detalhes: [] as any[], porProcesso: new Map<string, { processoId: string; processoNumero: string; processoObjeto: string; contratoGestaoNome: string; documentos: Array<{ path: string; fileName: string; size: number; codigoInterno: string }> }>() },
+      termos_aditivos: { arquivos: 0, tamanho: 0, detalhes: [] as any[], porProcesso: new Map<string, { processoId: string; processoNumero: string; processoObjeto: string; contratoGestaoNome: string; documentos: Array<{ path: string; fileName: string; size: number; codigoInterno: string; tipo: string }> }>() },
       documentos_fornecedores: { arquivos: 0, tamanho: 0, detalhes: [] as any[], porFornecedor: new Map<string, any>() },
       documentos_antigos: { 
         arquivos: 0, 
@@ -1689,11 +1808,58 @@ Deno.serve(async (req) => {
       if (pathSemBucket.startsWith('contratos/')) {
         const temReferencia = pathsDB.has(path) || nomeArquivoDB.has(fileName);
         if (temReferencia) {
-          estatisticasPorCategoria.contratos_terceiros.arquivos++;
-          estatisticasPorCategoria.contratos_terceiros.tamanho += metadata.size;
-          estatisticasPorCategoria.contratos_terceiros.detalhes.push({ path, fileName, size: metadata.size });
+          // Verificar se é documento de contrato (aditivo/apostilamento) ou contrato principal
+          const docContrato = documentosContratoMap.get(pathSemBucket);
+          const contratoInfo = contratosMap.get(pathSemBucket);
+          
+          if (docContrato) {
+            // É um termo aditivo / apostilamento / rescisão
+            estatisticasPorCategoria.termos_aditivos.arquivos++;
+            estatisticasPorCategoria.termos_aditivos.tamanho += metadata.size;
+            estatisticasPorCategoria.termos_aditivos.detalhes.push({ path, fileName, size: metadata.size });
+            
+            const groupKey = docContrato.processoId || `sem-processo-${docContrato.codigoInterno}`;
+            if (!estatisticasPorCategoria.termos_aditivos.porProcesso.has(groupKey)) {
+              estatisticasPorCategoria.termos_aditivos.porProcesso.set(groupKey, {
+                processoId: docContrato.processoId,
+                processoNumero: docContrato.processoNumero || docContrato.codigoInterno,
+                processoObjeto: docContrato.processoObjeto || docContrato.objeto,
+                contratoGestaoNome: docContrato.contratoGestaoNome,
+                documentos: []
+              });
+            }
+            estatisticasPorCategoria.termos_aditivos.porProcesso.get(groupKey)!.documentos.push({
+              path, fileName: docContrato.documentoNome || fileName, size: metadata.size,
+              codigoInterno: docContrato.codigoInterno, tipo: docContrato.documentoTipo
+            });
+            
+            console.log(`✅ Categorizado como TERMO ADITIVO: ${fileName}`);
+          } else {
+            // É contrato principal
+            estatisticasPorCategoria.contratos_terceiros.arquivos++;
+            estatisticasPorCategoria.contratos_terceiros.tamanho += metadata.size;
+            estatisticasPorCategoria.contratos_terceiros.detalhes.push({ path, fileName, size: metadata.size });
+            
+            if (contratoInfo) {
+              const groupKey = contratoInfo.processoId || `sem-processo-${contratoInfo.codigoInterno}`;
+              if (!estatisticasPorCategoria.contratos_terceiros.porProcesso.has(groupKey)) {
+                estatisticasPorCategoria.contratos_terceiros.porProcesso.set(groupKey, {
+                  processoId: contratoInfo.processoId,
+                  processoNumero: contratoInfo.processoNumero || contratoInfo.codigoInterno,
+                  processoObjeto: contratoInfo.processoObjeto || contratoInfo.objeto,
+                  contratoGestaoNome: contratoInfo.contratoGestaoNome,
+                  documentos: []
+                });
+              }
+              estatisticasPorCategoria.contratos_terceiros.porProcesso.get(groupKey)!.documentos.push({
+                path, fileName: nomesBonitos.get(pathSemBucket) || fileName, size: metadata.size,
+                codigoInterno: contratoInfo.codigoInterno
+              });
+            }
+            
+            console.log(`✅ Categorizado como CONTRATO COM TERCEIRO: ${fileName}`);
+          }
           arquivosJaCategorizados.add(path);
-          console.log(`✅ Categorizado como CONTRATO COM TERCEIRO: ${fileName}`);
         } else {
           console.log(`⚠️ Arquivo em contratos/ SEM referência no banco: ${fileName}`);
         }
@@ -3855,7 +4021,14 @@ Deno.serve(async (req) => {
         contratos_terceiros: {
           arquivos: estatisticasPorCategoria.contratos_terceiros.arquivos,
           tamanhoMB: Number((estatisticasPorCategoria.contratos_terceiros.tamanho / (1024 * 1024)).toFixed(2)),
-          detalhes: estatisticasPorCategoria.contratos_terceiros.detalhes
+          detalhes: estatisticasPorCategoria.contratos_terceiros.detalhes,
+          porProcesso: Array.from(estatisticasPorCategoria.contratos_terceiros.porProcesso.values())
+        },
+        termos_aditivos: {
+          arquivos: estatisticasPorCategoria.termos_aditivos.arquivos,
+          tamanhoMB: Number((estatisticasPorCategoria.termos_aditivos.tamanho / (1024 * 1024)).toFixed(2)),
+          detalhes: estatisticasPorCategoria.termos_aditivos.detalhes,
+          porProcesso: Array.from(estatisticasPorCategoria.termos_aditivos.porProcesso.values())
         },
         outros: {
           arquivos: estatisticasPorCategoria.outros.arquivos,

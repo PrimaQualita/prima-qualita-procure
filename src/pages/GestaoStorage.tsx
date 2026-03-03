@@ -320,15 +320,32 @@ export default function GestaoStorage() {
                 // Contratos com Terceiros
                 {
                   key: 'contratos_terceiros',
-                  title: 'Contratos com Terceiros',
+                  title: 'Contratos',
                   colorClass: 'border-emerald-200 bg-emerald-50/50',
-                  description: 'Arquivos de contratos e aditivos',
+                  description: 'Arquivos de contratos',
                   data: resultado.estatisticasPorCategoria?.contratos_terceiros,
-                  onClick: () => setDocumentosGrupo({
-                    nome: 'Contratos com Terceiros',
-                    documentos: resultado.estatisticasPorCategoria?.contratos_terceiros?.detalhes || []
+                  onClick: () => setGrupoDetalhes({
+                    titulo: 'Contratos com Terceiros',
+                    tipo: 'processo',
+                    grupos: resultado.estatisticasPorCategoria?.contratos_terceiros?.porProcesso || [],
+                    categoria: 'contratos_terceiros'
                   }),
-                  showView: resultado.estatisticasPorCategoria?.contratos_terceiros?.detalhes?.length > 0
+                  showView: resultado.estatisticasPorCategoria?.contratos_terceiros?.porProcesso?.length > 0
+                },
+                // Termos Aditivos e Apostilamentos
+                {
+                  key: 'termos_aditivos',
+                  title: 'Termos Aditivos e Apostilamentos',
+                  colorClass: 'border-lime-200 bg-lime-50/50',
+                  description: 'Aditivos, apostilamentos e rescisões',
+                  data: resultado.estatisticasPorCategoria?.termos_aditivos,
+                  onClick: () => setGrupoDetalhes({
+                    titulo: 'Termos Aditivos e Apostilamentos',
+                    tipo: 'processo',
+                    grupos: resultado.estatisticasPorCategoria?.termos_aditivos?.porProcesso || [],
+                    categoria: 'termos_aditivos'
+                  }),
+                  showView: resultado.estatisticasPorCategoria?.termos_aditivos?.porProcesso?.length > 0
                 },
                 // Cotações
                 {
