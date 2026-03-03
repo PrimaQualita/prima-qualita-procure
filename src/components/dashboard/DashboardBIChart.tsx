@@ -92,13 +92,16 @@ export function DashboardBIChart({ data, chartType, title, height = 280 }: Props
             <>
               <XAxis dataKey="name" tick={{ fontSize: 10 }} stroke="hsl(var(--muted-foreground))" />
               <YAxis tick={{ fontSize: 10 }} stroke="hsl(var(--muted-foreground))" />
-            </>
+          </>
           )}
           <Tooltip contentStyle={tooltipStyle} />
           <Bar dataKey="value" name="Quantidade" radius={[4, 4, 0, 0]}>
-            {(isHorizontal ? [...data].sort((a, b) => a.value - b.value) : data).map((_, i) => (
-              <Cell key={i} fill={BI_COLORS[i % BI_COLORS.length]} />
-            ))}
+            {(isHorizontal ? [...data].sort((a, b) => a.value - b.value) : data).map((entry, i, arr) => {
+              // Gradient color based on value rank: highest=green, lowest=red
+              const sorted = [...arr].sort((a, b) => b.value - a.value);
+              const rank = sorted.findIndex(s => s.name === entry.name);
+              return <Cell key={i} fill={BI_COLORS[rank % BI_COLORS.length]} />;
+            })}
           </Bar>
         </BarChart>
       </ResponsiveContainer>
