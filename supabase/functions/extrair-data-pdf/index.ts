@@ -126,12 +126,74 @@ serve(async (req) => {
       );
     }
     
-    // Verificar se é PDF digitalizado SEM dados de data
-    // Só marca como digitalizado se o texto for muito curto E não tiver padrão de data
+    // Verificar se a extração nativa foi insuficiente
     const hasDate = hasDatePattern(pdfText);
-    if (pdfText.trim().length < 30 && !hasDate) {
-      console.log('⚠️ PDF digitalizado detectado (sem texto extraível) - retornando null para preenchimento manual');
+    const textoInsuficiente = pdfText.trim().length < 30 && !hasDate;
+    
+    if (textoInsuficiente) {
+      console.log('⚠️ Extração nativa insuficiente (texto muito curto). Tentando IA com PDF base64...');
       
+      // Tentar usar IA com o PDF diretamente antes de desistir
+      try {
+        const lovableApiKey = Deno.env.get('LOVABLE_API_KEY');
+        if (lovableApiKey) {
+          const promptOcr = `Você é um especialista em analisar certidões e documentos brasileiros (CNDs, CNDT, CRF FGTS, etc.).
+
+Analise este documento PDF e extraia a DATA DE VALIDADE.
+
+A data de validade pode estar em diversos formatos:
+1. Data explícita: "válida até DD/MM/AAAA" ou "vencimento: DD/MM/AAAA"
+2. Período relativo: "válida por X dias a partir da emissão" - calcule a data final
+3. Intervalo de datas (CRF FGTS): "DD/MM/AAAA a DD/MM/AAAA" - pegue a SEGUNDA/ÚLTIMA data
+4. Outros formatos que indicam validade
+
+Retorne APENAS no formato JSON: {"dataValidade": "YYYY-MM-DD"} ou {"dataValidade": null}`;
+
+          const aiResponse = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${lovableApiKey}`,
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              model: 'google/gemini-2.5-flash',
+              messages: [
+                { 
+                  role: 'user', 
+                  content: [
+                    { type: 'text', text: promptOcr },
+                    { type: 'image_url', image_url: { url: `data:application/pdf;base64,${pdfBase64}` } }
+                  ]
+                }
+              ],
+              response_format: { type: "json_object" }
+            }),
+          });
+
+          if (aiResponse.ok) {
+            const aiResult = await aiResponse.json();
+            let resultText = aiResult.choices[0].message.content;
+            resultText = resultText.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
+            const resultado = JSON.parse(resultText);
+            
+            console.log('✅ IA (OCR) retornou:', resultado);
+            
+            if (resultado.dataValidade) {
+              return new Response(
+                JSON.stringify({ dataValidade: resultado.dataValidade, isScanned: false }),
+                { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+              );
+            }
+          } else {
+            console.error('Erro na IA OCR:', await aiResponse.text());
+          }
+        }
+      } catch (ocrError) {
+        console.error('❌ Erro ao usar IA para OCR:', ocrError);
+      }
+      
+      // Se a IA também falhou, aí sim retorna como digitalizado
+      console.log('⚠️ PDF sem texto extraível e IA não conseguiu extrair - preenchimento manual');
       return new Response(
         JSON.stringify({ 
           dataValidade: null,
