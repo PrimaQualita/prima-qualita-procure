@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
 import primaLogo from "@/assets/prima-qualita-logo.png";
 import { Button } from "@/components/ui/button";
-import { FileText, CheckCircle, BarChart3 } from "lucide-react";
+import { FileText, CheckCircle, BarChart3, ClipboardList } from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { AlertCircle } from "lucide-react";
 import { SolicitacoesAutorizacao } from "@/components/dashboard/SolicitacoesAutorizacao";
@@ -18,6 +18,7 @@ import { DashboardBIChart, type ChartType } from "@/components/dashboard/Dashboa
 import { DashboardBIOperacional } from "@/components/dashboard/DashboardBIOperacional";
 import { DashboardBIRanking } from "@/components/dashboard/DashboardBIRanking";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
 
@@ -57,12 +58,16 @@ const Dashboard = () => {
   const [atasPendentesAssinatura, setAtasPendentesAssinatura] = useState<any[]>([]);
   const [assinandoAta, setAssinandoAta] = useState<string | null>(null);
 
+  // BI Tab
+  const [abaBI, setAbaBI] = useState<"compras" | "controle">("compras");
+
   // BI Filters
   const [contratoSelecionado, setContratoSelecionado] = useState("todos");
   const [anoSelecionado, setAnoSelecionado] = useState(new Date().getFullYear().toString());
   const [mesSelecionado, setMesSelecionado] = useState<string>("todos");
   const [modoVisualizacao, setModoVisualizacao] = useState<"individual" | "comparativo">("individual");
   const [tipoGraficoGlobal, setTipoGraficoGlobal] = useState<ChartType>("barras");
+  const [tipoGraficoControle, setTipoGraficoControle] = useState<ChartType>("barras");
 
   // Individual
   const [tipoProcessoIndividual, setTipoProcessoIndividual] = useState<TipoProcesso>("processos");
@@ -435,141 +440,190 @@ const Dashboard = () => {
 
         <div className="flex items-center gap-3 mb-4">
           <BarChart3 className="h-6 w-6 text-primary" />
-          <div>
-            <h1 className="text-xl font-bold text-foreground">Painel BI — Compras</h1>
+          <div className="flex-1">
+            <h1 className="text-xl font-bold text-foreground">Painel BI</h1>
             <p className="text-xs text-muted-foreground">Análise inteligente de processos e contratações</p>
           </div>
         </div>
 
-        <DashboardBIFilters
-          contratos={contratos}
-          anosDisponiveis={anosDisponiveis}
-          contratoSelecionado={contratoSelecionado}
-          setContratoSelecionado={setContratoSelecionado}
-          anoSelecionado={anoSelecionado}
-          setAnoSelecionado={setAnoSelecionado}
-          mesSelecionado={mesSelecionado}
-          setMesSelecionado={setMesSelecionado}
-          modoVisualizacao={modoVisualizacao}
-          setModoVisualizacao={setModoVisualizacao}
-        />
+        {/* Abas BI - Compras / Controle */}
+        <Tabs value={abaBI} onValueChange={(v) => setAbaBI(v as "compras" | "controle")} className="mb-4">
+          <TabsList className="w-full sm:w-auto h-10">
+            <TabsTrigger value="compras" className="text-xs sm:text-sm px-6 gap-1.5">
+              <BarChart3 className="h-3.5 w-3.5" /> BI — Compras
+            </TabsTrigger>
+            <TabsTrigger value="controle" className="text-xs sm:text-sm px-6 gap-1.5">
+              <ClipboardList className="h-3.5 w-3.5" /> BI — Controle
+            </TabsTrigger>
+          </TabsList>
+        </Tabs>
 
-        <DashboardBIOperacional
-          contratosTerceiros={contratosTerceiros}
-          processosParaContratar={processosParaContratar}
-          cotacoesPrecos={cotacoesPrecos}
-          processos={processos}
-          selecoes={selecoes}
-          fornecedores={fornecedores}
-          contratoSelecionado={contratoSelecionado}
-          chartType={tipoGraficoGlobal}
-        />
+        {abaBI === "compras" ? (
+          <>
+            <DashboardBIFilters
+              contratos={contratos}
+              anosDisponiveis={anosDisponiveis}
+              contratoSelecionado={contratoSelecionado}
+              setContratoSelecionado={setContratoSelecionado}
+              anoSelecionado={anoSelecionado}
+              setAnoSelecionado={setAnoSelecionado}
+              mesSelecionado={mesSelecionado}
+              setMesSelecionado={setMesSelecionado}
+              modoVisualizacao={modoVisualizacao}
+              setModoVisualizacao={setModoVisualizacao}
+            />
 
-        <div className="bg-card border rounded-2xl shadow-sm p-5 mb-6">
-          <div className="flex items-center gap-2 mb-4">
-            <div className="h-7 w-7 rounded-lg bg-primary/10 flex items-center justify-center">
-              <BarChart3 className="h-3.5 w-3.5 text-primary" />
+            <div className="bg-card border rounded-2xl shadow-sm p-5 mb-6">
+              <div className="flex items-center gap-2 mb-4">
+                <div className="h-7 w-7 rounded-lg bg-primary/10 flex items-center justify-center">
+                  <BarChart3 className="h-3.5 w-3.5 text-primary" />
+                </div>
+                <h3 className="text-sm font-bold text-foreground tracking-wide">
+                  {modoVisualizacao === "individual" ? "Tipo de Processo" : "Comparar Processos (2 a 4)"}
+                </h3>
+              </div>
+              {modoVisualizacao === "individual" ? (
+                <div className="flex flex-wrap gap-2">
+                  {(Object.keys(TIPO_LABELS) as TipoProcesso[]).map(tipo => {
+                    const isActive = tipoProcessoIndividual === tipo;
+                    return (
+                      <Button
+                        key={tipo}
+                        size="sm"
+                        variant={isActive ? "default" : "outline"}
+                        className={`text-xs h-9 rounded-lg px-4 transition-all ${isActive ? "shadow-md" : "hover:border-primary/40"}`}
+                        onClick={() => setTipoProcessoIndividual(tipo)}
+                      >
+                        {TIPO_LABELS[tipo]}
+                      </Button>
+                    );
+                  })}
+                </div>
+              ) : (
+                <div className="flex flex-wrap gap-2">
+                  {(Object.keys(TIPO_LABELS) as TipoProcesso[]).map(tipo => {
+                    const isChecked = processosComparativos.includes(tipo);
+                    const isDisabled = !isChecked && processosComparativos.length >= 4;
+                    const idx = processosComparativos.indexOf(tipo);
+                    return (
+                      <Button
+                        key={tipo}
+                        size="sm"
+                        variant={isChecked ? "default" : "outline"}
+                        disabled={isDisabled}
+                        className={`text-xs h-9 rounded-lg px-4 gap-1.5 transition-all ${isChecked ? "shadow-md" : "hover:border-primary/40"} ${isDisabled ? "opacity-40" : ""}`}
+                        onClick={() => toggleComparativo(tipo)}
+                      >
+                        {isChecked && <Badge variant="secondary" className="text-[9px] px-1.5 h-4 rounded-full bg-background/30 text-primary-foreground">{idx + 1}</Badge>}
+                        {TIPO_LABELS[tipo]}
+                      </Button>
+                    );
+                  })}
+                </div>
+              )}
             </div>
-            <h3 className="text-sm font-bold text-foreground tracking-wide">
-              {modoVisualizacao === "individual" ? "Tipo de Processo" : "Comparar Processos (2 a 4)"}
-            </h3>
-          </div>
-          {modoVisualizacao === "individual" ? (
-            <div className="flex flex-wrap gap-2">
-              {(Object.keys(TIPO_LABELS) as TipoProcesso[]).map(tipo => {
-                const isActive = tipoProcessoIndividual === tipo;
-                return (
-                  <Button
-                    key={tipo}
-                    size="sm"
-                    variant={isActive ? "default" : "outline"}
-                    className={`text-xs h-9 rounded-lg px-4 transition-all ${isActive ? "shadow-md" : "hover:border-primary/40"}`}
-                    onClick={() => setTipoProcessoIndividual(tipo)}
-                  >
-                    {TIPO_LABELS[tipo]}
-                  </Button>
-                );
-              })}
-            </div>
-          ) : (
-            <div className="flex flex-wrap gap-2">
-              {(Object.keys(TIPO_LABELS) as TipoProcesso[]).map(tipo => {
-                const isChecked = processosComparativos.includes(tipo);
-                const isDisabled = !isChecked && processosComparativos.length >= 4;
-                const idx = processosComparativos.indexOf(tipo);
-                return (
-                  <Button
-                    key={tipo}
-                    size="sm"
-                    variant={isChecked ? "default" : "outline"}
-                    disabled={isDisabled}
-                    className={`text-xs h-9 rounded-lg px-4 gap-1.5 transition-all ${isChecked ? "shadow-md" : "hover:border-primary/40"} ${isDisabled ? "opacity-40" : ""}`}
-                    onClick={() => toggleComparativo(tipo)}
-                  >
-                    {isChecked && <Badge variant="secondary" className="text-[9px] px-1.5 h-4 rounded-full bg-background/30 text-primary-foreground">{idx + 1}</Badge>}
-                    {TIPO_LABELS[tipo]}
-                  </Button>
-                );
-              })}
-            </div>
-          )}
-        </div>
 
-        <div className="mb-6">
-          <Tabs value={tipoGraficoGlobal} onValueChange={(v) => setTipoGraficoGlobal(v as ChartType)}>
-            <TabsList className="w-full sm:w-auto h-9">
-              <TabsTrigger value="barras" className="text-xs">Barras</TabsTrigger>
-              <TabsTrigger value="vela" className="text-xs">Horizontal</TabsTrigger>
-              <TabsTrigger value="pareto" className="text-xs">Pareto</TabsTrigger>
-              <TabsTrigger value="pizza" className="text-xs">Pizza</TabsTrigger>
-              <TabsTrigger value="ranking" className="text-xs">Tendência</TabsTrigger>
-            </TabsList>
-          </Tabs>
-        </div>
+            {/* Modelo de gráfico ACIMA dos gráficos */}
+            <div className="mb-6">
+              <Tabs value={tipoGraficoGlobal} onValueChange={(v) => setTipoGraficoGlobal(v as ChartType)}>
+                <TabsList className="w-full sm:w-auto h-9">
+                  <TabsTrigger value="barras" className="text-xs">Barras</TabsTrigger>
+                  <TabsTrigger value="vela" className="text-xs">Horizontal</TabsTrigger>
+                  <TabsTrigger value="pareto" className="text-xs">Pareto</TabsTrigger>
+                  <TabsTrigger value="pizza" className="text-xs">Pizza</TabsTrigger>
+                  <TabsTrigger value="ranking" className="text-xs">Tendência</TabsTrigger>
+                </TabsList>
+              </Tabs>
+            </div>
 
-        {modoVisualizacao === "individual" ? (
-          <DashboardBIKPIs kpiData={calcularKPIs(tipoProcessoIndividual)} label={TIPO_LABELS[tipoProcessoIndividual]} />
+            {modoVisualizacao === "individual" ? (
+              <DashboardBIKPIs kpiData={calcularKPIs(tipoProcessoIndividual)} label={TIPO_LABELS[tipoProcessoIndividual]} />
+            ) : (
+              processosComparativos.map(tipo => (
+                <DashboardBIKPIs key={tipo} kpiData={calcularKPIs(tipo)} label={TIPO_LABELS[tipo]} />
+              ))
+            )}
+
+            {modoVisualizacao === "individual" ? (
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-6">
+                <Card className="shadow-sm hover:shadow-md transition-shadow">
+                  <CardHeader className="pb-2">
+                    <CardTitle className="text-sm">{TIPO_LABELS[tipoProcessoIndividual]} — Por Contrato</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <DashboardBIChart data={gerarDadosPorContrato(tipoProcessoIndividual)} chartType={tipoGraficoGlobal} title="Por Contrato" />
+                  </CardContent>
+                </Card>
+                <Card className="shadow-sm hover:shadow-md transition-shadow">
+                  <CardHeader className="pb-2">
+                    <CardTitle className="text-sm">{TIPO_LABELS[tipoProcessoIndividual]} — Evolução Mensal</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <DashboardBIChart data={gerarDadosPorMes(tipoProcessoIndividual)} chartType={tipoGraficoGlobal} title="Mensal" />
+                  </CardContent>
+                </Card>
+              </div>
+            ) : (
+              <div className="flex flex-col gap-4 mb-6">
+                {processosComparativos.map(tipo => (
+                  <Card key={tipo} className="shadow-sm hover:shadow-md transition-shadow">
+                    <CardHeader className="pb-2">
+                      <CardTitle className="text-sm">{TIPO_LABELS[tipo]}</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <DashboardBIChart data={gerarDadosPorMes(tipo)} chartType={tipoGraficoGlobal} title={TIPO_LABELS[tipo]} height={300} />
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            )}
+
+            <DashboardBIRanking rows={ranking.rows} processoLabels={ranking.labels} />
+          </>
         ) : (
-          processosComparativos.map(tipo => (
-            <DashboardBIKPIs key={tipo} kpiData={calcularKPIs(tipo)} label={TIPO_LABELS[tipo]} />
-          ))
-        )}
+          <>
+            {/* BI Controle - Filtro de contrato */}
+            <div className="bg-card border rounded-2xl shadow-sm p-5 mb-6">
+              <div className="flex flex-wrap items-center gap-3">
+                <Select value={contratoSelecionado} onValueChange={setContratoSelecionado}>
+                  <SelectTrigger className="w-[240px] text-xs h-10 rounded-lg border-2 border-muted hover:border-primary/40 transition-colors">
+                    <SelectValue placeholder="Contrato de Gestão" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="todos">Todos os Contratos</SelectItem>
+                    {contratos.map(c => (
+                      <SelectItem key={c.id} value={c.id}>{c.nome_contrato}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
 
-        {modoVisualizacao === "individual" ? (
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-6">
-            <Card className="shadow-sm hover:shadow-md transition-shadow">
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm">{TIPO_LABELS[tipoProcessoIndividual]} — Por Contrato</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <DashboardBIChart data={gerarDadosPorContrato(tipoProcessoIndividual)} chartType={tipoGraficoGlobal} title="Por Contrato" />
-              </CardContent>
-            </Card>
-            <Card className="shadow-sm hover:shadow-md transition-shadow">
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm">{TIPO_LABELS[tipoProcessoIndividual]} — Evolução Mensal</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <DashboardBIChart data={gerarDadosPorMes(tipoProcessoIndividual)} chartType={tipoGraficoGlobal} title="Mensal" />
-              </CardContent>
-            </Card>
-          </div>
-        ) : (
-          <div className="flex flex-col gap-4 mb-6">
-            {processosComparativos.map(tipo => (
-              <Card key={tipo} className="shadow-sm hover:shadow-md transition-shadow">
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-sm">{TIPO_LABELS[tipo]}</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <DashboardBIChart data={gerarDadosPorMes(tipo)} chartType={tipoGraficoGlobal} title={TIPO_LABELS[tipo]} height={300} />
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-        )}
+            {/* Modelo de gráfico ACIMA do painel */}
+            <div className="mb-6">
+              <Tabs value={tipoGraficoControle} onValueChange={(v) => setTipoGraficoControle(v as ChartType)}>
+                <TabsList className="w-full sm:w-auto h-9">
+                  <TabsTrigger value="barras" className="text-xs">Barras</TabsTrigger>
+                  <TabsTrigger value="vela" className="text-xs">Horizontal</TabsTrigger>
+                  <TabsTrigger value="pareto" className="text-xs">Pareto</TabsTrigger>
+                  <TabsTrigger value="pizza" className="text-xs">Pizza</TabsTrigger>
+                  <TabsTrigger value="ranking" className="text-xs">Tendência</TabsTrigger>
+                </TabsList>
+              </Tabs>
+            </div>
 
-        <DashboardBIRanking rows={ranking.rows} processoLabels={ranking.labels} />
+            <DashboardBIOperacional
+              contratosTerceiros={contratosTerceiros}
+              processosParaContratar={processosParaContratar}
+              cotacoesPrecos={cotacoesPrecos}
+              processos={processos}
+              selecoes={selecoes}
+              fornecedores={fornecedores}
+              contratoSelecionado={contratoSelecionado}
+              chartType={tipoGraficoControle}
+            />
+          </>
+        )}
       </div>
     </div>
   );
