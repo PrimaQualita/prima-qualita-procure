@@ -24,6 +24,9 @@ verify_jwt = true
 [functions.resetar-senha-usuario]
 verify_jwt = true
 
+[functions.deletar-fornecedor]
+verify_jwt = true
+
 [functions.enviar-email-recuperacao]
 verify_jwt = false
 
