@@ -530,6 +530,72 @@ Deno.serve(async (req) => {
       }
     }
 
+    // 3b. Buscar contratos com terceiros vinculados ao processo (via processos_para_contratar)
+    const { data: processosParaContratar } = await supabase
+      .from('processos_para_contratar')
+      .select('id')
+      .eq('processo_compra_id', processoId);
+
+    if (processosParaContratar && processosParaContratar.length > 0) {
+      const ppcIds = processosParaContratar.map(p => p.id);
+
+      // Buscar contratos terceiros vinculados
+      const { data: contratosTerceiros } = await supabase
+        .from('contratos_terceiros')
+        .select('id, url_arquivo_principal, storage_path_arquivo')
+        .in('processo_para_contratar_id', ppcIds);
+
+      if (contratosTerceiros && contratosTerceiros.length > 0) {
+        const contratoIds = contratosTerceiros.map(c => c.id);
+
+        // Coletar arquivos principais dos contratos
+        contratosTerceiros.forEach(c => {
+          const path = extractPath(c.storage_path_arquivo || c.url_arquivo_principal, 'processo-anexos');
+          if (path) {
+            console.log(`   📑 Contrato terceiro: ${path}`);
+            arquivosProcessoAnexos.push(path);
+          }
+        });
+
+        // Buscar documentos de contrato (termos aditivos, apostilamentos, rescisões)
+        const { data: docsContrato } = await supabase
+          .from('documentos_contrato')
+          .select('url_arquivo, storage_path')
+          .in('contrato_terceiro_id', contratoIds);
+
+        if (docsContrato) {
+          docsContrato.forEach(d => {
+            const path = extractPath(d.storage_path || d.url_arquivo, 'processo-anexos');
+            if (path) {
+              console.log(`   📄 Documento contrato (aditivo/apostilamento): ${path}`);
+              arquivosProcessoAnexos.push(path);
+            }
+          });
+        }
+
+        // Deletar registros: documentos_contrato primeiro, depois contratos_terceiros
+        const { error: docsContratoError } = await supabase
+          .from('documentos_contrato')
+          .delete()
+          .in('contrato_terceiro_id', contratoIds);
+        if (docsContratoError) {
+          console.error('❌ Erro ao deletar documentos_contrato:', docsContratoError);
+        } else {
+          console.log('✅ Registros de documentos_contrato deletados');
+        }
+
+        const { error: contratosError } = await supabase
+          .from('contratos_terceiros')
+          .delete()
+          .in('processo_para_contratar_id', ppcIds);
+        if (contratosError) {
+          console.error('❌ Erro ao deletar contratos_terceiros:', contratosError);
+        } else {
+          console.log('✅ Registros de contratos_terceiros deletados');
+        }
+      }
+    }
+
     // 4. Buscar arquivos do processo completo na pasta processos/ do bucket documents
     if (numeroProcesso) {
       console.log(`🔍 Buscando arquivos do processo completo na pasta processos/...`);
