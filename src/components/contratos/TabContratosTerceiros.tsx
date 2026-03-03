@@ -449,7 +449,10 @@ export function TabContratosTerceiros({ contratoGestaoId, contratoGestaoNome, pr
     setDialogOpen(true);
   };
 
-  const contratosFiltrados = contratos.filter((c) =>
+  // Filtrar contratos rescindidos/encerrados (vão para aba Vencidos/Encerrados)
+  const contratosAtivos = contratos.filter(c => c.status !== "rescindido" && c.status !== "encerrado");
+
+  const contratosFiltrados = contratosAtivos.filter((c) =>
     c.codigo_interno.toLowerCase().includes(filtro.toLowerCase()) ||
     c.objeto.toLowerCase().includes(filtro.toLowerCase()) ||
     (c.fornecedores?.razao_social || "").toLowerCase().includes(filtro.toLowerCase())

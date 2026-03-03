@@ -1,5 +1,7 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
+import { toZonedTime } from "date-fns-tz";
+import { differenceInDays } from "date-fns";
 import {
   FileText,
   DollarSign,
@@ -73,6 +75,7 @@ export function AppSidebar({
   const navigate = useNavigate();
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
   const [unreadCount, setUnreadCount] = useState(0);
+  const [contractAlertCount, setContractAlertCount] = useState(0);
 
   useEffect(() => {
     if (profile?.avatar_url) {
@@ -105,7 +108,6 @@ export function AppSidebar({
 
     loadUnreadCount();
 
-    // Subscrever para atualizações em tempo real
     const channel = supabase
       .channel('unread-messages')
       .on(
@@ -124,6 +126,52 @@ export function AppSidebar({
     return () => {
       supabase.removeChannel(channel);
     };
+  }, [profile?.id]);
+
+  // Carregar contagem de alertas de contratos (a vencer + vencidos sem tratamento)
+  useEffect(() => {
+    if (!profile?.id) return;
+
+    const loadContractAlerts = async () => {
+      try {
+        const { data } = await supabase
+          .from("contratos_terceiros")
+          .select("id, fim_vigencia_atual, status, ciente_nao_renovar")
+          .eq("status", "vigente")
+          .not("fim_vigencia_atual", "is", null);
+
+        if (!data) return;
+
+        const hoje = toZonedTime(new Date(), "America/Sao_Paulo");
+        const aVencer = data.filter(c => {
+          const fimDate = new Date(c.fim_vigencia_atual + "T23:59:59-03:00");
+          const dias = differenceInDays(fimDate, hoje);
+          return dias >= 0 && dias <= 45;
+        });
+
+        // Vencidos sem tratamento
+        const { data: vencidosData } = await supabase
+          .from("contratos_terceiros")
+          .select("id, fim_vigencia_atual, status, ciente_nao_renovar")
+          .not("fim_vigencia_atual", "is", null)
+          .neq("status", "encerrado")
+          .neq("status", "rescindido")
+          .eq("ciente_nao_renovar", false);
+
+        const vencidos = (vencidosData || []).filter(c => {
+          const fimDate = new Date(c.fim_vigencia_atual + "T23:59:59-03:00");
+          return fimDate < hoje;
+        });
+
+        setContractAlertCount(aVencer.length + vencidos.length);
+      } catch {
+        // silent
+      }
+    };
+
+    loadContractAlerts();
+    const interval = setInterval(loadContractAlerts, 30000);
+    return () => clearInterval(interval);
   }, [profile?.id]);
 
   const loadAvatar = async (path: string) => {
@@ -356,6 +404,14 @@ export function AppSidebar({
                             {unreadCount > 99 ? "99+" : unreadCount}
                           </Badge>
                         )}
+                        {item.href === "/contratos" && contractAlertCount > 0 && !open && (
+                          <Badge 
+                            variant="destructive" 
+                            className="absolute -top-2 -right-2 h-4 min-w-4 px-1 text-[10px] flex items-center justify-center"
+                          >
+                            {contractAlertCount > 99 ? "99+" : contractAlertCount}
+                          </Badge>
+                        )}
                       </div>
                       {open && (
                         <span className="flex items-center gap-2">
@@ -363,6 +419,11 @@ export function AppSidebar({
                           {item.href === "/contatos" && unreadCount > 0 && (
                             <Badge variant="destructive" className="h-5 px-1.5 text-xs">
                               {unreadCount > 99 ? "99+" : unreadCount}
+                            </Badge>
+                          )}
+                          {item.href === "/contratos" && contractAlertCount > 0 && (
+                            <Badge variant="destructive" className="h-5 px-1.5 text-xs">
+                              {contractAlertCount > 99 ? "99+" : contractAlertCount}
                             </Badge>
                           )}
                         </span>
