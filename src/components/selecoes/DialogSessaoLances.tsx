@@ -3343,9 +3343,11 @@ export function DialogSessaoLances({
         theme: "striped",
         styles: { 
           fontSize: 8,
-          cellPadding: 2, // Reduzido para comprimir altura das linhas
+          cellPadding: 2,
           valign: "middle",
-          textColor: [0, 0, 0], // Preto
+          textColor: [0, 0, 0],
+          lineColor: [180, 180, 180], // Cinza para bordas
+          lineWidth: 0.3,
         },
         headStyles: { 
           fillColor: [0, 128, 128], // Verde do logo
