@@ -158,10 +158,14 @@ export default function Contratos() {
     ? processosAnos.map(p => p.id)
     : processosAnos.filter(p => p.ano_referencia === parseInt(anoSelecionado)).map(p => p.id);
 
-  // Load notification counts when filter changes
+  // Load notification counts when filter changes + polling every 15s
   useEffect(() => {
     if (contratoSelecionado && processoCompraIdsFiltrados.length > 0) {
       loadNotificationCounts(contratoSelecionado.id, processoCompraIdsFiltrados);
+      const interval = setInterval(() => {
+        loadNotificationCounts(contratoSelecionado.id, processoCompraIdsFiltrados);
+      }, 15000);
+      return () => clearInterval(interval);
     } else {
       setCountAVencer(0);
       setCountVencidos(0);
