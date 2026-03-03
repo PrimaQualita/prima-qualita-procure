@@ -523,7 +523,7 @@ const Dashboard = () => {
                   <CardTitle className="text-sm">{TIPO_LABELS[tipo]}</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <DashboardBIChart data={gerarDadosPorContrato(tipo)} chartType={tipoGraficoGlobal} title={TIPO_LABELS[tipo]} height={300} />
+                  <DashboardBIChart data={gerarDadosPorMes(tipo)} chartType={tipoGraficoGlobal} title={TIPO_LABELS[tipo]} height={300} />
                 </CardContent>
               </Card>
             ))}
