@@ -134,32 +134,27 @@ export function AppSidebar({
 
     const loadContractAlerts = async () => {
       try {
-        const { data } = await supabase
+        if (typeof document !== "undefined" && document.hidden) return;
+
+        const { data, error } = await supabase
           .from("contratos_terceiros")
           .select("id, fim_vigencia_atual, status, ciente_nao_renovar")
-          .eq("status", "vigente")
           .not("fim_vigencia_atual", "is", null);
 
-        if (!data) return;
+        if (error) throw error;
 
         const hoje = toZonedTime(new Date(), "America/Sao_Paulo");
-        const aVencer = data.filter(c => {
-          if (c.ciente_nao_renovar) return false;
+        const contratosValidos = (data || []).filter((c) => !c.ciente_nao_renovar);
+
+        const aVencer = contratosValidos.filter((c) => {
+          if (c.status !== "vigente") return false;
           const fimDate = new Date(c.fim_vigencia_atual + "T23:59:59-03:00");
           const dias = differenceInDays(fimDate, hoje);
           return dias >= 0 && dias <= 45;
         });
 
-        // Vencidos sem tratamento
-        const { data: vencidosData } = await supabase
-          .from("contratos_terceiros")
-          .select("id, fim_vigencia_atual, status, ciente_nao_renovar")
-          .not("fim_vigencia_atual", "is", null)
-          .neq("status", "encerrado")
-          .neq("status", "rescindido")
-          .eq("ciente_nao_renovar", false);
-
-        const vencidos = (vencidosData || []).filter(c => {
+        const vencidos = contratosValidos.filter((c) => {
+          if (c.status === "encerrado" || c.status === "rescindido") return false;
           const fimDate = new Date(c.fim_vigencia_atual + "T23:59:59-03:00");
           return fimDate < hoje;
         });
@@ -171,7 +166,7 @@ export function AppSidebar({
     };
 
     loadContractAlerts();
-    const interval = setInterval(loadContractAlerts, 30000);
+    const interval = setInterval(loadContractAlerts, 60000);
     return () => clearInterval(interval);
   }, [profile?.id]);
 

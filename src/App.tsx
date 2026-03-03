@@ -46,20 +46,29 @@ import SistemaLancesFornecedor from "./pages/SistemaLancesFornecedor";
 import PropostaRealinhada from "./pages/PropostaRealinhada";
 import RecuperarSenha from "./pages/RecuperarSenha";
 import NotFound from "./pages/NotFound";
+import AppErrorBoundary from "./components/AppErrorBoundary";
 
 const queryClient = new QueryClient();
 
 // Correção de URL com %3F ANTES do React processar
 const fixEncodedUrl = () => {
-  const pathname = window.location.pathname;
-  if (pathname.includes('%3F') || pathname.includes('%3f')) {
+  try {
+    const pathname = window.location.pathname;
+    if (!pathname.includes("%3F") && !pathname.includes("%3f")) {
+      return false;
+    }
+
     const decoded = decodeURIComponent(pathname);
-    const [basePath, query] = decoded.split('?');
+    const [basePath, query] = decoded.split("?");
+
     if (query) {
       window.location.replace(`${basePath}?${query}`);
       return true;
     }
+  } catch (error) {
+    console.error("Falha ao corrigir URL codificada:", error);
   }
+
   return false;
 };
 
@@ -71,63 +80,65 @@ const App = () => {
   // evitando tela totalmente em branco em casos de falha/intermitência de redirect.
 
   return (
-    <QueryClientProvider client={queryClient}>
-      <TooltipProvider>
-        <Toaster />
-        <Sonner />
-        <BrowserRouter>
-          <Routes>
-            <Route path="/" element={<Index />} />
-            <Route path="/auth" element={<Auth />} />
-            <Route path="/troca-senha" element={<TrocaSenha />} />
-            <Route path="/troca-senha-fornecedor" element={<TrocaSenhaFornecedor />} />
-            <Route path="/recuperar-senha" element={<RecuperarSenha />} />
-            <Route path="/cadastro-fornecedor" element={<CadastroFornecedor />} />
-            <Route path="/aprovacao-fornecedores" element={<AprovacaoFornecedores />} />
-            <Route path="/perguntas-due-diligence" element={<PerguntasDueDiligence />} />
-            <Route path="/limpeza-usuario-orfao" element={<LimpezaUsuarioOrfao />} />
-            <Route path="/portal-fornecedor" element={<PortalFornecedor />} />
-            <Route path="/resposta-cotacao" element={<RespostaCotacao />} />
-            <Route path="/respostas-cotacao" element={<RespostasCotacao />} />
-            <Route path="/participar-selecao" element={<ParticiparSelecao />} />
-            <Route path="/propostas-selecao" element={<PropostasSelecao />} />
-            <Route path="/sistema-lances-fornecedor" element={<SistemaLancesFornecedor />} />
-            <Route path="/proposta-realinhada" element={<PropostaRealinhada />} />
-            <Route path="/incluir-precos-publicos" element={<IncluirPrecosPublicos />} />
-            <Route path="/verificar-proposta" element={<VerificarProposta />} />
-            <Route path="/verificar-autorizacao" element={<VerificarAutorizacao />} />
-            <Route path="/verificar-relatorio-final" element={<VerificarRelatorioFinal />} />
-            <Route path="/verificar-documento" element={<VerificarDocumento />} />
-            <Route path="/verificar-planilha" element={<VerificarPlanilha />} />
-            <Route path="/verificar-encaminhamento" element={<VerificarEncaminhamento />} />
-            <Route path="/verificar-analise-compliance" element={<VerificarAnaliseCompliance />} />
-            <Route path="/verificar-ata" element={<VerificarAta />} />
-            
-            {/* Rotas com sidebar */}
-            <Route element={<DashboardLayout />}>
-              <Route path="/dashboard" element={<Dashboard />} />
-              <Route path="/perfil" element={<Perfil />} />
-              <Route path="/processos-compras" element={<ProcessosCompras />} />
-              <Route path="/cotacoes" element={<Cotacoes />} />
-              <Route path="/selecoes" element={<Selecoes />} />
-              <Route path="/usuarios" element={<Usuarios />} />
-              <Route path="/fornecedores" element={<Fornecedores />} />
-              <Route path="/contatos" element={<Contatos />} />
-              <Route path="/auditoria" element={<Auditoria />} />
-              <Route path="/gestao-storage" element={<GestaoStorage />} />
-              <Route path="/credenciamentos" element={<Credenciamentos />} />
-              <Route path="/contratacoes-especificas" element={<ContratacoesEspecificas />} />
-              <Route path="/contratos" element={<Contratos />} />
-              <Route path="/compliance" element={<Compliance />} />
-              <Route path="/contabilidade" element={<Contabilidade />} />
-              <Route path="/detalhe-selecao" element={<DetalheSelecao />} />
-            </Route>
-            
-            <Route path="*" element={<NotFound />} />
-          </Routes>
-        </BrowserRouter>
-      </TooltipProvider>
-    </QueryClientProvider>
+    <AppErrorBoundary>
+      <QueryClientProvider client={queryClient}>
+        <TooltipProvider>
+          <Toaster />
+          <Sonner />
+          <BrowserRouter>
+            <Routes>
+              <Route path="/" element={<Index />} />
+              <Route path="/auth" element={<Auth />} />
+              <Route path="/troca-senha" element={<TrocaSenha />} />
+              <Route path="/troca-senha-fornecedor" element={<TrocaSenhaFornecedor />} />
+              <Route path="/recuperar-senha" element={<RecuperarSenha />} />
+              <Route path="/cadastro-fornecedor" element={<CadastroFornecedor />} />
+              <Route path="/aprovacao-fornecedores" element={<AprovacaoFornecedores />} />
+              <Route path="/perguntas-due-diligence" element={<PerguntasDueDiligence />} />
+              <Route path="/limpeza-usuario-orfao" element={<LimpezaUsuarioOrfao />} />
+              <Route path="/portal-fornecedor" element={<PortalFornecedor />} />
+              <Route path="/resposta-cotacao" element={<RespostaCotacao />} />
+              <Route path="/respostas-cotacao" element={<RespostasCotacao />} />
+              <Route path="/participar-selecao" element={<ParticiparSelecao />} />
+              <Route path="/propostas-selecao" element={<PropostasSelecao />} />
+              <Route path="/sistema-lances-fornecedor" element={<SistemaLancesFornecedor />} />
+              <Route path="/proposta-realinhada" element={<PropostaRealinhada />} />
+              <Route path="/incluir-precos-publicos" element={<IncluirPrecosPublicos />} />
+              <Route path="/verificar-proposta" element={<VerificarProposta />} />
+              <Route path="/verificar-autorizacao" element={<VerificarAutorizacao />} />
+              <Route path="/verificar-relatorio-final" element={<VerificarRelatorioFinal />} />
+              <Route path="/verificar-documento" element={<VerificarDocumento />} />
+              <Route path="/verificar-planilha" element={<VerificarPlanilha />} />
+              <Route path="/verificar-encaminhamento" element={<VerificarEncaminhamento />} />
+              <Route path="/verificar-analise-compliance" element={<VerificarAnaliseCompliance />} />
+              <Route path="/verificar-ata" element={<VerificarAta />} />
+              
+              {/* Rotas com sidebar */}
+              <Route element={<DashboardLayout />}>
+                <Route path="/dashboard" element={<Dashboard />} />
+                <Route path="/perfil" element={<Perfil />} />
+                <Route path="/processos-compras" element={<ProcessosCompras />} />
+                <Route path="/cotacoes" element={<Cotacoes />} />
+                <Route path="/selecoes" element={<Selecoes />} />
+                <Route path="/usuarios" element={<Usuarios />} />
+                <Route path="/fornecedores" element={<Fornecedores />} />
+                <Route path="/contatos" element={<Contatos />} />
+                <Route path="/auditoria" element={<Auditoria />} />
+                <Route path="/gestao-storage" element={<GestaoStorage />} />
+                <Route path="/credenciamentos" element={<Credenciamentos />} />
+                <Route path="/contratacoes-especificas" element={<ContratacoesEspecificas />} />
+                <Route path="/contratos" element={<Contratos />} />
+                <Route path="/compliance" element={<Compliance />} />
+                <Route path="/contabilidade" element={<Contabilidade />} />
+                <Route path="/detalhe-selecao" element={<DetalheSelecao />} />
+              </Route>
+              
+              <Route path="*" element={<NotFound />} />
+            </Routes>
+          </BrowserRouter>
+        </TooltipProvider>
+      </QueryClientProvider>
+    </AppErrorBoundary>
   );
 };
 
