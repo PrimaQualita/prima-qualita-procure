@@ -191,7 +191,7 @@ export const gerarRequisicaoPDF = async (dados: DadosRequisicao): Promise<Blob> 
   yPos += linhasParagrafo2.length * 5 + 6;
 
   // Parágrafo final - Termo de Referência
-  const paragrafo3 = 'Segue anexo o Termo de Referência, que é parte integrante desta Requisição, contendo as especificações técnicas e demais condições necessárias para a aquisição.';
+  const paragrafo3 = 'Segue anexo o Termo de Referência, que é parte integrante desta Requisição, contendo as especificações técnicas e demais condições necessárias para a contratação.';
   const linhasParagrafo3 = doc.splitTextToSize(paragrafo3, 170);
   doc.text(linhasParagrafo3, 20, yPos, { align: 'justify', maxWidth: 170 });
   yPos += linhasParagrafo3.length * 5 + 15;
