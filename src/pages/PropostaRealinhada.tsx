@@ -290,6 +290,19 @@ const PropostaRealinhada = () => {
         return;
       }
 
+      // Para critérios por_lote e por_item, não podemos fazer comparação global de valor_total_proposta
+      // pois o fornecedor pode vencer lotes/itens específicos sem ser o mais barato no total geral.
+      // A função processarItensVencedoresSemLances faz a análise granular correta.
+      if (criterio === "por_lote" || criterio === "por_item") {
+        const minhaPropostaFallback = propostasValidas.find((p: any) => String(p.fornecedor_id) === String(fornecedorId));
+        if (!minhaPropostaFallback) {
+          toast.error("Proposta do fornecedor não encontrada");
+          return;
+        }
+        await processarItensVencedoresSemLances(selecaoId, fornecedorId, criterio, fornecedorData, minhaPropostaFallback);
+        return;
+      }
+
       const ehDesconto = criterio === "desconto" || criterio === "maior_percentual_desconto";
       propostasValidas.sort((a: any, b: any) => {
         if (ehDesconto) {
