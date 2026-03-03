@@ -15,6 +15,7 @@ import { atualizarAtaComAssinaturas } from "@/lib/gerarAtaSelecaoPDF";
 import { DashboardBIFilters } from "@/components/dashboard/DashboardBIFilters";
 import { DashboardBIKPIs } from "@/components/dashboard/DashboardBIKPIs";
 import { DashboardBIChart, type ChartType } from "@/components/dashboard/DashboardBIChart";
+import { DashboardBIOperacional } from "@/components/dashboard/DashboardBIOperacional";
 import { DashboardBIRanking } from "@/components/dashboard/DashboardBIRanking";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -44,6 +45,8 @@ const Dashboard = () => {
   const [fornecedores, setFornecedores] = useState<any[]>([]);
   const [analisesCompliance, setAnalisesCompliance] = useState<any[]>([]);
   const [contratosTerceiros, setContratosTerceiros] = useState<any[]>([]);
+  const [processosParaContratar, setProcessosParaContratar] = useState<any[]>([]);
+  const [cotacoesPrecos, setCotacoesPrecos] = useState<any[]>([]);
 
   // Existing state
   const [isCompliance, setIsCompliance] = useState(false);
@@ -131,13 +134,15 @@ const Dashboard = () => {
 
   const loadData = async () => {
     try {
-      const [contratosRes, processosRes, selecoesRes, fornecedoresRes, complianceRes, contratosTerc] = await Promise.all([
+      const [contratosRes, processosRes, selecoesRes, fornecedoresRes, complianceRes, contratosTerc, pcRes, cotRes] = await Promise.all([
         supabase.from("contratos_gestao").select("*").order("nome_contrato"),
         supabase.from("processos_compras").select("*, contratos_gestao(nome_contrato), cotacoes_precos(enviado_para_selecao)"),
         supabase.from("selecoes_fornecedores").select("*, processos_compras(ano_referencia, contrato_gestao_id, contratos_gestao(nome_contrato), data_abertura, requer_selecao)"),
         supabase.from("fornecedores").select("id, created_at, data_cadastro, data_validade_certificado, status_aprovacao"),
         supabase.from("analises_compliance").select("id, created_at, cotacao_id, cotacoes_precos(processo_compra_id, processos_compras(ano_referencia, contrato_gestao_id, contratos_gestao(nome_contrato), data_abertura))"),
-        supabase.from("contratos_terceiros").select("id, created_at, contrato_gestao_id, contratos_gestao(nome_contrato), inicio_vigencia"),
+        supabase.from("contratos_terceiros").select("id, created_at, contrato_gestao_id, contratos_gestao(nome_contrato), inicio_vigencia, status, fim_vigencia_atual, ciente_nao_renovar, processo_para_contratar_id"),
+        supabase.from("processos_para_contratar").select("id, contrato_gestao_id, processo_compra_id, status"),
+        supabase.from("cotacoes_precos").select("id, enviado_compliance, respondido_compliance, processo_compra_id, processos_compras(contrato_gestao_id)"),
       ]);
 
       setContratos(contratosRes.data || []);
@@ -146,6 +151,8 @@ const Dashboard = () => {
       setFornecedores(fornecedoresRes.data || []);
       setAnalisesCompliance(complianceRes.data || []);
       setContratosTerceiros(contratosTerc.data || []);
+      setProcessosParaContratar(pcRes.data || []);
+      setCotacoesPrecos(cotRes.data || []);
     } catch (error: any) {
       toast({ title: "Erro ao carregar dados", description: error.message, variant: "destructive" });
     } finally { setLoading(false); }
@@ -445,6 +452,17 @@ const Dashboard = () => {
           setMesSelecionado={setMesSelecionado}
           modoVisualizacao={modoVisualizacao}
           setModoVisualizacao={setModoVisualizacao}
+        />
+
+        <DashboardBIOperacional
+          contratosTerceiros={contratosTerceiros}
+          processosParaContratar={processosParaContratar}
+          cotacoesPrecos={cotacoesPrecos}
+          processos={processos}
+          selecoes={selecoes}
+          fornecedores={fornecedores}
+          contratoSelecionado={contratoSelecionado}
+          chartType={tipoGraficoGlobal}
         />
 
         <div className="bg-card border rounded-2xl shadow-sm p-5 mb-6">
