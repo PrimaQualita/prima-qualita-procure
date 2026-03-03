@@ -445,37 +445,52 @@ const Dashboard = () => {
           setModoVisualizacao={setModoVisualizacao}
         />
 
-        <div className="bg-card border rounded-xl shadow-sm p-4 mb-6">
-          <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">
-            {modoVisualizacao === "individual" ? "Tipo de Processo" : "Comparar Processos (2 a 4)"}
-          </h3>
+        <div className="bg-card border rounded-2xl shadow-sm p-5 mb-6">
+          <div className="flex items-center gap-2 mb-4">
+            <div className="h-7 w-7 rounded-lg bg-primary/10 flex items-center justify-center">
+              <BarChart3 className="h-3.5 w-3.5 text-primary" />
+            </div>
+            <h3 className="text-sm font-bold text-foreground tracking-wide">
+              {modoVisualizacao === "individual" ? "Tipo de Processo" : "Comparar Processos (2 a 4)"}
+            </h3>
+          </div>
           {modoVisualizacao === "individual" ? (
             <div className="flex flex-wrap gap-2">
-              {(Object.keys(TIPO_LABELS) as TipoProcesso[]).map(tipo => (
-                <Button
-                  key={tipo}
-                  size="sm"
-                  variant={tipoProcessoIndividual === tipo ? "default" : "outline"}
-                  className="text-xs h-8"
-                  onClick={() => setTipoProcessoIndividual(tipo)}
-                >
-                  {TIPO_LABELS[tipo]}
-                </Button>
-              ))}
+              {(Object.keys(TIPO_LABELS) as TipoProcesso[]).map(tipo => {
+                const isActive = tipoProcessoIndividual === tipo;
+                return (
+                  <Button
+                    key={tipo}
+                    size="sm"
+                    variant={isActive ? "default" : "outline"}
+                    className={`text-xs h-9 rounded-lg px-4 transition-all ${isActive ? "shadow-md" : "hover:border-primary/40"}`}
+                    onClick={() => setTipoProcessoIndividual(tipo)}
+                  >
+                    {TIPO_LABELS[tipo]}
+                  </Button>
+                );
+              })}
             </div>
           ) : (
-            <div className="flex flex-wrap gap-3">
-              {(Object.keys(TIPO_LABELS) as TipoProcesso[]).map(tipo => (
-                <label key={tipo} className="flex items-center gap-1.5 text-xs cursor-pointer">
-                  <Checkbox
-                    checked={processosComparativos.includes(tipo)}
-                    onCheckedChange={() => toggleComparativo(tipo)}
-                    disabled={!processosComparativos.includes(tipo) && processosComparativos.length >= 4}
-                  />
-                  {TIPO_LABELS[tipo]}
-                  {processosComparativos.includes(tipo) && <Badge variant="secondary" className="text-[9px] px-1 h-4">{processosComparativos.indexOf(tipo) + 1}</Badge>}
-                </label>
-              ))}
+            <div className="flex flex-wrap gap-2">
+              {(Object.keys(TIPO_LABELS) as TipoProcesso[]).map(tipo => {
+                const isChecked = processosComparativos.includes(tipo);
+                const isDisabled = !isChecked && processosComparativos.length >= 4;
+                const idx = processosComparativos.indexOf(tipo);
+                return (
+                  <Button
+                    key={tipo}
+                    size="sm"
+                    variant={isChecked ? "default" : "outline"}
+                    disabled={isDisabled}
+                    className={`text-xs h-9 rounded-lg px-4 gap-1.5 transition-all ${isChecked ? "shadow-md" : "hover:border-primary/40"} ${isDisabled ? "opacity-40" : ""}`}
+                    onClick={() => toggleComparativo(tipo)}
+                  >
+                    {isChecked && <Badge variant="secondary" className="text-[9px] px-1.5 h-4 rounded-full bg-background/30 text-primary-foreground">{idx + 1}</Badge>}
+                    {TIPO_LABELS[tipo]}
+                  </Button>
+                );
+              })}
             </div>
           )}
         </div>

@@ -1,7 +1,7 @@
 // @ts-nocheck
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Filter, LayoutGrid, BarChart3 } from "lucide-react";
+import { Filter, BarChart3, LayoutGrid } from "lucide-react";
+import { Button } from "@/components/ui/button";
 
 const meses = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"];
 
@@ -24,14 +24,16 @@ export function DashboardBIFilters({
   modoVisualizacao, setModoVisualizacao,
 }: Props) {
   return (
-    <div className="bg-card border rounded-xl shadow-sm p-4 mb-6">
-      <div className="flex items-center gap-2 mb-3">
-        <Filter className="h-4 w-4 text-primary" />
-        <span className="text-sm font-semibold text-foreground">Filtros Globais</span>
+    <div className="bg-card border rounded-2xl shadow-sm p-5 mb-6">
+      <div className="flex items-center gap-2 mb-4">
+        <div className="h-8 w-8 rounded-lg bg-primary/10 flex items-center justify-center">
+          <Filter className="h-4 w-4 text-primary" />
+        </div>
+        <span className="text-sm font-bold text-foreground tracking-wide">Filtros Globais</span>
       </div>
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+      <div className="flex flex-wrap items-center gap-3">
         <Select value={contratoSelecionado} onValueChange={setContratoSelecionado}>
-          <SelectTrigger className="w-full text-xs">
+          <SelectTrigger className="w-[200px] text-xs h-10 rounded-lg border-2 border-muted hover:border-primary/40 transition-colors">
             <SelectValue placeholder="Contrato de Gestão" />
           </SelectTrigger>
           <SelectContent>
@@ -43,7 +45,7 @@ export function DashboardBIFilters({
         </Select>
 
         <Select value={anoSelecionado} onValueChange={setAnoSelecionado}>
-          <SelectTrigger className="w-full text-xs">
+          <SelectTrigger className="w-[100px] text-xs h-10 rounded-lg border-2 border-muted hover:border-primary/40 transition-colors">
             <SelectValue placeholder="Ano" />
           </SelectTrigger>
           <SelectContent>
@@ -54,7 +56,7 @@ export function DashboardBIFilters({
         </Select>
 
         <Select value={mesSelecionado} onValueChange={setMesSelecionado}>
-          <SelectTrigger className="w-full text-xs">
+          <SelectTrigger className="w-[160px] text-xs h-10 rounded-lg border-2 border-muted hover:border-primary/40 transition-colors">
             <SelectValue placeholder="Mês" />
           </SelectTrigger>
           <SelectContent>
@@ -65,16 +67,24 @@ export function DashboardBIFilters({
           </SelectContent>
         </Select>
 
-        <Tabs value={modoVisualizacao} onValueChange={(v) => setModoVisualizacao(v as any)}>
-          <TabsList className="w-full h-9">
-            <TabsTrigger value="individual" className="flex-1 text-xs gap-1">
-              <BarChart3 className="h-3 w-3" /> Individual
-            </TabsTrigger>
-            <TabsTrigger value="comparativo" className="flex-1 text-xs gap-1">
-              <LayoutGrid className="h-3 w-3" /> Comparativo
-            </TabsTrigger>
-          </TabsList>
-        </Tabs>
+        <div className="flex rounded-lg border-2 border-muted overflow-hidden ml-auto">
+          <Button
+            size="sm"
+            variant="ghost"
+            className={`text-xs h-10 rounded-none px-4 gap-1.5 ${modoVisualizacao === "individual" ? "bg-primary text-primary-foreground hover:bg-primary/90 hover:text-primary-foreground" : "hover:bg-muted"}`}
+            onClick={() => setModoVisualizacao("individual")}
+          >
+            <BarChart3 className="h-3.5 w-3.5" /> Individual
+          </Button>
+          <Button
+            size="sm"
+            variant="ghost"
+            className={`text-xs h-10 rounded-none px-4 gap-1.5 ${modoVisualizacao === "comparativo" ? "bg-primary text-primary-foreground hover:bg-primary/90 hover:text-primary-foreground" : "hover:bg-muted"}`}
+            onClick={() => setModoVisualizacao("comparativo")}
+          >
+            <LayoutGrid className="h-3.5 w-3.5" /> Comparativo
+          </Button>
+        </div>
       </div>
     </div>
   );
