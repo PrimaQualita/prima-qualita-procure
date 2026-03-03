@@ -157,9 +157,9 @@ const Dashboard = () => {
     const ano = parseInt(anoSelecionado);
 
     if (tipo === "fornecedores") {
+      // Cadastro de fornecedores NÃO está vinculado a contrato de gestão
+      // Filtro de contrato NÃO se aplica aqui — mostra todos independentemente
       // Apenas fornecedores aprovados contam como cadastro efetivo
-      // Renovação de certificado (data_validade_certificado preenchida) também conta
-      // Pendentes são habilitações em andamento e NÃO contam
       return fornecedores.filter(f => {
         if (f.status_aprovacao !== "aprovado") return false;
         const dataCad = f.data_cadastro || f.created_at;
