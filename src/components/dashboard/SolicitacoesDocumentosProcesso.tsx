@@ -72,12 +72,12 @@ export function SolicitacoesDocumentosProcesso() {
 
       if (error) throw error;
 
-      // Filtrar: só mostrar notificações para as quais o usuário AINDA tem permissão
-      const notificacoesFiltradas = ((data as any[]) || []).filter(n => {
-        if (n.tipo_notificacao === 'autorizacao_despesa') {
+      // Filtrar: só manter notificações para as quais o usuário AINDA tem permissão
+      const notificacoesComPermissao = ((data as any[]) || []).filter(n => {
+        if (n.tipo_notificacao === "autorizacao_despesa") {
           return isSuperintendente;
         }
-        if (n.tipo_notificacao === 'requisicao') {
+        if (n.tipo_notificacao === "requisicao") {
           if (!isGerenteContratos || contratosVinculados.length === 0) return false;
           const contratoId = n.processos_compras?.contrato_gestao_id;
           return contratoId && contratosVinculados.includes(contratoId);
@@ -85,9 +85,42 @@ export function SolicitacoesDocumentosProcesso() {
         return false;
       });
 
+      if (notificacoesComPermissao.length === 0) {
+        setNotificacoes([]);
+        return;
+      }
+
+      // Ocultar notificações cujo documento já foi gerado por qualquer usuário
+      const processoIds = Array.from(new Set(notificacoesComPermissao.map(n => n.processo_compra_id)));
+      const { data: anexosExistentes } = await supabase
+        .from("anexos_processo_compra")
+        .select("processo_compra_id, tipo_anexo")
+        .in("processo_compra_id", processoIds)
+        .in("tipo_anexo", ["requisicao", "autorizacao_despesa"]);
+
+      const documentosGerados = new Set(
+        (anexosExistentes || []).map((a: any) => `${a.processo_compra_id}_${a.tipo_anexo}`)
+      );
+
+      const notificacoesConcluidas = notificacoesComPermissao.filter(n =>
+        documentosGerados.has(`${n.processo_compra_id}_${n.tipo_notificacao}`)
+      );
+
+      // Auto-limpeza no banco: marca como atendida quando o documento já existe
+      if (notificacoesConcluidas.length > 0) {
+        await supabase
+          .from("notificacoes_documentos_processo")
+          .update({ atendida: true, lida: true })
+          .in("id", notificacoesConcluidas.map(n => n.id));
+      }
+
+      const notificacoesAtivas = notificacoesComPermissao.filter(n =>
+        !documentosGerados.has(`${n.processo_compra_id}_${n.tipo_notificacao}`)
+      );
+
       // Deduplicar: manter apenas a mais recente por processo/tipo
       const seen = new Map<string, any>();
-      for (const n of notificacoesFiltradas) {
+      for (const n of notificacoesAtivas) {
         const key = `${n.processo_compra_id}_${n.tipo_notificacao}`;
         if (!seen.has(key)) {
           seen.set(key, n);
