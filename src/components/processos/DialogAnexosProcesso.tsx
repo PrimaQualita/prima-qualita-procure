@@ -645,6 +645,14 @@ export function DialogAnexosProcesso({
         title: "Requisição gerada com sucesso!",
         description: "O documento foi criado e anexado ao processo."
       });
+
+      // Marcar TODAS as notificações de requisição deste processo como atendidas (para todos os destinatários)
+      await supabase
+        .from("notificacoes_documentos_processo")
+        .update({ atendida: true, lida: true })
+        .eq("processo_compra_id", processoId)
+        .eq("tipo_notificacao", "requisicao")
+        .eq("atendida", false);
       
       await loadAnexos();
     } catch (error: any) {
@@ -774,6 +782,14 @@ export function DialogAnexosProcesso({
         title: "Autorização de Despesa gerada com sucesso!",
         description: "O documento foi criado e anexado ao processo."
       });
+
+      // Marcar TODAS as notificações de autorização deste processo como atendidas (para todos os destinatários)
+      await supabase
+        .from("notificacoes_documentos_processo")
+        .update({ atendida: true, lida: true })
+        .eq("processo_compra_id", processoId)
+        .eq("tipo_notificacao", "autorizacao_despesa")
+        .eq("atendida", false);
       
       await loadAnexos();
     } catch (error: any) {
