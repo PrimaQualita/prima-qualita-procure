@@ -105,19 +105,35 @@ export function SolicitacoesDocumentosProcesso() {
         return;
       }
 
-      // Ocultar notificações cujo documento já foi gerado por qualquer usuário
+      // Buscar anexos existentes para verificar pré-requisitos e documentos já gerados
       const processoIds = Array.from(new Set(notificacoesComPermissao.map(n => n.processo_compra_id)));
       const { data: anexosExistentes } = await supabase
         .from("anexos_processo_compra")
         .select("processo_compra_id, tipo_anexo")
         .in("processo_compra_id", processoIds)
-        .in("tipo_anexo", ["requisicao", "autorizacao_despesa"]);
+        .in("tipo_anexo", ["requisicao", "autorizacao_despesa", "termo_referencia"]);
+
+      // Mapear processos com cada tipo de anexo
+      const processosComRequisicao = new Set(
+        (anexosExistentes || []).filter((a: any) => a.tipo_anexo === "requisicao").map((a: any) => a.processo_compra_id)
+      );
+      const processosComTR = new Set(
+        (anexosExistentes || []).filter((a: any) => a.tipo_anexo === "termo_referencia").map((a: any) => a.processo_compra_id)
+      );
+
+      // Filtrar notificações de autorização: só mostrar se Requisição + TR existirem (botão ativo)
+      const notificacoesComPreRequisitos = notificacoesComPermissao.filter(n => {
+        if (n.tipo_notificacao === "autorizacao_despesa") {
+          return processosComRequisicao.has(n.processo_compra_id) && processosComTR.has(n.processo_compra_id);
+        }
+        return true;
+      });
 
       const documentosGerados = new Set(
         (anexosExistentes || []).map((a: any) => `${a.processo_compra_id}_${a.tipo_anexo}`)
       );
 
-      const notificacoesConcluidas = notificacoesComPermissao.filter(n =>
+      const notificacoesConcluidas = notificacoesComPreRequisitos.filter(n =>
         documentosGerados.has(`${n.processo_compra_id}_${n.tipo_notificacao}`)
       );
 
@@ -129,7 +145,7 @@ export function SolicitacoesDocumentosProcesso() {
           .in("id", notificacoesConcluidas.map(n => n.id));
       }
 
-      const notificacoesAtivas = notificacoesComPermissao.filter(n =>
+      const notificacoesAtivas = notificacoesComPreRequisitos.filter(n =>
         !documentosGerados.has(`${n.processo_compra_id}_${n.tipo_notificacao}`)
       );
 
