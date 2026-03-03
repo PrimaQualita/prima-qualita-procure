@@ -72,12 +72,7 @@ export function SolicitacoesDocumentosProcesso() {
   };
 
   const handleIrParaProcesso = (notificacao: Notificacao) => {
-    // Navigate to processos-compras page - the user will open the attachments dialog from there
-    navigate("/processos-compras");
-    toast({
-      title: `Solicitação de ${notificacao.tipo_notificacao === 'requisicao' ? 'Requisição' : 'Autorização de Despesa'}`,
-      description: `Abra os anexos do Processo ${notificacao.numero_processo} para gerar o documento.`,
-    });
+    navigate(`/processos-compras?abrirAnexos=${notificacao.processo_compra_id}`);
   };
 
   // Extrair texto limpo de HTML
