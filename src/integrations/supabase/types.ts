@@ -2233,6 +2233,7 @@ export type Database = {
           objeto_processo: string
           processo_compra_id: string
           remetente_id: string
+          status_notificacao: string
           tipo_notificacao: string
         }
         Insert: {
@@ -2246,6 +2247,7 @@ export type Database = {
           objeto_processo: string
           processo_compra_id: string
           remetente_id: string
+          status_notificacao?: string
           tipo_notificacao: string
         }
         Update: {
@@ -2259,6 +2261,7 @@ export type Database = {
           objeto_processo?: string
           processo_compra_id?: string
           remetente_id?: string
+          status_notificacao?: string
           tipo_notificacao?: string
         }
         Relationships: [
