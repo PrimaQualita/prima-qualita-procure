@@ -134,7 +134,7 @@ const Dashboard = () => {
       const [contratosRes, processosRes, selecoesRes, fornecedoresRes, complianceRes, contratosTerc] = await Promise.all([
         supabase.from("contratos_gestao").select("*").order("nome_contrato"),
         supabase.from("processos_compras").select("*, contratos_gestao(nome_contrato), cotacoes_precos(enviado_para_selecao)"),
-        supabase.from("selecoes_fornecedores").select("*, processos_compras(ano_referencia, contrato_gestao_id, contratos_gestao(nome_contrato), data_abertura)"),
+        supabase.from("selecoes_fornecedores").select("*, processos_compras(ano_referencia, contrato_gestao_id, contratos_gestao(nome_contrato), data_abertura, requer_selecao)"),
         supabase.from("fornecedores").select("id, created_at, data_cadastro, data_validade_certificado, status_aprovacao"),
         supabase.from("analises_compliance").select("id, created_at, cotacao_id, cotacoes_precos(processo_compra_id, processos_compras(ano_referencia, contrato_gestao_id, contratos_gestao(nome_contrato), data_abertura))"),
         supabase.from("contratos_terceiros").select("id, created_at, contrato_gestao_id, contratos_gestao(nome_contrato), inicio_vigencia"),
@@ -206,6 +206,8 @@ const Dashboard = () => {
       return selecoes.filter(s => {
         const proc = s.processos_compras;
         if (!proc) return false;
+        // Apenas seleções de processos com requer_selecao = true (as que aparecem no menu)
+        if (!proc.requer_selecao) return false;
         if (proc.ano_referencia !== ano) return false;
         if (contratoSelecionado !== "todos" && proc.contrato_gestao_id !== contratoSelecionado) return false;
         if (mesSelecionado !== "todos" && proc.data_abertura) {
