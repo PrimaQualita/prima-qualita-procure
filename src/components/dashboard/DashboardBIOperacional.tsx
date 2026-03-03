@@ -1,5 +1,5 @@
 // @ts-nocheck
-import { useMemo, useState } from "react";
+import { useMemo } from "react";
 import { differenceInDays } from "date-fns";
 import { toZonedTime } from "date-fns-tz";
 import {
@@ -9,12 +9,7 @@ import {
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { DashboardBIChart, type ChartType } from "./DashboardBIChart";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-
-interface ModuloStatus {
-  label: string;
-  icon: any;
-  items: { name: string; value: number; color: string; icon: any }[];
-}
+import { Button } from "@/components/ui/button";
 
 interface Props {
   contratosTerceiros: any[];
@@ -25,9 +20,11 @@ interface Props {
   fornecedores: any[];
   contratoSelecionado: string;
   chartType: ChartType;
+  moduloSelecionado: string;
+  setModuloSelecionado: (v: string) => void;
 }
 
-const COLORS = {
+const COLORS: Record<string, string> = {
   danger: "bg-red-100 text-red-800 border-red-300 dark:bg-red-900/40 dark:text-red-200 dark:border-red-700",
   warning: "bg-amber-100 text-amber-800 border-amber-300 dark:bg-amber-900/40 dark:text-amber-200 dark:border-amber-700",
   info: "bg-blue-100 text-blue-800 border-blue-300 dark:bg-blue-900/40 dark:text-blue-200 dark:border-blue-700",
@@ -46,15 +43,15 @@ const MODULO_CONFIG: Record<ModuloKey, { label: string; icon: any }> = {
   fornecedores: { label: "Cadastro de Fornecedores", icon: Building2 },
 };
 
+const MODULO_KEYS = Object.keys(MODULO_CONFIG) as ModuloKey[];
+
 export function DashboardBIOperacional({
   contratosTerceiros, processosParaContratar, cotacoesPrecos,
   processos, selecoes, fornecedores, contratoSelecionado, chartType,
+  moduloSelecionado, setModuloSelecionado,
 }: Props) {
-  const [moduloSelecionado, setModuloSelecionado] = useState<ModuloKey | null>(null);
-
   const hoje = useMemo(() => toZonedTime(new Date(), "America/Sao_Paulo"), []);
 
-  // Filter by contrato de gestão
   const filterCG = (items: any[], field = "contrato_gestao_id") => {
     if (contratoSelecionado === "todos") return items;
     return items.filter(i => i[field] === contratoSelecionado);
@@ -64,42 +61,35 @@ export function DashboardBIOperacional({
     // === CONTRATOS ===
     const ctFiltrados = filterCG(contratosTerceiros);
     const ctVigentes = ctFiltrados.filter(c => c.status === "vigente" && c.processo_para_contratar_id);
-    
+
     const ctAVencer = ctVigentes.filter(c => {
       if (!c.fim_vigencia_atual) return false;
       const fim = new Date(c.fim_vigencia_atual + "T23:59:59-03:00");
       const dias = differenceInDays(fim, hoje);
       return dias >= 0 && dias <= 45;
     });
-    
+
     const ctVencidos = ctVigentes.filter(c => {
       if (!c.fim_vigencia_atual || c.ciente_nao_renovar) return false;
       const fim = new Date(c.fim_vigencia_atual + "T23:59:59-03:00");
       return fim < hoje;
     });
 
-    // Em Aberto = processos para contratar sem contrato vinculado
     const pcFiltrados = filterCG(processosParaContratar);
     const pcComContrato = new Set(
-      ctFiltrados
-        .filter(c => c.processo_para_contratar_id)
-        .map(c => c.processo_para_contratar_id)
+      ctFiltrados.filter(c => c.processo_para_contratar_id).map(c => c.processo_para_contratar_id)
     );
     const ctEmAberto = pcFiltrados.filter(pc => !pcComContrato.has(pc.id) && pc.status !== "cancelado");
-
     const ctRescindidos = ctFiltrados.filter(c => c.status === "rescindido");
     const ctEncerrados = ctFiltrados.filter(c => c.status === "encerrado");
 
     // === COMPLIANCE ===
     const cotFiltradas = contratoSelecionado === "todos"
       ? cotacoesPrecos
-      : cotacoesPrecos.filter(c => {
-          const proc = c.processos_compras;
-          return proc && proc.contrato_gestao_id === contratoSelecionado;
-        });
+      : cotacoesPrecos.filter(c => c.processos_compras?.contrato_gestao_id === contratoSelecionado);
     const compliancePendentes = cotFiltradas.filter(c => c.enviado_compliance === true && c.respondido_compliance !== true);
 
-    // === SELEÇÕES (requer_selecao) ===
+    // === SELEÇÕES ===
     const procFiltrados = filterCG(processos);
     const procSelecao = procFiltrados.filter(p => p.requer_selecao && !p.credenciamento && !p.contratacao_especifica);
     const selAbertas = procSelecao.filter(p => p.status_processo !== "concluido" && p.status_processo !== "fracassado" && p.status_processo !== "cancelado");
@@ -116,7 +106,7 @@ export function DashboardBIOperacional({
     const ceAbertas = procCE.filter(p => p.status_processo !== "concluido" && p.status_processo !== "fracassado" && p.status_processo !== "cancelado");
     const ceFinalizadas = procCE.filter(p => p.status_processo === "concluido");
 
-    // === FORNECEDORES (sem filtro de CG) ===
+    // === FORNECEDORES ===
     const fornAprovados = fornecedores.filter(f => f.status_aprovacao === "aprovado");
     const fornEmAberto = fornecedores.filter(f => f.status_aprovacao !== "aprovado" && f.status_aprovacao !== "rejeitado");
 
@@ -134,7 +124,7 @@ export function DashboardBIOperacional({
     });
 
     const fornEmDia = fornAprovados.filter(f => {
-      if (!f.data_validade_certificado) return true; // sem data = em dia
+      if (!f.data_validade_certificado) return true;
       const val = new Date(f.data_validade_certificado + "T23:59:59-03:00");
       return val >= hoje;
     });
@@ -173,99 +163,103 @@ export function DashboardBIOperacional({
     };
   }, [contratosTerceiros, processosParaContratar, cotacoesPrecos, processos, selecoes, fornecedores, contratoSelecionado, hoje]);
 
-  const chartData = useMemo(() => {
-    if (!moduloSelecionado) return null;
-    return metrics[moduloSelecionado].map(item => ({
-      name: item.name,
-      value: item.value,
-    }));
-  }, [moduloSelecionado, metrics]);
+  const selectedKey = moduloSelecionado as ModuloKey;
+  const selectedItems = metrics[selectedKey] || [];
+  const selectedTotal = selectedItems.reduce((s, i) => s + i.value, 0);
+  const chartData = selectedItems.map(item => ({ name: item.name, value: item.value }));
 
   return (
-    <div className="bg-card border rounded-2xl shadow-sm p-5 mb-6">
-      <div className="flex items-center gap-2 mb-5">
-        <div className="h-8 w-8 rounded-lg bg-primary/10 flex items-center justify-center">
-          <ClipboardList className="h-4 w-4 text-primary" />
+    <>
+      {/* Seletor de tipo de processo */}
+      <div className="bg-card border rounded-2xl shadow-sm p-5 mb-6">
+        <div className="flex items-center gap-2 mb-4">
+          <div className="h-7 w-7 rounded-lg bg-primary/10 flex items-center justify-center">
+            <ClipboardList className="h-3.5 w-3.5 text-primary" />
+          </div>
+          <h3 className="text-sm font-bold text-foreground tracking-wide">Tipo de Processo</h3>
         </div>
-        <div>
-          <h3 className="text-sm font-bold text-foreground tracking-wide">Painel Operacional</h3>
-          <p className="text-[11px] text-muted-foreground">Situação atual por módulo — clique em um módulo para expandir o gráfico</p>
-        </div>
-      </div>
-
-      <TooltipProvider delayDuration={200}>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          {(Object.keys(MODULO_CONFIG) as ModuloKey[]).map(key => {
+        <div className="flex flex-wrap gap-2">
+          {MODULO_KEYS.map(key => {
             const config = MODULO_CONFIG[key];
-            const items = metrics[key];
-            const isSelected = moduloSelecionado === key;
+            const isActive = moduloSelecionado === key;
             const Icon = config.icon;
-            const total = items.reduce((s, i) => s + i.value, 0);
-
             return (
-              <div
+              <Button
                 key={key}
-                onClick={() => setModuloSelecionado(isSelected ? null : key)}
-                className={`rounded-xl border-2 p-4 cursor-pointer transition-all hover:shadow-md ${
-                  isSelected
-                    ? "border-primary bg-primary/5 shadow-md"
-                    : "border-muted hover:border-primary/30"
-                }`}
+                size="sm"
+                variant={isActive ? "default" : "outline"}
+                className={`text-xs h-9 rounded-lg px-4 gap-1.5 transition-all ${isActive ? "shadow-md" : "hover:border-primary/40"}`}
+                onClick={() => setModuloSelecionado(key)}
               >
-                <div className="flex items-center gap-2 mb-3">
-                  <div className={`h-8 w-8 rounded-lg flex items-center justify-center ${isSelected ? "bg-primary/20" : "bg-muted"}`}>
-                    <Icon className={`h-4 w-4 ${isSelected ? "text-primary" : "text-muted-foreground"}`} />
-                  </div>
-                  <div className="flex-1">
-                    <h4 className="text-xs font-semibold text-foreground leading-tight">{config.label}</h4>
-                    <span className="text-[10px] text-muted-foreground">Total: {total}</span>
-                  </div>
-                </div>
-                <div className="flex flex-wrap gap-2">
-                  {items.map((item, i) => {
-                    const ItemIcon = item.icon;
-                    return (
-                      <Tooltip key={i}>
-                        <TooltipTrigger asChild>
-                          <div className={`${COLORS[item.color]} rounded-lg px-2.5 py-1.5 border flex items-center gap-1.5 cursor-help`}>
-                            <ItemIcon className="h-3 w-3" />
-                            <span className="text-[11px] font-medium">{item.name}</span>
-                            <span className="text-sm font-bold ml-0.5">{item.value}</span>
-                          </div>
-                        </TooltipTrigger>
-                        <TooltipContent side="bottom" className="text-xs max-w-[200px]">
-                          {item.value} {item.name.toLowerCase()} em {config.label.toLowerCase()}
-                        </TooltipContent>
-                      </Tooltip>
-                    );
-                  })}
-                </div>
-              </div>
+                <Icon className="h-3.5 w-3.5" />
+                {config.label}
+              </Button>
             );
           })}
         </div>
-      </TooltipProvider>
+      </div>
 
-      {/* Chart for selected module */}
-      {moduloSelecionado && chartData && (
-        <div className="mt-6">
-          <Card className="shadow-sm">
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm">
-                {MODULO_CONFIG[moduloSelecionado].label} — Situação Atual
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <DashboardBIChart
-                data={chartData}
-                chartType={chartType}
-                title={MODULO_CONFIG[moduloSelecionado].label}
-                height={300}
-              />
-            </CardContent>
-          </Card>
-        </div>
-      )}
-    </div>
+      {/* KPI Cards do módulo selecionado */}
+      <div className="mb-6">
+        <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">
+          Indicadores — {MODULO_CONFIG[selectedKey]?.label} (Total: {selectedTotal})
+        </h3>
+        <TooltipProvider delayDuration={200}>
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3">
+            {selectedItems.map((item, i) => {
+              const ItemIcon = item.icon;
+              const percentage = selectedTotal > 0 ? ((item.value / selectedTotal) * 100).toFixed(1) : "0";
+              return (
+                <Tooltip key={i}>
+                  <TooltipTrigger asChild>
+                    <div className={`${COLORS[item.color]} rounded-xl p-4 border transition-all hover:shadow-md cursor-help`}>
+                      <div className="flex items-center gap-1.5 mb-2">
+                        <ItemIcon className="h-4 w-4" />
+                        <span className="text-[11px] font-medium leading-tight">{item.name}</span>
+                      </div>
+                      <p className="text-2xl font-bold">{item.value}</p>
+                      <p className="text-[10px] mt-1 opacity-70">{percentage}% do total</p>
+                    </div>
+                  </TooltipTrigger>
+                  <TooltipContent side="bottom" className="text-xs max-w-[220px]">
+                    {item.value} {item.name.toLowerCase()} — {percentage}% do total de {MODULO_CONFIG[selectedKey]?.label.toLowerCase()}
+                  </TooltipContent>
+                </Tooltip>
+              );
+            })}
+          </div>
+        </TooltipProvider>
+      </div>
+
+      {/* Gráfico */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-6">
+        <Card className="shadow-sm hover:shadow-md transition-shadow">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm">{MODULO_CONFIG[selectedKey]?.label} — Situação Atual</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <DashboardBIChart
+              data={chartData}
+              chartType={chartType}
+              title={MODULO_CONFIG[selectedKey]?.label || ""}
+              height={300}
+            />
+          </CardContent>
+        </Card>
+        <Card className="shadow-sm hover:shadow-md transition-shadow">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm">Distribuição Percentual</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <DashboardBIChart
+              data={chartData}
+              chartType="pizza"
+              title="Distribuição"
+              height={300}
+            />
+          </CardContent>
+        </Card>
+      </div>
+    </>
   );
 }

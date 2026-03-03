@@ -68,6 +68,7 @@ const Dashboard = () => {
   const [modoVisualizacao, setModoVisualizacao] = useState<"individual" | "comparativo">("individual");
   const [tipoGraficoGlobal, setTipoGraficoGlobal] = useState<ChartType>("barras");
   const [tipoGraficoControle, setTipoGraficoControle] = useState<ChartType>("barras");
+  const [moduloControle, setModuloControle] = useState("contratos");
 
   // Individual
   const [tipoProcessoIndividual, setTipoProcessoIndividual] = useState<TipoProcesso>("processos");
@@ -621,6 +622,8 @@ const Dashboard = () => {
               fornecedores={fornecedores}
               contratoSelecionado={contratoSelecionado}
               chartType={tipoGraficoControle}
+              moduloSelecionado={moduloControle}
+              setModuloSelecionado={setModuloControle}
             />
           </>
         )}
