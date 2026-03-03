@@ -1,11 +1,60 @@
 // @ts-nocheck
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { differenceInDays } from "date-fns";
 import { toZonedTime } from "date-fns-tz";
 import {
   FileText, ShieldCheck, Users, Building2, Handshake, ClipboardList,
-  AlertTriangle, CheckCircle2, Clock, XCircle, Ban, CalendarClock, BarChart3, GitCompare
+  AlertTriangle, CheckCircle2, Clock, XCircle, Ban, CalendarClock, BarChart3, GitCompare,
+  PieChart, CandlestickChart, Trophy
 } from "lucide-react";
+
+const CHART_OPTIONS: { value: ChartType; icon: any; label: string }[] = [
+  { value: "barras", icon: BarChart3, label: "Barras" },
+  { value: "pizza", icon: PieChart, label: "Pizza" },
+  { value: "vela", icon: CandlestickChart, label: "Vela" },
+  { value: "pareto", icon: BarChart3, label: "Pareto" },
+  { value: "ranking", icon: Trophy, label: "Ranking" },
+];
+
+function ComparativoKPICard({ item, percentage, selectedTotal }: { item: any; percentage: string; selectedTotal: number }) {
+  const [localChart, setLocalChart] = useState<ChartType>("pizza");
+  const ItemIcon = item.icon;
+  return (
+    <Card className="shadow-sm hover:shadow-md transition-shadow">
+      <CardHeader className="pb-2">
+        <CardTitle className="text-sm flex items-center gap-2">
+          <ItemIcon className="h-4 w-4 text-primary" />
+          {item.name}
+          <span className="ml-auto text-lg font-bold">{item.value}</span>
+        </CardTitle>
+        <div className="flex gap-1 mt-2">
+          {CHART_OPTIONS.map(opt => {
+            const OptIcon = opt.icon;
+            return (
+              <button
+                key={opt.value}
+                onClick={() => setLocalChart(opt.value)}
+                className={`p-1.5 rounded-md transition-colors ${localChart === opt.value ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground hover:bg-accent"}`}
+                title={opt.label}
+              >
+                <OptIcon className="h-3.5 w-3.5" />
+              </button>
+            );
+          })}
+        </div>
+      </CardHeader>
+      <CardContent>
+        <DashboardBIChart
+          data={[{ name: item.name, value: item.value }, { name: "Restante", value: selectedTotal - item.value }]}
+          chartType={localChart}
+          title={item.name}
+          height={220}
+        />
+        <p className="text-center text-xs text-muted-foreground mt-2">{percentage}% do total</p>
+      </CardContent>
+    </Card>
+  );
+}
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { DashboardBIChart, type ChartType } from "./DashboardBIChart";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -338,30 +387,17 @@ export function DashboardBIOperacional({
             </CardContent>
           </Card>
 
-          {/* Grid: cada KPI em um card individual com valor + % */}
+          {/* Grid: cada KPI em um card individual com seletor de gráfico próprio */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
             {selectedItems.map((item, i) => {
-              const ItemIcon = item.icon;
               const percentage = selectedTotal > 0 ? ((item.value / selectedTotal) * 100).toFixed(1) : "0";
               return (
-                <Card key={i} className="shadow-sm hover:shadow-md transition-shadow">
-                  <CardHeader className="pb-2">
-                    <CardTitle className="text-sm flex items-center gap-2">
-                      <ItemIcon className="h-4 w-4 text-primary" />
-                      {item.name}
-                      <span className="ml-auto text-lg font-bold">{item.value}</span>
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <DashboardBIChart
-                      data={[{ name: item.name, value: item.value }, { name: "Restante", value: selectedTotal - item.value }]}
-                      chartType={chartType}
-                      title={item.name}
-                      height={220}
-                    />
-                    <p className="text-center text-xs text-muted-foreground mt-2">{percentage}% do total</p>
-                  </CardContent>
-                </Card>
+                <ComparativoKPICard
+                  key={i}
+                  item={item}
+                  percentage={percentage}
+                  selectedTotal={selectedTotal}
+                />
               );
             })}
           </div>
