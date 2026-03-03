@@ -92,7 +92,7 @@ export function DashboardBIKPIs({ kpiData, label }: Props) {
                 <div className={`${card.bgColor} rounded-xl p-4 border transition-all hover:shadow-md cursor-help`}>
                   <div className="flex items-center gap-1.5 mb-2">
                     <card.icon className={`h-4 w-4 ${card.color}`} />
-                    <span className="text-[11px] font-medium text-muted-foreground truncate">{card.title}</span>
+                    <span className="text-[11px] font-medium text-muted-foreground leading-tight">{card.title}</span>
                   </div>
                   <p className={`font-bold ${card.color} ${card.isText ? "text-[10px] leading-tight break-words whitespace-normal" : "text-lg"}`} title={String(card.value)}>
                     {card.value}
