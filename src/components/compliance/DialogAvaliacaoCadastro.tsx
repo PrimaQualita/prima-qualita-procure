@@ -653,8 +653,8 @@ export function DialogAvaliacaoCadastro({
                           </Badge>
                         )}
                       </div>
-                      <ScrollArea className="max-h-[400px] border rounded-md p-1">
-                        <div className="space-y-1">
+                      <ScrollArea className="h-[380px] w-full rounded-md border">
+                        <div className="space-y-1 p-1">
                           {cnaesExtraidos.filter(c => c.tipo === "primaria").map((cnae) => {
                             const isNovo = !cnaesExistentes.find(e => e.codigo === cnae.codigo);
                             return (
