@@ -11,6 +11,7 @@ export interface UserContextType {
   isContrato: boolean;
   profile: any;
   userId?: string;
+  contratosVinculados?: string[];
 }
 
 export function useUserContext() {
