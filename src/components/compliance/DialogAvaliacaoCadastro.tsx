@@ -700,7 +700,11 @@ export function DialogAvaliacaoCadastro({
           <Button variant="outline" onClick={() => onOpenChange(false)} disabled={processando}>
             Cancelar
           </Button>
-          <Button onClick={handleEnviarAnalise} disabled={processando || loading}>
+          <Button 
+            onClick={handleEnviarAnalise} 
+            disabled={processando || loading || (!cnaesSalvos && cnaesExistentes.length === 0)}
+            title={(!cnaesSalvos && cnaesExistentes.length === 0) ? "Salve os CNAEs antes de enviar a análise" : undefined}
+          >
             {processando ? "Enviando..." : "Enviar Análise"}
           </Button>
         </DialogFooter>
