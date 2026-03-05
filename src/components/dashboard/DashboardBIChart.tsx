@@ -24,6 +24,7 @@ interface Props {
   chartType: ChartType;
   title: string;
   height?: number;
+  hideLegend?: boolean;
 }
 
 const tooltipStyle = {
@@ -34,7 +35,7 @@ const tooltipStyle = {
   boxShadow: "0 4px 12px rgba(0,0,0,0.1)",
 };
 
-export function DashboardBIChart({ data, chartType, title, height = 280 }: Props) {
+export function DashboardBIChart({ data, chartType, title, height = 280, hideLegend = false }: Props) {
   if (!data || data.length === 0) {
     return (
       <div className="flex items-center justify-center h-[200px] text-muted-foreground text-sm">
@@ -78,7 +79,7 @@ export function DashboardBIChart({ data, chartType, title, height = 280 }: Props
             ))}
           </Pie>
           <Tooltip contentStyle={tooltipStyle} />
-          <Legend wrapperStyle={{ fontSize: "11px" }} />
+          {!hideLegend && <Legend wrapperStyle={{ fontSize: "11px" }} />}
         </PieChart>
       </ResponsiveContainer>
     );
