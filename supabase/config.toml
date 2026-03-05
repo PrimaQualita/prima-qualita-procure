@@ -41,3 +41,6 @@ verify_jwt = false
 
 [functions.verificar-relatorio-final]
 verify_jwt = false
+
+[functions.extrair-cnaes-cnpj]
+verify_jwt = true

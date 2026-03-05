@@ -568,6 +568,44 @@ export type Database = {
           },
         ]
       }
+      cnaes_fornecedor: {
+        Row: {
+          codigo_cnae: string
+          created_at: string | null
+          descricao: string
+          fornecedor_id: string
+          id: string
+          tipo: string
+          updated_at: string | null
+        }
+        Insert: {
+          codigo_cnae: string
+          created_at?: string | null
+          descricao: string
+          fornecedor_id: string
+          id?: string
+          tipo: string
+          updated_at?: string | null
+        }
+        Update: {
+          codigo_cnae?: string
+          created_at?: string | null
+          descricao?: string
+          fornecedor_id?: string
+          id?: string
+          tipo?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cnaes_fornecedor_fornecedor_id_fkey"
+            columns: ["fornecedor_id"]
+            isOneToOne: false
+            referencedRelation: "fornecedores"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       contatos: {
         Row: {
           assunto: string
