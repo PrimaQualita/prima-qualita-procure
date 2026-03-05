@@ -312,6 +312,25 @@ export function AppSidebar({
     },
   ];
 
+  // Menu para Compliance (apenas Dashboard, Compliance e Contato)
+  const menuComplianceRestrito = [
+    {
+      title: "Dashboard",
+      icon: LayoutDashboard,
+      href: "/dashboard",
+    },
+    {
+      title: "Compliance",
+      icon: FileCheck,
+      href: "/compliance",
+    },
+    {
+      title: "Contato",
+      icon: MessageSquare,
+      href: "/contatos",
+    },
+  ];
+
   // Menu completo para usuários internos
   const menuCompleto = [
     {
@@ -359,15 +378,21 @@ export function AppSidebar({
   const temOutrosPapeisAlemContabilidade = isGestor || isColaborador || isCompliance || isResponsavelLegal || isSuperintendenteExecutivo || isGerenteContratos;
   const apenasContabilidade = isContabilidade && !temOutrosPapeisAlemContabilidade;
   
+  // Verifica se o usuário é APENAS compliance (sem outros papéis)
+  const temOutrosPapeisAlemCompliance = isGestor || isColaborador || isResponsavelLegal || isSuperintendenteExecutivo || isGerenteContratos || isContabilidade;
+  const apenasCompliance = isCompliance && !temOutrosPapeisAlemCompliance;
+
   // Seleciona o menu correto baseado no tipo de usuário
   const menuItems = apenasGerenteContratos 
     ? [...menuGerenteContratos] 
     : apenasContabilidade 
       ? [...menuContabilidade] 
-      : [...menuCompleto];
+      : apenasCompliance
+        ? [...menuComplianceRestrito]
+        : [...menuCompleto];
 
-  // Adicionar menu Compliance APENAS se for Compliance ou Superintendente Executivo (e não for apenas gerente de contratos)
-  if (!apenasGerenteContratos && !apenasContabilidade && (isCompliance || isSuperintendenteExecutivo)) {
+  // Adicionar menu Compliance APENAS se for Compliance ou Superintendente Executivo (e não for menu restrito)
+  if (!apenasGerenteContratos && !apenasContabilidade && !apenasCompliance && (isCompliance || isSuperintendenteExecutivo)) {
     menuItems.push({
       title: "Compliance",
       icon: FileCheck,
@@ -376,7 +401,7 @@ export function AppSidebar({
   }
 
   // Contabilidade aparece para gestores, colaboradores, ou usuários com perfil contabilidade
-  if (!apenasGerenteContratos && !apenasContabilidade && (isGestor || isColaborador || isGerenteFinanceiro || isContabilidade)) {
+  if (!apenasGerenteContratos && !apenasContabilidade && !apenasCompliance && (isGestor || isColaborador || isGerenteFinanceiro || isContabilidade)) {
     menuItems.push({
       title: "Contabilidade",
       icon: Calculator,
@@ -385,7 +410,7 @@ export function AppSidebar({
   }
 
   // Cadastro de Fornecedores
-  if (!apenasGerenteContratos && !apenasContabilidade) {
+  if (!apenasGerenteContratos && !apenasContabilidade && !apenasCompliance) {
     menuItems.push({
       title: "Cadastro de Fornecedores",
       icon: Building2,
@@ -394,7 +419,7 @@ export function AppSidebar({
   }
 
   // Cadastro de Usuários
-  if (!apenasGerenteContratos && !apenasContabilidade) {
+  if (!apenasGerenteContratos && !apenasContabilidade && !apenasCompliance) {
     menuItems.push({
       title: "Cadastro de Usuários",
       icon: UserCog,
@@ -403,7 +428,7 @@ export function AppSidebar({
   }
 
   // Contato (para todos os usuários com menu completo)
-  if (!apenasGerenteContratos && !apenasContabilidade) {
+  if (!apenasGerenteContratos && !apenasContabilidade && !apenasCompliance) {
     menuItems.push({
       title: "Contato",
       icon: MessageSquare,
@@ -411,8 +436,8 @@ export function AppSidebar({
     });
   }
 
-  // Gestão de Storage - apenas Compliance e Superintendente Executivo
-  if (!apenasGerenteContratos && !apenasContabilidade && (isCompliance || isSuperintendenteExecutivo)) {
+  // Gestão de Storage - apenas Compliance e Superintendente Executivo (mas não para compliance restrito)
+  if (!apenasGerenteContratos && !apenasContabilidade && !apenasCompliance && (isCompliance || isSuperintendenteExecutivo)) {
     menuItems.push({
       title: "Gestão de Storage",
       icon: Camera,
@@ -420,8 +445,8 @@ export function AppSidebar({
     });
   }
 
-  // Log de Auditoria - apenas Compliance e Superintendente Executivo
-  if (!apenasGerenteContratos && !apenasContabilidade && (isCompliance || isSuperintendenteExecutivo)) {
+  // Log de Auditoria - apenas Compliance e Superintendente Executivo (mas não para compliance restrito)
+  if (!apenasGerenteContratos && !apenasContabilidade && !apenasCompliance && (isCompliance || isSuperintendenteExecutivo)) {
     menuItems.push({
       title: "Log de Auditoria",
       icon: Home,
