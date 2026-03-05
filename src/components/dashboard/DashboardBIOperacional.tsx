@@ -5,9 +5,10 @@ import { toZonedTime } from "date-fns-tz";
 import {
   FileText, ShieldCheck, Users, Building2, Handshake, ClipboardList,
   AlertTriangle, CheckCircle2, Clock, XCircle, Ban, CalendarClock, BarChart3, GitCompare,
-  PieChart, CandlestickChart, Trophy, FileCheck, FileClock, PenTool, Stamp
+  PieChart, CandlestickChart, Trophy, FileCheck, FileClock, PenTool, Stamp, ChevronDown, ChevronUp
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 
 const CHART_OPTIONS: { value: ChartType; icon: any; label: string }[] = [
   { value: "barras", icon: BarChart3, label: "Barras" },
@@ -171,19 +172,50 @@ export function DashboardBIOperacional({
   };
 
   const metrics = useMemo(() => {
+    // Helper: build process info lookup
+    const processoInfoMap: Record<string, { numero: string; contrato: string }> = {};
+    processos.forEach((p: any) => {
+      processoInfoMap[p.id] = {
+        numero: p.numero_processo_interno || 'N/A',
+        contrato: p.contratos_gestao?.nome_contrato || 'Sem Contrato',
+      };
+    });
+
+    const getProcessoInfo = (processoId: string | null) => {
+      if (!processoId) return { numero: 'N/A', contrato: 'N/A' };
+      return processoInfoMap[processoId] || { numero: 'N/A', contrato: 'N/A' };
+    };
+
     // === DOCUMENTOS PROCESSO ===
     const getNotifProcessoId = (n: any) => n.processo_compra_id;
     const getCotacaoProcessoId = (n: any) => n.cotacoes_precos?.processo_compra_id || null;
     const getSelecaoProcessoId = (n: any) => n.selecoes_fornecedores?.processo_compra_id || null;
 
+    // Helper: get unique detail items from processo IDs
+    const buildDetailFromProcessoIds = (ids: string[]) => {
+      const unique = [...new Set(ids)];
+      return unique.map(pid => getProcessoInfo(pid));
+    };
+    const buildDetailFromCotacaoItems = (items: any[]) => {
+      const pids = [...new Set(items.map(i => i.cotacoes_precos?.processo_compra_id).filter(Boolean))];
+      return pids.map(pid => getProcessoInfo(pid));
+    };
+    const buildDetailFromSelecaoItems = (items: any[]) => {
+      const pids = [...new Set(items.map(i => i.selecoes_fornecedores?.processo_compra_id).filter(Boolean))];
+      return pids.map(pid => getProcessoInfo(pid));
+    };
+
     // Requisição
     const notifReq = filterByCGViaProcesso(docData.notificacoes.filter(n => n.tipo_notificacao === 'requisicao'), getNotifProcessoId);
     const notifReqPendentes = notifReq.filter(n => !n.atendida);
-    // Dedup by processo_compra_id
     const reqSolicitadas = new Set(notifReq.map(n => n.processo_compra_id)).size;
     const reqGeradas = filterByCGViaProcesso(docData.anexos.filter(a => a.tipo_anexo === 'requisicao'), a => a.processo_compra_id);
     const reqGeradasCount = new Set(reqGeradas.map(a => a.processo_compra_id)).size;
     const reqPendentes = new Set(notifReqPendentes.map(n => n.processo_compra_id)).size;
+
+    const reqSolDetail = buildDetailFromProcessoIds([...new Set(notifReq.map(n => n.processo_compra_id))]);
+    const reqGerDetail = buildDetailFromProcessoIds([...new Set(reqGeradas.map(a => a.processo_compra_id))]);
+    const reqPendDetail = buildDetailFromProcessoIds([...new Set(notifReqPendentes.map(n => n.processo_compra_id))]);
 
     // Autorização de Despesa
     const notifAD = filterByCGViaProcesso(docData.notificacoes.filter(n => n.tipo_notificacao === 'autorizacao_despesa'), getNotifProcessoId);
@@ -193,6 +225,10 @@ export function DashboardBIOperacional({
     const adGeradasCount = new Set(adGeradas.map(a => a.processo_compra_id)).size;
     const adPendentes = new Set(notifADPendentes.map(n => n.processo_compra_id)).size;
 
+    const adSolDetail = buildDetailFromProcessoIds([...new Set(notifAD.map(n => n.processo_compra_id))]);
+    const adGerDetail = buildDetailFromProcessoIds([...new Set(adGeradas.map(a => a.processo_compra_id))]);
+    const adPendDetail = buildDetailFromProcessoIds([...new Set(notifADPendentes.map(n => n.processo_compra_id))]);
+
     // Autorização de Compra Direta
     const solAut = filterByCGViaProcesso(docData.solAutorizacao, getCotacaoProcessoId);
     const solAutPendentes = solAut.filter(s => s.status === 'pendente');
@@ -200,6 +236,10 @@ export function DashboardBIOperacional({
     const acdSolicitadas = new Set(solAut.map(s => s.cotacao_id)).size;
     const acdGeradas = new Set(autCD.map(a => a.cotacao_id)).size;
     const acdPendentes = new Set(solAutPendentes.map(s => s.cotacao_id)).size;
+
+    const acdSolDetail = buildDetailFromCotacaoItems(solAut);
+    const acdGerDetail = buildDetailFromCotacaoItems(autCD);
+    const acdPendDetail = buildDetailFromCotacaoItems(solAutPendentes);
 
     // Autorização de Seleção
     const solAutSel = filterByCGViaProcesso(docData.solAutorizacaoSelecao, getCotacaoProcessoId);
@@ -209,6 +249,10 @@ export function DashboardBIOperacional({
     const asGeradas = new Set(autSel.map(a => a.cotacao_id)).size;
     const asPendentes = new Set(solAutSelPendentes.map(s => s.cotacao_id)).size;
 
+    const asSolDetail = buildDetailFromCotacaoItems(solAutSel);
+    const asGerDetail = buildDetailFromCotacaoItems(autSel);
+    const asPendDetail = buildDetailFromCotacaoItems(solAutSelPendentes);
+
     // Homologação
     const solHom = filterByCGViaProcesso(docData.solHomologacao, getSelecaoProcessoId);
     const solHomPendentes = solHom.filter(s => !s.atendida);
@@ -217,16 +261,40 @@ export function DashboardBIOperacional({
     const homGeradasCount = new Set(homGeradas.map(h => h.selecao_id)).size;
     const homPendentes = new Set(solHomPendentes.map(s => s.selecao_id)).size;
 
-    // Atas - pendentes de assinatura
+    const homSolDetail = buildDetailFromSelecaoItems(solHom);
+    const homGerDetail = buildDetailFromSelecaoItems(homGeradas);
+    const homPendDetail = buildDetailFromSelecaoItems(solHomPendentes);
+
+    // Atas - pendentes de assinatura (só é assinada se TODOS assinaram)
     const atasFiltradas = filterByCGViaProcesso(docData.atas, getSelecaoProcessoId);
-    const atasComPendencia = atasFiltradas.filter(ata => {
-      const pendUsuario = (ata.atas_assinaturas_usuario || []).some((a: any) => a.status_assinatura === 'pendente');
-      const pendFornecedor = (ata.atas_assinaturas_fornecedor || []).some((a: any) => a.status_assinatura === 'pendente');
-      return pendUsuario || pendFornecedor;
+    const atasComTodasAssinaturas = atasFiltradas.filter(ata => {
+      const assinatUsuarios = ata.atas_assinaturas_usuario || [];
+      const assinatFornecedores = ata.atas_assinaturas_fornecedor || [];
+      const totalAssinaturas = assinatUsuarios.length + assinatFornecedores.length;
+      if (totalAssinaturas === 0) return false;
+      return assinatUsuarios.every((a: any) => a.status_assinatura === 'assinado') &&
+             assinatFornecedores.every((a: any) => a.status_assinatura === 'assinado');
     });
+    const atasPendentesArr = atasFiltradas.filter(ata => !atasComTodasAssinaturas.includes(ata));
     const atasTotal = atasFiltradas.length;
-    const atasPendentes = atasComPendencia.length;
-    const atasAssinadas = atasTotal - atasPendentes;
+    const atasAssinadas = atasComTodasAssinaturas.length;
+    const atasPendentes = atasTotal - atasAssinadas;
+
+    const atasTotalDetail = buildDetailFromSelecaoItems(atasFiltradas);
+    const atasAssinadasDetail = buildDetailFromSelecaoItems(atasComTodasAssinaturas);
+    // For pending atas, include who still needs to sign
+    const atasPendDetail = atasPendentesArr.map(ata => {
+      const pid = ata.selecoes_fornecedores?.processo_compra_id;
+      const info = getProcessoInfo(pid);
+      const pendentes: string[] = [];
+      (ata.atas_assinaturas_usuario || []).forEach((a: any) => {
+        if (a.status_assinatura !== 'assinado') pendentes.push(a.profiles?.nome_completo || 'Usuário');
+      });
+      (ata.atas_assinaturas_fornecedor || []).forEach((a: any) => {
+        if (a.status_assinatura !== 'assinado') pendentes.push(a.fornecedores?.razao_social || 'Fornecedor');
+      });
+      return { ...info, pendentesAssinatura: pendentes };
+    });
 
     // === CONTRATOS ===
     const ctFiltrados = filterCG(contratosTerceiros);
@@ -301,24 +369,24 @@ export function DashboardBIOperacional({
 
     return {
       documentos_processo: [
-        { name: "Requisição - Solicitadas", value: reqSolicitadas, color: "info", icon: FileClock },
-        { name: "Requisição - Geradas", value: reqGeradasCount, color: "success", icon: FileCheck },
-        { name: "Requisição - Pendentes", value: reqPendentes, color: reqPendentes > 0 ? "danger" : "success", icon: Clock },
-        { name: "Aut. Despesa - Solicitadas", value: adSolicitadas, color: "info", icon: FileClock },
-        { name: "Aut. Despesa - Geradas", value: adGeradasCount, color: "success", icon: FileCheck },
-        { name: "Aut. Despesa - Pendentes", value: adPendentes, color: adPendentes > 0 ? "danger" : "success", icon: Clock },
-        { name: "Aut. Seleção - Solicitadas", value: asSolicitadas, color: "info", icon: FileClock },
-        { name: "Aut. Seleção - Geradas", value: asGeradas, color: "success", icon: FileCheck },
-        { name: "Aut. Seleção - Pendentes", value: asPendentes, color: asPendentes > 0 ? "danger" : "success", icon: Clock },
-        { name: "Aut. Compra Direta - Solicit.", value: acdSolicitadas, color: "info", icon: FileClock },
-        { name: "Aut. Compra Direta - Geradas", value: acdGeradas, color: "success", icon: FileCheck },
-        { name: "Aut. Compra Direta - Pend.", value: acdPendentes, color: acdPendentes > 0 ? "danger" : "success", icon: Clock },
-        { name: "Homologação - Solicitadas", value: homSolicitadas, color: "info", icon: FileClock },
-        { name: "Homologação - Geradas", value: homGeradasCount, color: "success", icon: FileCheck },
-        { name: "Homologação - Pendentes", value: homPendentes, color: homPendentes > 0 ? "danger" : "success", icon: Clock },
-        { name: "Atas - Total", value: atasTotal, color: "info", icon: FileText },
-        { name: "Atas - Assinadas", value: atasAssinadas, color: "success", icon: PenTool },
-        { name: "Atas - Pend. Assinatura", value: atasPendentes, color: atasPendentes > 0 ? "warning" : "success", icon: AlertTriangle },
+        { name: "Requisição - Solicitadas", value: reqSolicitadas, color: "info", icon: FileClock, detailItems: reqSolDetail },
+        { name: "Requisição - Geradas", value: reqGeradasCount, color: "success", icon: FileCheck, detailItems: reqGerDetail },
+        { name: "Requisição - Pendentes", value: reqPendentes, color: reqPendentes > 0 ? "danger" : "success", icon: Clock, detailItems: reqPendDetail },
+        { name: "Aut. Despesa - Solicitadas", value: adSolicitadas, color: "info", icon: FileClock, detailItems: adSolDetail },
+        { name: "Aut. Despesa - Geradas", value: adGeradasCount, color: "success", icon: FileCheck, detailItems: adGerDetail },
+        { name: "Aut. Despesa - Pendentes", value: adPendentes, color: adPendentes > 0 ? "danger" : "success", icon: Clock, detailItems: adPendDetail },
+        { name: "Aut. Seleção - Solicitadas", value: asSolicitadas, color: "info", icon: FileClock, detailItems: asSolDetail },
+        { name: "Aut. Seleção - Geradas", value: asGeradas, color: "success", icon: FileCheck, detailItems: asGerDetail },
+        { name: "Aut. Seleção - Pendentes", value: asPendentes, color: asPendentes > 0 ? "danger" : "success", icon: Clock, detailItems: asPendDetail },
+        { name: "Aut. Compra Direta - Solicit.", value: acdSolicitadas, color: "info", icon: FileClock, detailItems: acdSolDetail },
+        { name: "Aut. Compra Direta - Geradas", value: acdGeradas, color: "success", icon: FileCheck, detailItems: acdGerDetail },
+        { name: "Aut. Compra Direta - Pend.", value: acdPendentes, color: acdPendentes > 0 ? "danger" : "success", icon: Clock, detailItems: acdPendDetail },
+        { name: "Homologação - Solicitadas", value: homSolicitadas, color: "info", icon: FileClock, detailItems: homSolDetail },
+        { name: "Homologação - Geradas", value: homGeradasCount, color: "success", icon: FileCheck, detailItems: homGerDetail },
+        { name: "Homologação - Pendentes", value: homPendentes, color: homPendentes > 0 ? "danger" : "success", icon: Clock, detailItems: homPendDetail },
+        { name: "Atas - Total", value: atasTotal, color: "info", icon: FileText, detailItems: atasTotalDetail },
+        { name: "Atas - Assinadas", value: atasAssinadas, color: "success", icon: PenTool, detailItems: atasAssinadasDetail },
+        { name: "Atas - Pend. Assinatura", value: atasPendentes, color: atasPendentes > 0 ? "warning" : "success", icon: AlertTriangle, detailItems: atasPendDetail },
       ],
       contratos: [
         { name: "A Vencer (45d)", value: ctAVencer.length, color: "warning", icon: CalendarClock },
@@ -353,10 +421,19 @@ export function DashboardBIOperacional({
     };
   }, [contratosTerceiros, processosParaContratar, cotacoesPrecos, processos, selecoes, fornecedores, contratoSelecionado, hoje, docData, processoContratoMap]);
 
+  const [selectedKpiName, setSelectedKpiName] = useState<string | null>(null);
+
   const selectedKey = moduloSelecionado as ModuloKey;
   const selectedItems = metrics[selectedKey] || [];
   const selectedTotal = selectedItems.reduce((s, i) => s + i.value, 0);
   const chartData = selectedItems.map(item => ({ name: item.name, value: item.value }));
+
+  // Detail items for the selected KPI
+  const selectedKpiDetail = useMemo(() => {
+    if (!selectedKpiName || selectedKey !== 'documentos_processo') return null;
+    const item = selectedItems.find(i => i.name === selectedKpiName);
+    return item?.detailItems || null;
+  }, [selectedKpiName, selectedItems, selectedKey]);
 
   // Comparativo: monta dados com todos os módulos lado a lado
   const comparativoData = useMemo(() => {
@@ -480,7 +557,10 @@ export function DashboardBIOperacional({
                         return (
                           <Tooltip key={i}>
                             <TooltipTrigger asChild>
-                              <div className={`${COLORS[item.color]} rounded-xl p-3 border transition-all hover:shadow-md cursor-help`}>
+                              <div
+                                onClick={() => setSelectedKpiName(selectedKpiName === item.name ? null : item.name)}
+                                className={`${COLORS[item.color]} rounded-xl p-3 border transition-all hover:shadow-md cursor-pointer ${selectedKpiName === item.name ? 'ring-2 ring-primary ring-offset-1' : ''}`}
+                              >
                                 <div className="flex items-center gap-1.5 mb-1">
                                   <ItemIcon className="h-3.5 w-3.5" />
                                   <span className="text-[10px] font-medium leading-tight">{labelShort}</span>
@@ -491,6 +571,7 @@ export function DashboardBIOperacional({
                             </TooltipTrigger>
                             <TooltipContent side="bottom" className="text-xs max-w-[220px]">
                               {item.value} {item.name.toLowerCase()} — {percentage}% de {grupoBase} {grupo.title.toLowerCase()}
+                              <br />Clique para ver detalhes
                             </TooltipContent>
                           </Tooltip>
                         );
@@ -527,7 +608,65 @@ export function DashboardBIOperacional({
             </TooltipProvider>
           </div>
 
-          {/* Gráficos lado a lado */}
+          {/* Detail table for selected KPI */}
+          {selectedKpiName && selectedKpiDetail && selectedKpiDetail.length > 0 && (
+            <Card className="mb-6 shadow-sm border-primary/20">
+              <CardHeader className="pb-2">
+                <div className="flex items-center justify-between">
+                  <CardTitle className="text-sm flex items-center gap-2">
+                    <ChevronDown className="h-4 w-4 text-primary" />
+                    Detalhes: {selectedKpiName} ({selectedKpiDetail.length})
+                  </CardTitle>
+                  <Button variant="ghost" size="sm" onClick={() => setSelectedKpiName(null)}>
+                    <XCircle className="h-4 w-4" />
+                  </Button>
+                </div>
+              </CardHeader>
+              <CardContent>
+                <div className="max-h-[300px] overflow-y-auto">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead className="text-xs">#</TableHead>
+                        <TableHead className="text-xs">Processo</TableHead>
+                        <TableHead className="text-xs">Contrato de Gestão</TableHead>
+                        {selectedKpiName === "Atas - Pend. Assinatura" && (
+                          <TableHead className="text-xs">Falta Assinar</TableHead>
+                        )}
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {selectedKpiDetail.map((detail: any, idx: number) => (
+                        <TableRow key={idx}>
+                          <TableCell className="text-xs">{idx + 1}</TableCell>
+                          <TableCell className="text-xs font-medium">{detail.numero}</TableCell>
+                          <TableCell className="text-xs">{detail.contrato}</TableCell>
+                          {selectedKpiName === "Atas - Pend. Assinatura" && (
+                            <TableCell className="text-xs">
+                              {detail.pendentesAssinatura?.length > 0
+                                ? detail.pendentesAssinatura.join(", ")
+                                : "—"}
+                            </TableCell>
+                          )}
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {selectedKpiName && selectedKpiDetail && selectedKpiDetail.length === 0 && (
+            <Card className="mb-6 shadow-sm border-muted">
+              <CardContent className="py-4">
+                <p className="text-sm text-muted-foreground text-center">
+                  Nenhum registro encontrado para "{selectedKpiName}"
+                </p>
+              </CardContent>
+            </Card>
+          )}
+
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-6">
             <Card className="shadow-sm hover:shadow-md transition-shadow">
               <CardHeader className="pb-2">
