@@ -76,6 +76,8 @@ export function AppSidebar({
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
   const [unreadCount, setUnreadCount] = useState(0);
   const [contractAlertCount, setContractAlertCount] = useState(0);
+  const [compliancePendingCount, setCompliancePendingCount] = useState(0);
+  const [fornecedoresPendingCount, setFornecedoresPendingCount] = useState(0);
 
   useEffect(() => {
     if (profile?.avatar_url) {
@@ -167,6 +169,45 @@ export function AppSidebar({
 
     loadContractAlerts();
     const interval = setInterval(loadContractAlerts, 60000);
+    return () => clearInterval(interval);
+  }, [profile?.id]);
+
+  // Carregar contagem de pendências do Compliance
+  useEffect(() => {
+    if (!profile?.id) return;
+    const load = async () => {
+      try {
+        const { count: cadastros } = await supabase
+          .from('avaliacoes_cadastro_fornecedor')
+          .select('*', { count: 'exact', head: true })
+          .eq('status_avaliacao', 'pendente');
+        const { count: processos } = await supabase
+          .from('cotacoes_precos')
+          .select('*', { count: 'exact', head: true })
+          .eq('enviado_compliance', true)
+          .or('respondido_compliance.is.null,respondido_compliance.eq.false');
+        setCompliancePendingCount((cadastros || 0) + (processos || 0));
+      } catch { /* silent */ }
+    };
+    load();
+    const interval = setInterval(load, 60000);
+    return () => clearInterval(interval);
+  }, [profile?.id]);
+
+  // Carregar contagem de fornecedores pendentes
+  useEffect(() => {
+    if (!profile?.id) return;
+    const load = async () => {
+      try {
+        const { count } = await supabase
+          .from('fornecedores')
+          .select('*', { count: 'exact', head: true })
+          .eq('status_aprovacao', 'pendente');
+        setFornecedoresPendingCount(count || 0);
+      } catch { /* silent */ }
+    };
+    load();
+    const interval = setInterval(load, 60000);
     return () => clearInterval(interval);
   }, [profile?.id]);
 
@@ -408,6 +449,22 @@ export function AppSidebar({
                             {contractAlertCount > 99 ? "99+" : contractAlertCount}
                           </Badge>
                         )}
+                        {item.href === "/compliance" && compliancePendingCount > 0 && !open && (
+                          <Badge 
+                            variant="destructive" 
+                            className="absolute -top-2 -right-2 h-4 min-w-4 px-1 text-[10px] flex items-center justify-center"
+                          >
+                            {compliancePendingCount > 99 ? "99+" : compliancePendingCount}
+                          </Badge>
+                        )}
+                        {item.href === "/fornecedores" && fornecedoresPendingCount > 0 && !open && (
+                          <Badge 
+                            variant="destructive" 
+                            className="absolute -top-2 -right-2 h-4 min-w-4 px-1 text-[10px] flex items-center justify-center"
+                          >
+                            {fornecedoresPendingCount > 99 ? "99+" : fornecedoresPendingCount}
+                          </Badge>
+                        )}
                       </div>
                       {open && (
                         <span className="flex items-center gap-2">
@@ -420,6 +477,16 @@ export function AppSidebar({
                           {item.href === "/contratos" && contractAlertCount > 0 && (
                             <Badge variant="destructive" className="h-5 px-1.5 text-xs">
                               {contractAlertCount > 99 ? "99+" : contractAlertCount}
+                            </Badge>
+                          )}
+                          {item.href === "/compliance" && compliancePendingCount > 0 && (
+                            <Badge variant="destructive" className="h-5 px-1.5 text-xs">
+                              {compliancePendingCount > 99 ? "99+" : compliancePendingCount}
+                            </Badge>
+                          )}
+                          {item.href === "/fornecedores" && fornecedoresPendingCount > 0 && (
+                            <Badge variant="destructive" className="h-5 px-1.5 text-xs">
+                              {fornecedoresPendingCount > 99 ? "99+" : fornecedoresPendingCount}
                             </Badge>
                           )}
                         </span>
