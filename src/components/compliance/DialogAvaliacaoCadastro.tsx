@@ -412,7 +412,7 @@ export function DialogAvaliacaoCadastro({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto overflow-x-hidden">
         <DialogHeader>
           <DialogTitle>Análise de Due Diligence e Risco</DialogTitle>
           <DialogDescription>
@@ -616,17 +616,17 @@ export function DialogAvaliacaoCadastro({
                       <ScrollArea className="max-h-40">
                         <div className="space-y-1">
                           {cnaesExistentes.filter(c => c.tipo === "primaria").map((cnae) => (
-                            <div key={cnae.codigo} className="flex items-center gap-2 p-2 border rounded text-xs bg-primary/5">
+                            <div key={cnae.codigo} className="flex flex-wrap items-start gap-1.5 p-2 border rounded text-xs bg-primary/5">
                               <Badge variant="default" className="text-[10px] shrink-0">Principal</Badge>
                               <span className="font-mono shrink-0">{cnae.codigo}</span>
-                              <span className="truncate">{cnae.descricao}</span>
+                              <span className="break-words min-w-0">{cnae.descricao}</span>
                             </div>
                           ))}
                           {cnaesExistentes.filter(c => c.tipo === "secundaria").map((cnae) => (
-                            <div key={cnae.codigo} className="flex items-center gap-2 p-2 border rounded text-xs">
+                            <div key={cnae.codigo} className="flex flex-wrap items-start gap-1.5 p-2 border rounded text-xs">
                               <Badge variant="outline" className="text-[10px] shrink-0">Secundária</Badge>
                               <span className="font-mono shrink-0">{cnae.codigo}</span>
-                              <span className="truncate">{cnae.descricao}</span>
+                              <span className="break-words min-w-0">{cnae.descricao}</span>
                             </div>
                           ))}
                         </div>
@@ -653,15 +653,15 @@ export function DialogAvaliacaoCadastro({
                           </Badge>
                         )}
                       </div>
-                      <ScrollArea className="max-h-48">
+                      <ScrollArea className="max-h-60">
                         <div className="space-y-1">
                           {cnaesExtraidos.filter(c => c.tipo === "primaria").map((cnae) => {
                             const isNovo = !cnaesExistentes.find(e => e.codigo === cnae.codigo);
                             return (
-                              <div key={cnae.codigo} className={`flex items-center gap-2 p-2 border rounded text-xs ${isNovo ? "bg-green-50 border-green-200 dark:bg-green-950/30 dark:border-green-800" : ""}`}>
+                              <div key={cnae.codigo} className={`flex flex-wrap items-start gap-1.5 p-2 border rounded text-xs ${isNovo ? "bg-green-50 border-green-200 dark:bg-green-950/30 dark:border-green-800" : ""}`}>
                                 <Badge variant="default" className="text-[10px] shrink-0">Principal</Badge>
                                 <span className="font-mono shrink-0">{cnae.codigo}</span>
-                                <span className="truncate flex-1">{cnae.descricao}</span>
+                                <span className="break-words min-w-0">{cnae.descricao}</span>
                                 {isNovo && <Badge variant="outline" className="text-[10px] text-green-600 border-green-300 shrink-0">Novo</Badge>}
                               </div>
                             );
@@ -669,20 +669,20 @@ export function DialogAvaliacaoCadastro({
                           {cnaesExtraidos.filter(c => c.tipo === "secundaria").map((cnae) => {
                             const isNovo = !cnaesExistentes.find(e => e.codigo === cnae.codigo);
                             return (
-                              <div key={cnae.codigo} className={`flex items-center gap-2 p-2 border rounded text-xs ${isNovo ? "bg-green-50 border-green-200 dark:bg-green-950/30 dark:border-green-800" : ""}`}>
+                              <div key={cnae.codigo} className={`flex flex-wrap items-start gap-1.5 p-2 border rounded text-xs ${isNovo ? "bg-green-50 border-green-200 dark:bg-green-950/30 dark:border-green-800" : ""}`}>
                                 <Badge variant="outline" className="text-[10px] shrink-0">Secundária</Badge>
                                 <span className="font-mono shrink-0">{cnae.codigo}</span>
-                                <span className="truncate flex-1">{cnae.descricao}</span>
+                                <span className="break-words min-w-0">{cnae.descricao}</span>
                                 {isNovo && <Badge variant="outline" className="text-[10px] text-green-600 border-green-300 shrink-0">Novo</Badge>}
                               </div>
                             );
                           })}
                           {/* Show removed CNAEs */}
                           {cnaesExistentes.filter(e => !cnaesExtraidos.find(c => c.codigo === e.codigo)).map((cnae) => (
-                            <div key={cnae.codigo} className="flex items-center gap-2 p-2 border rounded text-xs bg-red-50 border-red-200 dark:bg-red-950/30 dark:border-red-800 line-through opacity-60">
+                            <div key={cnae.codigo} className="flex flex-wrap items-start gap-1.5 p-2 border rounded text-xs bg-red-50 border-red-200 dark:bg-red-950/30 dark:border-red-800 line-through opacity-60">
                               <Badge variant="outline" className="text-[10px] shrink-0">{cnae.tipo === "primaria" ? "Principal" : "Secundária"}</Badge>
                               <span className="font-mono shrink-0">{cnae.codigo}</span>
-                              <span className="truncate flex-1">{cnae.descricao}</span>
+                              <span className="break-words min-w-0">{cnae.descricao}</span>
                               <Badge variant="outline" className="text-[10px] text-red-600 border-red-300 shrink-0">Removido</Badge>
                             </div>
                           ))}
