@@ -395,7 +395,7 @@ export function DashboardBIOperacional({
         { name: "Homologação - Solicitadas", value: homSolicitadas, color: "info", icon: FileClock, detailItems: homSolDetail },
         { name: "Homologação - Geradas", value: homGeradasCount, color: "success", icon: FileCheck, detailItems: homGerDetail },
         { name: "Homologação - Pendentes", value: homPendentes, color: homPendentes > 0 ? "danger" : "success", icon: Clock, detailItems: homPendDetail },
-        { name: "Atas - Total", value: atasTotal, color: "info", icon: FileText, detailItems: atasTotalDetail },
+        { name: "Atas - Geradas", value: atasTotal, color: "info", icon: FileText, detailItems: atasTotalDetail },
         { name: "Atas - Assinadas", value: atasAssinadas, color: "success", icon: PenTool, detailItems: atasAssinadasDetail },
         { name: "Atas - Pend. Assinatura", value: atasPendentes, color: atasPendentes > 0 ? "warning" : "success", icon: AlertTriangle, detailItems: atasPendDetail },
       ],
