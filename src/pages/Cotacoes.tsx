@@ -131,6 +131,7 @@ const Cotacoes = () => {
   const [loteEditando, setLoteEditando] = useState<Lote | null>(null);
   const [confirmDeleteLoteOpen, setConfirmDeleteLoteOpen] = useState(false);
   const [loteParaExcluir, setLoteParaExcluir] = useState<string | null>(null);
+  const [loteParaAdicionarItem, setLoteParaAdicionarItem] = useState<string | null>(null);
   const [confirmDeleteItemOpen, setConfirmDeleteItemOpen] = useState(false);
   const [itemParaExcluir, setItemParaExcluir] = useState<string | null>(null);
   const [confirmDeleteEmailOpen, setConfirmDeleteEmailOpen] = useState(false);
@@ -937,12 +938,16 @@ const Cotacoes = () => {
         loadItens(cotacaoSelecionada.id);
       }
     } else {
-      const { error } = await supabase
-        .from("itens_cotacao")
-        .insert({
+      const insertData: any = {
           ...itemData,
           cotacao_id: cotacaoSelecionada.id,
-        });
+        };
+      if (loteParaAdicionarItem) {
+        insertData.lote_id = loteParaAdicionarItem;
+      }
+      const { error } = await supabase
+        .from("itens_cotacao")
+        .insert(insertData);
 
       if (error) {
         toast.error("Erro ao criar item");
@@ -2171,6 +2176,7 @@ const Cotacoes = () => {
                         )}
                         <Button onClick={() => {
                           setItemEditando(null);
+                          setLoteParaAdicionarItem(null);
                           setDialogItemOpen(true);
                         }} size="sm">
                           <Plus className="h-4 w-4 mr-2" />
@@ -2627,6 +2633,7 @@ const Cotacoes = () => {
                               size="sm"
                               onClick={() => {
                                 setItemEditando(null);
+                                setLoteParaAdicionarItem(lote.id);
                                 setDialogItemOpen(true);
                               }}
                             >
@@ -2964,9 +2971,18 @@ const Cotacoes = () => {
       {/* Dialog Item Cotação */}
       <DialogItemCotacao
         open={dialogItemOpen}
-        onOpenChange={setDialogItemOpen}
+        onOpenChange={(open) => {
+          setDialogItemOpen(open);
+          if (!open) setLoteParaAdicionarItem(null);
+        }}
         item={itemEditando}
-        numeroProximo={itens.length + 1}
+        numeroProximo={
+          loteParaAdicionarItem
+            ? (itens.filter(i => i.lote_id === loteParaAdicionarItem).length > 0
+              ? Math.max(...itens.filter(i => i.lote_id === loteParaAdicionarItem).map(i => i.numero_item)) + 1
+              : 1)
+            : itens.length + 1
+        }
         tipoProcesso={processoSelecionado?.tipo}
         onSave={handleSaveItem}
       />
