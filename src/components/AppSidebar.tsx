@@ -194,16 +194,46 @@ export function AppSidebar({
     return () => clearInterval(interval);
   }, [profile?.id]);
 
-  // Carregar contagem de fornecedores pendentes
+  // Carregar contagem de fornecedores pendentes para o badge:
+  // 1) Pendentes que NÃO foram enviados ao Compliance ainda
+  // 2) Pendentes cujo Compliance já respondeu (gestor ainda não agiu)
   useEffect(() => {
     if (!profile?.id) return;
     const load = async () => {
       try {
-        const { count } = await supabase
+        // Buscar fornecedores pendentes com user_id (cadastros reais)
+        const { data: pendentes } = await supabase
           .from('fornecedores')
-          .select('*', { count: 'exact', head: true })
-          .eq('status_aprovacao', 'pendente');
-        setFornecedoresPendingCount(count || 0);
+          .select('id')
+          .eq('status_aprovacao', 'pendente')
+          .not('user_id', 'is', null);
+
+        if (!pendentes || pendentes.length === 0) {
+          setFornecedoresPendingCount(0);
+          return;
+        }
+
+        const ids = pendentes.map(f => f.id);
+
+        // Buscar avaliações desses fornecedores
+        const { data: avaliacoes } = await supabase
+          .from('avaliacoes_cadastro_fornecedor')
+          .select('fornecedor_id, status_avaliacao')
+          .in('fornecedor_id', ids);
+
+        const avalMap = new Map<string, string>();
+        (avaliacoes || []).forEach(a => avalMap.set(a.fornecedor_id, a.status_avaliacao));
+
+        let count = 0;
+        for (const f of pendentes) {
+          const status = avalMap.get(f.id);
+          // Conta se: não tem avaliação (não enviado ao compliance) OU compliance já respondeu
+          if (!status || status === 'respondido') {
+            count++;
+          }
+        }
+
+        setFornecedoresPendingCount(count);
       } catch { /* silent */ }
     };
     load();
