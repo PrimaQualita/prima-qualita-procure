@@ -34,7 +34,8 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import primaLogo from "@/assets/prima-qualita-logo.png";
-import { ArrowLeft, Plus, Edit, Trash2, Eye, FileText, Copy, CheckCircle, XCircle, Send, Clock, RotateCcw } from "lucide-react";
+import { ArrowLeft, Plus, Edit, Trash2, Eye, FileText, Copy, CheckCircle, XCircle, Send, Clock, RotateCcw, Search, Filter } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import GestaoDocumentosGestor from "@/components/fornecedores/GestaoDocumentosGestor";
@@ -103,6 +104,11 @@ export default function Fornecedores() {
   const [avaliacoesCompliance, setAvaliacoesCompliance] = useState<Record<string, any>>({});
   const [enviandoCompliance, setEnviandoCompliance] = useState<string | null>(null);
   const [resetandoSenha, setResetandoSenha] = useState<string | null>(null);
+  const [filtroStatus, setFiltroStatus] = useState<string>("todos");
+  const [filtroEmpresa, setFiltroEmpresa] = useState("");
+  const [filtroCnpj, setFiltroCnpj] = useState("");
+  const [filtroCnae, setFiltroCnae] = useState("");
+  const [cnaesMap, setCnaesMap] = useState<Record<string, string[]>>({});
   
   const [formDataPergunta, setFormDataPergunta] = useState({
     texto_pergunta: "",
@@ -133,7 +139,25 @@ export default function Fornecedores() {
     loadPerguntas();
     loadFornecedores();
     loadAvaliacoesCompliance();
+    loadCnaesFornecedores();
     setLoading(false);
+  };
+
+  const loadCnaesFornecedores = async () => {
+    try {
+      const { data, error } = await supabase
+        .from("cnaes_fornecedor")
+        .select("fornecedor_id, codigo_cnae");
+      if (error) throw error;
+      const map: Record<string, string[]> = {};
+      data?.forEach((item: any) => {
+        if (!map[item.fornecedor_id]) map[item.fornecedor_id] = [];
+        map[item.fornecedor_id].push(item.codigo_cnae);
+      });
+      setCnaesMap(map);
+    } catch (error) {
+      console.error("Erro ao carregar CNAEs:", error);
+    }
   };
 
   const loadAvaliacoesCompliance = async () => {
@@ -629,11 +653,75 @@ export default function Fornecedores() {
             <CardTitle>Fornecedores Cadastrados</CardTitle>
           </CardHeader>
           <CardContent>
-            {fornecedores.length === 0 ? (
-              <p className="text-center text-muted-foreground py-8">
-                Nenhum fornecedor cadastrado ainda.
-              </p>
-            ) : (
+            {/* Filtros */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 mb-4">
+              <div>
+                <Label className="text-xs mb-1 block">Status</Label>
+                <Select value={filtroStatus} onValueChange={setFiltroStatus}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Todos" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="todos">Todos</SelectItem>
+                    <SelectItem value="aprovado">Aprovado</SelectItem>
+                    <SelectItem value="pendente">Pendente</SelectItem>
+                    <SelectItem value="reprovado">Reprovado</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label className="text-xs mb-1 block">Empresa</Label>
+                <Input
+                  placeholder="Razão social..."
+                  value={filtroEmpresa}
+                  onChange={(e) => setFiltroEmpresa(e.target.value)}
+                />
+              </div>
+              <div>
+                <Label className="text-xs mb-1 block">CNPJ</Label>
+                <Input
+                  placeholder="XX.XXX.XXX/XXXX-XX ou números"
+                  value={filtroCnpj}
+                  onChange={(e) => setFiltroCnpj(e.target.value)}
+                />
+              </div>
+              <div>
+                <Label className="text-xs mb-1 block">CNAE</Label>
+                <Input
+                  placeholder="XX.XX-X-XX ou números"
+                  value={filtroCnae}
+                  onChange={(e) => setFiltroCnae(e.target.value)}
+                />
+              </div>
+            </div>
+
+            {(() => {
+              const normalizar = (v: string) => v.replace(/[.\-\/]/g, "").toLowerCase().trim();
+              const fornecedoresFiltrados = fornecedores.filter((f) => {
+                if (filtroStatus !== "todos" && f.status_aprovacao !== filtroStatus) return false;
+                if (filtroEmpresa && !f.razao_social.toLowerCase().includes(filtroEmpresa.toLowerCase().trim())) return false;
+                if (filtroCnpj) {
+                  const cnpjBusca = normalizar(filtroCnpj);
+                  const cnpjFornecedor = normalizar(f.cnpj);
+                  if (!cnpjFornecedor.includes(cnpjBusca)) return false;
+                }
+                if (filtroCnae) {
+                  const cnaeBusca = normalizar(filtroCnae);
+                  const cnaes = cnaesMap[f.id] || [];
+                  if (!cnaes.some(c => normalizar(c).includes(cnaeBusca))) return false;
+                }
+                return true;
+              });
+
+              if (fornecedoresFiltrados.length === 0) {
+                return (
+                  <p className="text-center text-muted-foreground py-8">
+                    Nenhum fornecedor encontrado com os filtros aplicados.
+                  </p>
+                );
+              }
+
+              return (
               <Table>
                 <TableHeader>
                   <TableRow>
@@ -647,7 +735,7 @@ export default function Fornecedores() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {fornecedores.map((fornecedor) => (
+                  {fornecedoresFiltrados.map((fornecedor) => (
                     <TableRow key={fornecedor.id}>
                       <TableCell>{getStatusBadge(fornecedor.status_aprovacao)}</TableCell>
                       <TableCell className="font-medium">{fornecedor.razao_social}</TableCell>
@@ -665,7 +753,6 @@ export default function Fornecedores() {
                       <TableCell>
                         {fornecedor.data_validade_certificado 
                           ? (() => {
-                              // Extrair apenas a data sem conversão de timezone
                               const dateStr = fornecedor.data_validade_certificado.split('T')[0];
                               const [year, month, day] = dateStr.split('-');
                               return `${day}/${month}/${year}`;
@@ -709,7 +796,8 @@ export default function Fornecedores() {
                   ))}
                 </TableBody>
               </Table>
-            )}
+              );
+            })()}
           </CardContent>
         </Card>
       </div>
