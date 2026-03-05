@@ -1,12 +1,13 @@
 // @ts-nocheck
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect } from "react";
 import { differenceInDays } from "date-fns";
 import { toZonedTime } from "date-fns-tz";
 import {
   FileText, ShieldCheck, Users, Building2, Handshake, ClipboardList,
   AlertTriangle, CheckCircle2, Clock, XCircle, Ban, CalendarClock, BarChart3, GitCompare,
-  PieChart, CandlestickChart, Trophy
+  PieChart, CandlestickChart, Trophy, FileCheck, FileClock, PenTool, Stamp
 } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
 
 const CHART_OPTIONS: { value: ChartType; icon: any; label: string }[] = [
   { value: "barras", icon: BarChart3, label: "Barras" },
@@ -82,9 +83,10 @@ const COLORS: Record<string, string> = {
   muted: "bg-gray-100 text-gray-700 border-gray-300 dark:bg-gray-800/40 dark:text-gray-300 dark:border-gray-600",
 };
 
-type ModuloKey = "contratos" | "compliance" | "selecoes" | "credenciamentos" | "contratacoes" | "fornecedores";
+type ModuloKey = "documentos_processo" | "contratos" | "compliance" | "selecoes" | "credenciamentos" | "contratacoes" | "fornecedores";
 
 const MODULO_CONFIG: Record<ModuloKey, { label: string; icon: any }> = {
+  documentos_processo: { label: "Processo", icon: Stamp },
   contratos: { label: "Contratos", icon: FileText },
   compliance: { label: "Análise de Compliance", icon: ShieldCheck },
   selecoes: { label: "Seleções de Fornecedores", icon: Users },
@@ -103,12 +105,129 @@ export function DashboardBIOperacional({
 }: Props) {
   const hoje = useMemo(() => toZonedTime(new Date(), "America/Sao_Paulo"), []);
 
+  // === Data for "Processo" module ===
+  const [docData, setDocData] = useState<{
+    notificacoes: any[];
+    anexos: any[];
+    solAutorizacao: any[];
+    solAutorizacaoSelecao: any[];
+    autorizacoes: any[];
+    solHomologacao: any[];
+    homologacoes: any[];
+    atas: any[];
+  }>({
+    notificacoes: [], anexos: [], solAutorizacao: [], solAutorizacaoSelecao: [],
+    autorizacoes: [], solHomologacao: [], homologacoes: [], atas: []
+  });
+
+  useEffect(() => {
+    const fetchDocData = async () => {
+      try {
+        const [notifRes, anexosRes, solAutRes, solAutSelRes, autRes, solHomRes, homRes, atasRes] = await Promise.all([
+          supabase.from('notificacoes_documentos_processo').select('tipo_notificacao, atendida, processo_compra_id'),
+          supabase.from('anexos_processo_compra').select('tipo_anexo, processo_compra_id').in('tipo_anexo', ['requisicao', 'autorizacao_despesa']),
+          supabase.from('solicitacoes_autorizacao').select('id, cotacao_id, status, cotacoes_precos:cotacao_id(processo_compra_id)'),
+          supabase.from('solicitacoes_autorizacao_selecao').select('id, cotacao_id, status, cotacoes_precos:cotacao_id(processo_compra_id)'),
+          supabase.from('autorizacoes_processo').select('id, tipo_autorizacao, cotacao_id, cotacoes_precos:cotacao_id(processo_compra_id)'),
+          supabase.from('solicitacoes_homologacao_selecao').select('id, selecao_id, atendida, selecoes_fornecedores:selecao_id(processo_compra_id)'),
+          supabase.from('homologacoes_selecao').select('id, selecao_id, selecoes_fornecedores:selecao_id(processo_compra_id)'),
+          supabase.from('atas_selecao').select('id, selecao_id, selecoes_fornecedores:selecao_id(processo_compra_id), atas_assinaturas_usuario(status_assinatura, profiles:usuario_id(nome_completo)), atas_assinaturas_fornecedor(status_assinatura, fornecedores:fornecedor_id(razao_social))'),
+        ]);
+        setDocData({
+          notificacoes: notifRes.data || [],
+          anexos: anexosRes.data || [],
+          solAutorizacao: solAutRes.data || [],
+          solAutorizacaoSelecao: solAutSelRes.data || [],
+          autorizacoes: autRes.data || [],
+          solHomologacao: solHomRes.data || [],
+          homologacoes: homRes.data || [],
+          atas: atasRes.data || [],
+        });
+      } catch (e) {
+        console.error("Erro ao carregar dados de documentos:", e);
+      }
+    };
+    fetchDocData();
+  }, []);
+
   const filterCG = (items: any[], field = "contrato_gestao_id") => {
     if (contratoSelecionado === "todos") return items;
     return items.filter(i => i[field] === contratoSelecionado);
   };
 
+  // Build lookup: processo_compra_id → contrato_gestao_id
+  const processoContratoMap = useMemo(() => {
+    const map: Record<string, string> = {};
+    processos.forEach(p => { if (p.contrato_gestao_id) map[p.id] = p.contrato_gestao_id; });
+    return map;
+  }, [processos]);
+
+  const filterByCGViaProcesso = (items: any[], getProcessoId: (item: any) => string | null) => {
+    if (contratoSelecionado === "todos") return items;
+    return items.filter(i => {
+      const pid = getProcessoId(i);
+      return pid && processoContratoMap[pid] === contratoSelecionado;
+    });
+  };
+
   const metrics = useMemo(() => {
+    // === DOCUMENTOS PROCESSO ===
+    const getNotifProcessoId = (n: any) => n.processo_compra_id;
+    const getCotacaoProcessoId = (n: any) => n.cotacoes_precos?.processo_compra_id || null;
+    const getSelecaoProcessoId = (n: any) => n.selecoes_fornecedores?.processo_compra_id || null;
+
+    // Requisição
+    const notifReq = filterByCGViaProcesso(docData.notificacoes.filter(n => n.tipo_notificacao === 'requisicao'), getNotifProcessoId);
+    const notifReqPendentes = notifReq.filter(n => !n.atendida);
+    // Dedup by processo_compra_id
+    const reqSolicitadas = new Set(notifReq.map(n => n.processo_compra_id)).size;
+    const reqGeradas = filterByCGViaProcesso(docData.anexos.filter(a => a.tipo_anexo === 'requisicao'), a => a.processo_compra_id);
+    const reqGeradasCount = new Set(reqGeradas.map(a => a.processo_compra_id)).size;
+    const reqPendentes = new Set(notifReqPendentes.map(n => n.processo_compra_id)).size;
+
+    // Autorização de Despesa
+    const notifAD = filterByCGViaProcesso(docData.notificacoes.filter(n => n.tipo_notificacao === 'autorizacao_despesa'), getNotifProcessoId);
+    const notifADPendentes = notifAD.filter(n => !n.atendida);
+    const adSolicitadas = new Set(notifAD.map(n => n.processo_compra_id)).size;
+    const adGeradas = filterByCGViaProcesso(docData.anexos.filter(a => a.tipo_anexo === 'autorizacao_despesa'), a => a.processo_compra_id);
+    const adGeradasCount = new Set(adGeradas.map(a => a.processo_compra_id)).size;
+    const adPendentes = new Set(notifADPendentes.map(n => n.processo_compra_id)).size;
+
+    // Autorização de Compra Direta
+    const solAut = filterByCGViaProcesso(docData.solAutorizacao, getCotacaoProcessoId);
+    const solAutPendentes = solAut.filter(s => s.status === 'pendente');
+    const autCD = filterByCGViaProcesso(docData.autorizacoes.filter(a => a.tipo_autorizacao === 'compra_direta'), getCotacaoProcessoId);
+    const acdSolicitadas = new Set(solAut.map(s => s.cotacao_id)).size;
+    const acdGeradas = new Set(autCD.map(a => a.cotacao_id)).size;
+    const acdPendentes = new Set(solAutPendentes.map(s => s.cotacao_id)).size;
+
+    // Autorização de Seleção
+    const solAutSel = filterByCGViaProcesso(docData.solAutorizacaoSelecao, getCotacaoProcessoId);
+    const solAutSelPendentes = solAutSel.filter(s => s.status === 'pendente');
+    const autSel = filterByCGViaProcesso(docData.autorizacoes.filter(a => a.tipo_autorizacao === 'selecao_fornecedores'), getCotacaoProcessoId);
+    const asSolicitadas = new Set(solAutSel.map(s => s.cotacao_id)).size;
+    const asGeradas = new Set(autSel.map(a => a.cotacao_id)).size;
+    const asPendentes = new Set(solAutSelPendentes.map(s => s.cotacao_id)).size;
+
+    // Homologação
+    const solHom = filterByCGViaProcesso(docData.solHomologacao, getSelecaoProcessoId);
+    const solHomPendentes = solHom.filter(s => !s.atendida);
+    const homGeradas = filterByCGViaProcesso(docData.homologacoes, getSelecaoProcessoId);
+    const homSolicitadas = new Set(solHom.map(s => s.selecao_id)).size;
+    const homGeradasCount = new Set(homGeradas.map(h => h.selecao_id)).size;
+    const homPendentes = new Set(solHomPendentes.map(s => s.selecao_id)).size;
+
+    // Atas - pendentes de assinatura
+    const atasFiltradas = filterByCGViaProcesso(docData.atas, getSelecaoProcessoId);
+    const atasComPendencia = atasFiltradas.filter(ata => {
+      const pendUsuario = (ata.atas_assinaturas_usuario || []).some((a: any) => a.status_assinatura === 'pendente');
+      const pendFornecedor = (ata.atas_assinaturas_fornecedor || []).some((a: any) => a.status_assinatura === 'pendente');
+      return pendUsuario || pendFornecedor;
+    });
+    const atasTotal = atasFiltradas.length;
+    const atasPendentes = atasComPendencia.length;
+    const atasAssinadas = atasTotal - atasPendentes;
+
     // === CONTRATOS ===
     const ctFiltrados = filterCG(contratosTerceiros);
     const ctVigentes = ctFiltrados.filter(c => c.status === "vigente" && c.processo_para_contratar_id);
@@ -181,6 +300,26 @@ export function DashboardBIOperacional({
     });
 
     return {
+      documentos_processo: [
+        { name: "Requisição - Solicitadas", value: reqSolicitadas, color: "info", icon: FileClock },
+        { name: "Requisição - Geradas", value: reqGeradasCount, color: "success", icon: FileCheck },
+        { name: "Requisição - Pendentes", value: reqPendentes, color: reqPendentes > 0 ? "danger" : "success", icon: Clock },
+        { name: "Aut. Despesa - Solicitadas", value: adSolicitadas, color: "info", icon: FileClock },
+        { name: "Aut. Despesa - Geradas", value: adGeradasCount, color: "success", icon: FileCheck },
+        { name: "Aut. Despesa - Pendentes", value: adPendentes, color: adPendentes > 0 ? "danger" : "success", icon: Clock },
+        { name: "Aut. Seleção - Solicitadas", value: asSolicitadas, color: "info", icon: FileClock },
+        { name: "Aut. Seleção - Geradas", value: asGeradas, color: "success", icon: FileCheck },
+        { name: "Aut. Seleção - Pendentes", value: asPendentes, color: asPendentes > 0 ? "danger" : "success", icon: Clock },
+        { name: "Aut. Compra Direta - Solicit.", value: acdSolicitadas, color: "info", icon: FileClock },
+        { name: "Aut. Compra Direta - Geradas", value: acdGeradas, color: "success", icon: FileCheck },
+        { name: "Aut. Compra Direta - Pend.", value: acdPendentes, color: acdPendentes > 0 ? "danger" : "success", icon: Clock },
+        { name: "Homologação - Solicitadas", value: homSolicitadas, color: "info", icon: FileClock },
+        { name: "Homologação - Geradas", value: homGeradasCount, color: "success", icon: FileCheck },
+        { name: "Homologação - Pendentes", value: homPendentes, color: homPendentes > 0 ? "danger" : "success", icon: Clock },
+        { name: "Atas - Total", value: atasTotal, color: "info", icon: FileText },
+        { name: "Atas - Assinadas", value: atasAssinadas, color: "success", icon: PenTool },
+        { name: "Atas - Pend. Assinatura", value: atasPendentes, color: atasPendentes > 0 ? "warning" : "success", icon: AlertTriangle },
+      ],
       contratos: [
         { name: "A Vencer (45d)", value: ctAVencer.length, color: "warning", icon: CalendarClock },
         { name: "Vencidos", value: ctVencidos.length, color: "danger", icon: AlertTriangle },
@@ -212,7 +351,7 @@ export function DashboardBIOperacional({
         { name: "Em Aberto", value: fornEmAberto.length, color: "info", icon: Clock },
       ],
     };
-  }, [contratosTerceiros, processosParaContratar, cotacoesPrecos, processos, selecoes, fornecedores, contratoSelecionado, hoje]);
+  }, [contratosTerceiros, processosParaContratar, cotacoesPrecos, processos, selecoes, fornecedores, contratoSelecionado, hoje, docData, processoContratoMap]);
 
   const selectedKey = moduloSelecionado as ModuloKey;
   const selectedItems = metrics[selectedKey] || [];
@@ -319,7 +458,7 @@ export function DashboardBIOperacional({
               Indicadores — {MODULO_CONFIG[selectedKey]?.label} (Total: {selectedTotal})
             </h3>
             <TooltipProvider delayDuration={200}>
-              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3">
+              <div className={`grid gap-3 ${selectedKey === 'documentos_processo' ? 'grid-cols-3 sm:grid-cols-3 md:grid-cols-6' : 'grid-cols-2 sm:grid-cols-3 md:grid-cols-5'}`}>
                 {selectedItems.map((item, i) => {
                   const ItemIcon = item.icon;
                   const percentage = selectedTotal > 0 ? ((item.value / selectedTotal) * 100).toFixed(1) : "0";
