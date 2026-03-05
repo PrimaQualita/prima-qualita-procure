@@ -458,29 +458,69 @@ export function DashboardBIOperacional({
               Indicadores — {MODULO_CONFIG[selectedKey]?.label} (Total: {selectedTotal})
             </h3>
             <TooltipProvider delayDuration={200}>
-              <div className={`grid gap-3 ${selectedKey === 'documentos_processo' ? 'grid-cols-3 sm:grid-cols-3 md:grid-cols-6' : 'grid-cols-2 sm:grid-cols-3 md:grid-cols-5'}`}>
-                {selectedItems.map((item, i) => {
-                  const ItemIcon = item.icon;
-                  const percentage = selectedTotal > 0 ? ((item.value / selectedTotal) * 100).toFixed(1) : "0";
-                  return (
-                    <Tooltip key={i}>
-                      <TooltipTrigger asChild>
-                        <div className={`${COLORS[item.color]} rounded-xl p-4 border transition-all hover:shadow-md cursor-help`}>
-                          <div className="flex items-center gap-1.5 mb-2">
-                            <ItemIcon className="h-4 w-4" />
-                            <span className="text-[11px] font-medium leading-tight">{item.name}</span>
+              {selectedKey === 'documentos_processo' ? (
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-3">
+                  {/* Agrupa KPIs em colunas verticais de 3 (Solicitadas/Geradas/Pendentes) */}
+                  {[
+                    { title: "Requisição", items: selectedItems.slice(0, 3) },
+                    { title: "Aut. Despesa", items: selectedItems.slice(3, 6) },
+                    { title: "Aut. Seleção", items: selectedItems.slice(6, 9) },
+                    { title: "Aut. Compra Direta", items: selectedItems.slice(9, 12) },
+                    { title: "Homologação", items: selectedItems.slice(12, 15) },
+                    { title: "Atas", items: selectedItems.slice(15, 18) },
+                  ].map((grupo, gi) => (
+                    <div key={gi} className="flex flex-col gap-2">
+                      <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider text-center">{grupo.title}</p>
+                      {grupo.items.map((item, i) => {
+                        const ItemIcon = item.icon;
+                        const percentage = selectedTotal > 0 ? ((item.value / selectedTotal) * 100).toFixed(1) : "0";
+                        const labelShort = item.name.split(" - ")[1] || item.name;
+                        return (
+                          <Tooltip key={i}>
+                            <TooltipTrigger asChild>
+                              <div className={`${COLORS[item.color]} rounded-xl p-3 border transition-all hover:shadow-md cursor-help`}>
+                                <div className="flex items-center gap-1.5 mb-1">
+                                  <ItemIcon className="h-3.5 w-3.5" />
+                                  <span className="text-[10px] font-medium leading-tight">{labelShort}</span>
+                                </div>
+                                <p className="text-xl font-bold">{item.value}</p>
+                                <p className="text-[10px] mt-0.5 opacity-70">{percentage}% do total</p>
+                              </div>
+                            </TooltipTrigger>
+                            <TooltipContent side="bottom" className="text-xs max-w-[220px]">
+                              {item.value} {item.name.toLowerCase()} — {percentage}% do total
+                            </TooltipContent>
+                          </Tooltip>
+                        );
+                      })}
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="grid gap-3 grid-cols-2 sm:grid-cols-3 md:grid-cols-5">
+                  {selectedItems.map((item, i) => {
+                    const ItemIcon = item.icon;
+                    const percentage = selectedTotal > 0 ? ((item.value / selectedTotal) * 100).toFixed(1) : "0";
+                    return (
+                      <Tooltip key={i}>
+                        <TooltipTrigger asChild>
+                          <div className={`${COLORS[item.color]} rounded-xl p-4 border transition-all hover:shadow-md cursor-help`}>
+                            <div className="flex items-center gap-1.5 mb-2">
+                              <ItemIcon className="h-4 w-4" />
+                              <span className="text-[11px] font-medium leading-tight">{item.name}</span>
+                            </div>
+                            <p className="text-2xl font-bold">{item.value}</p>
+                            <p className="text-[10px] mt-1 opacity-70">{percentage}% do total</p>
                           </div>
-                          <p className="text-2xl font-bold">{item.value}</p>
-                          <p className="text-[10px] mt-1 opacity-70">{percentage}% do total</p>
-                        </div>
-                      </TooltipTrigger>
-                      <TooltipContent side="bottom" className="text-xs max-w-[220px]">
-                        {item.value} {item.name.toLowerCase()} — {percentage}% do total de {MODULO_CONFIG[selectedKey]?.label.toLowerCase()}
-                      </TooltipContent>
-                    </Tooltip>
-                  );
-                })}
-              </div>
+                        </TooltipTrigger>
+                        <TooltipContent side="bottom" className="text-xs max-w-[220px]">
+                          {item.value} {item.name.toLowerCase()} — {percentage}% do total de {MODULO_CONFIG[selectedKey]?.label.toLowerCase()}
+                        </TooltipContent>
+                      </Tooltip>
+                    );
+                  })}
+                </div>
+              )}
             </TooltipProvider>
           </div>
 
