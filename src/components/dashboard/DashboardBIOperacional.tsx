@@ -12,10 +12,10 @@ import { supabase } from "@/integrations/supabase/client";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 
 const CHART_OPTIONS: { value: ChartType; icon: any; label: string }[] = [
-  { value: "barras", icon: BarChart3, label: "Barras" },
+  { value: "barras", icon: BarChart3, label: "Barras Verticais" },
   { value: "pizza", icon: PieChart, label: "Pizza" },
-  { value: "vela", icon: CandlestickChart, label: "Vela" },
-  { value: "pareto", icon: BarChart3, label: "Pareto" },
+  { value: "vela", icon: CandlestickChart, label: "Barras Horizontais" },
+  { value: "pareto", icon: Trophy, label: "Pareto" },
 ];
 
 function ComparativoKPICard({ item, percentage, selectedTotal }: { item: any; percentage: string; selectedTotal: number }) {
