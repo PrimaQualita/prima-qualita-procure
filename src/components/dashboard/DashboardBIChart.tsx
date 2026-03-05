@@ -20,7 +20,7 @@ const BI_COLORS = [
 export type ChartType = "barras" | "vela" | "pareto" | "pizza" | "ranking";
 
 interface Props {
-  data: { name: string; value: number }[];
+  data: { name: string; value: number; color?: string }[];
   chartType: ChartType;
   title: string;
   height?: number;
@@ -53,6 +53,13 @@ export function DashboardBIChart({ data, chartType, title, height = 280, hideLeg
       })
     : data;
 
+  const getColorForEntry = (entry: { name: string; value: number; color?: string }, index: number, allValues: number[]) => {
+    if (entry.color) return entry.color;
+    const nameLower = entry.name.toLowerCase();
+    if (nameLower.includes("pendente") || nameLower.includes("pend.")) return "#dc2626";
+    return getColorByValueRank(entry.value, allValues);
+  };
+
   const getColorByValueRank = (value: number, values: number[]) => {
     const uniqueSortedValues = [...new Set(values)].sort((a, b) => b - a);
     const rank = uniqueSortedValues.findIndex(v => v === value);
@@ -74,8 +81,8 @@ export function DashboardBIChart({ data, chartType, title, height = 280, hideLeg
             label={false}
             labelLine={false}
           >
-            {data.map((_, i) => (
-              <Cell key={i} fill={BI_COLORS[i % BI_COLORS.length]} />
+            {data.map((entry, i) => (
+              <Cell key={i} fill={getColorForEntry(entry, i, data.map(d => d.value))} />
             ))}
           </Pie>
           <Tooltip contentStyle={tooltipStyle} />
@@ -105,8 +112,7 @@ export function DashboardBIChart({ data, chartType, title, height = 280, hideLeg
           <Tooltip contentStyle={tooltipStyle} />
           <Bar dataKey="value" name="Quantidade" radius={[4, 4, 0, 0]}>
             {(isHorizontal ? [...data].sort((a, b) => a.value - b.value) : data).map((entry, i, arr) => {
-              // Same quantity must use the same color
-              return <Cell key={i} fill={getColorByValueRank(entry.value, arr.map(item => item.value))} />;
+              return <Cell key={i} fill={getColorForEntry(entry, i, arr.map(item => item.value))} />;
             })}
           </Bar>
         </BarChart>
@@ -125,7 +131,7 @@ export function DashboardBIChart({ data, chartType, title, height = 280, hideLeg
           <Tooltip contentStyle={tooltipStyle} />
           <Bar yAxisId="left" dataKey="value" name="Quantidade" radius={[4, 4, 0, 0]}>
             {paretoData.map((entry, i, arr) => (
-              <Cell key={i} fill={getColorByValueRank(entry.value, arr.map(item => item.value))} />
+              <Cell key={i} fill={getColorForEntry(entry, i, arr.map(item => item.value))} />
             ))}
           </Bar>
           <Line yAxisId="right" type="monotone" dataKey="acumulado" stroke="#dc2626" strokeWidth={2} dot={{ r: 3 }} name="% Acumulado" />
