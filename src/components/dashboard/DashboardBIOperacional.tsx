@@ -468,12 +468,14 @@ export function DashboardBIOperacional({
                     { title: "Aut. Compra Direta", items: selectedItems.slice(9, 12) },
                     { title: "Homologação", items: selectedItems.slice(12, 15) },
                     { title: "Atas", items: selectedItems.slice(15, 18) },
-                  ].map((grupo, gi) => (
+                  ].map((grupo, gi) => {
+                    const grupoBase = grupo.items[0]?.value || 0; // Solicitadas/Total é a base
+                    return (
                     <div key={gi} className="flex flex-col gap-2">
                       <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider text-center">{grupo.title}</p>
                       {grupo.items.map((item, i) => {
                         const ItemIcon = item.icon;
-                        const percentage = selectedTotal > 0 ? ((item.value / selectedTotal) * 100).toFixed(1) : "0";
+                        const percentage = grupoBase > 0 ? ((item.value / grupoBase) * 100).toFixed(1) : (item.value > 0 ? "100" : "0");
                         const labelShort = item.name.split(" - ")[1] || item.name;
                         return (
                           <Tooltip key={i}>
@@ -484,17 +486,18 @@ export function DashboardBIOperacional({
                                   <span className="text-[10px] font-medium leading-tight">{labelShort}</span>
                                 </div>
                                 <p className="text-xl font-bold">{item.value}</p>
-                                <p className="text-[10px] mt-0.5 opacity-70">{percentage}% do total</p>
+                                <p className="text-[10px] mt-0.5 opacity-70">{percentage}%</p>
                               </div>
                             </TooltipTrigger>
                             <TooltipContent side="bottom" className="text-xs max-w-[220px]">
-                              {item.value} {item.name.toLowerCase()} — {percentage}% do total
+                              {item.value} {item.name.toLowerCase()} — {percentage}% de {grupoBase} {grupo.title.toLowerCase()}
                             </TooltipContent>
                           </Tooltip>
                         );
                       })}
                     </div>
-                  ))}
+                    );
+                  })}
                 </div>
               ) : (
                 <div className="grid gap-3 grid-cols-2 sm:grid-cols-3 md:grid-cols-5">
