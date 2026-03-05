@@ -2984,6 +2984,9 @@ const Cotacoes = () => {
             : itens.length + 1
         }
         tipoProcesso={processoSelecionado?.tipo}
+        lotes={processoSelecionado?.criterio_julgamento === "por_lote" ? lotes : undefined}
+        lotePreSelecionado={loteParaAdicionarItem}
+        onLoteChange={(loteId) => setLoteParaAdicionarItem(loteId)}
         onSave={handleSaveItem}
       />
 
