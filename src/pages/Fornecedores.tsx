@@ -108,7 +108,8 @@ export default function Fornecedores() {
   const [filtroEmpresa, setFiltroEmpresa] = useState("");
   const [filtroCnpj, setFiltroCnpj] = useState("");
   const [filtroCnae, setFiltroCnae] = useState("");
-  const [cnaesMap, setCnaesMap] = useState<Record<string, string[]>>({});
+  const [filtroCnaeDescricao, setFiltroCnaeDescricao] = useState("");
+  const [cnaesMap, setCnaesMap] = useState<Record<string, { codigo_cnae: string; descricao: string }[]>>({});
   
   const [formDataPergunta, setFormDataPergunta] = useState({
     texto_pergunta: "",
@@ -147,12 +148,12 @@ export default function Fornecedores() {
     try {
       const { data, error } = await supabase
         .from("cnaes_fornecedor")
-        .select("fornecedor_id, codigo_cnae");
+        .select("fornecedor_id, codigo_cnae, descricao");
       if (error) throw error;
-      const map: Record<string, string[]> = {};
+      const map: Record<string, { codigo_cnae: string; descricao: string }[]> = {};
       data?.forEach((item: any) => {
         if (!map[item.fornecedor_id]) map[item.fornecedor_id] = [];
-        map[item.fornecedor_id].push(item.codigo_cnae);
+        map[item.fornecedor_id].push({ codigo_cnae: item.codigo_cnae, descricao: item.descricao || "" });
       });
       setCnaesMap(map);
     } catch (error) {
@@ -654,7 +655,7 @@ export default function Fornecedores() {
           </CardHeader>
           <CardContent className="overflow-x-hidden">
             {/* Filtros */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 mb-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3 mb-4">
               <div>
                 <Label className="text-xs mb-1 block">Status</Label>
                 <Select value={filtroStatus} onValueChange={setFiltroStatus}>
@@ -686,17 +687,26 @@ export default function Fornecedores() {
                 />
               </div>
               <div>
-                <Label className="text-xs mb-1 block">CNAE</Label>
+                <Label className="text-xs mb-1 block">CNAE (código)</Label>
                 <Input
                   placeholder="XX.XX-X-XX ou números"
                   value={filtroCnae}
                   onChange={(e) => setFiltroCnae(e.target.value)}
                 />
               </div>
+              <div>
+                <Label className="text-xs mb-1 block">CNAE (atividade)</Label>
+                <Input
+                  placeholder="Ex: limpeza, transporte..."
+                  value={filtroCnaeDescricao}
+                  onChange={(e) => setFiltroCnaeDescricao(e.target.value)}
+                />
+              </div>
             </div>
 
             {(() => {
               const normalizar = (v: string) => v.replace(/[.\-\/]/g, "").toLowerCase().trim();
+              const descricaoBusca = filtroCnaeDescricao.toLowerCase().trim();
               const fornecedoresFiltrados = fornecedores.filter((f) => {
                 if (filtroStatus !== "todos" && f.status_aprovacao !== filtroStatus) return false;
                 if (filtroEmpresa && !f.razao_social.toLowerCase().includes(filtroEmpresa.toLowerCase().trim())) return false;
@@ -708,10 +718,21 @@ export default function Fornecedores() {
                 if (filtroCnae) {
                   const cnaeBusca = normalizar(filtroCnae);
                   const cnaes = cnaesMap[f.id] || [];
-                  if (!cnaes.some(c => normalizar(c).includes(cnaeBusca))) return false;
+                  if (!cnaes.some(c => normalizar(c.codigo_cnae).includes(cnaeBusca))) return false;
+                }
+                if (descricaoBusca) {
+                  const cnaes = cnaesMap[f.id] || [];
+                  if (!cnaes.some(c => c.descricao.toLowerCase().includes(descricaoBusca))) return false;
                 }
                 return true;
               });
+
+              // Compute matching CNAEs for display when filtering by description
+              const getCnaesCorrespondentes = (fornecedorId: string) => {
+                if (!descricaoBusca) return [];
+                const cnaes = cnaesMap[fornecedorId] || [];
+                return cnaes.filter(c => c.descricao.toLowerCase().includes(descricaoBusca));
+              };
 
               if (fornecedoresFiltrados.length === 0) {
                 return (
@@ -736,10 +757,23 @@ export default function Fornecedores() {
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {fornecedoresFiltrados.map((fornecedor) => (
+                      {fornecedoresFiltrados.map((fornecedor) => {
+                        const cnaesCorrespondentes = getCnaesCorrespondentes(fornecedor.id);
+                        return (
                         <TableRow key={fornecedor.id}>
                           <TableCell>{getStatusBadge(fornecedor.status_aprovacao)}</TableCell>
-                          <TableCell className="font-medium break-words whitespace-normal">{fornecedor.razao_social}</TableCell>
+                          <TableCell className="font-medium break-words whitespace-normal">
+                            <div>{fornecedor.razao_social}</div>
+                            {cnaesCorrespondentes.length > 0 && (
+                              <div className="mt-1 space-y-0.5">
+                                {cnaesCorrespondentes.map((cnae, idx) => (
+                                  <div key={idx} className="text-xs text-muted-foreground bg-muted/50 rounded px-1.5 py-0.5 inline-block mr-1 mb-0.5">
+                                    <span className="font-medium">{cnae.codigo_cnae}</span> – {cnae.descricao}
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                          </TableCell>
                           <TableCell className="break-all">{fornecedor.cnpj}</TableCell>
                           <TableCell className="break-all">{fornecedor.email}</TableCell>
                           <TableCell>
@@ -794,7 +828,8 @@ export default function Fornecedores() {
                             </div>
                           </TableCell>
                         </TableRow>
-                      ))}
+                        );
+                      })}
                     </TableBody>
                   </Table>
                 </div>
