@@ -542,7 +542,7 @@ export function DashboardBIOperacional({
                 <CardTitle className="text-sm">Distribuição Percentual</CardTitle>
               </CardHeader>
               <CardContent>
-                <DashboardBIChart data={chartData} chartType="pizza" title="Distribuição" height={300} />
+                <DashboardBIChart data={chartData} chartType="pizza" title="Distribuição" height={300} hideLegend={selectedKey === 'documentos_processo'} />
               </CardContent>
             </Card>
           </div>
