@@ -283,6 +283,8 @@ export async function gerarPropostaFornecedorPDF(
     };
     
     const isPrecosPublicos = ehPrecoPublico((fornecedor as any).email);
+    // Preços públicos NUNCA mostram marca
+    const ocultarMarca = isPrecosPublicos;
     const tituloDocumento = isPrecosPublicos ? 'PROPOSTA DE PREÇOS PÚBLICOS' : 'PROPOSTA DE PREÇOS';
     doc.text(tituloDocumento, 105, 25, { align: 'center' });
     
@@ -364,9 +366,10 @@ export async function gerarPropostaFornecedorPDF(
           const itensDoLote = itensPorLote.get(loteId) || [];
           if (itensDoLote.length === 0) continue;
           
-          // Linha de título do lote - critério por_lote tem 7 colunas (como preço)
+          // Linha de título do lote
+          const colSpanLote = ocultarMarca ? 6 : 7;
           dados.push([
-            { content: `LOTE ${loteInfo.numero_lote} - ${loteInfo.descricao_lote}`, colSpan: 7, styles: { fillColor: [0, 102, 153], textColor: [255, 255, 255], fontStyle: 'bold', halign: 'center' } }
+            { content: `LOTE ${loteInfo.numero_lote} - ${loteInfo.descricao_lote}`, colSpan: colSpanLote, styles: { fillColor: [0, 102, 153], textColor: [255, 255, 255], fontStyle: 'bold', halign: 'center' } }
           ]);
           
           // Itens do lote
@@ -379,20 +382,32 @@ export async function gerarPropostaFornecedorPDF(
             const valorTotalItem = valorUnitario * itemCotacao.quantidade;
             subtotalLote += valorTotalItem;
             
-            dados.push([
-              itemCotacao.numero_item.toString(),
-              sanitizarTexto(itemCotacao.descricao || ''),
-              sanitizarTexto(item.marca || ''),
-              itemCotacao.quantidade.toLocaleString('pt-BR', { minimumFractionDigits: 0, maximumFractionDigits: 0 }),
-              sanitizarTexto(itemCotacao.unidade || ''),
-              valorUnitario.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }),
-              valorTotalItem.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
-            ]);
+            if (ocultarMarca) {
+              dados.push([
+                itemCotacao.numero_item.toString(),
+                sanitizarTexto(itemCotacao.descricao || ''),
+                itemCotacao.quantidade.toLocaleString('pt-BR', { minimumFractionDigits: 0, maximumFractionDigits: 0 }),
+                sanitizarTexto(itemCotacao.unidade || ''),
+                valorUnitario.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }),
+                valorTotalItem.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
+              ]);
+            } else {
+              dados.push([
+                itemCotacao.numero_item.toString(),
+                sanitizarTexto(itemCotacao.descricao || ''),
+                sanitizarTexto(item.marca || ''),
+                itemCotacao.quantidade.toLocaleString('pt-BR', { minimumFractionDigits: 0, maximumFractionDigits: 0 }),
+                sanitizarTexto(itemCotacao.unidade || ''),
+                valorUnitario.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }),
+                valorTotalItem.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
+              ]);
+            }
           }
           
           // Subtotal do lote
+          const colSpanSubtotal = ocultarMarca ? 5 : 6;
           dados.push([
-            { content: `Subtotal Lote ${loteInfo.numero_lote}:`, colSpan: 6, styles: { fillColor: [207, 238, 247], fontStyle: 'bold', halign: 'right' } },
+            { content: `Subtotal Lote ${loteInfo.numero_lote}:`, colSpan: colSpanSubtotal, styles: { fillColor: [207, 238, 247], fontStyle: 'bold', halign: 'right' } },
             { content: subtotalLote.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }), styles: { fillColor: [207, 238, 247], fontStyle: 'bold', halign: 'right' } }
           ]);
           
@@ -418,6 +433,15 @@ export async function gerarPropostaFornecedorPDF(
               sanitizarTexto(itemCotacao.unidade || ''),
               (valorUnitario && valorUnitario > 0) ? `${valorUnitario.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}%` : '-'
             ]);
+          } else if (ocultarMarca) {
+            dados.push([
+              itemCotacao.numero_item.toString(),
+              sanitizarTexto(itemCotacao.descricao || ''),
+              itemCotacao.quantidade.toLocaleString('pt-BR', { minimumFractionDigits: 0, maximumFractionDigits: 0 }),
+              sanitizarTexto(itemCotacao.unidade || ''),
+              valorUnitario.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }),
+              valorTotalItem.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
+            ]);
           } else {
             dados.push([
               itemCotacao.numero_item.toString(),
@@ -440,6 +464,7 @@ export async function gerarPropostaFornecedorPDF(
     // Configurações de colunas baseadas no critério
     const headersDesconto = ['ITEM', 'DESCRICAO', 'QTD', 'UNID', 'DESCONTO (%)'];
     const headersPreco = ['ITEM', 'DESCRICAO', 'MARCA', 'QTD', 'UNID', 'VL. UNIT.', 'VL. TOTAL'];
+    const headersPrecoSemMarca = ['ITEM', 'DESCRICAO', 'QTD', 'UNID', 'VL. UNIT.', 'VL. TOTAL'];
     
     const columnStylesDesconto: any = {
       0: { cellWidth: 14, halign: 'center', valign: 'middle' },
@@ -459,9 +484,22 @@ export async function gerarPropostaFornecedorPDF(
       6: { cellWidth: 25, halign: 'right', valign: 'middle' }
     };
     
+    // Sem marca: expandir descrição e colunas de valor
+    const columnStylesPrecoSemMarca: any = {
+      0: { cellWidth: 14, halign: 'center', valign: 'middle' },
+      1: { cellWidth: 82, halign: 'justify', valign: 'middle' },
+      2: { cellWidth: 16, halign: 'center', valign: 'middle' },
+      3: { cellWidth: 16, halign: 'center', valign: 'middle' },
+      4: { cellWidth: 26, halign: 'right', valign: 'middle' },
+      5: { cellWidth: 26, halign: 'right', valign: 'middle' }
+    };
+    
+    const selectedHeaders = ehDesconto ? headersDesconto : (ocultarMarca ? headersPrecoSemMarca : headersPreco);
+    const selectedColumnStyles = ehDesconto ? columnStylesDesconto : (ocultarMarca ? columnStylesPrecoSemMarca : columnStylesPreco);
+    
     autoTable(doc, {
       startY: y,
-      head: [ehDesconto ? headersDesconto : headersPreco],
+      head: [selectedHeaders],
       body: dadosTabela,
       theme: 'grid',
       headStyles: {
@@ -485,14 +523,14 @@ export async function gerarPropostaFornecedorPDF(
       alternateRowStyles: {
         fillColor: [corFundo[0], corFundo[1], corFundo[2]]
       },
-      columnStyles: ehDesconto ? columnStylesDesconto : columnStylesPreco,
+      columnStyles: selectedColumnStyles,
       margin: { left: 15, right: 15, top: 25, bottom: 25 },
       tableWidth: 180,
       rowPageBreak: 'auto',
       showHead: 'everyPage',
       didParseCell: (data) => {
         if (data.column.index === 1 && data.section === 'body') {
-          data.cell.styles.cellWidth = ehDesconto ? 90 : 63;
+          data.cell.styles.cellWidth = ehDesconto ? 90 : (ocultarMarca ? 82 : 63);
           // Adicionar padding extra na altura para compensar o bug de cálculo
           const textLines = data.cell.text.length;
           const extraPadding = Math.ceil(textLines * 0.5);
