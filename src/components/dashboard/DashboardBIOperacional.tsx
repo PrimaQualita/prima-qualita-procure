@@ -1,5 +1,6 @@
 // @ts-nocheck
 import { useMemo, useState, useEffect } from "react";
+import { Checkbox } from "@/components/ui/checkbox";
 import { differenceInDays } from "date-fns";
 import { toZonedTime } from "date-fns-tz";
 import {
@@ -83,6 +84,15 @@ const COLORS: Record<string, string> = {
   success: "bg-green-100 text-green-800 border-green-300 dark:bg-green-900/40 dark:text-green-200 dark:border-green-700",
   muted: "bg-gray-100 text-gray-700 border-gray-300 dark:bg-gray-800/40 dark:text-gray-300 dark:border-gray-600",
 };
+
+const GRUPOS_PROCESSO = [
+  { key: "requisicao", title: "Requisição", indices: [0, 1, 2] },
+  { key: "aut_despesa", title: "Aut. Despesa", indices: [3, 4, 5] },
+  { key: "aut_selecao", title: "Aut. Seleção", indices: [6, 7, 8] },
+  { key: "aut_compra_direta", title: "Aut. Compra Direta", indices: [9, 10, 11] },
+  { key: "homologacao", title: "Homologação", indices: [12, 13, 14] },
+  { key: "atas", title: "Atas", indices: [15, 16, 17] },
+];
 
 type ModuloKey = "documentos_processo" | "contratos" | "compliance" | "selecoes" | "credenciamentos" | "contratacoes" | "fornecedores";
 
@@ -432,7 +442,8 @@ export function DashboardBIOperacional({
     };
   }, [contratosTerceiros, processosParaContratar, cotacoesPrecos, processos, selecoes, fornecedores, contratoSelecionado, hoje, docData, processoContratoMap]);
 
-  const [selectedKpiName, setSelectedKpiName] = useState<string | null>(null);
+  const [gruposProcessoSelecionados, setGruposProcessoSelecionados] = useState<string[]>(["requisicao"]);
+  const [grupoChartTypes, setGrupoChartTypes] = useState<Record<string, ChartType>>({});
 
   const selectedKey = moduloSelecionado as ModuloKey;
   const selectedItems = metrics[selectedKey] || [];
@@ -706,42 +717,112 @@ export function DashboardBIOperacional({
             </h3>
           </div>
 
-          {/* Gráfico principal grande */}
-          <Card className="shadow-sm hover:shadow-md transition-shadow mb-6">
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm">
-                Comparativo de KPIs — {MODULO_CONFIG[selectedKey]?.label}
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <DashboardBIChart data={chartData} chartType={chartType} title={MODULO_CONFIG[selectedKey]?.label || ""} height={380} />
-            </CardContent>
-          </Card>
+          {selectedKey === 'documentos_processo' ? (
+            <>
+              {/* Seleção de grupos por checkbox */}
+              <div className="flex flex-wrap gap-4 mb-6">
+                {GRUPOS_PROCESSO.map(grupo => (
+                  <label key={grupo.key} className="flex items-center gap-2 cursor-pointer">
+                    <Checkbox
+                      checked={gruposProcessoSelecionados.includes(grupo.key)}
+                      onCheckedChange={(checked) => {
+                        setGruposProcessoSelecionados(prev =>
+                          checked
+                            ? [...prev, grupo.key]
+                            : prev.filter(k => k !== grupo.key)
+                        );
+                      }}
+                    />
+                    <span className="text-sm font-medium">{grupo.title}</span>
+                  </label>
+                ))}
+              </div>
 
-          {/* Grid: cada KPI em um card individual com seletor de gráfico próprio */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
-            {selectedItems.map((item, i) => {
-              const percentage = selectedTotal > 0 ? ((item.value / selectedTotal) * 100).toFixed(1) : "0";
-              return (
-                <ComparativoKPICard
-                  key={i}
-                  item={item}
-                  percentage={percentage}
-                  selectedTotal={selectedTotal}
-                />
-              );
-            })}
-          </div>
+              {/* Um card por grupo selecionado */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
+                {GRUPOS_PROCESSO.filter(g => gruposProcessoSelecionados.includes(g.key)).map(grupo => {
+                  const grupoItems = grupo.indices.map(idx => selectedItems[idx]).filter(Boolean);
+                  const localChart = grupoChartTypes[grupo.key] || "barras";
+                  const grupoData = grupoItems.map(item => ({
+                    name: item.name.split(" - ")[1] || item.name,
+                    value: item.value,
+                  }));
+                  return (
+                    <Card key={grupo.key} className="shadow-sm hover:shadow-md transition-shadow">
+                      <CardHeader className="pb-2">
+                        <CardTitle className="text-sm flex items-center gap-2">
+                          <Stamp className="h-4 w-4 text-primary" />
+                          {grupo.title}
+                        </CardTitle>
+                        <div className="flex gap-1 mt-2">
+                          {CHART_OPTIONS.map(opt => {
+                            const OptIcon = opt.icon;
+                            return (
+                              <button
+                                key={opt.value}
+                                onClick={() => setGrupoChartTypes(prev => ({ ...prev, [grupo.key]: opt.value }))}
+                                className={`p-1.5 rounded-md transition-colors ${localChart === opt.value ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground hover:bg-accent"}`}
+                                title={opt.label}
+                              >
+                                <OptIcon className="h-3.5 w-3.5" />
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </CardHeader>
+                      <CardContent>
+                        <DashboardBIChart
+                          data={grupoData}
+                          chartType={localChart}
+                          title={grupo.title}
+                          height={250}
+                        />
+                      </CardContent>
+                    </Card>
+                  );
+                })}
+              </div>
+            </>
+          ) : (
+            <>
+              {/* Gráfico principal grande */}
+              <Card className="shadow-sm hover:shadow-md transition-shadow mb-6">
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm">
+                    Comparativo de KPIs — {MODULO_CONFIG[selectedKey]?.label}
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <DashboardBIChart data={chartData} chartType={chartType} title={MODULO_CONFIG[selectedKey]?.label || ""} height={380} />
+                </CardContent>
+              </Card>
 
-          {/* Gráfico de distribuição geral */}
-          <Card className="shadow-sm hover:shadow-md transition-shadow mb-6">
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm">Distribuição Percentual — {MODULO_CONFIG[selectedKey]?.label}</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <DashboardBIChart data={chartData} chartType="pizza" title="Distribuição" height={320} />
-            </CardContent>
-          </Card>
+              {/* Grid: cada KPI em um card individual com seletor de gráfico próprio */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
+                {selectedItems.map((item, i) => {
+                  const percentage = selectedTotal > 0 ? ((item.value / selectedTotal) * 100).toFixed(1) : "0";
+                  return (
+                    <ComparativoKPICard
+                      key={i}
+                      item={item}
+                      percentage={percentage}
+                      selectedTotal={selectedTotal}
+                    />
+                  );
+                })}
+              </div>
+
+              {/* Gráfico de distribuição geral */}
+              <Card className="shadow-sm hover:shadow-md transition-shadow mb-6">
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm">Distribuição Percentual — {MODULO_CONFIG[selectedKey]?.label}</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <DashboardBIChart data={chartData} chartType="pizza" title="Distribuição" height={320} />
+                </CardContent>
+              </Card>
+            </>
+          )}
         </>
       )}
     </>
