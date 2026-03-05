@@ -205,15 +205,13 @@ export function DashboardBIOperacional({
       return pids.map(pid => getProcessoInfo(pid));
     };
 
-    // Requisição
+    // Requisição - conta APENAS notificações efetivamente enviadas (clique no botão)
     const notifReq = filterByCGViaProcesso(docData.notificacoes.filter(n => n.tipo_notificacao === 'requisicao'), getNotifProcessoId);
-    const notifReqPendentes = notifReq.filter(n => !n.atendida);
+    const reqSolicitadasSet = new Set(notifReq.map(n => n.processo_compra_id));
+    const reqSolicitadas = reqSolicitadasSet.size;
     const reqGeradas = filterByCGViaProcesso(docData.anexos.filter(a => a.tipo_anexo === 'requisicao'), a => a.processo_compra_id);
     const reqGeradasPids = new Set(reqGeradas.map(a => a.processo_compra_id));
     const reqGeradasCount = reqGeradasPids.size;
-    // Solicitadas = processos com notificação OU com documento já gerado (implica solicitação atendida)
-    const reqSolicitadasSet = new Set([...notifReq.map(n => n.processo_compra_id), ...reqGeradas.map(a => a.processo_compra_id)]);
-    const reqSolicitadas = reqSolicitadasSet.size;
     // Pendentes = solicitadas que ainda não têm o documento gerado
     const reqPendentesSet = new Set([...reqSolicitadasSet].filter(pid => !reqGeradasPids.has(pid)));
     const reqPendentes = reqPendentesSet.size;
@@ -222,15 +220,13 @@ export function DashboardBIOperacional({
     const reqGerDetail = buildDetailFromProcessoIds([...reqGeradasPids]);
     const reqPendDetail = buildDetailFromProcessoIds([...reqPendentesSet]);
 
-    // Autorização de Despesa
+    // Autorização de Despesa - conta APENAS notificações efetivamente enviadas
     const notifAD = filterByCGViaProcesso(docData.notificacoes.filter(n => n.tipo_notificacao === 'autorizacao_despesa'), getNotifProcessoId);
-    const notifADPendentes = notifAD.filter(n => !n.atendida);
+    const adSolicitadasSet = new Set(notifAD.map(n => n.processo_compra_id));
+    const adSolicitadas = adSolicitadasSet.size;
     const adGeradas = filterByCGViaProcesso(docData.anexos.filter(a => a.tipo_anexo === 'autorizacao_despesa'), a => a.processo_compra_id);
     const adGeradasPids = new Set(adGeradas.map(a => a.processo_compra_id));
     const adGeradasCount = adGeradasPids.size;
-    // Solicitadas = processos com notificação OU com documento já gerado
-    const adSolicitadasSet = new Set([...notifAD.map(n => n.processo_compra_id), ...adGeradas.map(a => a.processo_compra_id)]);
-    const adSolicitadas = adSolicitadasSet.size;
     // Pendentes = solicitadas que ainda não têm o documento gerado
     const adPendentesSet = new Set([...adSolicitadasSet].filter(pid => !adGeradasPids.has(pid)));
     const adPendentes = adPendentesSet.size;
