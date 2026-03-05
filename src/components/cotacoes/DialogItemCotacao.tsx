@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 interface ItemCotacao {
   id?: string;
@@ -14,16 +15,26 @@ interface ItemCotacao {
   marca?: string;
 }
 
+interface LoteOption {
+  id: string;
+  numero_lote: number;
+  descricao_lote: string;
+}
+
 interface DialogItemCotacaoProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   item?: ItemCotacao | null;
   numeroProximo: number;
   tipoProcesso?: string;
+  lotes?: LoteOption[];
+  lotePreSelecionado?: string | null;
+  onLoteChange?: (loteId: string | null) => void;
   onSave: (item: Omit<ItemCotacao, "id"> & { valor_unitario_estimado: number }) => Promise<void>;
 }
 
-export const DialogItemCotacao = ({ open, onOpenChange, item, numeroProximo, tipoProcesso, onSave }: DialogItemCotacaoProps) => {
+export const DialogItemCotacao = ({ open, onOpenChange, item, numeroProximo, tipoProcesso, lotes, lotePreSelecionado, onLoteChange, onSave }: DialogItemCotacaoProps) => {
+  const mostrarSeletorLote = !item && lotes && lotes.length > 0 && !lotePreSelecionado;
   const [formData, setFormData] = useState({
     numero_item: numeroProximo,
     descricao: "",
@@ -54,6 +65,9 @@ export const DialogItemCotacao = ({ open, onOpenChange, item, numeroProximo, tip
   }, [item, numeroProximo, open]);
 
   const handleSubmit = async () => {
+    if (mostrarSeletorLote && !lotePreSelecionado) {
+      return;
+    }
     setLoading(true);
     try {
       await onSave({
@@ -75,6 +89,26 @@ export const DialogItemCotacao = ({ open, onOpenChange, item, numeroProximo, tip
           <DialogTitle>{item ? "Editar Item" : "Novo Item"}</DialogTitle>
         </DialogHeader>
         <div className="space-y-4">
+          {mostrarSeletorLote && (
+            <div className="space-y-2">
+              <Label htmlFor="lote_selecionado">Lote *</Label>
+              <Select
+                value={lotePreSelecionado || ""}
+                onValueChange={(val) => onLoteChange?.(val || null)}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Selecione o lote para este item" />
+                </SelectTrigger>
+                <SelectContent>
+                  {lotes!.map((l) => (
+                    <SelectItem key={l.id} value={l.id}>
+                      Lote {l.numero_lote} - {l.descricao_lote}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label htmlFor="numero_item">Número do Item *</Label>
