@@ -16,12 +16,13 @@ interface Props {
   setMesSelecionado: (v: string) => void;
   modoVisualizacao: "individual" | "comparativo";
   setModoVisualizacao: (v: "individual" | "comparativo") => void;
+  ocultarTodosContratos?: boolean;
 }
 
 export function DashboardBIFilters({
   contratos, anosDisponiveis, contratoSelecionado, setContratoSelecionado,
   anoSelecionado, setAnoSelecionado, mesSelecionado, setMesSelecionado,
-  modoVisualizacao, setModoVisualizacao,
+  modoVisualizacao, setModoVisualizacao, ocultarTodosContratos,
 }: Props) {
   return (
     <div className="bg-card border rounded-2xl shadow-sm p-5 mb-6">
@@ -37,7 +38,7 @@ export function DashboardBIFilters({
             <SelectValue placeholder="Contrato de Gestão" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="todos">Todos os Contratos</SelectItem>
+            {!ocultarTodosContratos && <SelectItem value="todos">Todos os Contratos</SelectItem>}
             {contratos.map(c => (
               <SelectItem key={c.id} value={c.id}>{c.nome_contrato}</SelectItem>
             ))}

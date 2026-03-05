@@ -361,7 +361,8 @@ export function DashboardLayout() {
                 isContabilidade: isContabilidade || cachedIsContabilidade,
                 isContrato: isContrato || cachedIsContrato,
                 profile: profile || cachedProfile,
-                userId: user?.id || cachedUser?.id
+                userId: user?.id || cachedUser?.id,
+                contratosVinculados: contratosVinculados.length > 0 ? contratosVinculados : cachedContratosVinculados
               }} />
             </main>
           </div>
@@ -424,7 +425,8 @@ export function DashboardLayout() {
               isContabilidade,
               isContrato,
               profile,
-              userId: user?.id
+              userId: user?.id,
+              contratosVinculados
             }} />
           </main>
         </div>

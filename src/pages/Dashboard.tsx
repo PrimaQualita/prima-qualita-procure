@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { FileText, CheckCircle, BarChart3, ClipboardList } from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { AlertCircle } from "lucide-react";
+import { useUserContext } from "@/hooks/useUserContext";
 import { SolicitacoesAutorizacao } from "@/components/dashboard/SolicitacoesAutorizacao";
 import { SolicitacoesHomologacao } from "@/components/dashboard/SolicitacoesHomologacao";
 import { SolicitacoesAutorizacaoSelecao } from "@/components/dashboard/SolicitacoesAutorizacaoSelecao";
@@ -40,6 +41,11 @@ const TIPO_LABELS: Record<TipoProcesso, string> = {
 
 const Dashboard = () => {
   const { toast } = useToast();
+  const userContext = useUserContext();
+  const isGerenteContratosOnly = userContext?.isGerenteContratos && 
+    !userContext?.isGestor && !userContext?.isColaborador && !userContext?.isCompliance && 
+    !userContext?.isResponsavelLegal && !userContext?.isSuperintendenteExecutivo && !userContext?.isContabilidade;
+  const contratosVinculadosGerente = userContext?.contratosVinculados || [];
   const [loading, setLoading] = useState(true);
   const [contratos, setContratos] = useState<any[]>([]);
   const [processos, setProcessos] = useState<any[]>([]);
@@ -62,8 +68,10 @@ const Dashboard = () => {
   // BI Tab
   const [abaBI, setAbaBI] = useState<"compras" | "controle">("compras");
 
-  // BI Filters
-  const [contratoSelecionado, setContratoSelecionado] = useState("todos");
+  // BI Filters - Gerente de Contratos: auto-seleciona seu contrato
+  const contratoInicialGerente = isGerenteContratosOnly && contratosVinculadosGerente.length === 1 
+    ? contratosVinculadosGerente[0] : "todos";
+  const [contratoSelecionado, setContratoSelecionado] = useState(contratoInicialGerente);
   const [anoSelecionado, setAnoSelecionado] = useState(new Date().getFullYear().toString());
   const [mesSelecionado, setMesSelecionado] = useState<string>("todos");
   const [modoVisualizacao, setModoVisualizacao] = useState<"individual" | "comparativo">("individual");
@@ -77,6 +85,23 @@ const Dashboard = () => {
 
   // Comparativo
   const [processosComparativos, setProcessosComparativos] = useState<TipoProcesso[]>(["processos", "selecao"]);
+
+  // Auto-selecionar contrato para Gerente de Contratos
+  useEffect(() => {
+    if (isGerenteContratosOnly && contratosVinculadosGerente.length === 1) {
+      setContratoSelecionado(contratosVinculadosGerente[0]);
+    } else if (isGerenteContratosOnly && contratosVinculadosGerente.length > 1) {
+      setContratoSelecionado(contratosVinculadosGerente[0]);
+    }
+  }, [isGerenteContratosOnly, contratosVinculadosGerente]);
+
+  // Contratos filtrados para Gerente de Contratos
+  const contratosDisponiveis = useMemo(() => {
+    if (isGerenteContratosOnly && contratosVinculadosGerente.length > 0) {
+      return contratos.filter(c => contratosVinculadosGerente.includes(c.id));
+    }
+    return contratos;
+  }, [contratos, isGerenteContratosOnly, contratosVinculadosGerente]);
 
   useEffect(() => {
     loadData();
@@ -469,7 +494,8 @@ const Dashboard = () => {
         {abaBI === "compras" ? (
           <>
             <DashboardBIFilters
-              contratos={contratos}
+              contratos={contratosDisponiveis}
+              ocultarTodosContratos={isGerenteContratosOnly}
               anosDisponiveis={anosDisponiveis}
               contratoSelecionado={contratoSelecionado}
               setContratoSelecionado={setContratoSelecionado}
@@ -598,8 +624,8 @@ const Dashboard = () => {
                     <SelectValue placeholder="Contrato de Gestão" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="todos">Todos os Contratos</SelectItem>
-                    {contratos.map(c => (
+                    {!isGerenteContratosOnly && <SelectItem value="todos">Todos os Contratos</SelectItem>}
+                    {contratosDisponiveis.map(c => (
                       <SelectItem key={c.id} value={c.id}>{c.nome_contrato}</SelectItem>
                     ))}
                   </SelectContent>
