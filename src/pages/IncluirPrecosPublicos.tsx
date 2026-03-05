@@ -113,69 +113,46 @@ const IncluirPrecosPublicos = () => {
       const workbook = new ExcelJS.Workbook();
       const worksheet = workbook.addWorksheet('Preços Públicos');
       const criterio = processoCompra?.criterio_julgamento;
-      const mostrarMarca = processoCompra?.tipo === "material";
+      // Preços públicos NUNCA mostra marca
+      const mostrarMarca = false;
       const isDesconto = criterio === "desconto" || criterio === "maior_percentual_desconto";
 
-      // Definir colunas dinamicamente baseado no tipo do processo e critério
+      // Definir colunas dinamicamente - preços públicos nunca tem marca
       let colunas: { header: string; key: string; width: number }[];
       
       if (isDesconto) {
-        // Template para critério de desconto: apenas coluna de percentual (sem valor total)
-        if (mostrarMarca) {
-          colunas = [
-            { header: 'Item', key: 'item', width: 10 },
-            { header: 'Descrição', key: 'descricao', width: 50 },
-            { header: 'Quantidade', key: 'quantidade', width: 12 },
-            { header: 'Unidade de Medida', key: 'unidade', width: 18 },
-            { header: 'Marca', key: 'marca', width: 30 },
-            { header: 'Percentual de Desconto (%)', key: 'desconto', width: 25 }
-          ];
-        } else {
-          colunas = [
-            { header: 'Item', key: 'item', width: 10 },
-            { header: 'Descrição', key: 'descricao', width: 50 },
-            { header: 'Quantidade', key: 'quantidade', width: 12 },
-            { header: 'Unidade de Medida', key: 'unidade', width: 18 },
-            { header: 'Percentual de Desconto (%)', key: 'desconto', width: 25 }
-          ];
-        }
-      } else if (mostrarMarca) {
         colunas = [
           { header: 'Item', key: 'item', width: 10 },
-          { header: 'Descrição', key: 'descricao', width: 50 },
-          { header: 'Quantidade', key: 'quantidade', width: 12 },
-          { header: 'Unidade de Medida', key: 'unidade', width: 18 },
-          { header: 'Marca', key: 'marca', width: 30 },
-          { header: 'Valor Unitário', key: 'valor', width: 15 },
-          { header: 'Valor Total', key: 'valor_total', width: 15 }
+          { header: 'Descrição', key: 'descricao', width: 60 },
+          { header: 'Quantidade', key: 'quantidade', width: 15 },
+          { header: 'Unidade de Medida', key: 'unidade', width: 20 },
+          { header: 'Percentual de Desconto (%)', key: 'desconto', width: 25 }
         ];
       } else {
         colunas = [
           { header: 'Item', key: 'item', width: 10 },
-          { header: 'Descrição', key: 'descricao', width: 50 },
-          { header: 'Quantidade', key: 'quantidade', width: 12 },
-          { header: 'Unidade de Medida', key: 'unidade', width: 18 },
-          { header: 'Valor Unitário', key: 'valor', width: 15 },
-          { header: 'Valor Total', key: 'valor_total', width: 15 }
+          { header: 'Descrição', key: 'descricao', width: 55 },
+          { header: 'Quantidade', key: 'quantidade', width: 15 },
+          { header: 'Unidade de Medida', key: 'unidade', width: 20 },
+          { header: 'Valor Unitário', key: 'valor', width: 18 },
+          { header: 'Valor Total', key: 'valor_total', width: 18 }
         ];
       }
       
       worksheet.columns = colunas;
       
-      // Índices das colunas variam conforme o tipo de template
-      // Desconto com marca: Item(1), Desc(2), Qtd(3), Unid(4), Marca(5), Desconto(6)
-      // Desconto sem marca: Item(1), Desc(2), Qtd(3), Unid(4), Desconto(5)
-      // Valor com marca: Item(1), Desc(2), Qtd(3), Unid(4), Marca(5), Valor(6), Total(7)
-      // Valor sem marca: Item(1), Desc(2), Qtd(3), Unid(4), Valor(5), Total(6)
+      // Índices das colunas - sem marca para preços públicos
+      // Desconto: Item(1), Desc(2), Qtd(3), Unid(4), Desconto(5)
+      // Valor: Item(1), Desc(2), Qtd(3), Unid(4), Valor(5), Total(6)
       let colValor: number;
       let colValorTotal: number;
       
       if (isDesconto) {
-        colValor = mostrarMarca ? 6 : 5;
-        colValorTotal = -1; // Não existe coluna de valor total para desconto
+        colValor = 5;
+        colValorTotal = -1;
       } else {
-        colValor = mostrarMarca ? 6 : 5;
-        colValorTotal = mostrarMarca ? 7 : 6;
+        colValor = 5;
+        colValorTotal = 6;
       }
       const colQuantidade = 3;
 
@@ -205,10 +182,8 @@ const IncluirPrecosPublicos = () => {
               unidade: ''
             };
             if (isDesconto) {
-              if (mostrarMarca) loteRowData.marca = '';
               loteRowData.desconto = '';
             } else {
-              if (mostrarMarca) loteRowData.marca = '';
               loteRowData.valor = '';
               loteRowData.valor_total = '';
             }
@@ -236,10 +211,8 @@ const IncluirPrecosPublicos = () => {
                 unidade: item.unidade
               };
               if (isDesconto) {
-                if (mostrarMarca) rowData.marca = '';
                 rowData.desconto = '';
               } else {
-                if (mostrarMarca) rowData.marca = '';
                 rowData.valor = '';
                 rowData.valor_total = '';
               }
@@ -248,7 +221,7 @@ const IncluirPrecosPublicos = () => {
               // Fórmula para calcular Valor Total (apenas quando não é desconto)
               if (!isDesconto) {
                 const rowNumber = row.number;
-                const colLetraValor = mostrarMarca ? 'F' : 'E';
+              const colLetraValor = 'E';
                 row.getCell(colValorTotal).value = { formula: `C${rowNumber}*${colLetraValor}${rowNumber}` };
               }
             });
@@ -265,11 +238,10 @@ const IncluirPrecosPublicos = () => {
                 valor: `SUBTOTAL LOTE ${lote.numero_lote}:`,
                 valor_total: ''
               };
-              if (mostrarMarca) subtotalRowData.marca = '';
               const subtotalRow = worksheet.addRow(subtotalRowData);
               
               // Fórmula para somar valores totais do lote
-              const colLetraTotal = mostrarMarca ? 'G' : 'F';
+              const colLetraTotal = 'F';
               subtotalRow.getCell(colValorTotal).value = { formula: `SUM(${colLetraTotal}${primeiraLinhaItens}:${colLetraTotal}${ultimaLinhaItens})` };
               
               // Estilizar linha de subtotal
@@ -296,7 +268,6 @@ const IncluirPrecosPublicos = () => {
             valor: 'VALOR TOTAL GERAL:',
             valor_total: ''
           };
-          if (mostrarMarca) totalGeralRowData.marca = '';
           const totalGeralRow = worksheet.addRow(totalGeralRowData);
           
           // Soma de todos os subtotais
@@ -308,7 +279,7 @@ const IncluirPrecosPublicos = () => {
             }
           });
           
-          const colLetraTotal = mostrarMarca ? 'G' : 'F';
+          const colLetraTotal = 'F';
           if (linhasSubtotal.length > 0) {
             const formula = linhasSubtotal.map(r => `${colLetraTotal}${r}`).join('+');
             totalGeralRow.getCell(colValorTotal).value = { formula };
@@ -335,10 +306,8 @@ const IncluirPrecosPublicos = () => {
             unidade: item.unidade
           };
           if (isDesconto) {
-            if (mostrarMarca) rowData.marca = '';
             rowData.desconto = '';
           } else {
-            if (mostrarMarca) rowData.marca = '';
             rowData.valor = '';
             rowData.valor_total = '';
           }
@@ -347,7 +316,7 @@ const IncluirPrecosPublicos = () => {
           // Fórmula para calcular Valor Total (apenas quando não é desconto)
           if (!isDesconto) {
             const rowNumber = row.number;
-            const colLetraValor = mostrarMarca ? 'F' : 'E';
+            const colLetraValor = 'E';
             row.getCell(colValorTotal).value = { formula: `C${rowNumber}*${colLetraValor}${rowNumber}` };
           }
         });
@@ -406,8 +375,6 @@ const IncluirPrecosPublicos = () => {
       // Mensagem de sucesso baseada no tipo de template
       if (isDesconto) {
         toast.success("Template baixado! Apenas 'Percentual de Desconto (%)' é editável.");
-      } else if (mostrarMarca) {
-        toast.success("Template baixado! Apenas 'Marca' e 'Valor Unitário' são editáveis.");
       } else {
         toast.success("Template baixado! Apenas 'Valor Unitário' é editável.");
       }
@@ -434,32 +401,13 @@ const IncluirPrecosPublicos = () => {
       
       const criterio = processoCompra?.criterio_julgamento;
       const isPorLote = criterio === "lote" || criterio === "por_lote";
-      const mostrarMarca = processoCompra?.tipo === "material";
       const isDesconto = criterio === "desconto" || criterio === "maior_percentual_desconto";
       
-      // Índices das colunas variam conforme tipo de template
-      // Desconto com marca: Item(0), Desc(1), Qtd(2), Unid(3), Marca(4), Desconto(5)
-      // Desconto sem marca: Item(0), Desc(1), Qtd(2), Unid(3), Desconto(4)
-      // Valor com marca: Item(0), Desc(1), Qtd(2), Unid(3), Marca(4), Valor(5)
-      // Valor sem marca: Item(0), Desc(1), Qtd(2), Unid(3), Valor(4)
-      let colMarcaIdx: number;
-      let colValorIdx: number;
-      
-      if (isDesconto) {
-        if (mostrarMarca) {
-          colMarcaIdx = 4;
-          colValorIdx = 5; // Coluna de percentual de desconto
-        } else {
-          colMarcaIdx = -1;
-          colValorIdx = 4; // Coluna de percentual de desconto
-        }
-      } else if (mostrarMarca) {
-        colMarcaIdx = 4;
-        colValorIdx = 5;
-      } else {
-        colMarcaIdx = -1;
-        colValorIdx = 4;
-      }
+      // Índices das colunas - preços públicos nunca tem marca
+      // Desconto: Item(0), Desc(1), Qtd(2), Unid(3), Desconto(4)
+      // Valor: Item(0), Desc(1), Qtd(2), Unid(3), Valor(4)
+      const colMarcaIdx = -1;
+      const colValorIdx = 4;
       
       // Variável para rastrear o lote atual durante a importação
       let loteAtualId: string | null = null;
@@ -602,34 +550,7 @@ const IncluirPrecosPublicos = () => {
       let todosPreenchidos = true;
       let mensagemErro = "";
       
-      // VALIDAÇÃO: Se preencheu marca OU valor em um item, AMBOS devem estar preenchidos
-      // EXCETO para serviço ou mão de obra exclusiva, onde marca não é necessária
-      const tipoProcesso = processoCompra?.tipo;
-      const exigeMarca = tipoProcesso === "material";
-      
-      for (const item of itens) {
-        const resposta = respostas[item.id];
-        const temMarca = resposta?.marca && resposta.marca.trim() !== '';
-        const temValor = criterio === "desconto" 
-          ? (resposta?.percentual_desconto && parseFloat(resposta.percentual_desconto.replace(/,/g, ".")) > 0)
-          : (resposta?.valor_unitario && parseFloat(resposta.valor_unitario.replace(/,/g, ".")) > 0);
-        
-        // Só validar marca se o tipo do processo for "material"
-        if (exigeMarca) {
-          if (temMarca && !temValor) {
-            const campoFaltando = criterio === "desconto" ? "percentual de desconto" : "valor unitário";
-            toast.error(`Item ${item.numero_item}: Você preencheu a marca, mas não informou o ${campoFaltando}. Complete o item ou deixe ambos os campos vazios.`);
-            setEnviando(false);
-            return;
-          }
-          
-          if (temValor && !temMarca) {
-            toast.error(`Item ${item.numero_item}: Você preencheu o ${criterio === "desconto" ? "percentual de desconto" : "valor unitário"}, mas não informou a marca. Complete o item ou deixe ambos os campos vazios.`);
-            setEnviando(false);
-            return;
-          }
-        }
-      }
+      // Preços públicos: marca não é exigida em nenhum critério
       
       if (criterio === "item" || criterio === "desconto") {
         // Para "item" e "desconto": apenas verificar se PELO MENOS um item foi preenchido
@@ -660,7 +581,7 @@ const IncluirPrecosPublicos = () => {
         }
       } else if (criterio === "lote" || criterio === "por_lote") {
         // Para "lote" e "por_lote": validar que se algum item de um lote foi preenchido,
-        // TODOS os itens daquele lote devem estar preenchidos (valor E marca)
+        // TODOS os itens daquele lote devem ter valor preenchido (marca não exigida em preços públicos)
         const itemsPorLote = new Map<string, any[]>();
         itens.forEach(item => {
           const loteId = item.lote_id || 'sem_lote';
@@ -677,17 +598,11 @@ const IncluirPrecosPublicos = () => {
             return resposta && resposta.valor_unitario && parseFloat(resposta.valor_unitario.replace(/,/g, ".")) > 0;
           });
           
-          const itensComMarca = itensDoLote.filter(item => {
-            const resposta = respostas[item.id];
-            return resposta && resposta.marca && resposta.marca.trim() !== '';
-          });
-          
-          // Se algum item tem valor ou marca preenchido, o lote está sendo cotado
+          // Se algum item tem valor preenchido, o lote está sendo cotado
           const itensPreenchidos = itensDoLote.filter(item => {
             const resposta = respostas[item.id];
             const temValor = resposta && resposta.valor_unitario && parseFloat(resposta.valor_unitario.replace(/,/g, ".")) > 0;
-            const temMarca = resposta && resposta.marca && resposta.marca.trim() !== '';
-            return temValor || temMarca;
+            return temValor;
           });
           
           if (itensPreenchidos.length > 0) {
@@ -706,23 +621,11 @@ const IncluirPrecosPublicos = () => {
               todosPreenchidos = false;
               break;
             }
-            
-            // Verificar se TODOS os itens do lote têm marca preenchida
-            if (itensComMarca.length !== itensDoLote.length) {
-              const itensSemMarca = itensDoLote.filter(item => {
-                const resposta = respostas[item.id];
-                return !resposta || !resposta.marca || resposta.marca.trim() === '';
-              });
-              const numerosItens = itensSemMarca.map(i => i.numero_item).join(', ');
-              mensagemErro = `Critério por Lote: Se você cotar qualquer item do ${loteNome}, deve preencher a marca de TODOS os itens desse lote. Itens sem marca: ${numerosItens}`;
-              todosPreenchidos = false;
-              break;
-            }
           }
         }
         
         if (todosPreenchidos && !algumLotePreenchido) {
-          mensagemErro = "Por favor, preencha pelo menos um lote completo (valor unitário E marca de todos os itens do lote)";
+          mensagemErro = "Por favor, preencha pelo menos um lote completo (valor unitário de todos os itens do lote)";
           todosPreenchidos = false;
         }
       }
@@ -1032,7 +935,7 @@ const IncluirPrecosPublicos = () => {
                       <TableHead className="text-center">Descrição</TableHead>
                       <TableHead className="w-20 text-center">Qtd</TableHead>
                       <TableHead className="w-24 text-center">Unid. Medida</TableHead>
-                      {processoCompra?.tipo === "material" && <TableHead className="w-32 text-center">Marca</TableHead>}
+                      {/* Preços públicos não exibe coluna Marca */}
                       {processoCompra?.criterio_julgamento === "desconto" ? (
                         <TableHead className="w-48 text-center">Percentual de Desconto (%) *</TableHead>
                       ) : (
@@ -1077,7 +980,7 @@ const IncluirPrecosPublicos = () => {
                             <React.Fragment key={lote.id}>
                               {/* Linha de título do lote */}
                               <TableRow className="bg-muted/70">
-                                <TableCell colSpan={7} className="font-bold text-primary py-3">
+                                <TableCell colSpan={6} className="font-bold text-primary py-3">
                                   LOTE {lote.numero_lote} - {lote.descricao_lote}
                                 </TableCell>
                               </TableRow>
@@ -1096,21 +999,7 @@ const IncluirPrecosPublicos = () => {
                                     <TableCell>{item.descricao}</TableCell>
                                     <TableCell className="text-center">{item.quantidade}</TableCell>
                                     <TableCell className="text-center">{item.unidade}</TableCell>
-                                    {processoCompra?.tipo === "material" && (
-                                      <TableCell>
-                                        <Input
-                                          type="text"
-                                          value={resposta?.marca || ""}
-                                          onChange={(e) => {
-                                            setRespostas({
-                                              ...respostas,
-                                              [item.id]: { ...resposta, marca: e.target.value },
-                                            });
-                                          }}
-                                          placeholder="Marca"
-                                        />
-                                      </TableCell>
-                                    )}
+                                    {/* Preços públicos não exibe campo Marca */}
                                     <TableCell>
                                       <Input
                                         type="text"
@@ -1140,7 +1029,7 @@ const IncluirPrecosPublicos = () => {
                               
                               {/* Linha de subtotal do lote */}
                               <TableRow className="bg-blue-50">
-                                <TableCell colSpan={6} className="text-right font-semibold">
+                                <TableCell colSpan={5} className="text-right font-semibold">
                                   SUBTOTAL LOTE {lote.numero_lote}:
                                 </TableCell>
                                 <TableCell className="text-right font-semibold">
@@ -1156,7 +1045,7 @@ const IncluirPrecosPublicos = () => {
                           <>
                             {elementosLotes}
                             <TableRow className="font-bold bg-primary text-primary-foreground">
-                              <TableCell colSpan={6} className="text-right">
+                              <TableCell colSpan={5} className="text-right">
                                 VALOR TOTAL GERAL:
                               </TableCell>
                               <TableCell className="text-right">
@@ -1182,21 +1071,7 @@ const IncluirPrecosPublicos = () => {
                             <TableCell className="text-center">{item.quantidade}</TableCell>
                             <TableCell className="text-center">{item.unidade}</TableCell>
                             
-                            {processoCompra?.tipo === "material" && (
-                              <TableCell>
-                                <Input
-                                  type="text"
-                                  value={resposta?.marca || ""}
-                                  onChange={(e) => {
-                                    setRespostas({
-                                      ...respostas,
-                                      [item.id]: { ...resposta, marca: e.target.value },
-                                    });
-                                  }}
-                                  placeholder="Marca"
-                                />
-                              </TableCell>
-                            )}
+                            {/* Preços públicos não exibe campo Marca */}
                             {criterio === "desconto" ? (
                               <TableCell>
                                 <div className="flex items-center gap-2">
@@ -1251,7 +1126,7 @@ const IncluirPrecosPublicos = () => {
                      processoCompra?.criterio_julgamento !== "lote" && 
                      processoCompra?.criterio_julgamento !== "por_lote" && (
                       <TableRow className="bg-muted/50 font-bold">
-                        <TableCell colSpan={6} className="text-right">
+                        <TableCell colSpan={5} className="text-right">
                           VALOR TOTAL:
                         </TableCell>
                         <TableCell className="text-right text-lg">
