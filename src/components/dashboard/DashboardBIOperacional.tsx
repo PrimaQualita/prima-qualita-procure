@@ -125,14 +125,14 @@ export function DashboardBIOperacional({
     const fetchDocData = async () => {
       try {
         const [notifRes, anexosRes, solAutRes, solAutSelRes, autRes, solHomRes, homRes, atasRes] = await Promise.all([
-          supabase.from('notificacoes_documentos_processo').select('tipo_notificacao, atendida, processo_compra_id'),
-          supabase.from('anexos_processo_compra').select('tipo_anexo, processo_compra_id').in('tipo_anexo', ['requisicao', 'autorizacao_despesa']),
-          supabase.from('solicitacoes_autorizacao').select('id, cotacao_id, status, cotacoes_precos:cotacao_id(processo_compra_id)'),
-          supabase.from('solicitacoes_autorizacao_selecao').select('id, cotacao_id, status, cotacoes_precos:cotacao_id(processo_compra_id)'),
-          supabase.from('autorizacoes_processo').select('id, tipo_autorizacao, cotacao_id, cotacoes_precos:cotacao_id(processo_compra_id)'),
-          supabase.from('solicitacoes_homologacao_selecao').select('id, selecao_id, atendida, selecoes_fornecedores:selecao_id(processo_compra_id)'),
-          supabase.from('homologacoes_selecao').select('id, selecao_id, selecoes_fornecedores:selecao_id(processo_compra_id)'),
-          supabase.from('atas_selecao').select('id, selecao_id, selecoes_fornecedores:selecao_id(processo_compra_id), atas_assinaturas_usuario(status_assinatura, profiles:usuario_id(nome_completo)), atas_assinaturas_fornecedor(status_assinatura, fornecedores:fornecedor_id(razao_social))'),
+          supabase.from('notificacoes_documentos_processo').select('tipo_notificacao, atendida, processo_compra_id').limit(5000),
+          supabase.from('anexos_processo_compra').select('tipo_anexo, processo_compra_id').in('tipo_anexo', ['requisicao', 'autorizacao_despesa']).limit(5000),
+          supabase.from('solicitacoes_autorizacao').select('id, cotacao_id, status, cotacoes_precos:cotacao_id(processo_compra_id)').limit(5000),
+          supabase.from('solicitacoes_autorizacao_selecao').select('id, cotacao_id, status, cotacoes_precos:cotacao_id(processo_compra_id)').limit(5000),
+          supabase.from('autorizacoes_processo').select('id, tipo_autorizacao, cotacao_id, cotacoes_precos:cotacao_id(processo_compra_id)').limit(5000),
+          supabase.from('solicitacoes_homologacao_selecao').select('id, selecao_id, atendida, selecoes_fornecedores:selecao_id(processo_compra_id)').limit(5000),
+          supabase.from('homologacoes_selecao').select('id, selecao_id, selecoes_fornecedores:selecao_id(processo_compra_id)').limit(5000),
+          supabase.from('atas_selecao').select('id, selecao_id, selecoes_fornecedores:selecao_id(processo_compra_id), atas_assinaturas_usuario(status_assinatura, profiles:usuario_id(nome_completo)), atas_assinaturas_fornecedor(status_assinatura, fornecedores:fornecedor_id(razao_social))').limit(5000),
         ]);
         setDocData({
           notificacoes: notifRes.data || [],
