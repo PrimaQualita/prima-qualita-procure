@@ -78,6 +78,7 @@ export function AppSidebar({
   const [contractAlertCount, setContractAlertCount] = useState(0);
   const [compliancePendingCount, setCompliancePendingCount] = useState(0);
   const [fornecedoresPendingCount, setFornecedoresPendingCount] = useState(0);
+  const [contabilidadePendingCount, setContabilidadePendingCount] = useState(0);
 
   useEffect(() => {
     if (profile?.avatar_url) {
@@ -234,6 +235,24 @@ export function AppSidebar({
         }
 
         setFornecedoresPendingCount(count);
+      } catch { /* silent */ }
+    };
+    load();
+    const interval = setInterval(load, 60000);
+    return () => clearInterval(interval);
+  }, [profile?.id]);
+
+  // Carregar contagem de pendências da Contabilidade
+  useEffect(() => {
+    if (!profile?.id) return;
+    const load = async () => {
+      try {
+        const { count } = await supabase
+          .from('encaminhamentos_contabilidade')
+          .select('*', { count: 'exact', head: true })
+          .eq('enviado_contabilidade', true)
+          .or('respondido_contabilidade.is.null,respondido_contabilidade.eq.false');
+        setContabilidadePendingCount(count || 0);
       } catch { /* silent */ }
     };
     load();
@@ -495,6 +514,14 @@ export function AppSidebar({
                             {fornecedoresPendingCount > 99 ? "99+" : fornecedoresPendingCount}
                           </Badge>
                         )}
+                        {item.href === "/contabilidade" && contabilidadePendingCount > 0 && !open && (
+                          <Badge 
+                            variant="destructive" 
+                            className="absolute -top-2 -right-2 h-4 min-w-4 px-1 text-[10px] flex items-center justify-center"
+                          >
+                            {contabilidadePendingCount > 99 ? "99+" : contabilidadePendingCount}
+                          </Badge>
+                        )}
                       </div>
                       {open && (
                         <span className="flex items-center gap-2">
@@ -517,6 +544,11 @@ export function AppSidebar({
                           {item.href === "/fornecedores" && fornecedoresPendingCount > 0 && (
                             <Badge variant="destructive" className="h-5 px-1.5 text-xs">
                               {fornecedoresPendingCount > 99 ? "99+" : fornecedoresPendingCount}
+                            </Badge>
+                          )}
+                          {item.href === "/contabilidade" && contabilidadePendingCount > 0 && (
+                            <Badge variant="destructive" className="h-5 px-1.5 text-xs">
+                              {contabilidadePendingCount > 99 ? "99+" : contabilidadePendingCount}
                             </Badge>
                           )}
                         </span>
