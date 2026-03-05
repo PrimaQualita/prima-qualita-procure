@@ -442,6 +442,7 @@ export function DashboardBIOperacional({
     };
   }, [contratosTerceiros, processosParaContratar, cotacoesPrecos, processos, selecoes, fornecedores, contratoSelecionado, hoje, docData, processoContratoMap]);
 
+  const [selectedKpiName, setSelectedKpiName] = useState<string | null>(null);
   const [gruposProcessoSelecionados, setGruposProcessoSelecionados] = useState<string[]>(["requisicao"]);
   const [grupoChartTypes, setGrupoChartTypes] = useState<Record<string, ChartType>>({});
 
