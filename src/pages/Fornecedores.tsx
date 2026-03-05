@@ -652,7 +652,7 @@ export default function Fornecedores() {
           <CardHeader>
             <CardTitle>Fornecedores Cadastrados</CardTitle>
           </CardHeader>
-          <CardContent>
+          <CardContent className="overflow-x-hidden">
             {/* Filtros */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 mb-4">
               <div>
@@ -722,80 +722,82 @@ export default function Fornecedores() {
               }
 
               return (
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Status</TableHead>
-                    <TableHead>Empresa</TableHead>
-                    <TableHead>CNPJ</TableHead>
-                    <TableHead>Email</TableHead>
-                    <TableHead>Data Cadastro</TableHead>
-                    <TableHead>Validade Cert.</TableHead>
-                    <TableHead className="text-right">Ações</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {fornecedoresFiltrados.map((fornecedor) => (
-                    <TableRow key={fornecedor.id}>
-                      <TableCell>{getStatusBadge(fornecedor.status_aprovacao)}</TableCell>
-                      <TableCell className="font-medium">{fornecedor.razao_social}</TableCell>
-                      <TableCell>{fornecedor.cnpj}</TableCell>
-                      <TableCell>{fornecedor.email}</TableCell>
-                      <TableCell>
-                        {fornecedor.data_cadastro 
-                          ? (() => {
-                              const dateStr = fornecedor.data_cadastro.split('T')[0];
-                              const [year, month, day] = dateStr.split('-');
-                              return `${day}/${month}/${year}`;
-                            })()
-                          : "-"}
-                      </TableCell>
-                      <TableCell>
-                        {fornecedor.data_validade_certificado 
-                          ? (() => {
-                              const dateStr = fornecedor.data_validade_certificado.split('T')[0];
-                              const [year, month, day] = dateStr.split('-');
-                              return `${day}/${month}/${year}`;
-                            })()
-                          : "-"}
-                      </TableCell>
-                      <TableCell className="text-right">
-                        <div className="flex justify-end gap-2">
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => handleAbrirAvaliacao(fornecedor)}
-                            title="Ver Detalhes"
-                          >
-                            <Eye className="h-4 w-4" />
-                          </Button>
-                          {canResetPassword && fornecedor.user_id && (
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              onClick={() => handleResetSenhaFornecedor(fornecedor.id)}
-                              disabled={resetandoSenha === fornecedor.id}
-                              title="Resetar senha para CNPJ"
-                            >
-                              <RotateCcw className={`h-4 w-4 ${resetandoSenha === fornecedor.id ? 'animate-spin' : ''}`} />
-                            </Button>
-                          )}
-                          {isGestor && canEdit && (
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              onClick={() => setFornecedorParaExcluir(fornecedor.id)}
-                              title="Excluir"
-                            >
-                              <Trash2 className="h-4 w-4 text-destructive" />
-                            </Button>
-                          )}
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
+                <div className="w-full overflow-x-hidden">
+                  <Table className="w-full table-fixed">
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead className="w-[110px]">Status</TableHead>
+                        <TableHead className="w-[24%]">Empresa</TableHead>
+                        <TableHead className="w-[14%]">CNPJ</TableHead>
+                        <TableHead className="w-[22%]">Email</TableHead>
+                        <TableHead className="w-[12%]">Data Cadastro</TableHead>
+                        <TableHead className="w-[12%]">Validade Cert.</TableHead>
+                        <TableHead className="w-[120px] text-right">Ações</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {fornecedoresFiltrados.map((fornecedor) => (
+                        <TableRow key={fornecedor.id}>
+                          <TableCell>{getStatusBadge(fornecedor.status_aprovacao)}</TableCell>
+                          <TableCell className="font-medium break-words whitespace-normal">{fornecedor.razao_social}</TableCell>
+                          <TableCell className="break-all">{fornecedor.cnpj}</TableCell>
+                          <TableCell className="break-all">{fornecedor.email}</TableCell>
+                          <TableCell>
+                            {fornecedor.data_cadastro 
+                              ? (() => {
+                                  const dateStr = fornecedor.data_cadastro.split('T')[0];
+                                  const [year, month, day] = dateStr.split('-');
+                                  return `${day}/${month}/${year}`;
+                                })()
+                              : "-"}
+                          </TableCell>
+                          <TableCell>
+                            {fornecedor.data_validade_certificado 
+                              ? (() => {
+                                  const dateStr = fornecedor.data_validade_certificado.split('T')[0];
+                                  const [year, month, day] = dateStr.split('-');
+                                  return `${day}/${month}/${year}`;
+                                })()
+                              : "-"}
+                          </TableCell>
+                          <TableCell className="text-right">
+                            <div className="flex justify-end gap-2">
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => handleAbrirAvaliacao(fornecedor)}
+                                title="Ver Detalhes"
+                              >
+                                <Eye className="h-4 w-4" />
+                              </Button>
+                              {canResetPassword && fornecedor.user_id && (
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  onClick={() => handleResetSenhaFornecedor(fornecedor.id)}
+                                  disabled={resetandoSenha === fornecedor.id}
+                                  title="Resetar senha para CNPJ"
+                                >
+                                  <RotateCcw className={`h-4 w-4 ${resetandoSenha === fornecedor.id ? 'animate-spin' : ''}`} />
+                                </Button>
+                              )}
+                              {isGestor && canEdit && (
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  onClick={() => setFornecedorParaExcluir(fornecedor.id)}
+                                  title="Excluir"
+                                >
+                                  <Trash2 className="h-4 w-4 text-destructive" />
+                                </Button>
+                              )}
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
               );
             })()}
           </CardContent>
