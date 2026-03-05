@@ -205,9 +205,25 @@ export function DashboardBIOperacional({
       return pids.map(pid => getProcessoInfo(pid));
     };
 
-    // Requisição - conta APENAS notificações efetivamente enviadas (clique no botão)
+    // Requisição / Autorização de Despesa
     const notifReq = filterByCGViaProcesso(docData.notificacoes.filter(n => n.tipo_notificacao === 'requisicao'), getNotifProcessoId);
-    const reqSolicitadasSet = new Set(notifReq.map(n => n.processo_compra_id));
+    const notifAD = filterByCGViaProcesso(docData.notificacoes.filter(n => n.tipo_notificacao === 'autorizacao_despesa'), getNotifProcessoId);
+
+    const adSolicitadasSet = new Set(notifAD.map(n => n.processo_compra_id));
+    const adSolicitadas = adSolicitadasSet.size;
+    const adGeradas = filterByCGViaProcesso(docData.anexos.filter(a => a.tipo_anexo === 'autorizacao_despesa'), a => a.processo_compra_id);
+    const adGeradasPids = new Set(adGeradas.map(a => a.processo_compra_id));
+    const adGeradasCount = adGeradasPids.size;
+    // Pendentes = solicitadas que ainda não têm o documento gerado
+    const adPendentesSet = new Set([...adSolicitadasSet].filter(pid => !adGeradasPids.has(pid)));
+    const adPendentes = adPendentesSet.size;
+
+    // Requisição - conta notificações de requisição e, para manter rastreio do fluxo efetivo,
+    // também processos que já tiveram solicitação de autorização de despesa
+    const reqSolicitadasSet = new Set([
+      ...notifReq.map(n => n.processo_compra_id),
+      ...adSolicitadasSet,
+    ]);
     const reqSolicitadas = reqSolicitadasSet.size;
     const reqGeradas = filterByCGViaProcesso(docData.anexos.filter(a => a.tipo_anexo === 'requisicao'), a => a.processo_compra_id);
     const reqGeradasPids = new Set(reqGeradas.map(a => a.processo_compra_id));
@@ -219,17 +235,6 @@ export function DashboardBIOperacional({
     const reqSolDetail = buildDetailFromProcessoIds([...reqSolicitadasSet]);
     const reqGerDetail = buildDetailFromProcessoIds([...reqGeradasPids]);
     const reqPendDetail = buildDetailFromProcessoIds([...reqPendentesSet]);
-
-    // Autorização de Despesa - conta APENAS notificações efetivamente enviadas
-    const notifAD = filterByCGViaProcesso(docData.notificacoes.filter(n => n.tipo_notificacao === 'autorizacao_despesa'), getNotifProcessoId);
-    const adSolicitadasSet = new Set(notifAD.map(n => n.processo_compra_id));
-    const adSolicitadas = adSolicitadasSet.size;
-    const adGeradas = filterByCGViaProcesso(docData.anexos.filter(a => a.tipo_anexo === 'autorizacao_despesa'), a => a.processo_compra_id);
-    const adGeradasPids = new Set(adGeradas.map(a => a.processo_compra_id));
-    const adGeradasCount = adGeradasPids.size;
-    // Pendentes = solicitadas que ainda não têm o documento gerado
-    const adPendentesSet = new Set([...adSolicitadasSet].filter(pid => !adGeradasPids.has(pid)));
-    const adPendentes = adPendentesSet.size;
 
     const adSolDetail = buildDetailFromProcessoIds([...adSolicitadasSet]);
     const adGerDetail = buildDetailFromProcessoIds([...adGeradasPids]);
