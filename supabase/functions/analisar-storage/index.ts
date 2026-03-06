@@ -2756,6 +2756,18 @@ Deno.serve(async (req) => {
             }
           }
         }
+      } else if (pathSemBucket.startsWith('relatorios-compras/')) {
+        // Relatórios de Compras (qualitativos)
+        estatisticasPorCategoria.relatorios_compras.arquivos++;
+        estatisticasPorCategoria.relatorios_compras.tamanho += metadata.size;
+        // Extrair nome bonito do arquivo
+        const nomeMatch = fileName.match(/Relatorio_Compras_(\w+)_/);
+        const periodo = nomeMatch ? nomeMatch[1].replace('_', '/') : fileName;
+        estatisticasPorCategoria.relatorios_compras.detalhes.push({ 
+          path, 
+          fileName: `Relatório de Compras - ${periodo}`, 
+          size: metadata.size 
+        });
       } else if (pathSemBucket.startsWith('relatorios-finais/') || relatoriosFinaisMap.has(pathSemBucket)) {
         // Relatórios Finais - agrupar por processo
         estatisticasPorCategoria.relatorios_finais.arquivos++;
