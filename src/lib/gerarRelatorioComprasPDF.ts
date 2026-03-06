@@ -492,38 +492,29 @@ export const gerarRelatorioComprasPDF = async (dados: DadosRelatorioCompras): Pr
         },
         alternateRowStyles: { fillColor: [245, 245, 255] },
       });
-      yAnexo = (doc as any).lastAutoTable.finalY + 5;
-    } else {
-      yAnexo += 3;
-      doc.setFontSize(8);
-      doc.setFont('helvetica', 'italic');
-      doc.setTextColor(80, 80, 80);
-      doc.text('Nenhum processo no período.', 15, yAnexo);
-      yAnexo += 8;
     }
 
     // ---- CONTRATOS ----
-    // Always start contracts on a new page
-    doc.addPage();
-    paginaAtual++;
-    adicionarCabecalhoRodape(paginaAtual);
-    yAnexo = logoHeight + 5;
-
-    // Title bar with CG name
-    doc.setFillColor(173, 216, 230);
-    doc.rect(15, yAnexo, pageWidth - 30, 8, 'F');
-    doc.setDrawColor(0, 0, 0);
-    doc.setLineWidth(0.3);
-    doc.rect(15, yAnexo, pageWidth - 30, 8, 'S');
-    doc.setFontSize(10);
-    doc.setFont('helvetica', 'bold');
-    doc.setTextColor(0, 0, 0);
-    doc.text(`${d.cg.nome_contrato} - ${d.cg.ente_federativo.toUpperCase()}`, pageWidth / 2, yAnexo + 5.5, { align: 'center' });
-    yAnexo += 10;
-
     if (d.contratos.length > 0) {
+      doc.addPage();
+      paginaAtual++;
+      adicionarCabecalhoRodape(paginaAtual);
+      let yContratos = logoHeight + 5;
+
+      // Title bar with CG name
+      doc.setFillColor(173, 216, 230);
+      doc.rect(15, yContratos, pageWidth - 30, 8, 'F');
+      doc.setDrawColor(0, 0, 0);
+      doc.setLineWidth(0.3);
+      doc.rect(15, yContratos, pageWidth - 30, 8, 'S');
+      doc.setFontSize(10);
+      doc.setFont('helvetica', 'bold');
+      doc.setTextColor(0, 0, 0);
+      doc.text(`${d.cg.nome_contrato} - ${d.cg.ente_federativo.toUpperCase()}`, pageWidth / 2, yContratos + 5.5, { align: 'center' });
+      yContratos += 10;
+
       autoTable(doc, {
-        startY: yAnexo,
+        startY: yContratos,
         head: [['Nº CONTRATO', 'OBJETO', 'PARTE CONTRATADA', 'INÍCIO DA VIGÊNCIA', 'TÉRMINO DA VIGÊNCIA']],
         body: d.contratos.map((c: any) => [
           c.codigo_interno || 'N/A',
@@ -562,12 +553,6 @@ export const gerarRelatorioComprasPDF = async (dados: DadosRelatorioCompras): Pr
         },
         alternateRowStyles: { fillColor: [245, 245, 255] },
       });
-    } else {
-      yAnexo += 3;
-      doc.setFontSize(8);
-      doc.setFont('helvetica', 'italic');
-      doc.setTextColor(80, 80, 80);
-      doc.text('Nenhum contrato vigente no período.', 15, yAnexo);
     }
   }
 
