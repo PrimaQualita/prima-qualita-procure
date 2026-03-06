@@ -385,16 +385,24 @@ export function DashboardBIOperacional({
       certificado_gestor: 'Certificado de Fornecedor',
     };
 
-    // Build map: fornecedor_id -> docs with expiry info
+    // Build map: fornecedor_id -> docs with expiry info (only latest per type)
     const docsPorFornecedor: Record<string, { tipo: string; validade: string; dias: number }[]> = {};
+    // First, group by fornecedor+tipo and keep only the latest validade
+    const latestDocs: Record<string, { fornecedor_id: string; tipo: string; tipo_raw: string; validade: string }> = {};
     docsFornecedor
       .filter(d => d.data_validade)
       .forEach(d => {
-        const val = new Date(d.data_validade + "T23:59:59-03:00");
-        const dias = differenceInDays(val, hoje);
-        if (!docsPorFornecedor[d.fornecedor_id]) docsPorFornecedor[d.fornecedor_id] = [];
-        docsPorFornecedor[d.fornecedor_id].push({ tipo: TIPO_DOC_LABELS[d.tipo_documento] || d.tipo_documento, validade: d.data_validade, dias });
+        const key = `${d.fornecedor_id}__${d.tipo_documento}`;
+        if (!latestDocs[key] || d.data_validade > latestDocs[key].validade) {
+          latestDocs[key] = { fornecedor_id: d.fornecedor_id, tipo: TIPO_DOC_LABELS[d.tipo_documento] || d.tipo_documento, tipo_raw: d.tipo_documento, validade: d.data_validade };
+        }
       });
+    Object.values(latestDocs).forEach(d => {
+      const val = new Date(d.validade + "T23:59:59-03:00");
+      const dias = differenceInDays(val, hoje);
+      if (!docsPorFornecedor[d.fornecedor_id]) docsPorFornecedor[d.fornecedor_id] = [];
+      docsPorFornecedor[d.fornecedor_id].push({ tipo: d.tipo, validade: d.validade, dias });
+    });
 
     // Also consider data_validade_certificado from fornecedores table
     fornAprovados.forEach(f => {
