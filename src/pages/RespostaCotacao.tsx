@@ -145,6 +145,7 @@ const RespostaCotacao = () => {
   const [buscandoFornecedor, setBuscandoFornecedor] = useState(false);
   const [dialogResponsavelLegalOpen, setDialogResponsavelLegalOpen] = useState(false);
   const [responsaveisLegaisDisponiveis, setResponsaveisLegaisDisponiveis] = useState<string[]>([]);
+  const [modoManualResponsavel, setModoManualResponsavel] = useState(false);
   const responsavelLegalRef = useRef<string | undefined>(undefined);
 
   // Função para buscar fornecedor por CNPJ
