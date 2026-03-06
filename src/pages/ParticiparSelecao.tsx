@@ -894,6 +894,60 @@ const ParticiparSelecao = () => {
     return codigo;
   };
 
+  const handlePreSubmit = async () => {
+    // Verificar responsáveis legais do fornecedor
+    const responsaveis = fornecedor?.responsaveis_legais;
+    const responsaveisArray = Array.isArray(responsaveis)
+      ? (responsaveis as string[]).filter((r: string) => r && r.trim() !== '')
+      : [];
+
+    if (responsaveisArray.length > 1) {
+      setResponsaveisLegaisDisponiveis(responsaveisArray);
+      setDialogResponsavelLegalOpen(true);
+      return;
+    } else if (responsaveisArray.length === 1) {
+      responsavelLegalRef.current = responsaveisArray[0];
+    } else {
+      // Se for acesso público, tentar buscar do banco
+      if (!fornecedor) {
+        const cnpjLimpo = dadosEmpresa.cnpj.replace(/[^\d]/g, "");
+        if (cnpjLimpo.length === 14) {
+          try {
+            const { data: fornecedorData } = await supabase
+              .from("fornecedores")
+              .select("responsaveis_legais")
+              .eq("cnpj", cnpjLimpo)
+              .maybeSingle();
+
+            const resps = Array.isArray(fornecedorData?.responsaveis_legais)
+              ? (fornecedorData.responsaveis_legais as string[]).filter((r: string) => r && r.trim() !== '')
+              : [];
+
+            if (resps.length > 1) {
+              setResponsaveisLegaisDisponiveis(resps);
+              setDialogResponsavelLegalOpen(true);
+              return;
+            } else if (resps.length === 1) {
+              responsavelLegalRef.current = resps[0];
+            }
+          } catch (error) {
+            console.error("Erro ao buscar responsáveis legais:", error);
+          }
+        }
+      }
+      if (!responsavelLegalRef.current) {
+        responsavelLegalRef.current = undefined;
+      }
+    }
+    handleSubmit();
+  };
+
+  const handleConfirmarResponsavelLegal = (selecionados: string[]) => {
+    responsavelLegalRef.current = selecionados.join(', ');
+    setDialogResponsavelLegalOpen(false);
+    handleSubmit();
+  };
+
   const handleSubmit = async () => {
     if (!fornecedor && !dadosEmpresa.cnpj) {
       toast.error("É necessário informar o CNPJ da empresa");
