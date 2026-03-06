@@ -119,7 +119,8 @@ export const gerarPropostaRealinhadaPDF = async (
   fornecedor: DadosFornecedor,
   processo: DadosProcesso,
   observacoes?: string,
-  tipoProcesso?: string
+  tipoProcesso?: string,
+  responsavelLegal?: string
 ): Promise<{ pdfBlob: Blob; pdfUrl: string; protocolo: string }> => {
   const doc = new jsPDF();
   const pageWidth = doc.internal.pageSize.getWidth();
