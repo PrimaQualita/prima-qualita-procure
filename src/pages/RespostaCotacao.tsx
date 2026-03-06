@@ -1853,6 +1853,7 @@ const RespostaCotacao = () => {
         responsaveisLegais={responsaveisLegaisDisponiveis}
         onConfirm={handleConfirmarResponsavelLegal}
         loading={submitting}
+        modoManual={modoManualResponsavel}
       />
     </div>
   );
