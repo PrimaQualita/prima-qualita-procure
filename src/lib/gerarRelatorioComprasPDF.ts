@@ -186,11 +186,15 @@ export const gerarRelatorioComprasPDF = async (dados: DadosRelatorioCompras): Pr
     }));
 
     // Enrich processes with contract codes and dates
-    const processosEnriquecidos = todosProcessos.map(p => ({
-      ...p,
-      contratos_vinculados: contratosVinculadosMap[p.id] || 'SEM CONTRATO',
-      data_homologacao: homologacaoDatasMap[p.id] || '',
-    }));
+    const processosEnriquecidos = todosProcessos.map(p => {
+      const isConcluido = p.status_processo === 'concluido';
+      const temContrato = !!contratosVinculadosMap[p.id];
+      return {
+        ...p,
+        contratos_vinculados: temContrato ? contratosVinculadosMap[p.id] : (isConcluido ? 'SEM CONTRATO' : '-'),
+        data_homologacao: homologacaoDatasMap[p.id] || '',
+      };
+    });
 
     dadosPorCG.push({
       cg,
