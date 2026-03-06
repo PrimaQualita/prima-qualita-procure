@@ -149,7 +149,7 @@ export default function DialogRelatorioFornecedores({ open, onOpenChange }: Prop
 
       const [logoB64, rodapeB64] = await Promise.all([loadImageBase64(capaLogo), loadImageBase64(capaRodape)]);
 
-      const doc = new jsPDF({ orientation: "landscape", unit: "mm", format: "a4" });
+      const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
       const pw = doc.internal.pageSize.getWidth();
       const ph = doc.internal.pageSize.getHeight();
       const logoH = 28;
@@ -255,19 +255,6 @@ export default function DialogRelatorioFornecedores({ open, onOpenChange }: Prop
 
       const wb = new ExcelJS.Workbook();
       const ws = wb.addWorksheet("Fornecedores");
-
-      // Logo - add as image
-      const logoResp = await fetch(capaLogo);
-      const logoBlob = await logoResp.blob();
-      const logoArrayBuffer = await logoBlob.arrayBuffer();
-      const logoId = wb.addImage({ buffer: logoArrayBuffer, extension: "png" });
-      ws.addImage(logoId, { tl: { col: 0, row: 0 }, ext: { width: 700, height: 80 } });
-
-      // Empty rows for logo space
-      ws.addRow([]);
-      ws.addRow([]);
-      ws.addRow([]);
-      ws.addRow([]);
 
       // Title
       const titleRow = ws.addRow([getTituloRelatorio()]);
