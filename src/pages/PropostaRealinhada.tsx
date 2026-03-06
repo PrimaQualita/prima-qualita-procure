@@ -1579,7 +1579,7 @@ const PropostaRealinhada = () => {
         <Button
           className="w-full"
           size="lg"
-          onClick={handleSubmit}
+          onClick={handlePreSubmit}
           disabled={submitting || itensVencedores.length === 0}
         >
           {submitting ? (
@@ -1592,6 +1592,14 @@ const PropostaRealinhada = () => {
           )}
         </Button>
       </div>
+
+      <DialogSelecionarResponsavelLegal
+        open={dialogResponsavelLegalOpen}
+        onOpenChange={setDialogResponsavelLegalOpen}
+        responsaveisLegais={responsaveisLegaisDisponiveis}
+        onConfirm={handleConfirmarResponsavelLegal}
+        loading={submitting}
+      />
     </div>
   );
 };
