@@ -67,7 +67,9 @@ export function SolicitacoesPropostasCotacao() {
             titulo_cotacao,
             processo_compra_id,
             processos_compras (
+              id,
               numero_processo_interno,
+              contrato_gestao_id,
               contratos_gestao (nome_contrato)
             )
           )
