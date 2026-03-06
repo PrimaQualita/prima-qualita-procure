@@ -98,7 +98,7 @@ type ModuloKey = "documentos_processo" | "cotacoes_bi" | "contratos" | "complian
 
 const MODULO_CONFIG: Record<ModuloKey, { label: string; icon: any }> = {
   documentos_processo: { label: "Processo", icon: Stamp },
-  cotacoes_bi: { label: "Cotações", icon: FileText },
+  cotacoes_bi: { label: "Cotações", icon: Receipt },
   contratos: { label: "Contratos", icon: FileText },
   compliance: { label: "Análise de Compliance", icon: ShieldCheck },
   selecoes: { label: "Seleções de Fornecedores", icon: Users },
