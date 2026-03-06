@@ -101,6 +101,7 @@ export function SolicitacoesPropostasCotacao() {
           numero_processo: r.cotacoes_precos?.processos_compras?.numero_processo_interno || "N/A",
           titulo_cotacao: r.cotacoes_precos?.titulo_cotacao || "N/A",
           contrato_gestao_nome: r.cotacoes_precos?.processos_compras?.contratos_gestao?.nome_contrato || null,
+          contrato_gestao_id: r.cotacoes_precos?.processos_compras?.contrato_gestao_id || null,
           processo_compra_id: r.cotacoes_precos?.processo_compra_id || "",
         }));
 
