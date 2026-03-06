@@ -143,6 +143,9 @@ const RespostaCotacao = () => {
   const [errors, setErrors] = useState<{ [key: string]: string }>({});
   const [arquivosComprovantes, setArquivosComprovantes] = useState<File[]>([]);
   const [buscandoFornecedor, setBuscandoFornecedor] = useState(false);
+  const [dialogResponsavelLegalOpen, setDialogResponsavelLegalOpen] = useState(false);
+  const [responsaveisLegaisDisponiveis, setResponsaveisLegaisDisponiveis] = useState<string[]>([]);
+  const responsavelLegalRef = useRef<string | undefined>(undefined);
 
   // Função para buscar fornecedor por CNPJ
   const buscarFornecedorPorCNPJ = async (cnpj: string) => {
