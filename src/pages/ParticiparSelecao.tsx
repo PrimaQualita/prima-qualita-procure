@@ -1245,7 +1245,8 @@ const ParticiparSelecao = () => {
           undefined,
           criterioJulgamento,
           arquivosComprovantes,
-          processo?.tipo
+          processo?.tipo,
+          responsavelLegalRef.current
         );
 
         // Capturar o protocolo gerado
