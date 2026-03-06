@@ -13,6 +13,7 @@ import { SolicitacoesAutorizacao } from "@/components/dashboard/SolicitacoesAuto
 import { SolicitacoesHomologacao } from "@/components/dashboard/SolicitacoesHomologacao";
 import { SolicitacoesAutorizacaoSelecao } from "@/components/dashboard/SolicitacoesAutorizacaoSelecao";
 import { SolicitacoesDocumentosProcesso } from "@/components/dashboard/SolicitacoesDocumentosProcesso";
+import { SolicitacoesPropostasCotacao } from "@/components/dashboard/SolicitacoesPropostasCotacao";
 import { atualizarAtaComAssinaturas } from "@/lib/gerarAtaSelecaoPDF";
 import { DashboardBIFilters } from "@/components/dashboard/DashboardBIFilters";
 import { DashboardBIKPIs } from "@/components/dashboard/DashboardBIKPIs";
@@ -463,6 +464,13 @@ const Dashboard = () => {
             <SolicitacoesAutorizacao />
             <SolicitacoesAutorizacaoSelecao />
             <SolicitacoesHomologacao />
+          </div>
+        )}
+
+        {/* Notificações de propostas de cotação recebidas (Gestores) */}
+        {userContext?.isGestor && (
+          <div className="mb-4">
+            <SolicitacoesPropostasCotacao />
           </div>
         )}
 
