@@ -1673,7 +1673,7 @@ export function DialogSessaoLances({
       // BUSCAR PROPOSTAS ORIGINAIS PARA INCLUIR COMO LANCES
       const { data: propostas } = await supabase
         .from("selecao_propostas_fornecedor")
-        .select("id, fornecedor_id, fornecedores(razao_social, cnpj), data_envio")
+        .select("id, fornecedor_id, fornecedores(razao_social, cnpj), data_envio_proposta")
         .eq("selecao_id", selecaoId);
 
       const propostaIds = (propostas || []).map((p: any) => p.id);
