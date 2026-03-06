@@ -198,40 +198,6 @@ export function DialogContrato({ open, onOpenChange, contrato, onSave }: DialogC
                   </SelectContent>
                 </Select>
               </div>
-              <div className="grid gap-2">
-                <Label htmlFor="cor_fundo">Cor de Fundo</Label>
-                <Select
-                  value={formData.cor_fundo || "none"}
-                  onValueChange={(value) => setFormData({ ...formData, cor_fundo: value === "none" ? "" : value })}
-                >
-                  <SelectTrigger>
-                    <div className="flex items-center gap-2">
-                      {formData.cor_fundo && formData.cor_fundo !== "none" && (
-                        <div 
-                          className="w-4 h-4 rounded border border-border" 
-                          style={{ backgroundColor: formData.cor_fundo }}
-                        />
-                      )}
-                      <SelectValue placeholder="Selecione uma cor" />
-                    </div>
-                  </SelectTrigger>
-                  <SelectContent>
-                    {CORES_PREDEFINIDAS.map((cor) => (
-                      <SelectItem key={cor.valor} value={cor.valor}>
-                        <div className="flex items-center gap-2">
-                          {cor.valor !== "none" && (
-                            <div 
-                              className="w-4 h-4 rounded border border-border" 
-                              style={{ backgroundColor: cor.valor }}
-                            />
-                          )}
-                          <span>{cor.nome}</span>
-                        </div>
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
             </div>
             <div className="grid gap-2">
               <Label htmlFor="observacoes">Observações</Label>

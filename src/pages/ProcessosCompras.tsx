@@ -590,7 +590,7 @@ const ProcessosCompras = () => {
                     {contratosFiltrados.map((contrato, index) => (
                       <TableRow 
                         key={contrato.id}
-                        className={index % 2 === 0 ? "bg-green-200 dark:bg-green-900/60" : "bg-blue-200 dark:bg-blue-900/60"}
+                        className={index % 2 === 0 ? "bg-green-100 dark:bg-green-900/40" : "bg-blue-100 dark:bg-blue-900/40"}
                       >
                         <TableCell className="font-medium">{contrato.nome_contrato}</TableCell>
                         <TableCell>{contrato.ente_federativo}</TableCell>
