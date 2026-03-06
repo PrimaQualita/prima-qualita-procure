@@ -142,10 +142,10 @@ export default function DialogRelatorioFornecedores({ open, onOpenChange }: Prop
   };
 
   const gerarPDF = async () => {
-    setGerando(true);
+    setGerandoPDF(true);
     try {
       const dados = await fetchData();
-      if (!dados.length) { toast.warning("Nenhum fornecedor encontrado com o filtro selecionado"); setGerando(false); return; }
+      if (!dados.length) { toast.warning("Nenhum fornecedor encontrado com o filtro selecionado"); setGerandoPDF(false); return; }
 
       const [logoB64, rodapeB64] = await Promise.all([loadImageBase64(capaLogo), loadImageBase64(capaRodape)]);
 
