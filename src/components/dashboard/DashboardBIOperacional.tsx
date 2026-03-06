@@ -485,7 +485,7 @@ export function DashboardBIOperacional({
         { name: "Em Aberto", value: fornEmAberto.length, color: "info", icon: Clock, detailItems: fornEmAbertoDetails },
       ],
     };
-  }, [contratosTerceiros, processosParaContratar, cotacoesPrecos, processos, selecoes, fornecedores, contratoSelecionado, hoje, docData, processoContratoMap]);
+  }, [contratosTerceiros, processosParaContratar, cotacoesPrecos, processos, selecoes, fornecedores, contratoSelecionado, hoje, docData, processoContratoMap, docsFornecedor]);
 
   const [selectedKpiName, setSelectedKpiName] = useState<string | null>(null);
   const [gruposProcessoSelecionados, setGruposProcessoSelecionados] = useState<string[]>(["requisicao"]);
@@ -496,9 +496,9 @@ export function DashboardBIOperacional({
   const selectedTotal = selectedItems.reduce((s, i) => s + i.value, 0);
   const chartData = selectedItems.map(item => ({ name: item.name, value: item.value }));
 
-  // Detail items for the selected KPI
+  // Detail items for the selected KPI (supports documentos_processo and fornecedores)
   const selectedKpiDetail = useMemo(() => {
-    if (!selectedKpiName || selectedKey !== 'documentos_processo') return null;
+    if (!selectedKpiName || (selectedKey !== 'documentos_processo' && selectedKey !== 'fornecedores')) return null;
     const item = selectedItems.find(i => i.name === selectedKpiName);
     return item?.detailItems || null;
   }, [selectedKpiName, selectedItems, selectedKey]);
