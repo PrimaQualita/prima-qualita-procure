@@ -359,7 +359,7 @@ export const gerarRelatorioComprasPDF = async (dados: DadosRelatorioCompras): Pr
       halign: 'center',
     },
     columnStyles: {
-      0: { halign: 'left', cellWidth: 70 },
+      0: { halign: 'left', cellWidth: 80 },
       1: { halign: 'center', cellWidth: 25 },
       2: { halign: 'center', cellWidth: 25 },
       3: { halign: 'center', cellWidth: 25 },
