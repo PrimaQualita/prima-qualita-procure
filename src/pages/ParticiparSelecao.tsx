@@ -15,6 +15,7 @@ import DOMPurify from "dompurify";
 import primaLogo from "@/assets/prima-qualita-logo-horizontal.png";
 import { z } from "zod";
 import { DialogImportarProposta } from "@/components/selecoes/DialogImportarProposta";
+import { DialogSelecionarResponsavelLegal } from "@/components/fornecedores/DialogSelecionarResponsavelLegal";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
 const UFS = [
