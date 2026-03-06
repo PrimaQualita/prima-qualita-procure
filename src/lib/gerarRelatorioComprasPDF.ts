@@ -145,17 +145,65 @@ export const gerarRelatorioComprasPDF = async (dados: DadosRelatorioCompras): Pr
         }
       }
 
-      // Get homologation/report final dates from cotacoes
-      const { data: cotacoes } = await supabase
+      // Get authorization dates (compra direta) from autorizacoes_processo
+      const cotacaoIds: string[] = [];
+      const { data: cotacoesAll } = await supabase
         .from('cotacoes_precos')
-        .select('processo_compra_id, data_finalizacao')
-        .in('processo_compra_id', processosIds)
-        .not('data_finalizacao', 'is', null);
+        .select('id, processo_compra_id')
+        .in('processo_compra_id', processosIds);
 
-      if (cotacoes) {
-        for (const c of cotacoes) {
-          if (c.data_finalizacao) {
-            homologacaoDatasMap[c.processo_compra_id] = c.data_finalizacao.split('T')[0].split('-').reverse().join('/');
+      const cotacaoToProcesso: Record<string, string> = {};
+      if (cotacoesAll) {
+        for (const c of cotacoesAll) {
+          cotacaoIds.push(c.id);
+          cotacaoToProcesso[c.id] = c.processo_compra_id;
+        }
+      }
+
+      if (cotacaoIds.length > 0) {
+        // Autorização de compra direta
+        const { data: autorizacoes } = await supabase
+          .from('autorizacoes_processo')
+          .select('cotacao_id, data_geracao')
+          .in('cotacao_id', cotacaoIds);
+
+        if (autorizacoes) {
+          for (const a of autorizacoes) {
+            const procId = cotacaoToProcesso[a.cotacao_id];
+            if (procId && !homologacaoDatasMap[procId]) {
+              homologacaoDatasMap[procId] = a.data_geracao.split('T')[0].split('-').reverse().join('/');
+            }
+          }
+        }
+      }
+
+      // Homologação de seleção
+      const { data: selecoes } = await supabase
+        .from('selecoes_fornecedores')
+        .select('id, cotacao_relacionada_id')
+        .in('cotacao_relacionada_id', cotacaoIds);
+
+      if (selecoes && selecoes.length > 0) {
+        const selecaoIds = (selecoes as any[]).map(s => s.id);
+        const selecaoToCotacao: Record<string, string> = {};
+        for (const s of (selecoes as any[])) {
+          selecaoToCotacao[s.id] = s.cotacao_relacionada_id;
+        }
+
+        const { data: homologacoes } = await supabase
+          .from('homologacoes_selecao')
+          .select('selecao_id, data_geracao')
+          .in('selecao_id', selecaoIds);
+
+        if (homologacoes) {
+          for (const h of homologacoes) {
+            const cotId = selecaoToCotacao[h.selecao_id];
+            if (cotId) {
+              const procId = cotacaoToProcesso[cotId];
+              if (procId && !homologacaoDatasMap[procId]) {
+                homologacaoDatasMap[procId] = h.data_geracao.split('T')[0].split('-').reverse().join('/');
+              }
+            }
           }
         }
       }
@@ -246,9 +294,12 @@ export const gerarRelatorioComprasPDF = async (dados: DadosRelatorioCompras): Pr
   adicionarCabecalhoRodape(1);
   let y = logoHeight + 10;
 
+  // Cor do logo (primary: HSL 195 77% 48% ≈ RGB 28, 145, 217)
+  const corPrimaria: [number, number, number] = [28, 145, 217];
+
   doc.setFontSize(14);
   doc.setFont('helvetica', 'bold');
-  doc.setTextColor(0, 0, 139);
+  doc.setTextColor(...corPrimaria);
   doc.text(`Dados qualitativos ao mês de ${dados.mesAno}`, pageWidth / 2, y, { align: 'center' });
 
   y += 10;
@@ -262,7 +313,7 @@ export const gerarRelatorioComprasPDF = async (dados: DadosRelatorioCompras): Pr
   y += 10;
   doc.setFontSize(12);
   doc.setFont('helvetica', 'bold');
-  doc.setTextColor(0, 0, 139);
+  doc.setTextColor(...corPrimaria);
   doc.text('INDICADORES QUALITATIVOS', pageWidth / 2, y, { align: 'center' });
   y += 8;
 
@@ -297,7 +348,7 @@ export const gerarRelatorioComprasPDF = async (dados: DadosRelatorioCompras): Pr
     body: tableBody,
     theme: 'grid',
     headStyles: {
-      fillColor: [0, 0, 139],
+      fillColor: corPrimaria,
       textColor: [255, 255, 255],
       fontStyle: 'bold',
       fontSize: 8,
@@ -364,46 +415,49 @@ export const gerarRelatorioComprasPDF = async (dados: DadosRelatorioCompras): Pr
   let paginaAtual = doc.getNumberOfPages();
 
   for (const d of dadosPorCG) {
+    // Skip CGs with no data
+    if (d.processos.length === 0 && d.contratos.length === 0) continue;
+
     // ---- PROCESSOS ----
-    doc.addPage();
-    paginaAtual++;
-    adicionarCabecalhoRodape(paginaAtual);
-    let yAnexo = logoHeight + 5;
-
-    // Title bar like reference image
-    doc.setFillColor(173, 216, 230);
-    doc.rect(15, yAnexo, pageWidth - 30, 8, 'F');
-    doc.setDrawColor(0, 0, 0);
-    doc.setLineWidth(0.3);
-    doc.rect(15, yAnexo, pageWidth - 30, 8, 'S');
-    doc.setFontSize(10);
-    doc.setFont('helvetica', 'bold');
-    doc.setTextColor(0, 0, 0);
-    doc.text(`CONTROLE DE PROCESSOS - ${dados.mesAno.toUpperCase()}`, pageWidth / 2, yAnexo + 5.5, { align: 'center' });
-    yAnexo += 10;
-
-    const statusLabels: Record<string, string> = {
-      planejado: 'ABERTO',
-      em_cotacao: 'EM COTAÇÃO',
-      cotacao_concluida: 'COTAÇÃO CONCLUÍDA',
-      em_selecao: 'EM SELEÇÃO',
-      contratado: 'CONTRATADO',
-      contratacao: 'EM CONTRATAÇÃO',
-      concluido: 'CONCLUÍDO',
-      dispensa: 'DISPENSA',
-    };
-
     if (d.processos.length > 0) {
+      doc.addPage();
+      paginaAtual++;
+      adicionarCabecalhoRodape(paginaAtual);
+      let yAnexo = logoHeight + 5;
+
+      // Title bar with CG identification
+      doc.setFillColor(173, 216, 230);
+      doc.rect(15, yAnexo, pageWidth - 30, 8, 'F');
+      doc.setDrawColor(0, 0, 0);
+      doc.setLineWidth(0.3);
+      doc.rect(15, yAnexo, pageWidth - 30, 8, 'S');
+      doc.setFontSize(10);
+      doc.setFont('helvetica', 'bold');
+      doc.setTextColor(0, 0, 0);
+      doc.text(`CONTROLE DE PROCESSOS - ${dados.mesAno.toUpperCase()}`, pageWidth / 2, yAnexo + 5.5, { align: 'center' });
+      yAnexo += 10;
+
+      const statusLabels: Record<string, string> = {
+        planejado: 'ABERTO',
+        em_cotacao: 'EM COTAÇÃO',
+        cotacao_concluida: 'COTAÇÃO CONCLUÍDA',
+        em_selecao: 'EM SELEÇÃO',
+        contratado: 'CONTRATADO',
+        contratacao: 'EM CONTRATAÇÃO',
+        concluido: 'CONCLUÍDO',
+        dispensa: 'DISPENSA',
+      };
+
       autoTable(doc, {
         startY: yAnexo,
-        head: [['PROCESSO', 'DATA', 'CONTRATO DE GESTÃO', 'OBJETO', 'STATUS', 'CONTRATOS', 'HOMOLOGAÇÃO\nRELATÓRIO FINAL']],
+        head: [['PROCESSO', 'DATA', 'CONTRATO DE GESTÃO', 'OBJETO', 'STATUS', 'CONTRATOS', 'AUTORIZAÇÃO /\nHOMOLOGAÇÃO']],
         body: d.processos.map((p: any) => [
           p.numero_processo_interno || 'N/A',
           p.data_abertura ? p.data_abertura.split('-').reverse().join('/') : (p.created_at ? p.created_at.split('T')[0].split('-').reverse().join('/') : 'N/A'),
           d.cg.nome_contrato,
           stripHtml(p.objeto_resumido || '').substring(0, 60),
           statusLabels[p.status_processo] || p.status_processo?.replace(/_/g, ' ').toUpperCase() || 'N/A',
-          p.contratos_vinculados || 'SEM CONTRATO',
+          p.contratos_vinculados || '-',
           p.data_homologacao || '',
         ]),
         theme: 'grid',
@@ -438,38 +492,29 @@ export const gerarRelatorioComprasPDF = async (dados: DadosRelatorioCompras): Pr
         },
         alternateRowStyles: { fillColor: [245, 245, 255] },
       });
-      yAnexo = (doc as any).lastAutoTable.finalY + 5;
-    } else {
-      yAnexo += 3;
-      doc.setFontSize(8);
-      doc.setFont('helvetica', 'italic');
-      doc.setTextColor(80, 80, 80);
-      doc.text('Nenhum processo no período.', 15, yAnexo);
-      yAnexo += 8;
     }
 
     // ---- CONTRATOS ----
-    // Always start contracts on a new page
-    doc.addPage();
-    paginaAtual++;
-    adicionarCabecalhoRodape(paginaAtual);
-    yAnexo = logoHeight + 5;
-
-    // Title bar with CG name
-    doc.setFillColor(173, 216, 230);
-    doc.rect(15, yAnexo, pageWidth - 30, 8, 'F');
-    doc.setDrawColor(0, 0, 0);
-    doc.setLineWidth(0.3);
-    doc.rect(15, yAnexo, pageWidth - 30, 8, 'S');
-    doc.setFontSize(10);
-    doc.setFont('helvetica', 'bold');
-    doc.setTextColor(0, 0, 0);
-    doc.text(`${d.cg.nome_contrato} - ${d.cg.ente_federativo.toUpperCase()}`, pageWidth / 2, yAnexo + 5.5, { align: 'center' });
-    yAnexo += 10;
-
     if (d.contratos.length > 0) {
+      doc.addPage();
+      paginaAtual++;
+      adicionarCabecalhoRodape(paginaAtual);
+      let yContratos = logoHeight + 5;
+
+      // Title bar with CG name
+      doc.setFillColor(173, 216, 230);
+      doc.rect(15, yContratos, pageWidth - 30, 8, 'F');
+      doc.setDrawColor(0, 0, 0);
+      doc.setLineWidth(0.3);
+      doc.rect(15, yContratos, pageWidth - 30, 8, 'S');
+      doc.setFontSize(10);
+      doc.setFont('helvetica', 'bold');
+      doc.setTextColor(0, 0, 0);
+      doc.text(`${d.cg.nome_contrato} - ${d.cg.ente_federativo.toUpperCase()}`, pageWidth / 2, yContratos + 5.5, { align: 'center' });
+      yContratos += 10;
+
       autoTable(doc, {
-        startY: yAnexo,
+        startY: yContratos,
         head: [['Nº CONTRATO', 'OBJETO', 'PARTE CONTRATADA', 'INÍCIO DA VIGÊNCIA', 'TÉRMINO DA VIGÊNCIA']],
         body: d.contratos.map((c: any) => [
           c.codigo_interno || 'N/A',
@@ -508,12 +553,6 @@ export const gerarRelatorioComprasPDF = async (dados: DadosRelatorioCompras): Pr
         },
         alternateRowStyles: { fillColor: [245, 245, 255] },
       });
-    } else {
-      yAnexo += 3;
-      doc.setFontSize(8);
-      doc.setFont('helvetica', 'italic');
-      doc.setTextColor(80, 80, 80);
-      doc.text('Nenhum contrato vigente no período.', 15, yAnexo);
     }
   }
 
