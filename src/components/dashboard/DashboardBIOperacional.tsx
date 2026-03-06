@@ -531,6 +531,12 @@ export function DashboardBIOperacional({
         { name: "Rescindidos", value: ctRescindidos.length, color: "muted", icon: Ban },
         { name: "Encerrados", value: ctEncerrados.length, color: "muted", icon: XCircle },
       ],
+      cotacoes_bi: [
+        { name: "Abertas", value: cotAbertas.length, color: "info", icon: Clock, detailItems: cotAbertasDetail },
+        { name: "A Vencer (2d)", value: cotAVencer.length, color: "warning", icon: CalendarClock, detailItems: cotAVencerDetail },
+        { name: "Vencidas", value: cotVencidas.length, color: "danger", icon: AlertTriangle, detailItems: cotVencidasDetail },
+        { name: "Fechadas", value: cotFechadas.length, color: "success", icon: CheckCircle2, detailItems: cotFechadasDetail },
+      ],
       compliance: [
         { name: "Pendentes", value: compliancePendentes.length, color: "warning", icon: Clock },
         { name: "Respondidas", value: cotFiltradas.filter(c => c.respondido_compliance === true).length, color: "success", icon: CheckCircle2 },
@@ -555,7 +561,7 @@ export function DashboardBIOperacional({
         { name: "Em Aberto", value: fornEmAberto.length, color: "info", icon: Clock, detailItems: fornEmAbertoDetails },
       ],
     };
-  }, [contratosTerceiros, processosParaContratar, cotacoesPrecos, processos, selecoes, fornecedores, contratoSelecionado, hoje, docData, processoContratoMap, docsFornecedor]);
+  }, [contratosTerceiros, processosParaContratar, cotacoesPrecos, processos, selecoes, fornecedores, contratoSelecionado, hoje, docData, processoContratoMap, docsFornecedor, respostasCotacao]);
 
   const [selectedKpiName, setSelectedKpiName] = useState<string | null>(null);
   const [gruposProcessoSelecionados, setGruposProcessoSelecionados] = useState<string[]>(["requisicao"]);
