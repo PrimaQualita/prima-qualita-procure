@@ -132,6 +132,7 @@ export function DashboardBIOperacional({
     autorizacoes: [], solHomologacao: [], homologacoes: [], atas: []
   });
   const [docsFornecedor, setDocsFornecedor] = useState<any[]>([]);
+  const [respostasCotacao, setRespostasCotacao] = useState<any[]>([]);
 
   useEffect(() => {
     const fetchDocData = async () => {
