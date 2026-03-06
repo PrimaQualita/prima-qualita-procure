@@ -221,21 +221,22 @@ export const gerarRelatorioComprasPDF = async (dados: DadosRelatorioCompras): Pr
   const pageWidth = doc.internal.pageSize.getWidth();
   const pageHeight = doc.internal.pageSize.getHeight();
 
+  const logoHeight = 40;
+  const rodapeHeight = 25;
+
   const adicionarCabecalhoRodape = (pagina: number) => {
-    try { doc.addImage(base64Logo, 'PNG', 15, 5, pageWidth - 30, 20); } catch {}
+    // Logo expandindo igual requisição
+    try { doc.addImage(base64Logo, 'PNG', 1.5, 0, pageWidth - 3, logoHeight); } catch {}
+    // Marca d'água igual requisição (160x80, opacity 0.08)
     try {
-      const gState = (doc as any).GState;
-      if (gState) {
-        const gs = new gState({ opacity: 0.06 });
-        (doc as any).setGState(gs);
-      }
-      doc.addImage(base64MarcaDagua, 'PNG', pageWidth / 2 - 40, pageHeight / 2 - 40, 80, 80);
-      if (gState) {
-        const gsNormal = new gState({ opacity: 1 });
-        (doc as any).setGState(gsNormal);
-      }
+      doc.saveGraphicsState();
+      const gs = doc.GState({ opacity: 0.08 });
+      doc.setGState(gs);
+      doc.addImage(base64MarcaDagua, 'PNG', (pageWidth - 160) / 2, (pageHeight - 80) / 2, 160, 80);
+      doc.restoreGraphicsState();
     } catch {}
-    try { doc.addImage(base64Rodape, 'PNG', 15, pageHeight - 20, pageWidth - 30, 15); } catch {}
+    // Rodapé expandindo igual requisição
+    try { doc.addImage(base64Rodape, 'PNG', 1.5, pageHeight - rodapeHeight, pageWidth - 3, rodapeHeight); } catch {}
     doc.setFontSize(8);
     doc.setTextColor(128, 128, 128);
     doc.text(`Página ${pagina}`, pageWidth - 25, pageHeight - 8);
@@ -243,7 +244,7 @@ export const gerarRelatorioComprasPDF = async (dados: DadosRelatorioCompras): Pr
 
   // ====== PÁGINA 1: RELATÓRIO PRINCIPAL ======
   adicionarCabecalhoRodape(1);
-  let y = 32;
+  let y = logoHeight + 10;
 
   doc.setFontSize(14);
   doc.setFont('helvetica', 'bold');
