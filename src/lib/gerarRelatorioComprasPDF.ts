@@ -437,7 +437,13 @@ export const gerarRelatorioComprasPDF = async (dados: DadosRelatorioCompras): Pr
 
   // Salvar no storage
   const pdfOutput = doc.output('arraybuffer');
-  const fileName = `Relatorio_Compras_${dados.mesAno.replace('/', '_')}_${Date.now()}.pdf`;
+  // Remover caracteres especiais do nome do arquivo para evitar erro de storage
+  const mesAnoSafe = dados.mesAno
+    .replace('/', '_')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '') // remove acentos
+    .replace(/[^a-zA-Z0-9_-]/g, '');
+  const fileName = `Relatorio_Compras_${mesAnoSafe}_${Date.now()}.pdf`;
   const storagePath = `relatorios/${fileName}`;
 
   const { error: uploadError } = await supabase.storage
