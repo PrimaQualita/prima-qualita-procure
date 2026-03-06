@@ -137,7 +137,7 @@ export function DashboardBIOperacional({
   useEffect(() => {
     const fetchDocData = async () => {
       try {
-        const [notifRes, anexosRes, solAutRes, solAutSelRes, autRes, solHomRes, homRes, atasRes, docsFornRes] = await Promise.all([
+        const [notifRes, anexosRes, solAutRes, solAutSelRes, autRes, solHomRes, homRes, atasRes, docsFornRes, respostasRes] = await Promise.all([
           supabase.from('notificacoes_documentos_processo').select('tipo_notificacao, atendida, processo_compra_id').limit(5000),
           supabase.from('anexos_processo_compra').select('tipo_anexo, processo_compra_id').in('tipo_anexo', ['requisicao', 'autorizacao_despesa']).limit(5000),
           supabase.from('solicitacoes_autorizacao').select('id, cotacao_id, status, cotacoes_precos:cotacao_id(processo_compra_id)').limit(5000),
@@ -147,6 +147,7 @@ export function DashboardBIOperacional({
           supabase.from('homologacoes_selecao').select('id, selecao_id, selecoes_fornecedores:selecao_id(processo_compra_id)').limit(5000),
           supabase.from('atas_selecao').select('id, selecao_id, selecoes_fornecedores:selecao_id(processo_compra_id), atas_assinaturas_usuario(status_assinatura, profiles:usuario_id(nome_completo)), atas_assinaturas_fornecedor(status_assinatura, fornecedores:fornecedor_id(razao_social))').limit(5000),
           supabase.from('documentos_fornecedor').select('id, fornecedor_id, tipo_documento, data_validade, nome_arquivo').in('tipo_documento', ['cnd_federal', 'cnd_tributos_estaduais', 'cnd_divida_ativa_estadual', 'cnd_tributos_municipais', 'cnd_divida_ativa_municipal', 'crf_fgts', 'cndt', 'certificado_gestor']).eq('em_vigor', true).limit(5000),
+          supabase.from('cotacao_respostas_fornecedor').select('id, cotacao_id, fornecedor_id, fornecedores:fornecedor_id(razao_social, nome_fantasia)').limit(5000),
         ]);
         setDocData({
           notificacoes: notifRes.data || [],
