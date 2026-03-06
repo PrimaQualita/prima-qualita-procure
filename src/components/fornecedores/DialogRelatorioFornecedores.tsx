@@ -394,6 +394,7 @@ export default function DialogRelatorioFornecedores({ open, onOpenChange }: Prop
       <DialogContent className="max-w-md">
         <DialogHeader>
           <DialogTitle>Exportar Relatório de Fornecedores</DialogTitle>
+          <DialogDescription>Selecione o tipo de relatório e o formato de exportação.</DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4">
