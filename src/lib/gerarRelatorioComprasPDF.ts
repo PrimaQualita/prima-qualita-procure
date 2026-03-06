@@ -358,6 +358,7 @@ export const gerarRelatorioComprasPDF = async (dados: DadosRelatorioCompras): Pr
     bodyStyles: {
       fontSize: 8,
       halign: 'center',
+      valign: 'middle',
     },
     columnStyles: {
       0: { halign: 'left', cellWidth: 80 },
@@ -451,7 +452,7 @@ export const gerarRelatorioComprasPDF = async (dados: DadosRelatorioCompras): Pr
 
       autoTable(doc, {
         startY: yAnexo,
-        head: [['PROCESSO', 'DATA', 'CONTRATO DE GESTÃO', 'OBJETO', 'STATUS', 'CONTRATOS', 'AUTORIZAÇÃO /\nHOMOLOGAÇÃO']],
+        head: [['PROCESSO', 'DATA', 'CONTRATO DE GESTÃO', 'OBJETO', 'STATUS', 'CONTRATOS', 'AUT./HOMOL.']],
         body: d.processos.map((p: any) => [
           p.numero_processo_interno || 'N/A',
           p.data_abertura ? p.data_abertura.split('-').reverse().join('/') : (p.created_at ? p.created_at.split('T')[0].split('-').reverse().join('/') : 'N/A'),
@@ -474,16 +475,17 @@ export const gerarRelatorioComprasPDF = async (dados: DadosRelatorioCompras): Pr
         },
         bodyStyles: {
           fontSize: 7,
+          valign: 'middle',
           lineColor: [0, 0, 0],
           lineWidth: 0.2,
           cellPadding: 1.5,
         },
         columnStyles: {
-          0: { halign: 'center', cellWidth: 20 },
+          0: { halign: 'center', cellWidth: 18 },
           1: { halign: 'center', cellWidth: 20 },
-          2: { halign: 'left', cellWidth: 32 },
-          3: { halign: 'left', cellWidth: 44 },
-          4: { halign: 'center', cellWidth: 24 },
+          2: { halign: 'left', cellWidth: 30 },
+          3: { halign: 'justify', cellWidth: 50 },
+          4: { halign: 'center', cellWidth: 22 },
           5: { halign: 'center', cellWidth: 20 },
           6: { halign: 'center', cellWidth: 20 },
         },
@@ -538,6 +540,7 @@ export const gerarRelatorioComprasPDF = async (dados: DadosRelatorioCompras): Pr
         },
         bodyStyles: {
           fontSize: 7,
+          valign: 'middle',
           lineColor: [0, 0, 0],
           lineWidth: 0.2,
           cellPadding: 2,
