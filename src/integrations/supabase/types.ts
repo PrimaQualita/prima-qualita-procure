@@ -2780,6 +2780,42 @@ export type Database = {
         }
         Relationships: []
       }
+      propostas_cotacao_cientes: {
+        Row: {
+          cotacao_resposta_fornecedor_id: string
+          data_ciencia: string
+          id: string
+          usuario_ciente_id: string
+        }
+        Insert: {
+          cotacao_resposta_fornecedor_id: string
+          data_ciencia?: string
+          id?: string
+          usuario_ciente_id: string
+        }
+        Update: {
+          cotacao_resposta_fornecedor_id?: string
+          data_ciencia?: string
+          id?: string
+          usuario_ciente_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "propostas_cotacao_cientes_cotacao_resposta_fornecedor_id_fkey"
+            columns: ["cotacao_resposta_fornecedor_id"]
+            isOneToOne: true
+            referencedRelation: "cotacao_respostas_fornecedor"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "propostas_cotacao_cientes_usuario_ciente_id_fkey"
+            columns: ["usuario_ciente_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       propostas_realinhadas: {
         Row: {
           correcao_solicitada: boolean | null
