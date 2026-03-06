@@ -19,6 +19,7 @@ interface PropostaNotificacao {
   numero_processo: string;
   titulo_cotacao: string;
   contrato_gestao_nome: string | null;
+  contrato_gestao_id: string | null;
   processo_compra_id: string;
 }
 
