@@ -903,6 +903,7 @@ const ParticiparSelecao = () => {
       : [];
 
     if (responsaveisArray.length > 1) {
+      setModoManualResponsavel(false);
       setResponsaveisLegaisDisponiveis(responsaveisArray);
       setDialogResponsavelLegalOpen(true);
       return;
@@ -914,7 +915,6 @@ const ParticiparSelecao = () => {
         const cnpjLimpo = dadosEmpresa.cnpj.replace(/[^\d]/g, "");
         if (cnpjLimpo.length === 14) {
           try {
-            // Usar supabase com anon key - fornecedores tem SELECT público
             const { data: fornecedorData } = await supabase
               .from("fornecedores")
               .select("responsaveis_legais")
@@ -926,19 +926,40 @@ const ParticiparSelecao = () => {
               : [];
 
             if (resps.length > 1) {
+              setModoManualResponsavel(false);
               setResponsaveisLegaisDisponiveis(resps);
               setDialogResponsavelLegalOpen(true);
               return;
             } else if (resps.length === 1) {
               responsavelLegalRef.current = resps[0];
+            } else {
+              // Sem responsáveis cadastrados - modo manual
+              setModoManualResponsavel(true);
+              setResponsaveisLegaisDisponiveis([]);
+              setDialogResponsavelLegalOpen(true);
+              return;
             }
           } catch (error) {
             console.error("Erro ao buscar responsáveis legais:", error);
+            // Falha na busca - modo manual
+            setModoManualResponsavel(true);
+            setResponsaveisLegaisDisponiveis([]);
+            setDialogResponsavelLegalOpen(true);
+            return;
           }
+        } else {
+          // CNPJ incompleto - modo manual
+          setModoManualResponsavel(true);
+          setResponsaveisLegaisDisponiveis([]);
+          setDialogResponsavelLegalOpen(true);
+          return;
         }
-      }
-      if (!responsavelLegalRef.current) {
-        responsavelLegalRef.current = undefined;
+      } else {
+        // Fornecedor cadastrado mas sem responsáveis legais - modo manual
+        setModoManualResponsavel(true);
+        setResponsaveisLegaisDisponiveis([]);
+        setDialogResponsavelLegalOpen(true);
+        return;
       }
     }
     handleSubmit();
