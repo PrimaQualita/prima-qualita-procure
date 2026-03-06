@@ -34,12 +34,13 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import primaLogo from "@/assets/prima-qualita-logo.png";
-import { ArrowLeft, Plus, Edit, Trash2, Eye, FileText, Copy, CheckCircle, XCircle, Send, Clock, RotateCcw, Search, Filter } from "lucide-react";
+import { ArrowLeft, Plus, Edit, Trash2, Eye, FileText, Copy, CheckCircle, XCircle, Send, Clock, RotateCcw, Search, Filter, Download } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import GestaoDocumentosGestor from "@/components/fornecedores/GestaoDocumentosGestor";
 import { useCanEdit, useCanResetPassword } from "@/hooks/useUserContext";
+import DialogRelatorioFornecedores from "@/components/fornecedores/DialogRelatorioFornecedores";
 
 interface Pergunta {
   id: string;
@@ -110,6 +111,7 @@ export default function Fornecedores() {
   const [filtroCnae, setFiltroCnae] = useState("");
   const [filtroCnaeDescricao, setFiltroCnaeDescricao] = useState("");
   const [cnaesMap, setCnaesMap] = useState<Record<string, { codigo_cnae: string; descricao: string }[]>>({});
+  const [dialogRelatorioOpen, setDialogRelatorioOpen] = useState(false);
   
   const [formDataPergunta, setFormDataPergunta] = useState({
     texto_pergunta: "",
@@ -651,7 +653,13 @@ export default function Fornecedores() {
         {/* Fornecedores Cadastrados */}
         <Card>
           <CardHeader>
-            <CardTitle>Fornecedores Cadastrados</CardTitle>
+            <div className="flex items-center justify-between">
+              <CardTitle>Fornecedores Cadastrados</CardTitle>
+              <Button variant="outline" onClick={() => setDialogRelatorioOpen(true)}>
+                <Download className="mr-2 h-4 w-4" />
+                Exportar Relatório
+              </Button>
+            </div>
           </CardHeader>
           <CardContent className="overflow-x-hidden">
             {/* Filtros */}
@@ -1277,6 +1285,8 @@ export default function Fornecedores() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <DialogRelatorioFornecedores open={dialogRelatorioOpen} onOpenChange={setDialogRelatorioOpen} />
     </div>
   );
 }
