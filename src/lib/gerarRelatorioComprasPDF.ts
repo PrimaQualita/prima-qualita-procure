@@ -186,11 +186,15 @@ export const gerarRelatorioComprasPDF = async (dados: DadosRelatorioCompras): Pr
     }));
 
     // Enrich processes with contract codes and dates
-    const processosEnriquecidos = todosProcessos.map(p => ({
-      ...p,
-      contratos_vinculados: contratosVinculadosMap[p.id] || 'SEM CONTRATO',
-      data_homologacao: homologacaoDatasMap[p.id] || '',
-    }));
+    const processosEnriquecidos = todosProcessos.map(p => {
+      const isConcluido = p.status_processo === 'concluido';
+      const temContrato = !!contratosVinculadosMap[p.id];
+      return {
+        ...p,
+        contratos_vinculados: temContrato ? contratosVinculadosMap[p.id] : (isConcluido ? 'SEM CONTRATO' : '-'),
+        data_homologacao: homologacaoDatasMap[p.id] || '',
+      };
+    });
 
     dadosPorCG.push({
       cg,
@@ -217,21 +221,22 @@ export const gerarRelatorioComprasPDF = async (dados: DadosRelatorioCompras): Pr
   const pageWidth = doc.internal.pageSize.getWidth();
   const pageHeight = doc.internal.pageSize.getHeight();
 
+  const logoHeight = 40;
+  const rodapeHeight = 25;
+
   const adicionarCabecalhoRodape = (pagina: number) => {
-    try { doc.addImage(base64Logo, 'PNG', 15, 5, pageWidth - 30, 20); } catch {}
+    // Logo expandindo igual requisição
+    try { doc.addImage(base64Logo, 'PNG', 1.5, 0, pageWidth - 3, logoHeight); } catch {}
+    // Marca d'água igual requisição (160x80, opacity 0.08)
     try {
-      const gState = (doc as any).GState;
-      if (gState) {
-        const gs = new gState({ opacity: 0.06 });
-        (doc as any).setGState(gs);
-      }
-      doc.addImage(base64MarcaDagua, 'PNG', pageWidth / 2 - 40, pageHeight / 2 - 40, 80, 80);
-      if (gState) {
-        const gsNormal = new gState({ opacity: 1 });
-        (doc as any).setGState(gsNormal);
-      }
+      doc.saveGraphicsState();
+      const gs = doc.GState({ opacity: 0.08 });
+      doc.setGState(gs);
+      doc.addImage(base64MarcaDagua, 'PNG', (pageWidth - 160) / 2, (pageHeight - 80) / 2, 160, 80);
+      doc.restoreGraphicsState();
     } catch {}
-    try { doc.addImage(base64Rodape, 'PNG', 15, pageHeight - 20, pageWidth - 30, 15); } catch {}
+    // Rodapé expandindo igual requisição
+    try { doc.addImage(base64Rodape, 'PNG', 1.5, pageHeight - rodapeHeight, pageWidth - 3, rodapeHeight); } catch {}
     doc.setFontSize(8);
     doc.setTextColor(128, 128, 128);
     doc.text(`Página ${pagina}`, pageWidth - 25, pageHeight - 8);
@@ -239,7 +244,7 @@ export const gerarRelatorioComprasPDF = async (dados: DadosRelatorioCompras): Pr
 
   // ====== PÁGINA 1: RELATÓRIO PRINCIPAL ======
   adicionarCabecalhoRodape(1);
-  let y = 32;
+  let y = logoHeight + 10;
 
   doc.setFontSize(14);
   doc.setFont('helvetica', 'bold');
@@ -343,7 +348,7 @@ export const gerarRelatorioComprasPDF = async (dados: DadosRelatorioCompras): Pr
   if (y > pageHeight - 80) {
     doc.addPage();
     adicionarCabecalhoRodape(doc.getNumberOfPages());
-    y = 35;
+    y = logoHeight + 10;
   }
 
   adicionarCertificacaoDigital(doc, {
@@ -363,15 +368,15 @@ export const gerarRelatorioComprasPDF = async (dados: DadosRelatorioCompras): Pr
     doc.addPage();
     paginaAtual++;
     adicionarCabecalhoRodape(paginaAtual);
-    let yAnexo = 30;
+    let yAnexo = logoHeight + 5;
 
     // Title bar like reference image
-    doc.setFillColor(173, 216, 230); // Light blue
+    doc.setFillColor(173, 216, 230);
     doc.rect(15, yAnexo, pageWidth - 30, 8, 'F');
     doc.setDrawColor(0, 0, 0);
     doc.setLineWidth(0.3);
     doc.rect(15, yAnexo, pageWidth - 30, 8, 'S');
-    doc.setFontSize(9);
+    doc.setFontSize(10);
     doc.setFont('helvetica', 'bold');
     doc.setTextColor(0, 0, 0);
     doc.text(`CONTROLE DE PROCESSOS - ${dados.mesAno.toUpperCase()}`, pageWidth / 2, yAnexo + 5.5, { align: 'center' });
@@ -406,13 +411,13 @@ export const gerarRelatorioComprasPDF = async (dados: DadosRelatorioCompras): Pr
           fillColor: [173, 216, 230],
           textColor: [0, 0, 0],
           fontStyle: 'bold',
-          fontSize: 6.5,
+          fontSize: 7.5,
           halign: 'center',
           lineColor: [0, 0, 0],
           lineWidth: 0.3,
         },
         bodyStyles: {
-          fontSize: 6,
+          fontSize: 7,
           lineColor: [0, 0, 0],
           lineWidth: 0.2,
           cellPadding: 1.5,
@@ -420,11 +425,11 @@ export const gerarRelatorioComprasPDF = async (dados: DadosRelatorioCompras): Pr
         columnStyles: {
           0: { halign: 'center', cellWidth: 18 },
           1: { halign: 'center', cellWidth: 18 },
-          2: { halign: 'left', cellWidth: 32 },
-          3: { halign: 'left', cellWidth: 42 },
+          2: { halign: 'left', cellWidth: 30 },
+          3: { halign: 'left', cellWidth: 40 },
           4: { halign: 'center', cellWidth: 22 },
-          5: { halign: 'center', cellWidth: 22 },
-          6: { halign: 'center', cellWidth: 22 },
+          5: { halign: 'center', cellWidth: 24 },
+          6: { halign: 'center', cellWidth: 24 },
         },
         margin: { left: 15, right: 15 },
         didDrawPage: () => {
@@ -448,18 +453,18 @@ export const gerarRelatorioComprasPDF = async (dados: DadosRelatorioCompras): Pr
     doc.addPage();
     paginaAtual++;
     adicionarCabecalhoRodape(paginaAtual);
-    yAnexo = 30;
+    yAnexo = logoHeight + 5;
 
-    // Title bar
+    // Title bar with CG name
     doc.setFillColor(173, 216, 230);
     doc.rect(15, yAnexo, pageWidth - 30, 8, 'F');
     doc.setDrawColor(0, 0, 0);
     doc.setLineWidth(0.3);
     doc.rect(15, yAnexo, pageWidth - 30, 8, 'S');
-    doc.setFontSize(9);
+    doc.setFontSize(10);
     doc.setFont('helvetica', 'bold');
     doc.setTextColor(0, 0, 0);
-    doc.text(d.cg.ente_federativo.toUpperCase(), pageWidth / 2, yAnexo + 5.5, { align: 'center' });
+    doc.text(`${d.cg.nome_contrato} - ${d.cg.ente_federativo.toUpperCase()}`, pageWidth / 2, yAnexo + 5.5, { align: 'center' });
     yAnexo += 10;
 
     if (d.contratos.length > 0) {
@@ -478,13 +483,13 @@ export const gerarRelatorioComprasPDF = async (dados: DadosRelatorioCompras): Pr
           fillColor: [173, 216, 230],
           textColor: [0, 0, 0],
           fontStyle: 'bold',
-          fontSize: 7,
+          fontSize: 7.5,
           halign: 'center',
           lineColor: [0, 0, 0],
           lineWidth: 0.3,
         },
         bodyStyles: {
-          fontSize: 6.5,
+          fontSize: 7,
           lineColor: [0, 0, 0],
           lineWidth: 0.2,
           cellPadding: 2,
