@@ -75,6 +75,7 @@ const VerificarDocumento = () => {
         requisicao_compras: { label: 'Requisição de Compras', icone: FileText },
         capa_processo: { label: 'Capa do Processo', icone: FileText },
         autorizacao_despesa: { label: 'Autorização de Despesa', icone: FileCheck },
+        relatorio_compras: { label: 'Relatório de Compras', icone: FileSpreadsheet },
       };
 
       const tipoInfo = tipoMap[tipo] || { label: 'Documento', icone: FileText };

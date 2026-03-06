@@ -413,7 +413,7 @@ serve(async (req) => {
       );
     }
 
-    // 17. Protocolos de Documentos de Processo (requisição, capa, etc.)
+    // 17. Protocolos de Documentos de Processo (requisição, capa, relatório compras, etc.)
     const { data: protocoloDocumento } = await supabase
       .from("protocolos_documentos_processo")
       .select(`
@@ -425,11 +425,11 @@ serve(async (req) => {
       .maybeSingle();
 
     if (protocoloDocumento) {
-      // Mapear tipo para label
       const tipoMap: Record<string, string> = {
         requisicao: "requisicao_compras",
         capa_processo: "capa_processo",
-        autorizacao_despesa: "autorizacao_despesa"
+        autorizacao_despesa: "autorizacao_despesa",
+        relatorio_compras: "relatorio_compras"
       };
       const tipoRetorno = tipoMap[protocoloDocumento.tipo_documento] || protocoloDocumento.tipo_documento;
       
