@@ -353,6 +353,7 @@ export const gerarRelatorioComprasPDF = async (dados: DadosRelatorioCompras): Pr
       fontStyle: 'bold',
       fontSize: 8,
       halign: 'center',
+      valign: 'middle',
     },
     bodyStyles: {
       fontSize: 8,
