@@ -8,7 +8,7 @@ import { FileText, FileSpreadsheet, Download, Loader2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { jsPDF } from "jspdf";
-import "jspdf-autotable";
+import autoTable from "jspdf-autotable";
 import capaLogo from "@/assets/capa-processo-logo.png";
 import capaRodape from "@/assets/capa-processo-rodape.png";
 import ExcelJS from "exceljs";
