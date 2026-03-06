@@ -572,9 +572,9 @@ export function DashboardBIOperacional({
   const selectedTotal = selectedItems.reduce((s, i) => s + i.value, 0);
   const chartData = selectedItems.map(item => ({ name: item.name, value: item.value }));
 
-  // Detail items for the selected KPI (supports documentos_processo and fornecedores)
+  // Detail items for the selected KPI (supports documentos_processo, fornecedores, and cotacoes_bi)
   const selectedKpiDetail = useMemo(() => {
-    if (!selectedKpiName || (selectedKey !== 'documentos_processo' && selectedKey !== 'fornecedores')) return null;
+    if (!selectedKpiName || (selectedKey !== 'documentos_processo' && selectedKey !== 'fornecedores' && selectedKey !== 'cotacoes_bi')) return null;
     const item = selectedItems.find(i => i.name === selectedKpiName);
     return item?.detailItems || null;
   }, [selectedKpiName, selectedItems, selectedKey]);
