@@ -160,6 +160,7 @@ export function DashboardBIOperacional({
           atas: atasRes.data || [],
         });
         setDocsFornecedor(docsFornRes.data || []);
+        setRespostasCotacao(respostasRes.data || []);
       } catch (e) {
         console.error("Erro ao carregar dados de documentos:", e);
       }
