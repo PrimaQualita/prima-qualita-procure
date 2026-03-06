@@ -145,17 +145,65 @@ export const gerarRelatorioComprasPDF = async (dados: DadosRelatorioCompras): Pr
         }
       }
 
-      // Get homologation/report final dates from cotacoes
-      const { data: cotacoes } = await supabase
+      // Get authorization dates (compra direta) from autorizacoes_processo
+      const cotacaoIds: string[] = [];
+      const { data: cotacoesAll } = await supabase
         .from('cotacoes_precos')
-        .select('processo_compra_id, data_finalizacao')
-        .in('processo_compra_id', processosIds)
-        .not('data_finalizacao', 'is', null);
+        .select('id, processo_compra_id')
+        .in('processo_compra_id', processosIds);
 
-      if (cotacoes) {
-        for (const c of cotacoes) {
-          if (c.data_finalizacao) {
-            homologacaoDatasMap[c.processo_compra_id] = c.data_finalizacao.split('T')[0].split('-').reverse().join('/');
+      const cotacaoToProcesso: Record<string, string> = {};
+      if (cotacoesAll) {
+        for (const c of cotacoesAll) {
+          cotacaoIds.push(c.id);
+          cotacaoToProcesso[c.id] = c.processo_compra_id;
+        }
+      }
+
+      if (cotacaoIds.length > 0) {
+        // Autorização de compra direta
+        const { data: autorizacoes } = await supabase
+          .from('autorizacoes_processo')
+          .select('cotacao_id, data_geracao')
+          .in('cotacao_id', cotacaoIds);
+
+        if (autorizacoes) {
+          for (const a of autorizacoes) {
+            const procId = cotacaoToProcesso[a.cotacao_id];
+            if (procId && !homologacaoDatasMap[procId]) {
+              homologacaoDatasMap[procId] = a.data_geracao.split('T')[0].split('-').reverse().join('/');
+            }
+          }
+        }
+      }
+
+      // Homologação de seleção
+      const { data: selecoes } = await supabase
+        .from('selecoes_fornecedores')
+        .select('id, cotacao_id')
+        .in('cotacao_id', cotacaoIds);
+
+      if (selecoes && selecoes.length > 0) {
+        const selecaoIds = selecoes.map(s => s.id);
+        const selecaoToCotacao: Record<string, string> = {};
+        for (const s of selecoes) {
+          selecaoToCotacao[s.id] = s.cotacao_id;
+        }
+
+        const { data: homologacoes } = await supabase
+          .from('homologacoes_selecao')
+          .select('selecao_id, data_geracao')
+          .in('selecao_id', selecaoIds);
+
+        if (homologacoes) {
+          for (const h of homologacoes) {
+            const cotId = selecaoToCotacao[h.selecao_id];
+            if (cotId) {
+              const procId = cotacaoToProcesso[cotId];
+              if (procId && !homologacaoDatasMap[procId]) {
+                homologacaoDatasMap[procId] = h.data_geracao.split('T')[0].split('-').reverse().join('/');
+              }
+            }
           }
         }
       }
