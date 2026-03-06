@@ -1673,7 +1673,7 @@ export function DialogSessaoLances({
       // BUSCAR PROPOSTAS ORIGINAIS PARA INCLUIR COMO LANCES
       const { data: propostas } = await supabase
         .from("selecao_propostas_fornecedor")
-        .select("id, fornecedor_id, fornecedores(razao_social, cnpj), data_envio")
+        .select("id, fornecedor_id, fornecedores(razao_social, cnpj), data_envio_proposta")
         .eq("selecao_id", selecaoId);
 
       const propostaIds = (propostas || []).map((p: any) => p.id);
@@ -3198,10 +3198,9 @@ export function DialogSessaoLances({
             // Se houve proposta ENVIADA mas nenhuma CLASSIFICADA, é FRACASSADO
             if (tevePropostaEnviada && !tevePropostaClassificada) {
               statusSemVencedor = "FRACASSADO";
-            } else if (tevePropostaEnviada) {
-              // Houve proposta classificada mas não há vencedor (caso estranho, mas tratamos)
-              statusSemVencedor = "FRACASSADO";
             }
+            // Se houve proposta classificada, NÃO marcar como FRACASSADO
+            // O vencedor será identificado pela proposta de menor valor (via getVencedorItem/vencedoresPorItem)
             // Se não houve proposta, permanece DESERTO
           } else if (todosDesclassificados && !tevePropostaClassificada) {
             // Há um vencedor potencial, mas todos os lances e propostas excedem o valor estimado
