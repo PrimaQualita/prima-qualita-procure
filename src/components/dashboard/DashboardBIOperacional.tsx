@@ -373,6 +373,18 @@ export function DashboardBIOperacional({
     const fornAprovados = fornecedoresReais.filter(f => f.status_aprovacao === "aprovado");
     const fornEmAberto = fornecedoresReais.filter(f => f.status_aprovacao !== "aprovado" && f.status_aprovacao !== "rejeitado");
 
+    // Label map for document types
+    const TIPO_DOC_LABELS: Record<string, string> = {
+      cnd_federal: 'CND Federal',
+      cnd_tributos_estaduais: 'CND Tributos Estaduais',
+      cnd_divida_ativa_estadual: 'CND Dívida Ativa Estadual',
+      cnd_tributos_municipais: 'CND Tributos Municipais',
+      cnd_divida_ativa_municipal: 'CND Dívida Ativa Municipal',
+      crf_fgts: 'CRF FGTS',
+      cndt: 'CNDT',
+      certificado_gestor: 'Certificado de Fornecedor',
+    };
+
     // Build map: fornecedor_id -> docs with expiry info
     const docsPorFornecedor: Record<string, { tipo: string; validade: string; dias: number }[]> = {};
     docsFornecedor
@@ -381,7 +393,7 @@ export function DashboardBIOperacional({
         const val = new Date(d.data_validade + "T23:59:59-03:00");
         const dias = differenceInDays(val, hoje);
         if (!docsPorFornecedor[d.fornecedor_id]) docsPorFornecedor[d.fornecedor_id] = [];
-        docsPorFornecedor[d.fornecedor_id].push({ tipo: d.tipo_documento, validade: d.data_validade, dias });
+        docsPorFornecedor[d.fornecedor_id].push({ tipo: TIPO_DOC_LABELS[d.tipo_documento] || d.tipo_documento, validade: d.data_validade, dias });
       });
 
     // Also consider data_validade_certificado from fornecedores table
