@@ -149,7 +149,7 @@ export default function DialogRelatorioFornecedores({ open, onOpenChange }: Prop
 
       const [logoB64, rodapeB64] = await Promise.all([loadImageBase64(capaLogo), loadImageBase64(capaRodape)]);
 
-      const doc = new jsPDF({ orientation: "landscape", unit: "mm", format: "a4" });
+      const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
       const pw = doc.internal.pageSize.getWidth();
       const ph = doc.internal.pageSize.getHeight();
       const logoH = 28;
