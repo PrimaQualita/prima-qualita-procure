@@ -738,11 +738,12 @@ export async function gerarPropostaFornecedorPDF(
 
     // Responsável pela geração
     // Se for preços públicos, SEMPRE usar o usuário que preencheu
+    // Se tiver responsável legal selecionado, usar ele
     // Se for fornecedor normal, usar a razão social do fornecedor
     const isPrecosPublicosCert = ehPrecoPublicoCert((fornecedor as any).email);
     const responsavel = isPrecosPublicosCert
       ? (usuarioNome || 'Não informado')
-      : fornecedor.razao_social;
+      : (responsavelLegal || fornecedor.razao_social);
     
     paginaCert.drawText(`Responsável: ${responsavel}`, {
       x: 50,

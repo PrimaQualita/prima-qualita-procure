@@ -1001,7 +1001,7 @@ export async function gerarPropostaSelecaoPDF(
     
     // Quebrar textos longos
     doc.setFontSize(11);
-    const responsavelLines = doc.splitTextToSize(`Responsável: ${fornecedor.razao_social}`, larguraInternaQuadro);
+    const responsavelLines = doc.splitTextToSize(`Responsável: ${responsavelLegal || fornecedor.razao_social}`, larguraInternaQuadro);
     const protocoloFormatado = formatarProtocoloExibicao(protocolo);
     const protocoloLines = doc.splitTextToSize(`Protocolo: ${protocoloFormatado}`, larguraInternaQuadro);
     
