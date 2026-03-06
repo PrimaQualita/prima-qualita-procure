@@ -313,7 +313,7 @@ export const gerarRelatorioComprasPDF = async (dados: DadosRelatorioCompras): Pr
   y += 10;
   doc.setFontSize(12);
   doc.setFont('helvetica', 'bold');
-  doc.setTextColor(0, 0, 139);
+  doc.setTextColor(...corPrimaria);
   doc.text('INDICADORES QUALITATIVOS', pageWidth / 2, y, { align: 'center' });
   y += 8;
 
