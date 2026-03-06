@@ -532,10 +532,10 @@ export function DashboardBIOperacional({
         { name: "Encerrados", value: ctEncerrados.length, color: "muted", icon: XCircle },
       ],
       cotacoes_bi: [
-        { name: "Abertas", value: cotAbertas.length, color: "info", icon: Clock, detailItems: cotAbertasDetail },
-        { name: "A Vencer (2d)", value: cotAVencer.length, color: "warning", icon: CalendarClock, detailItems: cotAVencerDetail },
-        { name: "Vencidas", value: cotVencidas.length, color: "danger", icon: AlertTriangle, detailItems: cotVencidasDetail },
-        { name: "Fechadas", value: cotFechadas.length, color: "success", icon: CheckCircle2, detailItems: cotFechadasDetail },
+        { name: "Abertas", value: cotAbertas.length, color: "info", icon: Clock, detailItems: cotAbertasDetail, _baseTotal: cotFiltradas.length },
+        { name: "A Vencer (2d)", value: cotAVencer.length, color: "warning", icon: CalendarClock, detailItems: cotAVencerDetail, _baseTotal: cotFiltradas.length },
+        { name: "Vencidas", value: cotVencidas.length, color: "danger", icon: AlertTriangle, detailItems: cotVencidasDetail, _baseTotal: cotFiltradas.length },
+        { name: "Fechadas", value: cotFechadas.length, color: "success", icon: CheckCircle2, detailItems: cotFechadasDetail, _baseTotal: cotFiltradas.length },
       ],
       compliance: [
         { name: "Pendentes", value: compliancePendentes.length, color: "warning", icon: Clock },
