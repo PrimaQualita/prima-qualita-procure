@@ -217,7 +217,7 @@ export default function DialogRelatorioFornecedores({ open, onOpenChange }: Prop
         body = dados.map(f => [f.razao_social, f.cnpj, f.email, statusLabel(f.status_aprovacao)]);
       }
 
-      (doc as any).autoTable({
+      autoTable(doc, {
         head,
         body,
         startY: y,
