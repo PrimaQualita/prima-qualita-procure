@@ -653,7 +653,13 @@ export default function Fornecedores() {
         {/* Fornecedores Cadastrados */}
         <Card>
           <CardHeader>
-            <CardTitle>Fornecedores Cadastrados</CardTitle>
+            <div className="flex items-center justify-between">
+              <CardTitle>Fornecedores Cadastrados</CardTitle>
+              <Button variant="outline" onClick={() => setDialogRelatorioOpen(true)}>
+                <Download className="mr-2 h-4 w-4" />
+                Exportar Relatório
+              </Button>
+            </div>
           </CardHeader>
           <CardContent className="overflow-x-hidden">
             {/* Filtros */}
