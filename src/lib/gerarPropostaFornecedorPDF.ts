@@ -137,7 +137,8 @@ export async function gerarPropostaFornecedorPDF(
   usuarioNome?: string,
   usuarioCpf?: string,
   criterioJulgamento?: string,
-  supabaseClient?: SupabaseClient<any, any, any>
+  supabaseClient?: SupabaseClient<any, any, any>,
+  responsavelLegal?: string
 ): Promise<{ url: string; path: string; nome: string; hash: string; protocolo: string }> {
   // Usar cliente passado por parâmetro ou o default
   const sb = supabaseClient || supabase;
