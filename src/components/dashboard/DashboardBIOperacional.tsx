@@ -781,7 +781,7 @@ export function DashboardBIOperacional({
                           <TableHead className="text-xs">#</TableHead>
                           <TableHead className="text-xs">Contrato de Gestão</TableHead>
                           <TableHead className="text-xs">Processo</TableHead>
-                          <TableHead className="text-xs">Cotação</TableHead>
+                          
                           <TableHead className="text-xs">Data Limite</TableHead>
                           <TableHead className="text-xs">Propostas</TableHead>
                           <TableHead className="text-xs">Fornecedores</TableHead>
