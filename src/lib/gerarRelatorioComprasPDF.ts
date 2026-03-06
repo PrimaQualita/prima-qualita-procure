@@ -453,18 +453,18 @@ export const gerarRelatorioComprasPDF = async (dados: DadosRelatorioCompras): Pr
     doc.addPage();
     paginaAtual++;
     adicionarCabecalhoRodape(paginaAtual);
-    yAnexo = 30;
+    yAnexo = logoHeight + 5;
 
-    // Title bar
+    // Title bar with CG name
     doc.setFillColor(173, 216, 230);
     doc.rect(15, yAnexo, pageWidth - 30, 8, 'F');
     doc.setDrawColor(0, 0, 0);
     doc.setLineWidth(0.3);
     doc.rect(15, yAnexo, pageWidth - 30, 8, 'S');
-    doc.setFontSize(9);
+    doc.setFontSize(10);
     doc.setFont('helvetica', 'bold');
     doc.setTextColor(0, 0, 0);
-    doc.text(d.cg.ente_federativo.toUpperCase(), pageWidth / 2, yAnexo + 5.5, { align: 'center' });
+    doc.text(`${d.cg.nome_contrato} - ${d.cg.ente_federativo.toUpperCase()}`, pageWidth / 2, yAnexo + 5.5, { align: 'center' });
     yAnexo += 10;
 
     if (d.contratos.length > 0) {
