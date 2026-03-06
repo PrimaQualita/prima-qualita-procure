@@ -3198,10 +3198,9 @@ export function DialogSessaoLances({
             // Se houve proposta ENVIADA mas nenhuma CLASSIFICADA, é FRACASSADO
             if (tevePropostaEnviada && !tevePropostaClassificada) {
               statusSemVencedor = "FRACASSADO";
-            } else if (tevePropostaEnviada) {
-              // Houve proposta classificada mas não há vencedor (caso estranho, mas tratamos)
-              statusSemVencedor = "FRACASSADO";
             }
+            // Se houve proposta classificada, NÃO marcar como FRACASSADO
+            // O vencedor será identificado pela proposta de menor valor (via getVencedorItem/vencedoresPorItem)
             // Se não houve proposta, permanece DESERTO
           } else if (todosDesclassificados && !tevePropostaClassificada) {
             // Há um vencedor potencial, mas todos os lances e propostas excedem o valor estimado
