@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -12,6 +12,7 @@ import { toast } from "sonner";
 import primaLogo from "@/assets/prima-qualita-logo-horizontal.png";
 import { gerarPropostaRealinhadaPDF } from "@/lib/gerarPropostaRealinhadaPDF";
 import { fornecedorEhVencedorAtualSelecao } from "@/lib/selecaoVencedoresAtuais";
+import { DialogSelecionarResponsavelLegal } from "@/components/fornecedores/DialogSelecionarResponsavelLegal";
 
 interface ItemVencedor {
   numero_item: number;
