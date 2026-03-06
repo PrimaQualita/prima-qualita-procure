@@ -427,21 +427,21 @@ export default function DialogRelatorioFornecedores({ open, onOpenChange }: Prop
 
           <div className="flex gap-3 pt-2">
             <Button
-              onClick={gerarPDF}
-              disabled={gerando}
+              onClick={(e) => { e.stopPropagation(); gerarPDF(); }}
+              disabled={gerandoPDF || gerandoExcel}
               className="flex-1"
               variant="default"
             >
-              {gerando ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <FileText className="mr-2 h-4 w-4" />}
+              {gerandoPDF ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <FileText className="mr-2 h-4 w-4" />}
               Baixar PDF
             </Button>
             <Button
-              onClick={gerarExcel}
-              disabled={gerando}
+              onClick={(e) => { e.stopPropagation(); gerarExcel(); }}
+              disabled={gerandoPDF || gerandoExcel}
               className="flex-1"
               variant="outline"
             >
-              {gerando ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <FileSpreadsheet className="mr-2 h-4 w-4" />}
+              {gerandoExcel ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <FileSpreadsheet className="mr-2 h-4 w-4" />}
               Baixar Excel
             </Button>
           </div>
