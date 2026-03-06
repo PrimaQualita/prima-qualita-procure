@@ -64,7 +64,8 @@ const formatDate = (d: string | null) => {
 export default function DialogRelatorioFornecedores({ open, onOpenChange }: Props) {
   const [filtro, setFiltro] = useState<FiltroTipo>("aprovados");
   const [filtroCnae, setFiltroCnae] = useState("");
-  const [gerando, setGerando] = useState(false);
+  const [gerandoPDF, setGerandoPDF] = useState(false);
+  const [gerandoExcel, setGerandoExcel] = useState(false);
 
   const fetchData = async (): Promise<FornecedorRelatorio[]> => {
     let query = supabase.from("fornecedores").select("id, razao_social, cnpj, email, status_aprovacao").not("user_id", "is", null);
