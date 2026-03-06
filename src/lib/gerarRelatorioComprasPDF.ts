@@ -540,6 +540,7 @@ export const gerarRelatorioComprasPDF = async (dados: DadosRelatorioCompras): Pr
         },
         bodyStyles: {
           fontSize: 7,
+          valign: 'middle',
           lineColor: [0, 0, 0],
           lineWidth: 0.2,
           cellPadding: 2,
