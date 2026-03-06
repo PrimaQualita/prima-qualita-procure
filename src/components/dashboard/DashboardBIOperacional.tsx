@@ -793,7 +793,7 @@ export function DashboardBIOperacional({
                             <TableCell className="text-xs">{idx + 1}</TableCell>
                             <TableCell className="text-xs">{detail.contrato}</TableCell>
                             <TableCell className="text-xs font-medium">{detail.numero}</TableCell>
-                            <TableCell className="text-xs">{detail.titulo}</TableCell>
+                            
                             <TableCell className="text-xs">
                               {detail.data_limite ? new Date(detail.data_limite).toLocaleDateString("pt-BR") : "—"}
                             </TableCell>
