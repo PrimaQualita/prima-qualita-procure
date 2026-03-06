@@ -144,7 +144,7 @@ export function DashboardBIOperacional({
           supabase.from('solicitacoes_homologacao_selecao').select('id, selecao_id, atendida, selecoes_fornecedores:selecao_id(processo_compra_id)').limit(5000),
           supabase.from('homologacoes_selecao').select('id, selecao_id, selecoes_fornecedores:selecao_id(processo_compra_id)').limit(5000),
           supabase.from('atas_selecao').select('id, selecao_id, selecoes_fornecedores:selecao_id(processo_compra_id), atas_assinaturas_usuario(status_assinatura, profiles:usuario_id(nome_completo)), atas_assinaturas_fornecedor(status_assinatura, fornecedores:fornecedor_id(razao_social))').limit(5000),
-          supabase.from('documentos_fornecedor').select('id, fornecedor_id, tipo_documento, data_validade, nome_arquivo').in('tipo_documento', ['cnd_federal', 'cnd_tributos_estaduais', 'cnd_divida_ativa_estadual', 'cnd_tributos_municipais', 'cnd_divida_ativa_municipal', 'crf_fgts', 'cndt', 'certificado_gestor']).limit(5000),
+          supabase.from('documentos_fornecedor').select('id, fornecedor_id, tipo_documento, data_validade, nome_arquivo').in('tipo_documento', ['cnd_federal', 'cnd_tributos_estaduais', 'cnd_divida_ativa_estadual', 'cnd_tributos_municipais', 'cnd_divida_ativa_municipal', 'crf_fgts', 'cndt', 'certificado_gestor']).eq('em_vigor', true).limit(5000),
         ]);
         setDocData({
           notificacoes: notifRes.data || [],

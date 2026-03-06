@@ -353,10 +353,10 @@ export default function GestaoDocumentosFornecedor({ fornecedorId }: Props) {
         }
       }
 
-      // 4. Desativar documento antigo no banco (mantém registro histórico)
+      // 4. Deletar registro antigo do banco (histórico já preservado em documentos_antigos quando vinculado a processo)
       await supabase
         .from("documentos_fornecedor")
-        .update({ em_vigor: false })
+        .delete()
         .eq("fornecedor_id", fornecedorId)
         .eq("tipo_documento", tipoDocumentoAtualizar);
 

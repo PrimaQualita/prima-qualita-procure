@@ -1,59 +1,40 @@
 
 
-## Plano: Eliminar registros duplicados e prevenir futuros
+## Problema Identificado
 
-### Diagnóstico
+No modo **Comparativo** do BI Controle, o componente `ComparativoKPICard` exibe cada KPI individualmente como `[KPI, Restante]` — por isso aparece "Requisição - Solicitadas vs Restante", "Requisição - Geradas vs Restante", etc. Esse "Restante" é o total do módulo menos o valor do KPI, o que não faz sentido para o módulo **Processo**.
 
-- **Gestor** (`GestaoDocumentosGestor.tsx`): faz `update` no mesmo registro — sem duplicatas.
-- **Fornecedor** (`GestaoDocumentosFornecedor.tsx`): marca antigo como `em_vigor: false` (linha 357-361) e insere novo (linha 369-381) — cria duplicata.
-- O BI não filtra por `em_vigor`, então conta registros inativos.
+## Solução
 
-### Alterações
+Para o módulo **Processo** (`documentos_processo`), o modo comparativo deve funcionar de forma diferente dos demais módulos:
 
-**1. `GestaoDocumentosFornecedor.tsx` (linha 356-361)**
+1. **Agrupamento por categoria**: Os 18 KPIs são agrupados em 6 categorias (Requisição, Aut. Despesa, Aut. Seleção, Aut. Compra Direta, Homologação, Atas), cada uma com 3 métricas (Solicitadas/Geradas/Pendentes).
 
-Trocar o `update em_vigor: false` por `delete` dos registros antigos. A lógica de arquivamento em `documentos_antigos` (quando vinculado a processo) já está implementada acima e continuará funcionando — o registro em `documentos_antigos` preserva o histórico. O que muda é que após arquivar (ou deletar do storage se não vinculado), o registro em `documentos_fornecedor` é **deletado** ao invés de ficar com `em_vigor: false`.
+2. **Seleção múltipla de grupos**: O usuário pode marcar mais de um grupo (ex: Requisição + Aut. Despesa) para comparar lado a lado.
 
-```typescript
-// ANTES (linha 356-361):
-await supabase
-  .from("documentos_fornecedor")
-  .update({ em_vigor: false })
-  .eq("fornecedor_id", fornecedorId)
-  .eq("tipo_documento", tipoDocumentoAtualizar);
+3. **Um gráfico por grupo selecionado**: Cada grupo selecionado gera um card com um único gráfico mostrando as 3 barras (Solicitadas, Geradas, Pendentes) — sem "Restante".
 
-// DEPOIS:
-await supabase
-  .from("documentos_fornecedor")
-  .delete()
-  .eq("fornecedor_id", fornecedorId)
-  .eq("tipo_documento", tipoDocumentoAtualizar);
-```
+4. **Demais módulos inalterados**: Contratos, Compliance, Seleções, etc. continuam com o comportamento atual.
 
-O novo registro continua sendo inserido logo em seguida (linha 369-381) com `em_vigor: true`.
+## Alterações Técnicas
 
-**2. `DashboardBIOperacional.tsx` (linha 147)**
+### `src/components/dashboard/DashboardBIOperacional.tsx`
 
-Adicionar `.eq('em_vigor', true)` na query como camada de segurança:
+- Definir constante com os 6 grupos do módulo Processo:
+  ```
+  GRUPOS_PROCESSO = [
+    { key: "requisicao", title: "Requisição", indices: [0,1,2] },
+    { key: "aut_despesa", title: "Aut. Despesa", indices: [3,4,5] },
+    ...
+  ]
+  ```
 
-```typescript
-supabase.from('documentos_fornecedor')
-  .select('id, fornecedor_id, tipo_documento, data_validade, nome_arquivo')
-  .in('tipo_documento', [...])
-  .eq('em_vigor', true)  // ← adicionar
-  .limit(5000)
-```
+- Adicionar estado `gruposProcessoSelecionados: string[]` (default: `["requisicao"]`).
 
-**3. Limpeza dos registros órfãos existentes**
+- No bloco comparativo (linha ~700), quando `selectedKey === 'documentos_processo'`:
+  - Renderizar checkboxes para selecionar os grupos (Requisição, Aut. Despesa, etc.)
+  - Para cada grupo selecionado, renderizar um card com gráfico de 3 barras (Solicitadas/Geradas/Pendentes)
+  - Cada card tem seu próprio seletor de tipo de gráfico (barras/pizza/vela/pareto)
 
-Executar via ferramenta de dados:
-```sql
-DELETE FROM documentos_fornecedor WHERE em_vigor = false;
-```
-
-### Segurança
-
-- Documentos vinculados a processos finalizados **já estão** preservados em `documentos_antigos` (o arquivamento acontece nas linhas 280-332, antes da linha que será alterada).
-- O `delete` só remove da tabela `documentos_fornecedor` — o arquivo físico e o registro em `documentos_antigos` permanecem intactos.
-- O fluxo do Gestor não é afetado (usa `update` no mesmo registro, sem criar duplicatas).
+- Quando `selectedKey !== 'documentos_processo'`: manter o comportamento atual com `ComparativoKPICard` e "Restante".
 
