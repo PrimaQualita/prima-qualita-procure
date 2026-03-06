@@ -974,6 +974,12 @@ const ProcessosCompras = () => {
           processoNumero={processoParaAnexos.numero_processo_interno}
         />
       )}
+
+      <DialogRelatorioCompras
+        open={dialogRelatorioOpen}
+        onOpenChange={setDialogRelatorioOpen}
+        contratos={contratos}
+      />
     </div>
   );
 };
