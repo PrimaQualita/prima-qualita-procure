@@ -2044,7 +2044,7 @@ const ParticiparSelecao = () => {
                     </p>
                   </div>
 
-                  <Button onClick={handleSubmit} disabled={submitting} className="w-full" size="lg">
+                  <Button onClick={handlePreSubmit} disabled={submitting} className="w-full" size="lg">
                     <Send className="h-4 w-4 mr-2" />
                     {submitting ? "Enviando..." : "Enviar Proposta"}
                   </Button>
