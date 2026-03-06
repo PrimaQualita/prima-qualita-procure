@@ -97,6 +97,7 @@ const ProcessosCompras = () => {
   const [processoParaEditar, setProcessoParaEditar] = useState<Processo | null>(null);
   const [processoParaExcluir, setProcessoParaExcluir] = useState<string | null>(null);
   const [dialogAnexosOpen, setDialogAnexosOpen] = useState(false);
+  const [dialogRelatorioOpen, setDialogRelatorioOpen] = useState(false);
   const [processoParaAnexos, setProcessoParaAnexos] = useState<Processo | null>(null);
 
   // Verifica se é usuário interno (gestor ou colaborador) com permissões completas
