@@ -4,7 +4,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { differenceInDays } from "date-fns";
 import { toZonedTime } from "date-fns-tz";
 import {
-  FileText, ShieldCheck, Users, Building2, Handshake, ClipboardList,
+  FileText, ShieldCheck, Users, Building2, Handshake, ClipboardList, Receipt,
   AlertTriangle, CheckCircle2, Clock, XCircle, Ban, CalendarClock, BarChart3, GitCompare,
   PieChart, CandlestickChart, Trophy, FileCheck, FileClock, PenTool, Stamp, ChevronDown, ChevronUp
 } from "lucide-react";
@@ -94,10 +94,11 @@ const GRUPOS_PROCESSO = [
   { key: "atas", title: "Atas", indices: [15, 16, 17] },
 ];
 
-type ModuloKey = "documentos_processo" | "contratos" | "compliance" | "selecoes" | "credenciamentos" | "contratacoes" | "fornecedores";
+type ModuloKey = "documentos_processo" | "cotacoes_bi" | "contratos" | "compliance" | "selecoes" | "credenciamentos" | "contratacoes" | "fornecedores";
 
 const MODULO_CONFIG: Record<ModuloKey, { label: string; icon: any }> = {
   documentos_processo: { label: "Processo", icon: Stamp },
+  cotacoes_bi: { label: "Cotações", icon: Receipt },
   contratos: { label: "Contratos", icon: FileText },
   compliance: { label: "Análise de Compliance", icon: ShieldCheck },
   selecoes: { label: "Seleções de Fornecedores", icon: Users },
@@ -131,11 +132,12 @@ export function DashboardBIOperacional({
     autorizacoes: [], solHomologacao: [], homologacoes: [], atas: []
   });
   const [docsFornecedor, setDocsFornecedor] = useState<any[]>([]);
+  const [respostasCotacao, setRespostasCotacao] = useState<any[]>([]);
 
   useEffect(() => {
     const fetchDocData = async () => {
       try {
-        const [notifRes, anexosRes, solAutRes, solAutSelRes, autRes, solHomRes, homRes, atasRes, docsFornRes] = await Promise.all([
+        const [notifRes, anexosRes, solAutRes, solAutSelRes, autRes, solHomRes, homRes, atasRes, docsFornRes, respostasRes] = await Promise.all([
           supabase.from('notificacoes_documentos_processo').select('tipo_notificacao, atendida, processo_compra_id').limit(5000),
           supabase.from('anexos_processo_compra').select('tipo_anexo, processo_compra_id').in('tipo_anexo', ['requisicao', 'autorizacao_despesa']).limit(5000),
           supabase.from('solicitacoes_autorizacao').select('id, cotacao_id, status, cotacoes_precos:cotacao_id(processo_compra_id)').limit(5000),
@@ -145,6 +147,7 @@ export function DashboardBIOperacional({
           supabase.from('homologacoes_selecao').select('id, selecao_id, selecoes_fornecedores:selecao_id(processo_compra_id)').limit(5000),
           supabase.from('atas_selecao').select('id, selecao_id, selecoes_fornecedores:selecao_id(processo_compra_id), atas_assinaturas_usuario(status_assinatura, profiles:usuario_id(nome_completo)), atas_assinaturas_fornecedor(status_assinatura, fornecedores:fornecedor_id(razao_social))').limit(5000),
           supabase.from('documentos_fornecedor').select('id, fornecedor_id, tipo_documento, data_validade, nome_arquivo').in('tipo_documento', ['cnd_federal', 'cnd_tributos_estaduais', 'cnd_divida_ativa_estadual', 'cnd_tributos_municipais', 'cnd_divida_ativa_municipal', 'crf_fgts', 'cndt', 'certificado_gestor']).eq('em_vigor', true).limit(5000),
+          supabase.from('cotacao_respostas_fornecedor').select('id, cotacao_id, fornecedor_id, fornecedores:fornecedor_id(razao_social, nome_fantasia)').limit(5000),
         ]);
         setDocData({
           notificacoes: notifRes.data || [],
@@ -157,6 +160,7 @@ export function DashboardBIOperacional({
           atas: atasRes.data || [],
         });
         setDocsFornecedor(docsFornRes.data || []);
+        setRespostasCotacao(respostasRes.data || []);
       } catch (e) {
         console.error("Erro ao carregar dados de documentos:", e);
       }
@@ -351,6 +355,52 @@ export function DashboardBIOperacional({
       : cotacoesPrecos.filter(c => c.processos_compras?.contrato_gestao_id === contratoSelecionado);
     const compliancePendentes = cotFiltradas.filter(c => c.enviado_compliance === true && c.respondido_compliance !== true);
 
+    // === COTAÇÕES BI ===
+    // Build respostas lookup: cotacao_id -> list of fornecedores
+    const respostasPorCotacao: Record<string, { fornecedor: string }[]> = {};
+    respostasCotacao.forEach(r => {
+      if (!respostasPorCotacao[r.cotacao_id]) respostasPorCotacao[r.cotacao_id] = [];
+      const nome = r.fornecedores?.nome_fantasia || r.fornecedores?.razao_social || 'Fornecedor';
+      respostasPorCotacao[r.cotacao_id].push({ fornecedor: nome });
+    });
+
+    const buildCotacaoDetail = (cotacao: any) => {
+      const proc = cotacao.processos_compras;
+      const respostas = respostasPorCotacao[cotacao.id] || [];
+      return {
+        contrato: proc?.contratos_gestao?.nome_contrato || 'Sem Contrato',
+        numero: proc?.numero_processo_interno || 'N/A',
+        data_limite: cotacao.data_limite_resposta || null,
+        titulo: cotacao.titulo_cotacao || 'N/A',
+        qtd_propostas: respostas.length,
+        fornecedores: respostas.map(r => r.fornecedor),
+      };
+    };
+
+    // Abertas: não tiveram aprovação do compliance ainda (não respondido)
+    const cotAbertas = cotFiltradas.filter(c => c.respondido_compliance !== true);
+    // A Vencer: a 2 dias de vencer e sem parecer do compliance
+    const cotAVencer = cotAbertas.filter(c => {
+      if (!c.data_limite_resposta) return false;
+      const limite = new Date(c.data_limite_resposta);
+      const dias = differenceInDays(limite, hoje);
+      return dias >= 0 && dias <= 2;
+    });
+    // Vencidas: expiraram o tempo de resposta sem aprovação do compliance
+    const cotVencidas = cotAbertas.filter(c => {
+      if (!c.data_limite_resposta) return false;
+      const limite = new Date(c.data_limite_resposta);
+      return limite < hoje;
+    });
+    // Abertas efetivas (excluindo vencidas e a vencer para não duplicar, mas mantendo todas como "Abertas")
+    // Fechadas: já tiveram parecer do compliance
+    const cotFechadas = cotFiltradas.filter(c => c.respondido_compliance === true);
+
+    const cotAbertasDetail = cotAbertas.map(buildCotacaoDetail);
+    const cotAVencerDetail = cotAVencer.map(buildCotacaoDetail);
+    const cotVencidasDetail = cotVencidas.map(buildCotacaoDetail);
+    const cotFechadasDetail = cotFechadas.map(buildCotacaoDetail);
+
     // === SELEÇÕES ===
     const procFiltrados = filterCG(processos);
     const procSelecao = procFiltrados.filter(p => p.requer_selecao && !p.credenciamento && !p.contratacao_especifica);
@@ -481,6 +531,12 @@ export function DashboardBIOperacional({
         { name: "Rescindidos", value: ctRescindidos.length, color: "muted", icon: Ban },
         { name: "Encerrados", value: ctEncerrados.length, color: "muted", icon: XCircle },
       ],
+      cotacoes_bi: [
+        { name: "Abertas", value: cotAbertas.length, color: "info", icon: Clock, detailItems: cotAbertasDetail },
+        { name: "A Vencer (2d)", value: cotAVencer.length, color: "warning", icon: CalendarClock, detailItems: cotAVencerDetail },
+        { name: "Vencidas", value: cotVencidas.length, color: "danger", icon: AlertTriangle, detailItems: cotVencidasDetail },
+        { name: "Fechadas", value: cotFechadas.length, color: "success", icon: CheckCircle2, detailItems: cotFechadasDetail },
+      ],
       compliance: [
         { name: "Pendentes", value: compliancePendentes.length, color: "warning", icon: Clock },
         { name: "Respondidas", value: cotFiltradas.filter(c => c.respondido_compliance === true).length, color: "success", icon: CheckCircle2 },
@@ -505,7 +561,7 @@ export function DashboardBIOperacional({
         { name: "Em Aberto", value: fornEmAberto.length, color: "info", icon: Clock, detailItems: fornEmAbertoDetails },
       ],
     };
-  }, [contratosTerceiros, processosParaContratar, cotacoesPrecos, processos, selecoes, fornecedores, contratoSelecionado, hoje, docData, processoContratoMap, docsFornecedor]);
+  }, [contratosTerceiros, processosParaContratar, cotacoesPrecos, processos, selecoes, fornecedores, contratoSelecionado, hoje, docData, processoContratoMap, docsFornecedor, respostasCotacao]);
 
   const [selectedKpiName, setSelectedKpiName] = useState<string | null>(null);
   const [gruposProcessoSelecionados, setGruposProcessoSelecionados] = useState<string[]>(["requisicao"]);
@@ -516,9 +572,9 @@ export function DashboardBIOperacional({
   const selectedTotal = selectedItems.reduce((s, i) => s + i.value, 0);
   const chartData = selectedItems.map(item => ({ name: item.name, value: item.value }));
 
-  // Detail items for the selected KPI (supports documentos_processo and fornecedores)
+  // Detail items for the selected KPI (supports documentos_processo, fornecedores, and cotacoes_bi)
   const selectedKpiDetail = useMemo(() => {
-    if (!selectedKpiName || (selectedKey !== 'documentos_processo' && selectedKey !== 'fornecedores')) return null;
+    if (!selectedKpiName || (selectedKey !== 'documentos_processo' && selectedKey !== 'fornecedores' && selectedKey !== 'cotacoes_bi')) return null;
     const item = selectedItems.find(i => i.name === selectedKpiName);
     return item?.detailItems || null;
   }, [selectedKpiName, selectedItems, selectedKey]);
@@ -673,7 +729,7 @@ export function DashboardBIOperacional({
                   {selectedItems.map((item, i) => {
                     const ItemIcon = item.icon;
                     const percentage = selectedTotal > 0 ? ((item.value / selectedTotal) * 100).toFixed(1) : "0";
-                    const isClickable = selectedKey === 'fornecedores' && item.detailItems;
+                    const isClickable = (selectedKey === 'fornecedores' || selectedKey === 'cotacoes_bi') && item.detailItems;
                     return (
                       <Tooltip key={i}>
                         <TooltipTrigger asChild>
@@ -717,7 +773,40 @@ export function DashboardBIOperacional({
               </CardHeader>
               <CardContent>
                 <div className="max-h-[400px] overflow-y-auto">
-                  {selectedKey === 'fornecedores' ? (
+                  {selectedKey === 'cotacoes_bi' ? (
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead className="text-xs">#</TableHead>
+                          <TableHead className="text-xs">Contrato de Gestão</TableHead>
+                          <TableHead className="text-xs">Processo</TableHead>
+                          <TableHead className="text-xs">Cotação</TableHead>
+                          <TableHead className="text-xs">Data Limite</TableHead>
+                          <TableHead className="text-xs">Propostas</TableHead>
+                          <TableHead className="text-xs">Fornecedores</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {selectedKpiDetail.map((detail: any, idx: number) => (
+                          <TableRow key={idx}>
+                            <TableCell className="text-xs">{idx + 1}</TableCell>
+                            <TableCell className="text-xs">{detail.contrato}</TableCell>
+                            <TableCell className="text-xs font-medium">{detail.numero}</TableCell>
+                            <TableCell className="text-xs">{detail.titulo}</TableCell>
+                            <TableCell className="text-xs">
+                              {detail.data_limite ? new Date(detail.data_limite).toLocaleDateString("pt-BR") : "—"}
+                            </TableCell>
+                            <TableCell className="text-xs font-semibold">{detail.qtd_propostas}</TableCell>
+                            <TableCell className="text-xs">
+                              {detail.fornecedores?.length > 0
+                                ? detail.fornecedores.join(", ")
+                                : "Nenhuma proposta"}
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  ) : selectedKey === 'fornecedores' ? (
                     <Table>
                       <TableHeader>
                         <TableRow>
