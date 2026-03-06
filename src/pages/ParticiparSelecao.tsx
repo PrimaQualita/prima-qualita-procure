@@ -913,6 +913,7 @@ const ParticiparSelecao = () => {
         const cnpjLimpo = dadosEmpresa.cnpj.replace(/[^\d]/g, "");
         if (cnpjLimpo.length === 14) {
           try {
+            // Usar supabase com anon key - fornecedores tem SELECT público
             const { data: fornecedorData } = await supabase
               .from("fornecedores")
               .select("responsaveis_legais")
