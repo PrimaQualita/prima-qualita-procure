@@ -676,7 +676,7 @@ export function DashboardBIOperacional({
           {/* KPI Cards do módulo selecionado */}
           <div className="mb-6">
             <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">
-              Indicadores — {MODULO_CONFIG[selectedKey]?.label} (Total: {selectedTotal})
+              Indicadores — {MODULO_CONFIG[selectedKey]?.label} (Total: {selectedItems[0]?._baseTotal ?? selectedTotal})
             </h3>
             <TooltipProvider delayDuration={200}>
               {selectedKey === 'documentos_processo' ? (
