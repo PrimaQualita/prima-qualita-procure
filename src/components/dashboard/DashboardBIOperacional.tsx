@@ -135,7 +135,7 @@ export function DashboardBIOperacional({
   useEffect(() => {
     const fetchDocData = async () => {
       try {
-        const [notifRes, anexosRes, solAutRes, solAutSelRes, autRes, solHomRes, homRes, atasRes] = await Promise.all([
+        const [notifRes, anexosRes, solAutRes, solAutSelRes, autRes, solHomRes, homRes, atasRes, docsFornRes] = await Promise.all([
           supabase.from('notificacoes_documentos_processo').select('tipo_notificacao, atendida, processo_compra_id').limit(5000),
           supabase.from('anexos_processo_compra').select('tipo_anexo, processo_compra_id').in('tipo_anexo', ['requisicao', 'autorizacao_despesa']).limit(5000),
           supabase.from('solicitacoes_autorizacao').select('id, cotacao_id, status, cotacoes_precos:cotacao_id(processo_compra_id)').limit(5000),
@@ -144,6 +144,7 @@ export function DashboardBIOperacional({
           supabase.from('solicitacoes_homologacao_selecao').select('id, selecao_id, atendida, selecoes_fornecedores:selecao_id(processo_compra_id)').limit(5000),
           supabase.from('homologacoes_selecao').select('id, selecao_id, selecoes_fornecedores:selecao_id(processo_compra_id)').limit(5000),
           supabase.from('atas_selecao').select('id, selecao_id, selecoes_fornecedores:selecao_id(processo_compra_id), atas_assinaturas_usuario(status_assinatura, profiles:usuario_id(nome_completo)), atas_assinaturas_fornecedor(status_assinatura, fornecedores:fornecedor_id(razao_social))').limit(5000),
+          supabase.from('documentos_fornecedor').select('id, fornecedor_id, tipo_documento, data_validade, nome_arquivo').in('tipo_documento', ['CND Federal', 'CND Tributos Estaduais', 'CND Dívida Ativa Estadual', 'CND Tributos Municipais', 'CND Dívida Ativa Municipal', 'CRF FGTS', 'CNDT', 'Certificado de Fornecedor']).limit(5000),
         ]);
         setDocData({
           notificacoes: notifRes.data || [],
@@ -155,6 +156,7 @@ export function DashboardBIOperacional({
           homologacoes: homRes.data || [],
           atas: atasRes.data || [],
         });
+        setDocsFornecedor(docsFornRes.data || []);
       } catch (e) {
         console.error("Erro ao carregar dados de documentos:", e);
       }
