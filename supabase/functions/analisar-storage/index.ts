@@ -3989,7 +3989,11 @@ Deno.serve(async (req) => {
           detalhes: estatisticasPorCategoria.relatorios_finais.detalhes,
           porProcesso: Array.from(estatisticasPorCategoria.relatorios_finais.porProcesso!.values())
         },
-        autorizacoes_compra_direta: {
+        relatorios_compras: {
+          arquivos: estatisticasPorCategoria.relatorios_compras.arquivos,
+          tamanhoMB: Number((estatisticasPorCategoria.relatorios_compras.tamanho / (1024 * 1024)).toFixed(2)),
+          detalhes: estatisticasPorCategoria.relatorios_compras.detalhes,
+        },
           arquivos: estatisticasPorCategoria.autorizacoes_compra_direta.arquivos,
           tamanhoMB: Number((estatisticasPorCategoria.autorizacoes_compra_direta.tamanho / (1024 * 1024)).toFixed(2)),
           detalhes: estatisticasPorCategoria.autorizacoes_compra_direta.detalhes,
