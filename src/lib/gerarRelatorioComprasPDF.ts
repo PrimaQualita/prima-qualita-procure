@@ -415,46 +415,49 @@ export const gerarRelatorioComprasPDF = async (dados: DadosRelatorioCompras): Pr
   let paginaAtual = doc.getNumberOfPages();
 
   for (const d of dadosPorCG) {
+    // Skip CGs with no data
+    if (d.processos.length === 0 && d.contratos.length === 0) continue;
+
     // ---- PROCESSOS ----
-    doc.addPage();
-    paginaAtual++;
-    adicionarCabecalhoRodape(paginaAtual);
-    let yAnexo = logoHeight + 5;
-
-    // Title bar like reference image
-    doc.setFillColor(173, 216, 230);
-    doc.rect(15, yAnexo, pageWidth - 30, 8, 'F');
-    doc.setDrawColor(0, 0, 0);
-    doc.setLineWidth(0.3);
-    doc.rect(15, yAnexo, pageWidth - 30, 8, 'S');
-    doc.setFontSize(10);
-    doc.setFont('helvetica', 'bold');
-    doc.setTextColor(0, 0, 0);
-    doc.text(`CONTROLE DE PROCESSOS - ${dados.mesAno.toUpperCase()}`, pageWidth / 2, yAnexo + 5.5, { align: 'center' });
-    yAnexo += 10;
-
-    const statusLabels: Record<string, string> = {
-      planejado: 'ABERTO',
-      em_cotacao: 'EM COTAÇÃO',
-      cotacao_concluida: 'COTAÇÃO CONCLUÍDA',
-      em_selecao: 'EM SELEÇÃO',
-      contratado: 'CONTRATADO',
-      contratacao: 'EM CONTRATAÇÃO',
-      concluido: 'CONCLUÍDO',
-      dispensa: 'DISPENSA',
-    };
-
     if (d.processos.length > 0) {
+      doc.addPage();
+      paginaAtual++;
+      adicionarCabecalhoRodape(paginaAtual);
+      let yAnexo = logoHeight + 5;
+
+      // Title bar with CG identification
+      doc.setFillColor(173, 216, 230);
+      doc.rect(15, yAnexo, pageWidth - 30, 8, 'F');
+      doc.setDrawColor(0, 0, 0);
+      doc.setLineWidth(0.3);
+      doc.rect(15, yAnexo, pageWidth - 30, 8, 'S');
+      doc.setFontSize(10);
+      doc.setFont('helvetica', 'bold');
+      doc.setTextColor(0, 0, 0);
+      doc.text(`CONTROLE DE PROCESSOS - ${dados.mesAno.toUpperCase()}`, pageWidth / 2, yAnexo + 5.5, { align: 'center' });
+      yAnexo += 10;
+
+      const statusLabels: Record<string, string> = {
+        planejado: 'ABERTO',
+        em_cotacao: 'EM COTAÇÃO',
+        cotacao_concluida: 'COTAÇÃO CONCLUÍDA',
+        em_selecao: 'EM SELEÇÃO',
+        contratado: 'CONTRATADO',
+        contratacao: 'EM CONTRATAÇÃO',
+        concluido: 'CONCLUÍDO',
+        dispensa: 'DISPENSA',
+      };
+
       autoTable(doc, {
         startY: yAnexo,
-        head: [['PROCESSO', 'DATA', 'CONTRATO DE GESTÃO', 'OBJETO', 'STATUS', 'CONTRATOS', 'HOMOLOGAÇÃO\nRELATÓRIO FINAL']],
+        head: [['PROCESSO', 'DATA', 'CONTRATO DE GESTÃO', 'OBJETO', 'STATUS', 'CONTRATOS', 'AUTORIZAÇÃO /\nHOMOLOGAÇÃO']],
         body: d.processos.map((p: any) => [
           p.numero_processo_interno || 'N/A',
           p.data_abertura ? p.data_abertura.split('-').reverse().join('/') : (p.created_at ? p.created_at.split('T')[0].split('-').reverse().join('/') : 'N/A'),
           d.cg.nome_contrato,
           stripHtml(p.objeto_resumido || '').substring(0, 60),
           statusLabels[p.status_processo] || p.status_processo?.replace(/_/g, ' ').toUpperCase() || 'N/A',
-          p.contratos_vinculados || 'SEM CONTRATO',
+          p.contratos_vinculados || '-',
           p.data_homologacao || '',
         ]),
         theme: 'grid',
