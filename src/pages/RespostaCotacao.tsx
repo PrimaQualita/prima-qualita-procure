@@ -145,6 +145,7 @@ const RespostaCotacao = () => {
   const [buscandoFornecedor, setBuscandoFornecedor] = useState(false);
   const [dialogResponsavelLegalOpen, setDialogResponsavelLegalOpen] = useState(false);
   const [responsaveisLegaisDisponiveis, setResponsaveisLegaisDisponiveis] = useState<string[]>([]);
+  const [modoManualResponsavel, setModoManualResponsavel] = useState(false);
   const responsavelLegalRef = useRef<string | undefined>(undefined);
 
   // Função para buscar fornecedor por CNPJ
@@ -775,17 +776,33 @@ const RespostaCotacao = () => {
           : [];
 
         if (responsaveis.length > 1) {
+          setModoManualResponsavel(false);
           setResponsaveisLegaisDisponiveis(responsaveis);
           setDialogResponsavelLegalOpen(true);
           return;
         } else if (responsaveis.length === 1) {
           responsavelLegalRef.current = responsaveis[0];
         } else {
-          responsavelLegalRef.current = undefined;
+          // Empresa não cadastrada ou sem responsáveis - abrir modo manual
+          setModoManualResponsavel(true);
+          setResponsaveisLegaisDisponiveis([]);
+          setDialogResponsavelLegalOpen(true);
+          return;
         }
       } catch (error) {
         console.error("Erro ao buscar responsáveis legais:", error);
+        // Falha na busca - abrir modo manual
+        setModoManualResponsavel(true);
+        setResponsaveisLegaisDisponiveis([]);
+        setDialogResponsavelLegalOpen(true);
+        return;
       }
+    } else {
+      // CNPJ inválido/incompleto - abrir modo manual
+      setModoManualResponsavel(true);
+      setResponsaveisLegaisDisponiveis([]);
+      setDialogResponsavelLegalOpen(true);
+      return;
     }
     handleSubmit();
   };
@@ -1836,6 +1853,7 @@ const RespostaCotacao = () => {
         responsaveisLegais={responsaveisLegaisDisponiveis}
         onConfirm={handleConfirmarResponsavelLegal}
         loading={submitting}
+        modoManual={modoManualResponsavel}
       />
     </div>
   );
