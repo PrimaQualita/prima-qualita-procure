@@ -295,7 +295,26 @@ export async function gerarPropostaFornecedorPDF(
     y = 60;
 
     // Bloco de informações do fornecedor com fundo
-    const alturaBloco = isPrecosPublicos ? 26 : 44;
+    // Calcular altura dinâmica do bloco baseado no conteúdo
+    doc.setFontSize(10);
+    doc.setFont('helvetica', 'normal');
+    const larguraInternaBloco = 170; // 180 de largura total - 10 de margem interna (20-15=5 cada lado)
+    
+    let alturaBloco: number;
+    if (isPrecosPublicos) {
+      alturaBloco = 26;
+    } else {
+      // Calcular altura necessária para o endereço
+      let linhasEndereco = 0;
+      if (fornecedor.endereco_comercial) {
+        const enderecoTexto = `Endereco: ${fornecedor.endereco_comercial}`;
+        const enderecoLines = doc.splitTextToSize(enderecoTexto, larguraInternaBloco);
+        linhasEndereco = enderecoLines.length;
+      }
+      // Base: título(8) + razão(6) + cnpj(6) + endereço(linhas*5) + extras(6) + padding(6)
+      const alturaEndereco = linhasEndereco > 0 ? linhasEndereco * 5 : 0;
+      alturaBloco = 8 + 6 + 6 + alturaEndereco + 6 + 6 + 4;
+    }
     
     doc.setFillColor(corFundo[0], corFundo[1], corFundo[2]);
     doc.rect(15, y, 180, alturaBloco, 'F');
@@ -314,16 +333,19 @@ export async function gerarPropostaFornecedorPDF(
     } else {
       doc.text(`Razão Social: ${fornecedor.razao_social}`, 20, y + 16);
       doc.text(`CNPJ: ${formatarCNPJ(fornecedor.cnpj)}`, 20, y + 22);
+      let yConteudo = y + 28;
       if (fornecedor.endereco_comercial) {
-        doc.text(`Endereço: ${fornecedor.endereco_comercial}`, 20, y + 28);
+        const enderecoTexto = `Endereco: ${fornecedor.endereco_comercial}`;
+        const enderecoLines = doc.splitTextToSize(enderecoTexto, larguraInternaBloco);
+        doc.text(enderecoLines, 20, yConteudo);
+        yConteudo += enderecoLines.length * 5 + 1;
       }
       // Adicionar telefone e email se disponíveis
-      let yExtra = y + 34;
       const dadosExtras = [];
       if ((fornecedor as any).telefone) dadosExtras.push(`Telefone: ${(fornecedor as any).telefone}`);
       if ((fornecedor as any).email) dadosExtras.push(`E-mail: ${(fornecedor as any).email}`);
       if (dadosExtras.length > 0) {
-        doc.text(dadosExtras.join(' | '), 20, yExtra);
+        doc.text(dadosExtras.join(' | '), 20, yConteudo);
       }
     }
     
