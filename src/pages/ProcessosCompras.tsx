@@ -32,6 +32,7 @@ import { DialogAnexosProcesso } from "@/components/processos/DialogAnexosProcess
 import { stripHtml, truncateText } from "@/lib/htmlUtils";
 import { registrarAuditoria } from "@/lib/registrarAuditoria";
 import { AnoReferenciaFilter, extrairAnos, filtrarPorAno } from "@/components/AnoReferenciaFilter";
+import { DialogRelatorioCompras } from "@/components/processos/DialogRelatorioCompras";
 
 interface Contrato {
   id: string;
