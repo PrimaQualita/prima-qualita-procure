@@ -40,18 +40,6 @@ export function SolicitacoesPropostasCotacao() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
-      // Verificar se é gestor
-      const { data: profile } = await supabase
-        .from("profiles")
-        .select("gestor")
-        .eq("id", user.id)
-        .single();
-
-      if (!profile?.gestor) {
-        setPropostas([]);
-        return;
-      }
-
       // Buscar todas as respostas de fornecedores que NÃO têm ciência registrada
       const { data: respostas, error } = await supabase
         .from("cotacao_respostas_fornecedor")
