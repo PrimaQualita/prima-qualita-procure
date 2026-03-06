@@ -728,7 +728,8 @@ export function DashboardBIOperacional({
                 <div className="grid gap-3 grid-cols-2 sm:grid-cols-3 md:grid-cols-5">
                   {selectedItems.map((item, i) => {
                     const ItemIcon = item.icon;
-                    const percentage = selectedTotal > 0 ? ((item.value / selectedTotal) * 100).toFixed(1) : "0";
+                    const baseTotal = item._baseTotal ?? selectedTotal;
+                    const percentage = baseTotal > 0 ? ((item.value / baseTotal) * 100).toFixed(1) : "0";
                     const isClickable = (selectedKey === 'fornecedores' || selectedKey === 'cotacoes_bi') && item.detailItems;
                     return (
                       <Tooltip key={i}>
