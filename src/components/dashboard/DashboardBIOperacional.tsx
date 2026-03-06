@@ -355,6 +355,52 @@ export function DashboardBIOperacional({
       : cotacoesPrecos.filter(c => c.processos_compras?.contrato_gestao_id === contratoSelecionado);
     const compliancePendentes = cotFiltradas.filter(c => c.enviado_compliance === true && c.respondido_compliance !== true);
 
+    // === COTAÇÕES BI ===
+    // Build respostas lookup: cotacao_id -> list of fornecedores
+    const respostasPorCotacao: Record<string, { fornecedor: string }[]> = {};
+    respostasCotacao.forEach(r => {
+      if (!respostasPorCotacao[r.cotacao_id]) respostasPorCotacao[r.cotacao_id] = [];
+      const nome = r.fornecedores?.nome_fantasia || r.fornecedores?.razao_social || 'Fornecedor';
+      respostasPorCotacao[r.cotacao_id].push({ fornecedor: nome });
+    });
+
+    const buildCotacaoDetail = (cotacao: any) => {
+      const proc = cotacao.processos_compras;
+      const respostas = respostasPorCotacao[cotacao.id] || [];
+      return {
+        contrato: proc?.contratos_gestao?.nome_contrato || 'Sem Contrato',
+        numero: proc?.numero_processo_interno || 'N/A',
+        data_limite: cotacao.data_limite_resposta || null,
+        titulo: cotacao.titulo_cotacao || 'N/A',
+        qtd_propostas: respostas.length,
+        fornecedores: respostas.map(r => r.fornecedor),
+      };
+    };
+
+    // Abertas: não tiveram aprovação do compliance ainda (não respondido)
+    const cotAbertas = cotFiltradas.filter(c => c.respondido_compliance !== true);
+    // A Vencer: a 2 dias de vencer e sem parecer do compliance
+    const cotAVencer = cotAbertas.filter(c => {
+      if (!c.data_limite_resposta) return false;
+      const limite = new Date(c.data_limite_resposta);
+      const dias = differenceInDays(limite, hoje);
+      return dias >= 0 && dias <= 2;
+    });
+    // Vencidas: expiraram o tempo de resposta sem aprovação do compliance
+    const cotVencidas = cotAbertas.filter(c => {
+      if (!c.data_limite_resposta) return false;
+      const limite = new Date(c.data_limite_resposta);
+      return limite < hoje;
+    });
+    // Abertas efetivas (excluindo vencidas e a vencer para não duplicar, mas mantendo todas como "Abertas")
+    // Fechadas: já tiveram parecer do compliance
+    const cotFechadas = cotFiltradas.filter(c => c.respondido_compliance === true);
+
+    const cotAbertasDetail = cotAbertas.map(buildCotacaoDetail);
+    const cotAVencerDetail = cotAVencer.map(buildCotacaoDetail);
+    const cotVencidasDetail = cotVencidas.map(buildCotacaoDetail);
+    const cotFechadasDetail = cotFechadas.map(buildCotacaoDetail);
+
     // === SELEÇÕES ===
     const procFiltrados = filterCG(processos);
     const procSelecao = procFiltrados.filter(p => p.requer_selecao && !p.credenciamento && !p.contratacao_especifica);
