@@ -180,14 +180,14 @@ export const gerarRelatorioComprasPDF = async (dados: DadosRelatorioCompras): Pr
       // Homologação de seleção
       const { data: selecoes } = await supabase
         .from('selecoes_fornecedores')
-        .select('id, cotacao_id')
-        .in('cotacao_id', cotacaoIds);
+        .select('id, cotacao_relacionada_id')
+        .in('cotacao_relacionada_id', cotacaoIds);
 
       if (selecoes && selecoes.length > 0) {
-        const selecaoIds = selecoes.map(s => s.id);
+        const selecaoIds = (selecoes as any[]).map(s => s.id);
         const selecaoToCotacao: Record<string, string> = {};
-        for (const s of selecoes) {
-          selecaoToCotacao[s.id] = s.cotacao_id;
+        for (const s of (selecoes as any[])) {
+          selecaoToCotacao[s.id] = s.cotacao_relacionada_id;
         }
 
         const { data: homologacoes } = await supabase
