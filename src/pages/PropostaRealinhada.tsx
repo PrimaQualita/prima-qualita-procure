@@ -56,6 +56,9 @@ const PropostaRealinhada = () => {
   const [propostaExistente, setPropostaExistente] = useState<any>(null);
   const [valorTotalGanho, setValorTotalGanho] = useState(0);
   const [lotesGanhos, setLotesGanhos] = useState<Map<number, number>>(new Map()); // Map<numero_lote, valor_total_lote>
+  const [dialogResponsavelLegalOpen, setDialogResponsavelLegalOpen] = useState(false);
+  const [responsaveisLegaisDisponiveis, setResponsaveisLegaisDisponiveis] = useState<string[]>([]);
+  const responsavelLegalRef = useRef<string | undefined>(undefined);
 
   useEffect(() => {
     if (selecaoId) {
