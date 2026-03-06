@@ -1,40 +1,45 @@
 
 
-## Problema Identificado
+## Plano: Filtrar fornecedores fictícios no BI + Limpeza automática nas edge functions + Limpar órfãos existentes
 
-No modo **Comparativo** do BI Controle, o componente `ComparativoKPICard` exibe cada KPI individualmente como `[KPI, Restante]` — por isso aparece "Requisição - Solicitadas vs Restante", "Requisição - Geradas vs Restante", etc. Esse "Restante" é o total do módulo menos o valor do KPI, o que não faz sentido para o módulo **Processo**.
+### 1. Filtrar no BI Operacional
+**Arquivo:** `src/components/dashboard/DashboardBIOperacional.tsx` (linhas ~368-370)
 
-## Solução
+Antes de calcular KPIs de fornecedores, filtrar os registros com email contendo `precos.publicos`:
 
-Para o módulo **Processo** (`documentos_processo`), o modo comparativo deve funcionar de forma diferente dos demais módulos:
+```typescript
+const fornecedoresReais = fornecedores.filter(f => !f.email?.includes('precos.publicos'));
+const fornAprovados = fornecedoresReais.filter(f => f.status_aprovacao === "aprovado");
+const fornEmAberto = fornecedoresReais.filter(f => f.status_aprovacao !== "aprovado" && f.status_aprovacao !== "rejeitado");
+```
 
-1. **Agrupamento por categoria**: Os 18 KPIs são agrupados em 6 categorias (Requisição, Aut. Despesa, Aut. Seleção, Aut. Compra Direta, Homologação, Atas), cada uma com 3 métricas (Solicitadas/Geradas/Pendentes).
+Também aplicar `fornecedoresReais` nos cálculos de `fornAVencer`, `fornVencidos` e `fornEmDia`.
 
-2. **Seleção múltipla de grupos**: O usuário pode marcar mais de um grupo (ex: Requisição + Aut. Despesa) para comparar lado a lado.
+### 2. Limpar fornecedores fictícios órfãos ao deletar processo
+**Arquivo:** `supabase/functions/deletar-processo/index.ts`
 
-3. **Um gráfico por grupo selecionado**: Cada grupo selecionado gera um card com um único gráfico mostrando as 3 barras (Solicitadas, Geradas, Pendentes) — sem "Restante".
+Após a deleção dos registros do banco (linha ~723), adicionar lógica para:
+- Coletar `fornecedor_id` das respostas de cotação do processo sendo deletado
+- Filtrar apenas os que têm email `precos.publicos`
+- Verificar se esses fornecedores ainda têm respostas em **outras** cotações
+- Se não tiverem, deletar o registro do fornecedor
 
-4. **Demais módulos inalterados**: Contratos, Compliance, Seleções, etc. continuam com o comportamento atual.
+### 3. Limpar fornecedores fictícios órfãos ao deletar seleção
+**Arquivo:** `supabase/functions/deletar-selecao/index.ts`
 
-## Alterações Técnicas
+Mesma lógica aplicada antes de deletar a seleção — coletar fornecedores fictícios vinculados e deletar os órfãos.
 
-### `src/components/dashboard/DashboardBIOperacional.tsx`
+### 4. Limpar os 57 registros órfãos existentes
+Usar ferramenta de dados para executar:
+```sql
+DELETE FROM fornecedores 
+WHERE email LIKE '%precos.publicos%' 
+AND id NOT IN (
+  SELECT DISTINCT fornecedor_id FROM cotacao_respostas_fornecedor WHERE fornecedor_id IS NOT NULL
+);
+```
 
-- Definir constante com os 6 grupos do módulo Processo:
-  ```
-  GRUPOS_PROCESSO = [
-    { key: "requisicao", title: "Requisição", indices: [0,1,2] },
-    { key: "aut_despesa", title: "Aut. Despesa", indices: [3,4,5] },
-    ...
-  ]
-  ```
-
-- Adicionar estado `gruposProcessoSelecionados: string[]` (default: `["requisicao"]`).
-
-- No bloco comparativo (linha ~700), quando `selectedKey === 'documentos_processo'`:
-  - Renderizar checkboxes para selecionar os grupos (Requisição, Aut. Despesa, etc.)
-  - Para cada grupo selecionado, renderizar um card com gráfico de 3 barras (Solicitadas/Geradas/Pendentes)
-  - Cada card tem seu próprio seletor de tipo de gráfico (barras/pizza/vela/pareto)
-
-- Quando `selectedKey !== 'documentos_processo'`: manter o comportamento atual com `ComparativoKPICard` e "Restante".
+### Segurança
+- Fornecedores reais **nunca** serão afetados — o filtro `email LIKE '%precos.publicos%'` é exclusivo dos registros fictícios criados pelo sistema.
+- A verificação de órfão garante que fornecedores fictícios ainda em uso não sejam deletados.
 
