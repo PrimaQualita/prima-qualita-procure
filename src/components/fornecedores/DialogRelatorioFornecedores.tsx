@@ -256,19 +256,6 @@ export default function DialogRelatorioFornecedores({ open, onOpenChange }: Prop
       const wb = new ExcelJS.Workbook();
       const ws = wb.addWorksheet("Fornecedores");
 
-      // Logo - add as image
-      const logoResp = await fetch(capaLogo);
-      const logoBlob = await logoResp.blob();
-      const logoArrayBuffer = await logoBlob.arrayBuffer();
-      const logoId = wb.addImage({ buffer: logoArrayBuffer, extension: "png" });
-      ws.addImage(logoId, { tl: { col: 0, row: 0 }, ext: { width: 700, height: 80 } });
-
-      // Empty rows for logo space
-      ws.addRow([]);
-      ws.addRow([]);
-      ws.addRow([]);
-      ws.addRow([]);
-
       // Title
       const titleRow = ws.addRow([getTituloRelatorio()]);
       titleRow.font = { bold: true, size: 14 };
