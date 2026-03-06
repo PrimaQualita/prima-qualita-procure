@@ -722,6 +722,48 @@ Deno.serve(async (req) => {
       }
     }
 
+    // === LIMPEZA DE FORNECEDORES FICTÍCIOS ÓRFÃOS (preços públicos) ===
+    if (cotacoes && cotacoes.length > 0) {
+      const cotacaoIds = cotacoes.map(c => c.id);
+      
+      // Coletar fornecedor_ids das respostas dessas cotações
+      const { data: respostasForn } = await supabase
+        .from('cotacao_respostas_fornecedor')
+        .select('fornecedor_id')
+        .in('cotacao_id', cotacaoIds);
+
+      if (respostasForn && respostasForn.length > 0) {
+        const fornecedorIds = [...new Set(respostasForn.map(r => r.fornecedor_id).filter(Boolean))];
+        
+        if (fornecedorIds.length > 0) {
+          // Buscar apenas os fictícios (email contém precos.publicos)
+          const { data: ficticios } = await supabase
+            .from('fornecedores')
+            .select('id, email')
+            .in('id', fornecedorIds)
+            .like('email', '%precos.publicos%');
+
+          if (ficticios && ficticios.length > 0) {
+            const ficticioIds = ficticios.map(f => f.id);
+            
+            // Para cada fictício, verificar se ainda tem respostas em OUTRAS cotações
+            for (const fId of ficticioIds) {
+              const { count } = await supabase
+                .from('cotacao_respostas_fornecedor')
+                .select('id', { count: 'exact', head: true })
+                .eq('fornecedor_id', fId)
+                .not('cotacao_id', 'in', `(${cotacaoIds.join(',')})`);
+
+              if ((count || 0) === 0) {
+                console.log(`🗑️ Deletando fornecedor fictício órfão: ${fId}`);
+                await supabase.from('fornecedores').delete().eq('id', fId);
+              }
+            }
+          }
+        }
+      }
+    }
+
     console.log(`🎉 Deleção completa finalizada`);
 
     return new Response(

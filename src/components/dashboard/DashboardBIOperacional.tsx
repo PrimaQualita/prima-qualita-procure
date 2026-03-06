@@ -365,9 +365,10 @@ export function DashboardBIOperacional({
     const ceAbertas = procCE.filter(p => p.status_processo !== "concluido" && p.status_processo !== "fracassado" && p.status_processo !== "cancelado");
     const ceFinalizadas = procCE.filter(p => p.status_processo === "concluido");
 
-    // === FORNECEDORES ===
-    const fornAprovados = fornecedores.filter(f => f.status_aprovacao === "aprovado");
-    const fornEmAberto = fornecedores.filter(f => f.status_aprovacao !== "aprovado" && f.status_aprovacao !== "rejeitado");
+    // === FORNECEDORES (excluir fictícios de preços públicos) ===
+    const fornecedoresReais = fornecedores.filter(f => !f.email?.includes('precos.publicos'));
+    const fornAprovados = fornecedoresReais.filter(f => f.status_aprovacao === "aprovado");
+    const fornEmAberto = fornecedoresReais.filter(f => f.status_aprovacao !== "aprovado" && f.status_aprovacao !== "rejeitado");
 
     const fornAVencer = fornAprovados.filter(f => {
       if (!f.data_validade_certificado) return false;
