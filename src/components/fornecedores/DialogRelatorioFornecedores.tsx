@@ -243,7 +243,7 @@ export default function DialogRelatorioFornecedores({ open, onOpenChange }: Prop
       console.error(err);
       toast.error("Erro ao gerar PDF: " + err.message);
     } finally {
-      setGerando(false);
+      setGerandoPDF(false);
     }
   };
 
