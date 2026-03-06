@@ -1016,6 +1016,72 @@ const RespostaCotacao = () => {
         throw new Error("Fornecedor não identificado");
       }
 
+      // ANTES de limpar registros, deletar arquivos físicos do storage para evitar órfãos
+      try {
+        const { data: respostaExistente } = await supabaseAnon
+          .from('cotacao_respostas_fornecedor')
+          .select('id, url_pdf_proposta, comprovantes_urls')
+          .eq('cotacao_id', cotacao.id)
+          .eq('fornecedor_id', fornecedorId)
+          .maybeSingle();
+
+        if (respostaExistente) {
+          const arquivosParaDeletar: string[] = [];
+
+          // Coletar URL do PDF da proposta
+          if (respostaExistente.url_pdf_proposta) {
+            let pdfPath = respostaExistente.url_pdf_proposta;
+            // Extrair path relativo do bucket
+            if (pdfPath.includes('processo-anexos/')) {
+              pdfPath = pdfPath.split('processo-anexos/').pop() || pdfPath;
+            }
+            pdfPath = pdfPath.split('?')[0];
+            try { pdfPath = decodeURIComponent(pdfPath); } catch {}
+            if (pdfPath) arquivosParaDeletar.push(pdfPath);
+          }
+
+          // Coletar comprovantes
+          if (respostaExistente.comprovantes_urls && Array.isArray(respostaExistente.comprovantes_urls)) {
+            respostaExistente.comprovantes_urls.forEach((url: string) => {
+              let p = url;
+              if (p.includes('processo-anexos/')) {
+                p = p.split('processo-anexos/').pop() || p;
+              }
+              p = p.split('?')[0];
+              try { p = decodeURIComponent(p); } catch {}
+              if (p) arquivosParaDeletar.push(p);
+            });
+          }
+
+          // Coletar anexos de cotação (tipo PROPOSTA etc)
+          const { data: anexosExistentes } = await supabaseAnon
+            .from('anexos_cotacao_fornecedor')
+            .select('url_arquivo')
+            .eq('cotacao_resposta_fornecedor_id', respostaExistente.id);
+
+          if (anexosExistentes) {
+            anexosExistentes.forEach((a: any) => {
+              let p = a.url_arquivo;
+              if (p?.includes('processo-anexos/')) {
+                p = p.split('processo-anexos/').pop() || p;
+              }
+              p = p?.split('?')[0];
+              try { p = decodeURIComponent(p); } catch {}
+              if (p) arquivosParaDeletar.push(p);
+            });
+          }
+
+          // Deletar arquivos do storage
+          if (arquivosParaDeletar.length > 0) {
+            console.log(`🗑️ Deletando ${arquivosParaDeletar.length} arquivo(s) antigo(s) do storage antes de limpar registros`);
+            await supabaseAnon.storage.from('processo-anexos').remove(arquivosParaDeletar);
+          }
+        }
+      } catch (errStorage) {
+        // Não bloquear o envio por falha de limpeza de storage
+        console.warn('⚠️ Erro ao limpar arquivos antigos do storage:', errStorage);
+      }
+
       // Limpar resposta anterior (se existir) via SECURITY DEFINER
       await supabaseAnon.rpc('limpar_resposta_existente_fornecedor', {
         p_cotacao_id: cotacao.id,

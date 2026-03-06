@@ -1,25 +1,40 @@
 
 
-## Plano: Eliminar Arquivos Órfãos no Storage
+## Problema Identificado
 
-### Problema
-Quando um fornecedor reenvia proposta, a RPC `limpar_resposta_existente_fornecedor` apaga os registros do banco (incluindo `url_pdf_proposta`), mas o PDF antigo permanece no storage. Quando o processo é excluído depois, o `deletar-processo` não encontra esses arquivos porque as referências no banco já foram apagadas.
+No modo **Comparativo** do BI Controle, o componente `ComparativoKPICard` exibe cada KPI individualmente como `[KPI, Restante]` — por isso aparece "Requisição - Solicitadas vs Restante", "Requisição - Geradas vs Restante", etc. Esse "Restante" é o total do módulo menos o valor do KPI, o que não faz sentido para o módulo **Processo**.
 
-### Correções
+## Solução
 
-#### 1. Corrigir reenvio de proposta para deletar PDF antigo do storage
-**Arquivo: `src/pages/RespostaCotacao.tsx`**
+Para o módulo **Processo** (`documentos_processo`), o modo comparativo deve funcionar de forma diferente dos demais módulos:
 
-Antes de chamar a RPC de limpeza, consultar a resposta existente para obter `url_pdf_proposta` e anexos, deletar esses arquivos do bucket `processo-anexos`, e só então chamar a RPC.
+1. **Agrupamento por categoria**: Os 18 KPIs são agrupados em 6 categorias (Requisição, Aut. Despesa, Aut. Seleção, Aut. Compra Direta, Homologação, Atas), cada uma com 3 métricas (Solicitadas/Geradas/Pendentes).
 
-#### 2. Blindar `deletar-processo` com varredura por prefixo
-**Arquivo: `supabase/functions/deletar-processo/index.ts`**
+2. **Seleção múltipla de grupos**: O usuário pode marcar mais de um grupo (ex: Requisição + Aut. Despesa) para comparar lado a lado.
 
-Após coletar referências conhecidas, adicionar varredura por prefixo nas pastas relacionadas ao processo (ex: `propostas/`) para capturar arquivos que perderam referência no banco.
+3. **Um gráfico por grupo selecionado**: Cada grupo selecionado gera um card com um único gráfico mostrando as 3 barras (Solicitadas, Geradas, Pendentes) — sem "Restante".
 
-#### 3. Limpar os 7 órfãos existentes
-Usar a função `limpar-storage` já existente para remover os arquivos órfãos atuais.
+4. **Demais módulos inalterados**: Contratos, Compliance, Seleções, etc. continuam com o comportamento atual.
 
-### Risco
-**Zero** — nenhuma alteração em regras de negócio (julgamento, classificação, vencedores). Apenas adições defensivas de limpeza de storage.
+## Alterações Técnicas
+
+### `src/components/dashboard/DashboardBIOperacional.tsx`
+
+- Definir constante com os 6 grupos do módulo Processo:
+  ```
+  GRUPOS_PROCESSO = [
+    { key: "requisicao", title: "Requisição", indices: [0,1,2] },
+    { key: "aut_despesa", title: "Aut. Despesa", indices: [3,4,5] },
+    ...
+  ]
+  ```
+
+- Adicionar estado `gruposProcessoSelecionados: string[]` (default: `["requisicao"]`).
+
+- No bloco comparativo (linha ~700), quando `selectedKey === 'documentos_processo'`:
+  - Renderizar checkboxes para selecionar os grupos (Requisição, Aut. Despesa, etc.)
+  - Para cada grupo selecionado, renderizar um card com gráfico de 3 barras (Solicitadas/Geradas/Pendentes)
+  - Cada card tem seu próprio seletor de tipo de gráfico (barras/pizza/vela/pareto)
+
+- Quando `selectedKey !== 'documentos_processo'`: manter o comportamento atual com `ComparativoKPICard` e "Restante".
 

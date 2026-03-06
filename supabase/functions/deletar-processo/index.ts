@@ -596,6 +596,34 @@ Deno.serve(async (req) => {
       }
     }
 
+    // 3.X Varredura por prefixo em propostas/ para capturar órfãos sem referência no banco
+    if (cotacoes && cotacoes.length > 0) {
+      const cotacaoIds = cotacoes.map(c => c.id);
+      console.log(`🔍 Varredura por prefixo em propostas/ para cotações: ${cotacaoIds.join(', ')}`);
+      
+      for (const cotacaoId of cotacaoIds) {
+        try {
+          const { data: arquivosPropostas } = await supabase.storage
+            .from('processo-anexos')
+            .list(`propostas/${cotacaoId}`, { limit: 1000 });
+
+          if (arquivosPropostas && arquivosPropostas.length > 0) {
+            arquivosPropostas.forEach(arquivo => {
+              if (arquivo.id) {
+                const fullPath = `propostas/${cotacaoId}/${arquivo.name}`;
+                if (!arquivosProcessoAnexos.includes(fullPath)) {
+                  console.log(`   🔎 Órfão capturado por prefixo: ${fullPath}`);
+                  arquivosProcessoAnexos.push(fullPath);
+                }
+              }
+            });
+          }
+        } catch (e) {
+          console.warn(`⚠️ Erro na varredura de propostas/${cotacaoId}:`, e);
+        }
+      }
+    }
+
     // 4. Buscar arquivos do processo completo na pasta processos/ do bucket documents
     if (numeroProcesso) {
       console.log(`🔍 Buscando arquivos do processo completo na pasta processos/...`);
