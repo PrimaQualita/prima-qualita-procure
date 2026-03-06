@@ -348,7 +348,7 @@ export const gerarRelatorioComprasPDF = async (dados: DadosRelatorioCompras): Pr
     body: tableBody,
     theme: 'grid',
     headStyles: {
-      fillColor: [0, 0, 139],
+      fillColor: corPrimaria,
       textColor: [255, 255, 255],
       fontStyle: 'bold',
       fontSize: 8,
