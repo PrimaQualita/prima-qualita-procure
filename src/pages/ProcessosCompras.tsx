@@ -552,13 +552,19 @@ const ProcessosCompras = () => {
                   </CardDescription>
                 </div>
                 {isUsuarioInterno && (
-                  <Button onClick={() => {
-                    setContratoParaEditar(null);
-                    setDialogContratoOpen(true);
-                  }}>
-                    <Plus className="mr-2 h-4 w-4" />
-                    Novo Contrato
-                  </Button>
+                  <div className="flex gap-2">
+                    <Button variant="outline" onClick={() => setDialogRelatorioOpen(true)}>
+                      <Download className="mr-2 h-4 w-4" />
+                      Exportar Relatório
+                    </Button>
+                    <Button onClick={() => {
+                      setContratoParaEditar(null);
+                      setDialogContratoOpen(true);
+                    }}>
+                      <Plus className="mr-2 h-4 w-4" />
+                      Novo Contrato
+                    </Button>
+                  </div>
                 )}
               </div>
             </CardHeader>
