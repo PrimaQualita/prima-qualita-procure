@@ -24,7 +24,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import primaLogo from "@/assets/prima-qualita-logo.png";
-import { ArrowLeft, Plus, Edit, Trash2, FileText, Paperclip, ChevronRight, AlertTriangle } from "lucide-react";
+import { ArrowLeft, Plus, Edit, Trash2, FileText, Paperclip, ChevronRight, AlertTriangle, Download } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { DialogContrato } from "@/components/contratos/DialogContrato";
 import { DialogProcesso } from "@/components/processos/DialogProcesso";
