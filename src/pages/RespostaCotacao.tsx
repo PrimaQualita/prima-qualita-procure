@@ -1829,7 +1829,7 @@ const RespostaCotacao = () => {
             </div>
             
             <Button 
-              onClick={handleSubmit}
+              onClick={handlePreSubmit}
               disabled={submitting || prazoExpirado}
               className="w-full"
             >
@@ -1844,6 +1844,14 @@ const RespostaCotacao = () => {
           </CardContent>
         </Card>
       </div>
+
+      <DialogSelecionarResponsavelLegal
+        open={dialogResponsavelLegalOpen}
+        onOpenChange={setDialogResponsavelLegalOpen}
+        responsaveisLegais={responsaveisLegaisDisponiveis}
+        onConfirm={handleConfirmarResponsavelLegal}
+        loading={submitting}
+      />
     </div>
   );
 };
