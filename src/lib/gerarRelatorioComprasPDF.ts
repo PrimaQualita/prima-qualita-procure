@@ -368,15 +368,15 @@ export const gerarRelatorioComprasPDF = async (dados: DadosRelatorioCompras): Pr
     doc.addPage();
     paginaAtual++;
     adicionarCabecalhoRodape(paginaAtual);
-    let yAnexo = 30;
+    let yAnexo = logoHeight + 5;
 
     // Title bar like reference image
-    doc.setFillColor(173, 216, 230); // Light blue
+    doc.setFillColor(173, 216, 230);
     doc.rect(15, yAnexo, pageWidth - 30, 8, 'F');
     doc.setDrawColor(0, 0, 0);
     doc.setLineWidth(0.3);
     doc.rect(15, yAnexo, pageWidth - 30, 8, 'S');
-    doc.setFontSize(9);
+    doc.setFontSize(10);
     doc.setFont('helvetica', 'bold');
     doc.setTextColor(0, 0, 0);
     doc.text(`CONTROLE DE PROCESSOS - ${dados.mesAno.toUpperCase()}`, pageWidth / 2, yAnexo + 5.5, { align: 'center' });
