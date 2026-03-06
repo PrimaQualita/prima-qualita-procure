@@ -413,7 +413,7 @@ serve(async (req) => {
       );
     }
 
-    // 17. Protocolos de Documentos de Processo (requisição, capa, etc.)
+    // 17. Protocolos de Documentos de Processo (requisição, capa, relatório compras, etc.)
     const { data: protocoloDocumento } = await supabase
       .from("protocolos_documentos_processo")
       .select(`
