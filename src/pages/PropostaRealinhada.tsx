@@ -1131,6 +1131,31 @@ const PropostaRealinhada = () => {
     return { valido: true };
   };
 
+  const handlePreSubmit = () => {
+    // Verificar responsáveis legais do fornecedor
+    const responsaveis = fornecedor?.responsaveis_legais;
+    const responsaveisArray = Array.isArray(responsaveis)
+      ? (responsaveis as string[]).filter((r: string) => r && r.trim() !== '')
+      : [];
+
+    if (responsaveisArray.length > 1) {
+      setResponsaveisLegaisDisponiveis(responsaveisArray);
+      setDialogResponsavelLegalOpen(true);
+      return;
+    } else if (responsaveisArray.length === 1) {
+      responsavelLegalRef.current = responsaveisArray[0];
+    } else {
+      responsavelLegalRef.current = undefined;
+    }
+    handleSubmit();
+  };
+
+  const handleConfirmarResponsavelLegal = (selecionados: string[]) => {
+    responsavelLegalRef.current = selecionados.join(', ');
+    setDialogResponsavelLegalOpen(false);
+    handleSubmit();
+  };
+
   const handleSubmit = async () => {
     // Validar preenchimento
     const itensNaoPreenchidos = itensVencedores.filter(
