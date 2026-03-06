@@ -71,6 +71,12 @@ export function DialogAnexosProcesso({
   const [gerandoRequisicao, setGerandoRequisicao] = useState(false);
   const [gerandoAutorizacao, setGerandoAutorizacao] = useState(false);
   const [enviandoNotificacao, setEnviandoNotificacao] = useState<string | null>(null);
+
+  // Ref para garantir que operações assíncronas sempre usem o processoId mais recente
+  const processoIdRef = useRef(processoId);
+  useEffect(() => {
+    processoIdRef.current = processoId;
+  }, [processoId]);
   
   // Permissões do usuário
   const [isGerenteContratos, setIsGerenteContratos] = useState(false);

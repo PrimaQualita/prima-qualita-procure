@@ -959,6 +959,7 @@ const ProcessosCompras = () => {
 
       {processoParaAnexos && (
         <DialogAnexosProcesso
+          key={processoParaAnexos.id}
           open={dialogAnexosOpen}
           onOpenChange={setDialogAnexosOpen}
           processoId={processoParaAnexos.id}
