@@ -653,10 +653,14 @@ export function DashboardBIOperacional({
                   {selectedItems.map((item, i) => {
                     const ItemIcon = item.icon;
                     const percentage = selectedTotal > 0 ? ((item.value / selectedTotal) * 100).toFixed(1) : "0";
+                    const isClickable = selectedKey === 'fornecedores' && item.detailItems;
                     return (
                       <Tooltip key={i}>
                         <TooltipTrigger asChild>
-                          <div className={`${COLORS[item.color]} rounded-xl p-4 border transition-all hover:shadow-md cursor-help`}>
+                          <div
+                            onClick={isClickable ? () => setSelectedKpiName(selectedKpiName === item.name ? null : item.name) : undefined}
+                            className={`${COLORS[item.color]} rounded-xl p-4 border transition-all hover:shadow-md ${isClickable ? 'cursor-pointer' : 'cursor-help'} ${selectedKpiName === item.name && isClickable ? 'ring-2 ring-primary ring-offset-1' : ''}`}
+                          >
                             <div className="flex items-center gap-1.5 mb-2">
                               <ItemIcon className="h-4 w-4" />
                               <span className="text-[11px] font-medium leading-tight">{item.name}</span>
@@ -667,6 +671,7 @@ export function DashboardBIOperacional({
                         </TooltipTrigger>
                         <TooltipContent side="bottom" className="text-xs max-w-[220px]">
                           {item.value} {item.name.toLowerCase()} — {percentage}% do total de {MODULO_CONFIG[selectedKey]?.label.toLowerCase()}
+                          {isClickable && <><br />Clique para ver detalhes</>}
                         </TooltipContent>
                       </Tooltip>
                     );
