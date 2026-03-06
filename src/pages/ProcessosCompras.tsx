@@ -24,7 +24,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import primaLogo from "@/assets/prima-qualita-logo.png";
-import { ArrowLeft, Plus, Edit, Trash2, FileText, Paperclip, ChevronRight, AlertTriangle } from "lucide-react";
+import { ArrowLeft, Plus, Edit, Trash2, FileText, Paperclip, ChevronRight, AlertTriangle, Download } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { DialogContrato } from "@/components/contratos/DialogContrato";
 import { DialogProcesso } from "@/components/processos/DialogProcesso";
@@ -32,6 +32,7 @@ import { DialogAnexosProcesso } from "@/components/processos/DialogAnexosProcess
 import { stripHtml, truncateText } from "@/lib/htmlUtils";
 import { registrarAuditoria } from "@/lib/registrarAuditoria";
 import { AnoReferenciaFilter, extrairAnos, filtrarPorAno } from "@/components/AnoReferenciaFilter";
+import { DialogRelatorioCompras } from "@/components/processos/DialogRelatorioCompras";
 
 interface Contrato {
   id: string;
@@ -96,6 +97,7 @@ const ProcessosCompras = () => {
   const [processoParaEditar, setProcessoParaEditar] = useState<Processo | null>(null);
   const [processoParaExcluir, setProcessoParaExcluir] = useState<string | null>(null);
   const [dialogAnexosOpen, setDialogAnexosOpen] = useState(false);
+  const [dialogRelatorioOpen, setDialogRelatorioOpen] = useState(false);
   const [processoParaAnexos, setProcessoParaAnexos] = useState<Processo | null>(null);
 
   // Verifica se é usuário interno (gestor ou colaborador) com permissões completas
@@ -550,13 +552,19 @@ const ProcessosCompras = () => {
                   </CardDescription>
                 </div>
                 {isUsuarioInterno && (
-                  <Button onClick={() => {
-                    setContratoParaEditar(null);
-                    setDialogContratoOpen(true);
-                  }}>
-                    <Plus className="mr-2 h-4 w-4" />
-                    Novo Contrato
-                  </Button>
+                  <div className="flex gap-2">
+                    <Button variant="outline" onClick={() => setDialogRelatorioOpen(true)}>
+                      <Download className="mr-2 h-4 w-4" />
+                      Exportar Relatório
+                    </Button>
+                    <Button onClick={() => {
+                      setContratoParaEditar(null);
+                      setDialogContratoOpen(true);
+                    }}>
+                      <Plus className="mr-2 h-4 w-4" />
+                      Novo Contrato
+                    </Button>
+                  </div>
                 )}
               </div>
             </CardHeader>
@@ -966,6 +974,12 @@ const ProcessosCompras = () => {
           processoNumero={processoParaAnexos.numero_processo_interno}
         />
       )}
+
+      <DialogRelatorioCompras
+        open={dialogRelatorioOpen}
+        onOpenChange={setDialogRelatorioOpen}
+        contratos={contratos}
+      />
     </div>
   );
 };
