@@ -222,7 +222,7 @@ const ProcessosCompras = () => {
       let query = supabase
         .from("contratos_gestao")
         .select("*")
-        .order("created_at", { ascending: false });
+        .order("nome_contrato");
 
       // Gerente de Contratos só vê seus contratos vinculados
       if (isGerenteContratos && contratosVinculados.length > 0) {
