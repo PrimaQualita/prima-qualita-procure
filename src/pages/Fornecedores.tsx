@@ -111,6 +111,7 @@ export default function Fornecedores() {
   const [filtroCnae, setFiltroCnae] = useState("");
   const [filtroCnaeDescricao, setFiltroCnaeDescricao] = useState("");
   const [cnaesMap, setCnaesMap] = useState<Record<string, { codigo_cnae: string; descricao: string }[]>>({});
+  const [dialogRelatorioOpen, setDialogRelatorioOpen] = useState(false);
   
   const [formDataPergunta, setFormDataPergunta] = useState({
     texto_pergunta: "",
