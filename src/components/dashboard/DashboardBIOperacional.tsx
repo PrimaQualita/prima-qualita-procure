@@ -532,10 +532,10 @@ export function DashboardBIOperacional({
         { name: "Encerrados", value: ctEncerrados.length, color: "muted", icon: XCircle },
       ],
       cotacoes_bi: [
-        { name: "Abertas", value: cotAbertas.length, color: "info", icon: Clock, detailItems: cotAbertasDetail },
-        { name: "A Vencer (2d)", value: cotAVencer.length, color: "warning", icon: CalendarClock, detailItems: cotAVencerDetail },
-        { name: "Vencidas", value: cotVencidas.length, color: "danger", icon: AlertTriangle, detailItems: cotVencidasDetail },
-        { name: "Fechadas", value: cotFechadas.length, color: "success", icon: CheckCircle2, detailItems: cotFechadasDetail },
+        { name: "Abertas", value: cotAbertas.length, color: "info", icon: Clock, detailItems: cotAbertasDetail, _baseTotal: cotFiltradas.length },
+        { name: "A Vencer (2d)", value: cotAVencer.length, color: "warning", icon: CalendarClock, detailItems: cotAVencerDetail, _baseTotal: cotFiltradas.length },
+        { name: "Vencidas", value: cotVencidas.length, color: "danger", icon: AlertTriangle, detailItems: cotVencidasDetail, _baseTotal: cotFiltradas.length },
+        { name: "Fechadas", value: cotFechadas.length, color: "success", icon: CheckCircle2, detailItems: cotFechadasDetail, _baseTotal: cotFiltradas.length },
       ],
       compliance: [
         { name: "Pendentes", value: compliancePendentes.length, color: "warning", icon: Clock },
@@ -676,7 +676,7 @@ export function DashboardBIOperacional({
           {/* KPI Cards do módulo selecionado */}
           <div className="mb-6">
             <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">
-              Indicadores — {MODULO_CONFIG[selectedKey]?.label} (Total: {selectedTotal})
+              Indicadores — {MODULO_CONFIG[selectedKey]?.label} (Total: {selectedItems[0]?._baseTotal ?? selectedTotal})
             </h3>
             <TooltipProvider delayDuration={200}>
               {selectedKey === 'documentos_processo' ? (
@@ -728,7 +728,8 @@ export function DashboardBIOperacional({
                 <div className="grid gap-3 grid-cols-2 sm:grid-cols-3 md:grid-cols-5">
                   {selectedItems.map((item, i) => {
                     const ItemIcon = item.icon;
-                    const percentage = selectedTotal > 0 ? ((item.value / selectedTotal) * 100).toFixed(1) : "0";
+                    const baseTotal = item._baseTotal ?? selectedTotal;
+                    const percentage = baseTotal > 0 ? ((item.value / baseTotal) * 100).toFixed(1) : "0";
                     const isClickable = (selectedKey === 'fornecedores' || selectedKey === 'cotacoes_bi') && item.detailItems;
                     return (
                       <Tooltip key={i}>
