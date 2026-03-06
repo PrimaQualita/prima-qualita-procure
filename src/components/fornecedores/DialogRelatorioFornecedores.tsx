@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
@@ -8,7 +8,7 @@ import { FileText, FileSpreadsheet, Download, Loader2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { jsPDF } from "jspdf";
-import "jspdf-autotable";
+import autoTable from "jspdf-autotable";
 import capaLogo from "@/assets/capa-processo-logo.png";
 import capaRodape from "@/assets/capa-processo-rodape.png";
 import ExcelJS from "exceljs";
@@ -64,7 +64,8 @@ const formatDate = (d: string | null) => {
 export default function DialogRelatorioFornecedores({ open, onOpenChange }: Props) {
   const [filtro, setFiltro] = useState<FiltroTipo>("aprovados");
   const [filtroCnae, setFiltroCnae] = useState("");
-  const [gerando, setGerando] = useState(false);
+  const [gerandoPDF, setGerandoPDF] = useState(false);
+  const [gerandoExcel, setGerandoExcel] = useState(false);
 
   const fetchData = async (): Promise<FornecedorRelatorio[]> => {
     let query = supabase.from("fornecedores").select("id, razao_social, cnpj, email, status_aprovacao").not("user_id", "is", null);
@@ -141,10 +142,10 @@ export default function DialogRelatorioFornecedores({ open, onOpenChange }: Prop
   };
 
   const gerarPDF = async () => {
-    setGerando(true);
+    setGerandoPDF(true);
     try {
       const dados = await fetchData();
-      if (!dados.length) { toast.warning("Nenhum fornecedor encontrado com o filtro selecionado"); setGerando(false); return; }
+      if (!dados.length) { toast.warning("Nenhum fornecedor encontrado com o filtro selecionado"); setGerandoPDF(false); return; }
 
       const [logoB64, rodapeB64] = await Promise.all([loadImageBase64(capaLogo), loadImageBase64(capaRodape)]);
 
@@ -217,7 +218,7 @@ export default function DialogRelatorioFornecedores({ open, onOpenChange }: Prop
         body = dados.map(f => [f.razao_social, f.cnpj, f.email, statusLabel(f.status_aprovacao)]);
       }
 
-      (doc as any).autoTable({
+      autoTable(doc, {
         head,
         body,
         startY: y,
@@ -242,15 +243,15 @@ export default function DialogRelatorioFornecedores({ open, onOpenChange }: Prop
       console.error(err);
       toast.error("Erro ao gerar PDF: " + err.message);
     } finally {
-      setGerando(false);
+      setGerandoPDF(false);
     }
   };
 
   const gerarExcel = async () => {
-    setGerando(true);
+    setGerandoExcel(true);
     try {
       const dados = await fetchData();
-      if (!dados.length) { toast.warning("Nenhum fornecedor encontrado com o filtro selecionado"); setGerando(false); return; }
+      if (!dados.length) { toast.warning("Nenhum fornecedor encontrado com o filtro selecionado"); setGerandoExcel(false); return; }
 
       const wb = new ExcelJS.Workbook();
       const ws = wb.addWorksheet("Fornecedores");
@@ -384,7 +385,7 @@ export default function DialogRelatorioFornecedores({ open, onOpenChange }: Prop
       console.error(err);
       toast.error("Erro ao gerar Excel: " + err.message);
     } finally {
-      setGerando(false);
+      setGerandoExcel(false);
     }
   };
 
@@ -393,6 +394,7 @@ export default function DialogRelatorioFornecedores({ open, onOpenChange }: Prop
       <DialogContent className="max-w-md">
         <DialogHeader>
           <DialogTitle>Exportar Relatório de Fornecedores</DialogTitle>
+          <DialogDescription>Selecione o tipo de relatório e o formato de exportação.</DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4">
@@ -425,21 +427,21 @@ export default function DialogRelatorioFornecedores({ open, onOpenChange }: Prop
 
           <div className="flex gap-3 pt-2">
             <Button
-              onClick={gerarPDF}
-              disabled={gerando}
+              onClick={(e) => { e.stopPropagation(); gerarPDF(); }}
+              disabled={gerandoPDF || gerandoExcel}
               className="flex-1"
               variant="default"
             >
-              {gerando ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <FileText className="mr-2 h-4 w-4" />}
+              {gerandoPDF ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <FileText className="mr-2 h-4 w-4" />}
               Baixar PDF
             </Button>
             <Button
-              onClick={gerarExcel}
-              disabled={gerando}
+              onClick={(e) => { e.stopPropagation(); gerarExcel(); }}
+              disabled={gerandoPDF || gerandoExcel}
               className="flex-1"
               variant="outline"
             >
-              {gerando ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <FileSpreadsheet className="mr-2 h-4 w-4" />}
+              {gerandoExcel ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <FileSpreadsheet className="mr-2 h-4 w-4" />}
               Baixar Excel
             </Button>
           </div>
