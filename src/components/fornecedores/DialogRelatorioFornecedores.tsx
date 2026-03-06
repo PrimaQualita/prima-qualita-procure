@@ -385,7 +385,7 @@ export default function DialogRelatorioFornecedores({ open, onOpenChange }: Prop
       console.error(err);
       toast.error("Erro ao gerar Excel: " + err.message);
     } finally {
-      setGerando(false);
+      setGerandoExcel(false);
     }
   };
 
