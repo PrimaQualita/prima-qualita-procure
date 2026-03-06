@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -12,6 +12,7 @@ import { toast } from "sonner";
 import primaLogo from "@/assets/prima-qualita-logo-horizontal.png";
 import { gerarPropostaRealinhadaPDF } from "@/lib/gerarPropostaRealinhadaPDF";
 import { fornecedorEhVencedorAtualSelecao } from "@/lib/selecaoVencedoresAtuais";
+import { DialogSelecionarResponsavelLegal } from "@/components/fornecedores/DialogSelecionarResponsavelLegal";
 
 interface ItemVencedor {
   numero_item: number;
@@ -55,6 +56,9 @@ const PropostaRealinhada = () => {
   const [propostaExistente, setPropostaExistente] = useState<any>(null);
   const [valorTotalGanho, setValorTotalGanho] = useState(0);
   const [lotesGanhos, setLotesGanhos] = useState<Map<number, number>>(new Map()); // Map<numero_lote, valor_total_lote>
+  const [dialogResponsavelLegalOpen, setDialogResponsavelLegalOpen] = useState(false);
+  const [responsaveisLegaisDisponiveis, setResponsaveisLegaisDisponiveis] = useState<string[]>([]);
+  const responsavelLegalRef = useRef<string | undefined>(undefined);
 
   useEffect(() => {
     if (selecaoId) {
@@ -1127,6 +1131,31 @@ const PropostaRealinhada = () => {
     return { valido: true };
   };
 
+  const handlePreSubmit = () => {
+    // Verificar responsáveis legais do fornecedor
+    const responsaveis = fornecedor?.responsaveis_legais;
+    const responsaveisArray = Array.isArray(responsaveis)
+      ? (responsaveis as string[]).filter((r: string) => r && r.trim() !== '')
+      : [];
+
+    if (responsaveisArray.length > 1) {
+      setResponsaveisLegaisDisponiveis(responsaveisArray);
+      setDialogResponsavelLegalOpen(true);
+      return;
+    } else if (responsaveisArray.length === 1) {
+      responsavelLegalRef.current = responsaveisArray[0];
+    } else {
+      responsavelLegalRef.current = undefined;
+    }
+    handleSubmit();
+  };
+
+  const handleConfirmarResponsavelLegal = (selecionados: string[]) => {
+    responsavelLegalRef.current = selecionados.join(', ');
+    setDialogResponsavelLegalOpen(false);
+    handleSubmit();
+  };
+
   const handleSubmit = async () => {
     // Validar preenchimento
     const itensNaoPreenchidos = itensVencedores.filter(
@@ -1194,7 +1223,8 @@ const PropostaRealinhada = () => {
           criterio_julgamento: criterioJulgamento,
         },
         observacoes,
-        processo?.tipo
+        processo?.tipo,
+        responsavelLegalRef.current
       );
 
       // Criar proposta realinhada com URL do PDF
@@ -1549,7 +1579,7 @@ const PropostaRealinhada = () => {
         <Button
           className="w-full"
           size="lg"
-          onClick={handleSubmit}
+          onClick={handlePreSubmit}
           disabled={submitting || itensVencedores.length === 0}
         >
           {submitting ? (
@@ -1562,6 +1592,14 @@ const PropostaRealinhada = () => {
           )}
         </Button>
       </div>
+
+      <DialogSelecionarResponsavelLegal
+        open={dialogResponsavelLegalOpen}
+        onOpenChange={setDialogResponsavelLegalOpen}
+        responsaveisLegais={responsaveisLegaisDisponiveis}
+        onConfirm={handleConfirmarResponsavelLegal}
+        loading={submitting}
+      />
     </div>
   );
 };

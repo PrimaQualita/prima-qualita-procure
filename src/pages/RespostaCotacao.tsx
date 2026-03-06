@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { supabasePublic as supabaseAnon } from "@/integrations/supabase/public-client";
 import { Button } from "@/components/ui/button";
@@ -13,6 +13,7 @@ import { toast } from "sonner";
 import { z } from "zod";
 import { Upload, FileText, X, Download, Eye } from "lucide-react";
 import { gerarPropostaFornecedorPDF } from "@/lib/gerarPropostaFornecedorPDF";
+import { DialogSelecionarResponsavelLegal } from "@/components/fornecedores/DialogSelecionarResponsavelLegal";
 import * as XLSX from 'xlsx';
 import ExcelJS from 'exceljs';
 
@@ -142,6 +143,9 @@ const RespostaCotacao = () => {
   const [errors, setErrors] = useState<{ [key: string]: string }>({});
   const [arquivosComprovantes, setArquivosComprovantes] = useState<File[]>([]);
   const [buscandoFornecedor, setBuscandoFornecedor] = useState(false);
+  const [dialogResponsavelLegalOpen, setDialogResponsavelLegalOpen] = useState(false);
+  const [responsaveisLegaisDisponiveis, setResponsaveisLegaisDisponiveis] = useState<string[]>([]);
+  const responsavelLegalRef = useRef<string | undefined>(undefined);
 
   // Função para buscar fornecedor por CNPJ
   const buscarFornecedorPorCNPJ = async (cnpj: string) => {
@@ -755,6 +759,43 @@ const RespostaCotacao = () => {
     }
   };
 
+  const handlePreSubmit = async () => {
+    // Verificar se o fornecedor tem responsáveis legais cadastrados
+    const cnpjLimpo = dadosEmpresa.cnpj.replace(/[^\d]/g, "");
+    if (cnpjLimpo.length === 14) {
+      try {
+        const { data: fornecedorData } = await supabaseAnon
+          .from("fornecedores")
+          .select("responsaveis_legais")
+          .eq("cnpj", cnpjLimpo)
+          .maybeSingle();
+
+        const responsaveis = Array.isArray(fornecedorData?.responsaveis_legais)
+          ? (fornecedorData.responsaveis_legais as string[]).filter((r: string) => r && r.trim() !== '')
+          : [];
+
+        if (responsaveis.length > 1) {
+          setResponsaveisLegaisDisponiveis(responsaveis);
+          setDialogResponsavelLegalOpen(true);
+          return;
+        } else if (responsaveis.length === 1) {
+          responsavelLegalRef.current = responsaveis[0];
+        } else {
+          responsavelLegalRef.current = undefined;
+        }
+      } catch (error) {
+        console.error("Erro ao buscar responsáveis legais:", error);
+      }
+    }
+    handleSubmit();
+  };
+
+  const handleConfirmarResponsavelLegal = (selecionados: string[]) => {
+    responsavelLegalRef.current = selecionados.join(', ');
+    setDialogResponsavelLegalOpen(false);
+    handleSubmit();
+  };
+
   const handleSubmit = async () => {
     setSubmitting(true);
     try {
@@ -1069,7 +1110,8 @@ const RespostaCotacao = () => {
         undefined,
         undefined,
         processoCompra?.criterio_julgamento,
-        supabaseAnon // Passar o cliente público para funcionar sem autenticação
+        supabaseAnon, // Passar o cliente público para funcionar sem autenticação
+        responsavelLegalRef.current
       );
 
       // Finalizar resposta via função no backend (bypass das regras de atualização para usuário público)
@@ -1787,7 +1829,7 @@ const RespostaCotacao = () => {
             </div>
             
             <Button 
-              onClick={handleSubmit}
+              onClick={handlePreSubmit}
               disabled={submitting || prazoExpirado}
               className="w-full"
             >
@@ -1802,6 +1844,14 @@ const RespostaCotacao = () => {
           </CardContent>
         </Card>
       </div>
+
+      <DialogSelecionarResponsavelLegal
+        open={dialogResponsavelLegalOpen}
+        onOpenChange={setDialogResponsavelLegalOpen}
+        responsaveisLegais={responsaveisLegaisDisponiveis}
+        onConfirm={handleConfirmarResponsavelLegal}
+        loading={submitting}
+      />
     </div>
   );
 };

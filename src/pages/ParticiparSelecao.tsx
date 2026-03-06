@@ -15,6 +15,7 @@ import DOMPurify from "dompurify";
 import primaLogo from "@/assets/prima-qualita-logo-horizontal.png";
 import { z } from "zod";
 import { DialogImportarProposta } from "@/components/selecoes/DialogImportarProposta";
+import { DialogSelecionarResponsavelLegal } from "@/components/fornecedores/DialogSelecionarResponsavelLegal";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
 const UFS = [
@@ -178,6 +179,9 @@ const ParticiparSelecao = () => {
     existe: boolean;
     temCadastro: boolean;
   }>({ verificando: false, existe: false, temCadastro: false });
+  const [dialogResponsavelLegalOpen, setDialogResponsavelLegalOpen] = useState(false);
+  const [responsaveisLegaisDisponiveis, setResponsaveisLegaisDisponiveis] = useState<string[]>([]);
+  const responsavelLegalRef = useRef<string | undefined>(undefined);
   
   const [dadosEmpresa, setDadosEmpresa] = useState({
     razao_social: "",
@@ -890,6 +894,60 @@ const ParticiparSelecao = () => {
     return codigo;
   };
 
+  const handlePreSubmit = async () => {
+    // Verificar responsáveis legais do fornecedor
+    const responsaveis = fornecedor?.responsaveis_legais;
+    const responsaveisArray = Array.isArray(responsaveis)
+      ? (responsaveis as string[]).filter((r: string) => r && r.trim() !== '')
+      : [];
+
+    if (responsaveisArray.length > 1) {
+      setResponsaveisLegaisDisponiveis(responsaveisArray);
+      setDialogResponsavelLegalOpen(true);
+      return;
+    } else if (responsaveisArray.length === 1) {
+      responsavelLegalRef.current = responsaveisArray[0];
+    } else {
+      // Se for acesso público, tentar buscar do banco
+      if (!fornecedor) {
+        const cnpjLimpo = dadosEmpresa.cnpj.replace(/[^\d]/g, "");
+        if (cnpjLimpo.length === 14) {
+          try {
+            const { data: fornecedorData } = await supabase
+              .from("fornecedores")
+              .select("responsaveis_legais")
+              .eq("cnpj", cnpjLimpo)
+              .maybeSingle();
+
+            const resps = Array.isArray(fornecedorData?.responsaveis_legais)
+              ? (fornecedorData.responsaveis_legais as string[]).filter((r: string) => r && r.trim() !== '')
+              : [];
+
+            if (resps.length > 1) {
+              setResponsaveisLegaisDisponiveis(resps);
+              setDialogResponsavelLegalOpen(true);
+              return;
+            } else if (resps.length === 1) {
+              responsavelLegalRef.current = resps[0];
+            }
+          } catch (error) {
+            console.error("Erro ao buscar responsáveis legais:", error);
+          }
+        }
+      }
+      if (!responsavelLegalRef.current) {
+        responsavelLegalRef.current = undefined;
+      }
+    }
+    handleSubmit();
+  };
+
+  const handleConfirmarResponsavelLegal = (selecionados: string[]) => {
+    responsavelLegalRef.current = selecionados.join(', ');
+    setDialogResponsavelLegalOpen(false);
+    handleSubmit();
+  };
+
   const handleSubmit = async () => {
     if (!fornecedor && !dadosEmpresa.cnpj) {
       toast.error("É necessário informar o CNPJ da empresa");
@@ -1187,7 +1245,8 @@ const ParticiparSelecao = () => {
           undefined,
           criterioJulgamento,
           arquivosComprovantes,
-          processo?.tipo
+          processo?.tipo,
+          responsavelLegalRef.current
         );
 
         // Capturar o protocolo gerado
@@ -1985,7 +2044,7 @@ const ParticiparSelecao = () => {
                     </p>
                   </div>
 
-                  <Button onClick={handleSubmit} disabled={submitting} className="w-full" size="lg">
+                  <Button onClick={handlePreSubmit} disabled={submitting} className="w-full" size="lg">
                     <Send className="h-4 w-4 mr-2" />
                     {submitting ? "Enviando..." : "Enviar Proposta"}
                   </Button>
@@ -2062,6 +2121,14 @@ const ParticiparSelecao = () => {
         onImportSuccess={handleImportSuccess}
         criterioJulgamento={criterioJulgamento}
         lotes={lotes}
+      />
+
+      <DialogSelecionarResponsavelLegal
+        open={dialogResponsavelLegalOpen}
+        onOpenChange={setDialogResponsavelLegalOpen}
+        responsaveisLegais={responsaveisLegaisDisponiveis}
+        onConfirm={handleConfirmarResponsavelLegal}
+        loading={submitting}
       />
     </div>
   );

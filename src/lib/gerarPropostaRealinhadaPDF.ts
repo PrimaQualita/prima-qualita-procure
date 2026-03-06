@@ -119,7 +119,8 @@ export const gerarPropostaRealinhadaPDF = async (
   fornecedor: DadosFornecedor,
   processo: DadosProcesso,
   observacoes?: string,
-  tipoProcesso?: string
+  tipoProcesso?: string,
+  responsavelLegal?: string
 ): Promise<{ pdfBlob: Blob; pdfUrl: string; protocolo: string }> => {
   const doc = new jsPDF();
   const pageWidth = doc.internal.pageSize.getWidth();
@@ -751,7 +752,7 @@ export const gerarPropostaRealinhadaPDF = async (
   doc.setTextColor(0, 0, 0);
   doc.setFontSize(10);
   doc.setFont('helvetica', 'normal');
-  doc.text(`Responsável: ${fornecedor.razao_social}`, margin + 5, finalY + 16);
+  doc.text(`Responsável: ${responsavelLegal || fornecedor.razao_social}`, margin + 5, finalY + 16);
   doc.text(`Protocolo: ${protocolo}`, margin + 5, finalY + 22);
   
   doc.setFont('helvetica', 'bold');

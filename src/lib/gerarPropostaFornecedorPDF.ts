@@ -137,7 +137,8 @@ export async function gerarPropostaFornecedorPDF(
   usuarioNome?: string,
   usuarioCpf?: string,
   criterioJulgamento?: string,
-  supabaseClient?: SupabaseClient<any, any, any>
+  supabaseClient?: SupabaseClient<any, any, any>,
+  responsavelLegal?: string
 ): Promise<{ url: string; path: string; nome: string; hash: string; protocolo: string }> {
   // Usar cliente passado por parâmetro ou o default
   const sb = supabaseClient || supabase;
@@ -737,11 +738,12 @@ export async function gerarPropostaFornecedorPDF(
 
     // Responsável pela geração
     // Se for preços públicos, SEMPRE usar o usuário que preencheu
+    // Se tiver responsável legal selecionado, usar ele
     // Se for fornecedor normal, usar a razão social do fornecedor
     const isPrecosPublicosCert = ehPrecoPublicoCert((fornecedor as any).email);
     const responsavel = isPrecosPublicosCert
       ? (usuarioNome || 'Não informado')
-      : fornecedor.razao_social;
+      : (responsavelLegal || fornecedor.razao_social);
     
     paginaCert.drawText(`Responsável: ${responsavel}`, {
       x: 50,
