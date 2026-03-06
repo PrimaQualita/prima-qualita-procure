@@ -40,6 +40,7 @@ import { toast } from "sonner";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import GestaoDocumentosGestor from "@/components/fornecedores/GestaoDocumentosGestor";
 import { useCanEdit, useCanResetPassword } from "@/hooks/useUserContext";
+import DialogRelatorioFornecedores from "@/components/fornecedores/DialogRelatorioFornecedores";
 
 interface Pergunta {
   id: string;
