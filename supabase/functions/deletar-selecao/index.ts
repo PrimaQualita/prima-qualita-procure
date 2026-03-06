@@ -232,6 +232,15 @@ Deno.serve(async (req) => {
       else deletados += batch.length;
     }
 
+    // === LIMPEZA DE FORNECEDORES FICTÍCIOS ÓRFÃOS (preços públicos) ===
+    // Coletar fornecedores das propostas desta seleção
+    const { data: propostasFornIds } = await sb
+      .from("selecao_propostas_fornecedor")
+      .select("fornecedor_id")
+      .eq("selecao_id", selecaoId);
+
+    const fornIdsSelecao = [...new Set((propostasFornIds || []).map((p: any) => p.fornecedor_id).filter(Boolean))];
+
     // Por último, deletar a seleção (cascatas do banco mantêm o mesmo comportamento atual)
     const { error: delError } = await sb.from("selecoes_fornecedores").delete().eq("id", selecaoId);
     if (delError) {
@@ -240,6 +249,36 @@ Deno.serve(async (req) => {
         status: 500,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
+    }
+
+    // Após deletar a seleção, limpar fornecedores fictícios órfãos
+    if (fornIdsSelecao.length > 0) {
+      const { data: ficticios } = await sb
+        .from("fornecedores")
+        .select("id, email")
+        .in("id", fornIdsSelecao)
+        .like("email", "%precos.publicos%");
+
+      if (ficticios && ficticios.length > 0) {
+        for (const f of ficticios) {
+          // Verificar se ainda tem respostas em cotações
+          const { count: countCot } = await sb
+            .from("cotacao_respostas_fornecedor")
+            .select("id", { count: "exact", head: true })
+            .eq("fornecedor_id", f.id);
+
+          // Verificar se ainda tem propostas em outras seleções
+          const { count: countSel } = await sb
+            .from("selecao_propostas_fornecedor")
+            .select("id", { count: "exact", head: true })
+            .eq("fornecedor_id", f.id);
+
+          if ((countCot || 0) === 0 && (countSel || 0) === 0) {
+            console.log(`🗑️ Deletando fornecedor fictício órfão: ${f.id}`);
+            await sb.from("fornecedores").delete().eq("id", f.id);
+          }
+        }
+      }
     }
 
     return new Response(
