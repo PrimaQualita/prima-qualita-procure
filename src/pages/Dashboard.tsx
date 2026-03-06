@@ -467,6 +467,13 @@ const Dashboard = () => {
           </div>
         )}
 
+        {/* Notificações de propostas de cotação recebidas (Gestores) */}
+        {userContext?.isGestor && (
+          <div className="mb-4">
+            <SolicitacoesPropostasCotacao />
+          </div>
+        )}
+
         {/* Notificações de solicitação de documentos (Gerente de Contratos e Superintendente) */}
         <div className="mb-4">
           <SolicitacoesDocumentosProcesso />
