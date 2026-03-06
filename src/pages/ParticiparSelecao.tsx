@@ -179,6 +179,9 @@ const ParticiparSelecao = () => {
     existe: boolean;
     temCadastro: boolean;
   }>({ verificando: false, existe: false, temCadastro: false });
+  const [dialogResponsavelLegalOpen, setDialogResponsavelLegalOpen] = useState(false);
+  const [responsaveisLegaisDisponiveis, setResponsaveisLegaisDisponiveis] = useState<string[]>([]);
+  const responsavelLegalRef = useRef<string | undefined>(undefined);
   
   const [dadosEmpresa, setDadosEmpresa] = useState({
     razao_social: "",
