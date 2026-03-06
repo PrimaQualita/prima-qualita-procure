@@ -353,6 +353,7 @@ export const gerarRelatorioComprasPDF = async (dados: DadosRelatorioCompras): Pr
       fontStyle: 'bold',
       fontSize: 8,
       halign: 'center',
+      valign: 'middle',
     },
     bodyStyles: {
       fontSize: 8,
@@ -467,6 +468,7 @@ export const gerarRelatorioComprasPDF = async (dados: DadosRelatorioCompras): Pr
           fontStyle: 'bold',
           fontSize: 7.5,
           halign: 'center',
+          valign: 'middle',
           lineColor: [0, 0, 0],
           lineWidth: 0.3,
         },
@@ -530,6 +532,7 @@ export const gerarRelatorioComprasPDF = async (dados: DadosRelatorioCompras): Pr
           fontStyle: 'bold',
           fontSize: 7.5,
           halign: 'center',
+          valign: 'middle',
           lineColor: [0, 0, 0],
           lineWidth: 0.3,
         },
@@ -563,8 +566,9 @@ export const gerarRelatorioComprasPDF = async (dados: DadosRelatorioCompras): Pr
     .normalize('NFD')
     .replace(/[\u0300-\u036f]/g, '')
     .replace(/[^a-zA-Z0-9_-]/g, '');
-  const fileName = `Relatorio_Compras_${mesAnoSafe}_${Date.now()}.pdf`;
-  const storagePath = `relatorios/${fileName}`;
+  const fileName = `Relatório de Compras - ${dados.mesAno}.pdf`;
+  const fileNameStorage = `Relatorio_Compras_${mesAnoSafe}_${Date.now()}.pdf`;
+  const storagePath = `relatorios-compras/${fileNameStorage}`;
 
   const { error: uploadError } = await supabase.storage
     .from('processo-anexos')

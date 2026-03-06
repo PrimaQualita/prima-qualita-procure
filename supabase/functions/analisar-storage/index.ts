@@ -1393,6 +1393,7 @@ Deno.serve(async (req) => {
       capas_processo: { arquivos: 0, tamanho: 0, detalhes: [] as any[], porProcesso: new Map<string, any>() },
       cotacoes: { arquivos: 0, tamanho: 0, detalhes: [] as any[], porProcesso: new Map<string, any>() },
       relatorios_finais: { arquivos: 0, tamanho: 0, detalhes: [] as any[], porProcesso: new Map<string, any>() },
+      relatorios_compras: { arquivos: 0, tamanho: 0, detalhes: [] as any[] },
       autorizacoes_compra_direta: { arquivos: 0, tamanho: 0, detalhes: [] as any[], porProcesso: new Map<string, any>() },
       autorizacoes_selecao: { arquivos: 0, tamanho: 0, detalhes: [] as any[], porProcesso: new Map<string, any>() },
       processos_finalizados: { arquivos: 0, tamanho: 0, detalhes: [] as any[], porProcesso: new Map<string, any>() },
@@ -2755,6 +2756,18 @@ Deno.serve(async (req) => {
             }
           }
         }
+      } else if (pathSemBucket.startsWith('relatorios-compras/')) {
+        // Relatórios de Compras (qualitativos)
+        estatisticasPorCategoria.relatorios_compras.arquivos++;
+        estatisticasPorCategoria.relatorios_compras.tamanho += metadata.size;
+        // Extrair nome bonito do arquivo
+        const nomeMatch = fileName.match(/Relatorio_Compras_(\w+)_/);
+        const periodo = nomeMatch ? nomeMatch[1].replace('_', '/') : fileName;
+        estatisticasPorCategoria.relatorios_compras.detalhes.push({ 
+          path, 
+          fileName: `Relatório de Compras - ${periodo}`, 
+          size: metadata.size 
+        });
       } else if (pathSemBucket.startsWith('relatorios-finais/') || relatoriosFinaisMap.has(pathSemBucket)) {
         // Relatórios Finais - agrupar por processo
         estatisticasPorCategoria.relatorios_finais.arquivos++;
@@ -3976,7 +3989,11 @@ Deno.serve(async (req) => {
           detalhes: estatisticasPorCategoria.relatorios_finais.detalhes,
           porProcesso: Array.from(estatisticasPorCategoria.relatorios_finais.porProcesso!.values())
         },
-        autorizacoes_compra_direta: {
+        relatorios_compras: {
+          arquivos: estatisticasPorCategoria.relatorios_compras.arquivos,
+          tamanhoMB: Number((estatisticasPorCategoria.relatorios_compras.tamanho / (1024 * 1024)).toFixed(2)),
+          detalhes: estatisticasPorCategoria.relatorios_compras.detalhes,
+        },
           arquivos: estatisticasPorCategoria.autorizacoes_compra_direta.arquivos,
           tamanhoMB: Number((estatisticasPorCategoria.autorizacoes_compra_direta.tamanho / (1024 * 1024)).toFixed(2)),
           detalhes: estatisticasPorCategoria.autorizacoes_compra_direta.detalhes,
