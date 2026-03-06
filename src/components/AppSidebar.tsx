@@ -445,8 +445,8 @@ export function AppSidebar({
     });
   }
 
-  // Log de Auditoria - apenas Compliance e Superintendente Executivo (mas não para compliance restrito)
-  if (!apenasGerenteContratos && !apenasContabilidade && !apenasCompliance && (isCompliance || isSuperintendenteExecutivo)) {
+  // Log de Auditoria - Gestor, Compliance e Superintendente Executivo (mas não para compliance restrito)
+  if (!apenasGerenteContratos && !apenasContabilidade && !apenasCompliance && (isGestor || isCompliance || isSuperintendenteExecutivo)) {
     menuItems.push({
       title: "Log de Auditoria",
       icon: Home,
