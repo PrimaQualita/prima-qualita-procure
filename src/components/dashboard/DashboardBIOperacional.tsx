@@ -373,24 +373,65 @@ export function DashboardBIOperacional({
     const fornAprovados = fornecedoresReais.filter(f => f.status_aprovacao === "aprovado");
     const fornEmAberto = fornecedoresReais.filter(f => f.status_aprovacao !== "aprovado" && f.status_aprovacao !== "rejeitado");
 
-    const fornAVencer = fornAprovados.filter(f => {
-      if (!f.data_validade_certificado) return false;
-      const val = new Date(f.data_validade_certificado + "T23:59:59-03:00");
-      const dias = differenceInDays(val, hoje);
-      return dias >= 0 && dias <= 45;
+    // Build map: fornecedor_id -> docs with expiry info
+    const docsPorFornecedor: Record<string, { tipo: string; validade: string; dias: number }[]> = {};
+    docsFornecedor
+      .filter(d => d.data_validade)
+      .forEach(d => {
+        const val = new Date(d.data_validade + "T23:59:59-03:00");
+        const dias = differenceInDays(val, hoje);
+        if (!docsPorFornecedor[d.fornecedor_id]) docsPorFornecedor[d.fornecedor_id] = [];
+        docsPorFornecedor[d.fornecedor_id].push({ tipo: d.tipo_documento, validade: d.data_validade, dias });
+      });
+
+    // Also consider data_validade_certificado from fornecedores table
+    fornAprovados.forEach(f => {
+      if (f.data_validade_certificado) {
+        if (!docsPorFornecedor[f.id]) docsPorFornecedor[f.id] = [];
+        const jaTemCert = docsPorFornecedor[f.id].some(d => d.tipo === 'Certificado de Fornecedor');
+        if (!jaTemCert) {
+          const val = new Date(f.data_validade_certificado + "T23:59:59-03:00");
+          const dias = differenceInDays(val, hoje);
+          docsPorFornecedor[f.id].push({ tipo: 'Certificado de Fornecedor', validade: f.data_validade_certificado, dias });
+        }
+      }
     });
 
-    const fornVencidos = fornAprovados.filter(f => {
-      if (!f.data_validade_certificado) return false;
-      const val = new Date(f.data_validade_certificado + "T23:59:59-03:00");
-      return val < hoje;
+    // A Vencer (5d): suppliers with at least one doc expiring in 0-5 days
+    const fornAVencerDetails: any[] = [];
+    const fornIdsAVencer = new Set<string>();
+    fornAprovados.forEach(f => {
+      const docs = docsPorFornecedor[f.id] || [];
+      const docsAV = docs.filter(d => d.dias >= 0 && d.dias <= 5);
+      if (docsAV.length > 0) {
+        fornIdsAVencer.add(f.id);
+        docsAV.forEach(d => {
+          fornAVencerDetails.push({ fornecedor: f.razao_social || f.nome_fantasia || 'N/A', tipo_documento: d.tipo, validade: d.validade, dias: d.dias });
+        });
+      }
     });
+    fornAVencerDetails.sort((a, b) => a.dias - b.dias);
 
-    const fornEmDia = fornAprovados.filter(f => {
-      if (!f.data_validade_certificado) return true;
-      const val = new Date(f.data_validade_certificado + "T23:59:59-03:00");
-      return val >= hoje;
+    // Vencidos: suppliers with at least one expired doc
+    const fornVencidosDetails: any[] = [];
+    const fornIdsVencidos = new Set<string>();
+    fornAprovados.forEach(f => {
+      const docs = docsPorFornecedor[f.id] || [];
+      const docsV = docs.filter(d => d.dias < 0);
+      if (docsV.length > 0) {
+        fornIdsVencidos.add(f.id);
+        docsV.forEach(d => {
+          fornVencidosDetails.push({ fornecedor: f.razao_social || f.nome_fantasia || 'N/A', tipo_documento: d.tipo, validade: d.validade, dias: d.dias });
+        });
+      }
     });
+    fornVencidosDetails.sort((a, b) => a.dias - b.dias);
+
+    // Em Dia: all approved suppliers (including those about to expire)
+    const fornEmDiaDetails = fornAprovados.map(f => ({ fornecedor: f.razao_social || f.nome_fantasia || 'N/A', status: 'Aprovado' }));
+
+    // Em Aberto: suppliers not approved and not rejected
+    const fornEmAbertoDetails = fornEmAberto.map(f => ({ fornecedor: f.razao_social || f.nome_fantasia || 'N/A', status: f.status_aprovacao || 'Pendente' }));
 
     return {
       documentos_processo: [
@@ -438,10 +479,10 @@ export function DashboardBIOperacional({
         { name: "Finalizadas", value: ceFinalizadas.length, color: "success", icon: CheckCircle2 },
       ],
       fornecedores: [
-        { name: "Em Dia", value: fornEmDia.length, color: "success", icon: CheckCircle2 },
-        { name: "A Vencer (45d)", value: fornAVencer.length, color: "warning", icon: CalendarClock },
-        { name: "Vencidos", value: fornVencidos.length, color: "danger", icon: AlertTriangle },
-        { name: "Em Aberto", value: fornEmAberto.length, color: "info", icon: Clock },
+        { name: "Em Dia", value: fornAprovados.length, color: "success", icon: CheckCircle2, detailItems: fornEmDiaDetails },
+        { name: "A Vencer (5d)", value: fornIdsAVencer.size, color: "warning", icon: CalendarClock, detailItems: fornAVencerDetails },
+        { name: "Vencidos", value: fornIdsVencidos.size, color: "danger", icon: AlertTriangle, detailItems: fornVencidosDetails },
+        { name: "Em Aberto", value: fornEmAberto.length, color: "info", icon: Clock, detailItems: fornEmAbertoDetails },
       ],
     };
   }, [contratosTerceiros, processosParaContratar, cotacoesPrecos, processos, selecoes, fornecedores, contratoSelecionado, hoje, docData, processoContratoMap]);
