@@ -1223,7 +1223,8 @@ const PropostaRealinhada = () => {
           criterio_julgamento: criterioJulgamento,
         },
         observacoes,
-        processo?.tipo
+        processo?.tipo,
+        responsavelLegalRef.current
       );
 
       // Criar proposta realinhada com URL do PDF
