@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { supabasePublic as supabaseAnon } from "@/integrations/supabase/public-client";
 import { Button } from "@/components/ui/button";
@@ -13,6 +13,7 @@ import { toast } from "sonner";
 import { z } from "zod";
 import { Upload, FileText, X, Download, Eye } from "lucide-react";
 import { gerarPropostaFornecedorPDF } from "@/lib/gerarPropostaFornecedorPDF";
+import { DialogSelecionarResponsavelLegal } from "@/components/fornecedores/DialogSelecionarResponsavelLegal";
 import * as XLSX from 'xlsx';
 import ExcelJS from 'exceljs';
 
