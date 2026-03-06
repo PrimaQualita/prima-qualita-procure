@@ -294,9 +294,12 @@ export const gerarRelatorioComprasPDF = async (dados: DadosRelatorioCompras): Pr
   adicionarCabecalhoRodape(1);
   let y = logoHeight + 10;
 
+  // Cor do logo (primary: HSL 195 77% 48% ≈ RGB 28, 145, 217)
+  const corPrimaria: [number, number, number] = [28, 145, 217];
+
   doc.setFontSize(14);
   doc.setFont('helvetica', 'bold');
-  doc.setTextColor(0, 0, 139);
+  doc.setTextColor(...corPrimaria);
   doc.text(`Dados qualitativos ao mês de ${dados.mesAno}`, pageWidth / 2, y, { align: 'center' });
 
   y += 10;
