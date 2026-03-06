@@ -348,7 +348,7 @@ export const gerarRelatorioComprasPDF = async (dados: DadosRelatorioCompras): Pr
   if (y > pageHeight - 80) {
     doc.addPage();
     adicionarCabecalhoRodape(doc.getNumberOfPages());
-    y = 35;
+    y = logoHeight + 10;
   }
 
   adicionarCertificacaoDigital(doc, {
