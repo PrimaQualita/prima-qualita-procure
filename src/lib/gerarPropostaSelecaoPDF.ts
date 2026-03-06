@@ -121,7 +121,8 @@ export async function gerarPropostaSelecaoPDF(
   itensAtualizados?: Array<{ numero_item: number; descricao: string; quantidade: number; unidade: string; marca: string | null; valor_unitario_ofertado: number; lote_id?: string; numero_lote?: number; descricao_lote?: string }>,
   criterioJulgamento?: string,
   comprovantes: File[] = [],
-  tipoProcesso?: string
+  tipoProcesso?: string,
+  responsavelLegal?: string
 ): Promise<{ url: string; nome: string; hash: string; protocolo: string }> {
   try {
     console.log('📎 Comprovantes recebidos na função:', comprovantes.length);
