@@ -1285,6 +1285,8 @@ export default function Fornecedores() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <DialogRelatorioFornecedores open={dialogRelatorioOpen} onOpenChange={setDialogRelatorioOpen} />
     </div>
   );
 }
