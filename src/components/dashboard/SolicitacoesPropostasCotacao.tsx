@@ -142,7 +142,7 @@ export function SolicitacoesPropostasCotacao() {
   };
 
   const handleVisualizarRespostas = (proposta: PropostaNotificacao) => {
-    navigate(`/cotacoes?abrirRespostas=${proposta.cotacao_id}`);
+    navigate(`/respostas-cotacao?cotacao=${proposta.cotacao_id}&contrato=${proposta.contrato_gestao_id || ''}&processo=${proposta.processo_compra_id}`);
   };
 
   const formatarMoeda = (valor: number) =>
