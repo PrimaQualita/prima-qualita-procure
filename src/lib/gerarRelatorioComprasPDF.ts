@@ -329,20 +329,20 @@ export const gerarRelatorioComprasPDF = async (dados: DadosRelatorioCompras): Pr
         head: [['Nº Processo', 'Objeto', 'Tipo', 'Valor Estimado', 'Status']],
         body: d.processos.map(p => [
           p.numero_processo_interno,
-          stripHtml(p.objeto_resumido).substring(0, 60),
+          stripHtml(p.objeto_resumido).substring(0, 50),
           p.tipo?.replace(/_/g, ' ') || 'N/A',
           formatarMoeda(p.valor_total_cotacao || p.valor_estimado_anual || 0),
           statusLabels[p.status_processo] || p.status_processo?.replace(/_/g, ' ').toUpperCase() || 'N/A',
         ]),
         theme: 'grid',
-        headStyles: { fillColor: [0, 100, 0], textColor: [255, 255, 255], fontSize: 8, fontStyle: 'bold' },
-        bodyStyles: { fontSize: 7 },
+        headStyles: { fillColor: [0, 100, 0], textColor: [255, 255, 255], fontSize: 7, fontStyle: 'bold' },
+        bodyStyles: { fontSize: 6.5 },
         columnStyles: {
-          0: { cellWidth: 25 },
-          1: { cellWidth: 65 },
-          2: { cellWidth: 25 },
-          3: { cellWidth: 30, halign: 'right' },
-          4: { cellWidth: 30, halign: 'center' },
+          0: { cellWidth: 22 },
+          1: { cellWidth: 58 },
+          2: { cellWidth: 22 },
+          3: { cellWidth: 28, halign: 'right' },
+          4: { cellWidth: 28, halign: 'center' },
         },
         margin: { left: 15, right: 15 },
         didDrawPage: () => {
@@ -380,20 +380,20 @@ export const gerarRelatorioComprasPDF = async (dados: DadosRelatorioCompras): Pr
         head: [['Código', 'Objeto', 'Fornecedor', 'Valor Atual', 'Vigência']],
         body: d.contratos.map((c: any) => [
           c.codigo_interno,
-          (c.objeto || '').substring(0, 50),
-          (c.fornecedor_razao_social || 'N/A').substring(0, 35),
+          (c.objeto || '').substring(0, 45),
+          (c.fornecedor_razao_social || 'N/A').substring(0, 30),
           formatarMoeda(c.valor_atual || 0),
           c.fim_vigencia_atual ? c.fim_vigencia_atual.split('-').reverse().join('/') : 'N/A',
         ]),
         theme: 'grid',
-        headStyles: { fillColor: [0, 0, 139], textColor: [255, 255, 255], fontSize: 8, fontStyle: 'bold' },
-        bodyStyles: { fontSize: 7 },
+        headStyles: { fillColor: [0, 0, 139], textColor: [255, 255, 255], fontSize: 7, fontStyle: 'bold' },
+        bodyStyles: { fontSize: 6.5 },
         columnStyles: {
-          0: { cellWidth: 22 },
-          1: { cellWidth: 48 },
-          2: { cellWidth: 40 },
-          3: { cellWidth: 28, halign: 'right' },
-          4: { cellWidth: 25, halign: 'center' },
+          0: { cellWidth: 20 },
+          1: { cellWidth: 45 },
+          2: { cellWidth: 38 },
+          3: { cellWidth: 27, halign: 'right' },
+          4: { cellWidth: 24, halign: 'center' },
         },
         margin: { left: 15, right: 15 },
         didDrawPage: () => {
@@ -437,7 +437,13 @@ export const gerarRelatorioComprasPDF = async (dados: DadosRelatorioCompras): Pr
 
   // Salvar no storage
   const pdfOutput = doc.output('arraybuffer');
-  const fileName = `Relatorio_Compras_${dados.mesAno.replace('/', '_')}_${Date.now()}.pdf`;
+  // Remover caracteres especiais do nome do arquivo para evitar erro de storage
+  const mesAnoSafe = dados.mesAno
+    .replace('/', '_')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '') // remove acentos
+    .replace(/[^a-zA-Z0-9_-]/g, '');
+  const fileName = `Relatorio_Compras_${mesAnoSafe}_${Date.now()}.pdf`;
   const storagePath = `relatorios/${fileName}`;
 
   const { error: uploadError } = await supabase.storage
