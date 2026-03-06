@@ -696,35 +696,78 @@ export function DashboardBIOperacional({
                 </div>
               </CardHeader>
               <CardContent>
-                <div className="max-h-[300px] overflow-y-auto">
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead className="text-xs">#</TableHead>
-                        <TableHead className="text-xs">Processo</TableHead>
-                        <TableHead className="text-xs">Contrato de Gestão</TableHead>
-                        {selectedKpiName === "Atas - Pend. Assinatura" && (
-                          <TableHead className="text-xs">Falta Assinar</TableHead>
-                        )}
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {selectedKpiDetail.map((detail: any, idx: number) => (
-                        <TableRow key={idx}>
-                          <TableCell className="text-xs">{idx + 1}</TableCell>
-                          <TableCell className="text-xs font-medium">{detail.numero}</TableCell>
-                          <TableCell className="text-xs">{detail.contrato}</TableCell>
-                          {selectedKpiName === "Atas - Pend. Assinatura" && (
-                            <TableCell className="text-xs">
-                              {detail.pendentesAssinatura?.length > 0
-                                ? detail.pendentesAssinatura.join(", ")
-                                : "—"}
-                            </TableCell>
+                <div className="max-h-[400px] overflow-y-auto">
+                  {selectedKey === 'fornecedores' ? (
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead className="text-xs">#</TableHead>
+                          <TableHead className="text-xs">Fornecedor</TableHead>
+                          {(selectedKpiName === "A Vencer (5d)" || selectedKpiName === "Vencidos") && (
+                            <>
+                              <TableHead className="text-xs">Documento</TableHead>
+                              <TableHead className="text-xs">Validade</TableHead>
+                              <TableHead className="text-xs">Dias</TableHead>
+                            </>
+                          )}
+                          {(selectedKpiName === "Em Dia" || selectedKpiName === "Em Aberto") && (
+                            <TableHead className="text-xs">Status</TableHead>
                           )}
                         </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
+                      </TableHeader>
+                      <TableBody>
+                        {selectedKpiDetail.map((detail: any, idx: number) => (
+                          <TableRow key={idx}>
+                            <TableCell className="text-xs">{idx + 1}</TableCell>
+                            <TableCell className="text-xs font-medium">{detail.fornecedor}</TableCell>
+                            {(selectedKpiName === "A Vencer (5d)" || selectedKpiName === "Vencidos") && (
+                              <>
+                                <TableCell className="text-xs">{detail.tipo_documento}</TableCell>
+                                <TableCell className="text-xs">
+                                  {detail.validade ? new Date(detail.validade + "T12:00:00").toLocaleDateString("pt-BR") : "—"}
+                                </TableCell>
+                                <TableCell className={`text-xs font-semibold ${detail.dias < 0 ? 'text-red-600' : detail.dias <= 5 ? 'text-amber-600' : 'text-green-600'}`}>
+                                  {detail.dias < 0 ? `${Math.abs(detail.dias)}d vencido` : `${detail.dias}d`}
+                                </TableCell>
+                              </>
+                            )}
+                            {(selectedKpiName === "Em Dia" || selectedKpiName === "Em Aberto") && (
+                              <TableCell className="text-xs">{detail.status}</TableCell>
+                            )}
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  ) : (
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead className="text-xs">#</TableHead>
+                          <TableHead className="text-xs">Processo</TableHead>
+                          <TableHead className="text-xs">Contrato de Gestão</TableHead>
+                          {selectedKpiName === "Atas - Pend. Assinatura" && (
+                            <TableHead className="text-xs">Falta Assinar</TableHead>
+                          )}
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {selectedKpiDetail.map((detail: any, idx: number) => (
+                          <TableRow key={idx}>
+                            <TableCell className="text-xs">{idx + 1}</TableCell>
+                            <TableCell className="text-xs font-medium">{detail.numero}</TableCell>
+                            <TableCell className="text-xs">{detail.contrato}</TableCell>
+                            {selectedKpiName === "Atas - Pend. Assinatura" && (
+                              <TableCell className="text-xs">
+                                {detail.pendentesAssinatura?.length > 0
+                                  ? detail.pendentesAssinatura.join(", ")
+                                  : "—"}
+                              </TableCell>
+                            )}
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  )}
                 </div>
               </CardContent>
             </Card>
