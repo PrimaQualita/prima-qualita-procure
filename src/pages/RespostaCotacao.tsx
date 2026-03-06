@@ -999,26 +999,11 @@ const RespostaCotacao = () => {
         throw new Error("Fornecedor não identificado");
       }
 
-      // Verificar se fornecedor já respondeu esta cotação
-      const { data: respostaExistente } = await supabaseAnon
-        .from("cotacao_respostas_fornecedor")
-        .select("id")
-        .eq("cotacao_id", cotacao.id)
-        .eq("fornecedor_id", fornecedorId)
-        .maybeSingle();
-
-      // Se já existe, excluir resposta anterior
-      if (respostaExistente) {
-        await supabaseAnon
-          .from("respostas_itens_fornecedor")
-          .delete()
-          .eq("cotacao_resposta_fornecedor_id", respostaExistente.id);
-
-        await supabaseAnon
-          .from("cotacao_respostas_fornecedor")
-          .delete()
-          .eq("id", respostaExistente.id);
-      }
+      // Limpar resposta anterior (se existir) via SECURITY DEFINER
+      await supabaseAnon.rpc('limpar_resposta_existente_fornecedor', {
+        p_cotacao_id: cotacao.id,
+        p_fornecedor_id: fornecedorId,
+      });
 
       // Criar nova resposta
       const { data: respostaCriada, error: erroResposta } = await supabaseAnon
