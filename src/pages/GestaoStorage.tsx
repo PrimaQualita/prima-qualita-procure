@@ -564,6 +564,19 @@ export default function GestaoStorage() {
                   }),
                   showView: resultado.estatisticasPorCategoria?.relatorios_finais?.porProcesso?.length > 0
                 },
+                // Relatórios de Compras
+                {
+                  key: 'relatorios_compras',
+                  title: 'Relatórios de Compras',
+                  colorClass: 'border-teal-200 bg-teal-50/50',
+                  description: 'Qualitativos mensais',
+                  data: resultado.estatisticasPorCategoria?.relatorios_compras,
+                  onClick: () => setDocumentosGrupo({
+                    nome: 'Relatórios de Compras',
+                    documentos: resultado.estatisticasPorCategoria?.relatorios_compras?.detalhes || []
+                  }),
+                  showView: resultado.estatisticasPorCategoria?.relatorios_compras?.detalhes?.length > 0
+                },
                 // Requisições
                 {
                   key: 'requisicoes',
