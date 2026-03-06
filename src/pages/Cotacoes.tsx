@@ -1835,8 +1835,8 @@ const Cotacoes = () => {
                         </TableCell>
                       </TableRow>
                     ) : (
-                      contratosFiltrados.map((contrato) => (
-                        <TableRow key={contrato.id} style={contrato.cor_fundo ? { backgroundColor: contrato.cor_fundo } : undefined}>
+                      contratosFiltrados.map((contrato, index) => (
+                        <TableRow key={contrato.id} className={index % 2 === 0 ? "bg-green-200 dark:bg-green-900/60" : "bg-blue-200 dark:bg-blue-900/60"}>
                           <TableCell className="font-medium text-xs sm:text-sm">{contrato.nome_contrato}</TableCell>
                           <TableCell className="text-xs sm:text-sm">{contrato.ente_federativo}</TableCell>
                           <TableCell>
