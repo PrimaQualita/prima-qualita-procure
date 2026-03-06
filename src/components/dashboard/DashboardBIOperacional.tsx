@@ -4,7 +4,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { differenceInDays } from "date-fns";
 import { toZonedTime } from "date-fns-tz";
 import {
-  FileText, ShieldCheck, Users, Building2, Handshake, ClipboardList,
+  FileText, ShieldCheck, Users, Building2, Handshake, ClipboardList, Receipt,
   AlertTriangle, CheckCircle2, Clock, XCircle, Ban, CalendarClock, BarChart3, GitCompare,
   PieChart, CandlestickChart, Trophy, FileCheck, FileClock, PenTool, Stamp, ChevronDown, ChevronUp
 } from "lucide-react";
