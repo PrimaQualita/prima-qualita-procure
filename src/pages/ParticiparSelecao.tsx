@@ -2122,6 +2122,14 @@ const ParticiparSelecao = () => {
         criterioJulgamento={criterioJulgamento}
         lotes={lotes}
       />
+
+      <DialogSelecionarResponsavelLegal
+        open={dialogResponsavelLegalOpen}
+        onOpenChange={setDialogResponsavelLegalOpen}
+        responsaveisLegais={responsaveisLegaisDisponiveis}
+        onConfirm={handleConfirmarResponsavelLegal}
+        loading={submitting}
+      />
     </div>
   );
 };
