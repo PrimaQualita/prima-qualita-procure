@@ -781,7 +781,7 @@ export function DashboardBIOperacional({
                           <TableHead className="text-xs">#</TableHead>
                           <TableHead className="text-xs">Contrato de Gestão</TableHead>
                           <TableHead className="text-xs">Processo</TableHead>
-                          <TableHead className="text-xs">Cotação</TableHead>
+                          
                           <TableHead className="text-xs">Data Limite</TableHead>
                           <TableHead className="text-xs">Propostas</TableHead>
                           <TableHead className="text-xs">Fornecedores</TableHead>
@@ -793,7 +793,7 @@ export function DashboardBIOperacional({
                             <TableCell className="text-xs">{idx + 1}</TableCell>
                             <TableCell className="text-xs">{detail.contrato}</TableCell>
                             <TableCell className="text-xs font-medium">{detail.numero}</TableCell>
-                            <TableCell className="text-xs">{detail.titulo}</TableCell>
+                            
                             <TableCell className="text-xs">
                               {detail.data_limite ? new Date(detail.data_limite).toLocaleDateString("pt-BR") : "—"}
                             </TableCell>
