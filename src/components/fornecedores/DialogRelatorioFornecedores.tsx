@@ -248,10 +248,10 @@ export default function DialogRelatorioFornecedores({ open, onOpenChange }: Prop
   };
 
   const gerarExcel = async () => {
-    setGerando(true);
+    setGerandoExcel(true);
     try {
       const dados = await fetchData();
-      if (!dados.length) { toast.warning("Nenhum fornecedor encontrado com o filtro selecionado"); setGerando(false); return; }
+      if (!dados.length) { toast.warning("Nenhum fornecedor encontrado com o filtro selecionado"); setGerandoExcel(false); return; }
 
       const wb = new ExcelJS.Workbook();
       const ws = wb.addWorksheet("Fornecedores");
