@@ -130,11 +130,12 @@ export function DashboardBIOperacional({
     notificacoes: [], anexos: [], solAutorizacao: [], solAutorizacaoSelecao: [],
     autorizacoes: [], solHomologacao: [], homologacoes: [], atas: []
   });
+  const [docsFornecedor, setDocsFornecedor] = useState<any[]>([]);
 
   useEffect(() => {
     const fetchDocData = async () => {
       try {
-        const [notifRes, anexosRes, solAutRes, solAutSelRes, autRes, solHomRes, homRes, atasRes] = await Promise.all([
+        const [notifRes, anexosRes, solAutRes, solAutSelRes, autRes, solHomRes, homRes, atasRes, docsFornRes] = await Promise.all([
           supabase.from('notificacoes_documentos_processo').select('tipo_notificacao, atendida, processo_compra_id').limit(5000),
           supabase.from('anexos_processo_compra').select('tipo_anexo, processo_compra_id').in('tipo_anexo', ['requisicao', 'autorizacao_despesa']).limit(5000),
           supabase.from('solicitacoes_autorizacao').select('id, cotacao_id, status, cotacoes_precos:cotacao_id(processo_compra_id)').limit(5000),
@@ -143,6 +144,7 @@ export function DashboardBIOperacional({
           supabase.from('solicitacoes_homologacao_selecao').select('id, selecao_id, atendida, selecoes_fornecedores:selecao_id(processo_compra_id)').limit(5000),
           supabase.from('homologacoes_selecao').select('id, selecao_id, selecoes_fornecedores:selecao_id(processo_compra_id)').limit(5000),
           supabase.from('atas_selecao').select('id, selecao_id, selecoes_fornecedores:selecao_id(processo_compra_id), atas_assinaturas_usuario(status_assinatura, profiles:usuario_id(nome_completo)), atas_assinaturas_fornecedor(status_assinatura, fornecedores:fornecedor_id(razao_social))').limit(5000),
+          supabase.from('documentos_fornecedor').select('id, fornecedor_id, tipo_documento, data_validade, nome_arquivo').in('tipo_documento', ['CND Federal', 'CND Tributos Estaduais', 'CND Dívida Ativa Estadual', 'CND Tributos Municipais', 'CND Dívida Ativa Municipal', 'CRF FGTS', 'CNDT', 'Certificado de Fornecedor']).limit(5000),
         ]);
         setDocData({
           notificacoes: notifRes.data || [],
@@ -154,6 +156,7 @@ export function DashboardBIOperacional({
           homologacoes: homRes.data || [],
           atas: atasRes.data || [],
         });
+        setDocsFornecedor(docsFornRes.data || []);
       } catch (e) {
         console.error("Erro ao carregar dados de documentos:", e);
       }
@@ -370,24 +373,65 @@ export function DashboardBIOperacional({
     const fornAprovados = fornecedoresReais.filter(f => f.status_aprovacao === "aprovado");
     const fornEmAberto = fornecedoresReais.filter(f => f.status_aprovacao !== "aprovado" && f.status_aprovacao !== "rejeitado");
 
-    const fornAVencer = fornAprovados.filter(f => {
-      if (!f.data_validade_certificado) return false;
-      const val = new Date(f.data_validade_certificado + "T23:59:59-03:00");
-      const dias = differenceInDays(val, hoje);
-      return dias >= 0 && dias <= 45;
+    // Build map: fornecedor_id -> docs with expiry info
+    const docsPorFornecedor: Record<string, { tipo: string; validade: string; dias: number }[]> = {};
+    docsFornecedor
+      .filter(d => d.data_validade)
+      .forEach(d => {
+        const val = new Date(d.data_validade + "T23:59:59-03:00");
+        const dias = differenceInDays(val, hoje);
+        if (!docsPorFornecedor[d.fornecedor_id]) docsPorFornecedor[d.fornecedor_id] = [];
+        docsPorFornecedor[d.fornecedor_id].push({ tipo: d.tipo_documento, validade: d.data_validade, dias });
+      });
+
+    // Also consider data_validade_certificado from fornecedores table
+    fornAprovados.forEach(f => {
+      if (f.data_validade_certificado) {
+        if (!docsPorFornecedor[f.id]) docsPorFornecedor[f.id] = [];
+        const jaTemCert = docsPorFornecedor[f.id].some(d => d.tipo === 'Certificado de Fornecedor');
+        if (!jaTemCert) {
+          const val = new Date(f.data_validade_certificado + "T23:59:59-03:00");
+          const dias = differenceInDays(val, hoje);
+          docsPorFornecedor[f.id].push({ tipo: 'Certificado de Fornecedor', validade: f.data_validade_certificado, dias });
+        }
+      }
     });
 
-    const fornVencidos = fornAprovados.filter(f => {
-      if (!f.data_validade_certificado) return false;
-      const val = new Date(f.data_validade_certificado + "T23:59:59-03:00");
-      return val < hoje;
+    // A Vencer (5d): suppliers with at least one doc expiring in 0-5 days
+    const fornAVencerDetails: any[] = [];
+    const fornIdsAVencer = new Set<string>();
+    fornAprovados.forEach(f => {
+      const docs = docsPorFornecedor[f.id] || [];
+      const docsAV = docs.filter(d => d.dias >= 0 && d.dias <= 5);
+      if (docsAV.length > 0) {
+        fornIdsAVencer.add(f.id);
+        docsAV.forEach(d => {
+          fornAVencerDetails.push({ fornecedor: f.razao_social || f.nome_fantasia || 'N/A', tipo_documento: d.tipo, validade: d.validade, dias: d.dias });
+        });
+      }
     });
+    fornAVencerDetails.sort((a, b) => a.dias - b.dias);
 
-    const fornEmDia = fornAprovados.filter(f => {
-      if (!f.data_validade_certificado) return true;
-      const val = new Date(f.data_validade_certificado + "T23:59:59-03:00");
-      return val >= hoje;
+    // Vencidos: suppliers with at least one expired doc
+    const fornVencidosDetails: any[] = [];
+    const fornIdsVencidos = new Set<string>();
+    fornAprovados.forEach(f => {
+      const docs = docsPorFornecedor[f.id] || [];
+      const docsV = docs.filter(d => d.dias < 0);
+      if (docsV.length > 0) {
+        fornIdsVencidos.add(f.id);
+        docsV.forEach(d => {
+          fornVencidosDetails.push({ fornecedor: f.razao_social || f.nome_fantasia || 'N/A', tipo_documento: d.tipo, validade: d.validade, dias: d.dias });
+        });
+      }
     });
+    fornVencidosDetails.sort((a, b) => a.dias - b.dias);
+
+    // Em Dia: all approved suppliers (including those about to expire)
+    const fornEmDiaDetails = fornAprovados.map(f => ({ fornecedor: f.razao_social || f.nome_fantasia || 'N/A', status: 'Aprovado' }));
+
+    // Em Aberto: suppliers not approved and not rejected
+    const fornEmAbertoDetails = fornEmAberto.map(f => ({ fornecedor: f.razao_social || f.nome_fantasia || 'N/A', status: f.status_aprovacao || 'Pendente' }));
 
     return {
       documentos_processo: [
@@ -435,13 +479,13 @@ export function DashboardBIOperacional({
         { name: "Finalizadas", value: ceFinalizadas.length, color: "success", icon: CheckCircle2 },
       ],
       fornecedores: [
-        { name: "Em Dia", value: fornEmDia.length, color: "success", icon: CheckCircle2 },
-        { name: "A Vencer (45d)", value: fornAVencer.length, color: "warning", icon: CalendarClock },
-        { name: "Vencidos", value: fornVencidos.length, color: "danger", icon: AlertTriangle },
-        { name: "Em Aberto", value: fornEmAberto.length, color: "info", icon: Clock },
+        { name: "Em Dia", value: fornAprovados.length, color: "success", icon: CheckCircle2, detailItems: fornEmDiaDetails },
+        { name: "A Vencer (5d)", value: fornIdsAVencer.size, color: "warning", icon: CalendarClock, detailItems: fornAVencerDetails },
+        { name: "Vencidos", value: fornIdsVencidos.size, color: "danger", icon: AlertTriangle, detailItems: fornVencidosDetails },
+        { name: "Em Aberto", value: fornEmAberto.length, color: "info", icon: Clock, detailItems: fornEmAbertoDetails },
       ],
     };
-  }, [contratosTerceiros, processosParaContratar, cotacoesPrecos, processos, selecoes, fornecedores, contratoSelecionado, hoje, docData, processoContratoMap]);
+  }, [contratosTerceiros, processosParaContratar, cotacoesPrecos, processos, selecoes, fornecedores, contratoSelecionado, hoje, docData, processoContratoMap, docsFornecedor]);
 
   const [selectedKpiName, setSelectedKpiName] = useState<string | null>(null);
   const [gruposProcessoSelecionados, setGruposProcessoSelecionados] = useState<string[]>(["requisicao"]);
@@ -452,9 +496,9 @@ export function DashboardBIOperacional({
   const selectedTotal = selectedItems.reduce((s, i) => s + i.value, 0);
   const chartData = selectedItems.map(item => ({ name: item.name, value: item.value }));
 
-  // Detail items for the selected KPI
+  // Detail items for the selected KPI (supports documentos_processo and fornecedores)
   const selectedKpiDetail = useMemo(() => {
-    if (!selectedKpiName || selectedKey !== 'documentos_processo') return null;
+    if (!selectedKpiName || (selectedKey !== 'documentos_processo' && selectedKey !== 'fornecedores')) return null;
     const item = selectedItems.find(i => i.name === selectedKpiName);
     return item?.detailItems || null;
   }, [selectedKpiName, selectedItems, selectedKey]);
@@ -609,10 +653,14 @@ export function DashboardBIOperacional({
                   {selectedItems.map((item, i) => {
                     const ItemIcon = item.icon;
                     const percentage = selectedTotal > 0 ? ((item.value / selectedTotal) * 100).toFixed(1) : "0";
+                    const isClickable = selectedKey === 'fornecedores' && item.detailItems;
                     return (
                       <Tooltip key={i}>
                         <TooltipTrigger asChild>
-                          <div className={`${COLORS[item.color]} rounded-xl p-4 border transition-all hover:shadow-md cursor-help`}>
+                          <div
+                            onClick={isClickable ? () => setSelectedKpiName(selectedKpiName === item.name ? null : item.name) : undefined}
+                            className={`${COLORS[item.color]} rounded-xl p-4 border transition-all hover:shadow-md ${isClickable ? 'cursor-pointer' : 'cursor-help'} ${selectedKpiName === item.name && isClickable ? 'ring-2 ring-primary ring-offset-1' : ''}`}
+                          >
                             <div className="flex items-center gap-1.5 mb-2">
                               <ItemIcon className="h-4 w-4" />
                               <span className="text-[11px] font-medium leading-tight">{item.name}</span>
@@ -623,6 +671,7 @@ export function DashboardBIOperacional({
                         </TooltipTrigger>
                         <TooltipContent side="bottom" className="text-xs max-w-[220px]">
                           {item.value} {item.name.toLowerCase()} — {percentage}% do total de {MODULO_CONFIG[selectedKey]?.label.toLowerCase()}
+                          {isClickable && <><br />Clique para ver detalhes</>}
                         </TooltipContent>
                       </Tooltip>
                     );
@@ -647,35 +696,78 @@ export function DashboardBIOperacional({
                 </div>
               </CardHeader>
               <CardContent>
-                <div className="max-h-[300px] overflow-y-auto">
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead className="text-xs">#</TableHead>
-                        <TableHead className="text-xs">Processo</TableHead>
-                        <TableHead className="text-xs">Contrato de Gestão</TableHead>
-                        {selectedKpiName === "Atas - Pend. Assinatura" && (
-                          <TableHead className="text-xs">Falta Assinar</TableHead>
-                        )}
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {selectedKpiDetail.map((detail: any, idx: number) => (
-                        <TableRow key={idx}>
-                          <TableCell className="text-xs">{idx + 1}</TableCell>
-                          <TableCell className="text-xs font-medium">{detail.numero}</TableCell>
-                          <TableCell className="text-xs">{detail.contrato}</TableCell>
-                          {selectedKpiName === "Atas - Pend. Assinatura" && (
-                            <TableCell className="text-xs">
-                              {detail.pendentesAssinatura?.length > 0
-                                ? detail.pendentesAssinatura.join(", ")
-                                : "—"}
-                            </TableCell>
+                <div className="max-h-[400px] overflow-y-auto">
+                  {selectedKey === 'fornecedores' ? (
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead className="text-xs">#</TableHead>
+                          <TableHead className="text-xs">Fornecedor</TableHead>
+                          {(selectedKpiName === "A Vencer (5d)" || selectedKpiName === "Vencidos") && (
+                            <>
+                              <TableHead className="text-xs">Documento</TableHead>
+                              <TableHead className="text-xs">Validade</TableHead>
+                              <TableHead className="text-xs">Dias</TableHead>
+                            </>
+                          )}
+                          {(selectedKpiName === "Em Dia" || selectedKpiName === "Em Aberto") && (
+                            <TableHead className="text-xs">Status</TableHead>
                           )}
                         </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
+                      </TableHeader>
+                      <TableBody>
+                        {selectedKpiDetail.map((detail: any, idx: number) => (
+                          <TableRow key={idx}>
+                            <TableCell className="text-xs">{idx + 1}</TableCell>
+                            <TableCell className="text-xs font-medium">{detail.fornecedor}</TableCell>
+                            {(selectedKpiName === "A Vencer (5d)" || selectedKpiName === "Vencidos") && (
+                              <>
+                                <TableCell className="text-xs">{detail.tipo_documento}</TableCell>
+                                <TableCell className="text-xs">
+                                  {detail.validade ? new Date(detail.validade + "T12:00:00").toLocaleDateString("pt-BR") : "—"}
+                                </TableCell>
+                                <TableCell className={`text-xs font-semibold ${detail.dias < 0 ? 'text-red-600' : detail.dias <= 5 ? 'text-amber-600' : 'text-green-600'}`}>
+                                  {detail.dias < 0 ? `${Math.abs(detail.dias)}d vencido` : `${detail.dias}d`}
+                                </TableCell>
+                              </>
+                            )}
+                            {(selectedKpiName === "Em Dia" || selectedKpiName === "Em Aberto") && (
+                              <TableCell className="text-xs">{detail.status}</TableCell>
+                            )}
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  ) : (
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead className="text-xs">#</TableHead>
+                          <TableHead className="text-xs">Processo</TableHead>
+                          <TableHead className="text-xs">Contrato de Gestão</TableHead>
+                          {selectedKpiName === "Atas - Pend. Assinatura" && (
+                            <TableHead className="text-xs">Falta Assinar</TableHead>
+                          )}
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {selectedKpiDetail.map((detail: any, idx: number) => (
+                          <TableRow key={idx}>
+                            <TableCell className="text-xs">{idx + 1}</TableCell>
+                            <TableCell className="text-xs font-medium">{detail.numero}</TableCell>
+                            <TableCell className="text-xs">{detail.contrato}</TableCell>
+                            {selectedKpiName === "Atas - Pend. Assinatura" && (
+                              <TableCell className="text-xs">
+                                {detail.pendentesAssinatura?.length > 0
+                                  ? detail.pendentesAssinatura.join(", ")
+                                  : "—"}
+                              </TableCell>
+                            )}
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  )}
                 </div>
               </CardContent>
             </Card>
