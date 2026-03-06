@@ -451,7 +451,9 @@ export function DialogAnexosProcesso({
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("Usuário não autenticado");
 
-      // Buscar dados do processo e contrato
+      const currentProcessoId = processoIdRef.current;
+      
+      // Buscar dados do processo e contrato usando ref para evitar race condition
       const { data: processo, error: processoError } = await supabase
         .from("processos_compras")
         .select(`
@@ -461,11 +463,16 @@ export function DialogAnexosProcesso({
             observacoes
           )
         `)
-        .eq("id", processoId)
+        .eq("id", currentProcessoId)
         .single();
 
       if (processoError) throw processoError;
       if (!processo) throw new Error("Processo não encontrado");
+
+      // Validar que o processo retornado é realmente o esperado
+      if (processo.id !== currentProcessoId) {
+        throw new Error("Inconsistência detectada: o processo retornado não corresponde ao solicitado");
+      }
 
       const contrato = processo.contratos_gestao as any;
 
