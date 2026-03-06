@@ -759,6 +759,43 @@ const RespostaCotacao = () => {
     }
   };
 
+  const handlePreSubmit = async () => {
+    // Verificar se o fornecedor tem responsáveis legais cadastrados
+    const cnpjLimpo = dadosEmpresa.cnpj.replace(/[^\d]/g, "");
+    if (cnpjLimpo.length === 14) {
+      try {
+        const { data: fornecedorData } = await supabaseAnon
+          .from("fornecedores")
+          .select("responsaveis_legais")
+          .eq("cnpj", cnpjLimpo)
+          .maybeSingle();
+
+        const responsaveis = Array.isArray(fornecedorData?.responsaveis_legais)
+          ? (fornecedorData.responsaveis_legais as string[]).filter((r: string) => r && r.trim() !== '')
+          : [];
+
+        if (responsaveis.length > 1) {
+          setResponsaveisLegaisDisponiveis(responsaveis);
+          setDialogResponsavelLegalOpen(true);
+          return;
+        } else if (responsaveis.length === 1) {
+          responsavelLegalRef.current = responsaveis[0];
+        } else {
+          responsavelLegalRef.current = undefined;
+        }
+      } catch (error) {
+        console.error("Erro ao buscar responsáveis legais:", error);
+      }
+    }
+    handleSubmit();
+  };
+
+  const handleConfirmarResponsavelLegal = (selecionados: string[]) => {
+    responsavelLegalRef.current = selecionados.join(', ');
+    setDialogResponsavelLegalOpen(false);
+    handleSubmit();
+  };
+
   const handleSubmit = async () => {
     setSubmitting(true);
     try {
