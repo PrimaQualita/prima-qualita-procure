@@ -773,7 +773,40 @@ export function DashboardBIOperacional({
               </CardHeader>
               <CardContent>
                 <div className="max-h-[400px] overflow-y-auto">
-                  {selectedKey === 'fornecedores' ? (
+                  {selectedKey === 'cotacoes_bi' ? (
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead className="text-xs">#</TableHead>
+                          <TableHead className="text-xs">Contrato de Gestão</TableHead>
+                          <TableHead className="text-xs">Processo</TableHead>
+                          <TableHead className="text-xs">Cotação</TableHead>
+                          <TableHead className="text-xs">Data Limite</TableHead>
+                          <TableHead className="text-xs">Propostas</TableHead>
+                          <TableHead className="text-xs">Fornecedores</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {selectedKpiDetail.map((detail: any, idx: number) => (
+                          <TableRow key={idx}>
+                            <TableCell className="text-xs">{idx + 1}</TableCell>
+                            <TableCell className="text-xs">{detail.contrato}</TableCell>
+                            <TableCell className="text-xs font-medium">{detail.numero}</TableCell>
+                            <TableCell className="text-xs">{detail.titulo}</TableCell>
+                            <TableCell className="text-xs">
+                              {detail.data_limite ? new Date(detail.data_limite).toLocaleDateString("pt-BR") : "—"}
+                            </TableCell>
+                            <TableCell className="text-xs font-semibold">{detail.qtd_propostas}</TableCell>
+                            <TableCell className="text-xs">
+                              {detail.fornecedores?.length > 0
+                                ? detail.fornecedores.join(", ")
+                                : "Nenhuma proposta"}
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  ) : selectedKey === 'fornecedores' ? (
                     <Table>
                       <TableHeader>
                         <TableRow>
