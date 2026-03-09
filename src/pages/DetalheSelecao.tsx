@@ -1260,14 +1260,16 @@ const [itens, setItens] = useState<Item[]>([]);
             <div className="space-y-4">
               {/* Aviso de Seleção */}
               <div>
-                <Button
-                  variant="outline"
-                  className="w-full"
-                  onClick={() => setDialogAvisoOpen(true)}
-                >
-                  <Upload className="h-4 w-4 mr-2" />
-                  {avisoAnexado ? "Atualizar Aviso de Seleção" : "Anexar Aviso de Seleção"}
-                </Button>
+                {canEditSelecao && (
+                  <Button
+                    variant="outline"
+                    className="w-full"
+                    onClick={() => setDialogAvisoOpen(true)}
+                  >
+                    <Upload className="h-4 w-4 mr-2" />
+                    {avisoAnexado ? "Atualizar Aviso de Seleção" : "Anexar Aviso de Seleção"}
+                  </Button>
+                )}
                 {avisoAnexado && (
                   <div className="flex gap-2 mt-2">
                     <p className="text-sm text-green-600 flex-1">✓ Aviso anexado</p>
@@ -1279,28 +1281,32 @@ const [itens, setItens] = useState<Item[]>([]);
                       <FileText className="h-4 w-4 mr-1" />
                       Visualizar
                     </Button>
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      className="text-red-600 hover:text-red-700"
-                      onClick={() => setConfirmDeleteAviso(true)}
-                    >
-                      Excluir
-                    </Button>
+                    {canEditSelecao && (
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        className="text-red-600 hover:text-red-700"
+                        onClick={() => setConfirmDeleteAviso(true)}
+                      >
+                        Excluir
+                      </Button>
+                    )}
                   </div>
                 )}
               </div>
 
               {/* Edital */}
               <div>
-                <Button
-                  variant="outline"
-                  className="w-full"
-                  onClick={() => setDialogEditalOpen(true)}
-                >
-                  <Upload className="h-4 w-4 mr-2" />
-                  {editalAnexado ? "Atualizar Edital" : "Anexar Edital"}
-                </Button>
+                {canEditSelecao && (
+                  <Button
+                    variant="outline"
+                    className="w-full"
+                    onClick={() => setDialogEditalOpen(true)}
+                  >
+                    <Upload className="h-4 w-4 mr-2" />
+                    {editalAnexado ? "Atualizar Edital" : "Anexar Edital"}
+                  </Button>
+                )}
                 {editalAnexado && (
                   <div className="flex gap-2 mt-2">
                     <p className="text-sm text-green-600 flex-1">✓ Edital anexado</p>
@@ -1312,27 +1318,31 @@ const [itens, setItens] = useState<Item[]>([]);
                       <FileText className="h-4 w-4 mr-1" />
                       Visualizar
                     </Button>
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      className="text-red-600 hover:text-red-700"
-                      onClick={() => setConfirmDeleteEdital(true)}
-                    >
-                      Excluir
-                    </Button>
+                    {canEditSelecao && (
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        className="text-red-600 hover:text-red-700"
+                        onClick={() => setConfirmDeleteEdital(true)}
+                      >
+                        Excluir
+                      </Button>
+                    )}
                   </div>
                 )}
               </div>
 
               {/* Gerar Link para Fornecedores */}
-              <Button
-                variant="default"
-                className="w-full"
-                onClick={handleEnviarFornecedores}
-              >
-                <Link className="h-4 w-4 mr-2" />
-                Gerar Link para Fornecedores
-              </Button>
+              {canEditSelecao && (
+                <Button
+                  variant="default"
+                  className="w-full"
+                  onClick={handleEnviarFornecedores}
+                >
+                  <Link className="h-4 w-4 mr-2" />
+                  Gerar Link para Fornecedores
+                </Button>
+              )}
 
               {/* Ver Propostas */}
               <Button
