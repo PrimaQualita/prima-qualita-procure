@@ -2453,7 +2453,7 @@ const Cotacoes = () => {
                                   </Button>
                                 </div>
                                 {/* Apenas Responsável Legal pode deletar */}
-                                {isResponsavelLegal && autorizacaoSelecaoId && (
+                                {hasResponsavelLegal && autorizacaoSelecaoId && (
                                   <Button
                                     variant="destructive"
                                     onClick={() => deletarAutorizacao(autorizacaoSelecaoId, 'selecao_fornecedores')}
