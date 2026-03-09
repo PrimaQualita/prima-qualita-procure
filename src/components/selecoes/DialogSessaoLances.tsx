@@ -3924,20 +3924,22 @@ export function DialogSessaoLances({
                     <Button variant="outline" size="sm" onClick={loadLances}>
                       <RefreshCw className="h-3 w-3" />
                     </Button>
-                    <Button 
-                      variant="default" 
-                      size="sm" 
-                      onClick={handleGerarPlanilhaLances} 
-                      className="text-xs"
-                      disabled={gerandoPlanilha}
-                    >
-                      {gerandoPlanilha ? (
-                        <RefreshCw className="h-3 w-3 mr-1 animate-spin" />
-                      ) : (
-                        <FileSpreadsheet className="h-3 w-3 mr-1" />
-                      )}
-                      {gerandoPlanilha ? "Gerando..." : "Gerar Planilha"}
-                    </Button>
+                    {!readOnly && (
+                      <Button 
+                        variant="default" 
+                        size="sm" 
+                        onClick={handleGerarPlanilhaLances} 
+                        className="text-xs"
+                        disabled={gerandoPlanilha}
+                      >
+                        {gerandoPlanilha ? (
+                          <RefreshCw className="h-3 w-3 mr-1 animate-spin" />
+                        ) : (
+                          <FileSpreadsheet className="h-3 w-3 mr-1" />
+                        )}
+                        {gerandoPlanilha ? "Gerando..." : "Gerar Planilha"}
+                      </Button>
+                    )}
                   </div>
                 </div>
 
