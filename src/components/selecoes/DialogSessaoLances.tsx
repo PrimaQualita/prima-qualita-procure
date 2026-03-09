@@ -117,6 +117,7 @@ export function DialogSessaoLances({
   numeroSelecao,
   sessaoFinalizada = false,
   onFinalizarSessao,
+  readOnly = false,
 }: DialogSessaoLancesProps) {
   const isPorLote = criterioJulgamento === "por_lote";
   const isGlobal = criterioJulgamento === "global";
