@@ -1681,16 +1681,18 @@ export default function RespostasCotacao() {
                           <Download className="mr-2 h-4 w-4" />
                           Baixar
                         </Button>
-                        <Button
-                          variant="destructive"
-                          size="sm"
-                          onClick={() => {
-                            setAnaliseParaExcluir(analise);
-                            setConfirmDeleteAnaliseOpen(true);
-                          }}
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
+                        {canEdit && (
+                          <Button
+                            variant="destructive"
+                            size="sm"
+                            onClick={() => {
+                              setAnaliseParaExcluir(analise);
+                              setConfirmDeleteAnaliseOpen(true);
+                            }}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        )}
                       </div>
                     )}
                   </div>
