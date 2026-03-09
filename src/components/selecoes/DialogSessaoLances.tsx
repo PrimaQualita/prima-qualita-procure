@@ -87,6 +87,7 @@ interface DialogSessaoLancesProps {
   sessaoFinalizada?: boolean;
   onFinalizarSessao?: () => void;
   onVencedoresAtualizados?: () => void;
+  readOnly?: boolean;
 }
 
 // Helper para converter número para numeral romano
@@ -116,6 +117,7 @@ export function DialogSessaoLances({
   numeroSelecao,
   sessaoFinalizada = false,
   onFinalizarSessao,
+  readOnly = false,
 }: DialogSessaoLancesProps) {
   const isPorLote = criterioJulgamento === "por_lote";
   const isGlobal = criterioJulgamento === "global";
@@ -3922,20 +3924,22 @@ export function DialogSessaoLances({
                     <Button variant="outline" size="sm" onClick={loadLances}>
                       <RefreshCw className="h-3 w-3" />
                     </Button>
-                    <Button 
-                      variant="default" 
-                      size="sm" 
-                      onClick={handleGerarPlanilhaLances} 
-                      className="text-xs"
-                      disabled={gerandoPlanilha}
-                    >
-                      {gerandoPlanilha ? (
-                        <RefreshCw className="h-3 w-3 mr-1 animate-spin" />
-                      ) : (
-                        <FileSpreadsheet className="h-3 w-3 mr-1" />
-                      )}
-                      {gerandoPlanilha ? "Gerando..." : "Gerar Planilha"}
-                    </Button>
+                    {!readOnly && (
+                      <Button 
+                        variant="default" 
+                        size="sm" 
+                        onClick={handleGerarPlanilhaLances} 
+                        className="text-xs"
+                        disabled={gerandoPlanilha}
+                      >
+                        {gerandoPlanilha ? (
+                          <RefreshCw className="h-3 w-3 mr-1 animate-spin" />
+                        ) : (
+                          <FileSpreadsheet className="h-3 w-3 mr-1" />
+                        )}
+                        {gerandoPlanilha ? "Gerando..." : "Gerar Planilha"}
+                      </Button>
+                    )}
                   </div>
                 </div>
 
@@ -3974,14 +3978,16 @@ export function DialogSessaoLances({
                                 >
                                   Visualizar
                                 </Button>
-                                <Button
-                                  variant="destructive"
-                                  size="sm"
-                                  onClick={() => setConfirmDeletePlanilha({ open: true, planilhaId: planilha.id, urlArquivo: planilha.url_arquivo })}
-                                  className="h-7 px-2"
-                                >
-                                  <Trash2 className="h-3 w-3" />
-                                </Button>
+                                {!readOnly && (
+                                  <Button
+                                    variant="destructive"
+                                    size="sm"
+                                    onClick={() => setConfirmDeletePlanilha({ open: true, planilhaId: planilha.id, urlArquivo: planilha.url_arquivo })}
+                                    className="h-7 px-2"
+                                  >
+                                    <Trash2 className="h-3 w-3" />
+                                  </Button>
+                                )}
                               </div>
                             </div>
                           </CardContent>
@@ -4090,16 +4096,18 @@ export function DialogSessaoLances({
                                     })()}
                                   </TableCell>
                                   <TableCell className="text-xs">{formatDateTime(lance.data_hora_lance)}</TableCell>
-                                  <TableCell className="text-xs">
-                                    <Button
-                                      variant="ghost"
-                                      size="sm"
-                                      className="h-6 w-6 p-0 text-destructive hover:text-destructive hover:bg-destructive/10"
-                                      onClick={() => handleDeletarLance(lance.id)}
-                                    >
-                                      <Trash2 className="h-3 w-3" />
-                                    </Button>
-                                  </TableCell>
+                                  {!readOnly && (
+                                    <TableCell className="text-xs">
+                                      <Button
+                                        variant="ghost"
+                                        size="sm"
+                                        className="h-6 w-6 p-0 text-destructive hover:text-destructive hover:bg-destructive/10"
+                                        onClick={() => handleDeletarLance(lance.id)}
+                                      >
+                                        <Trash2 className="h-3 w-3" />
+                                      </Button>
+                                    </TableCell>
+                                  )}
                                 </TableRow>
                               );
                             })
@@ -4153,16 +4161,18 @@ export function DialogSessaoLances({
                                     )}
                                   </TableCell>
                                   <TableCell className="text-xs">{formatDateTime(lance.data_hora_lance)}</TableCell>
-                                  <TableCell className="text-xs">
-                                    <Button
-                                      variant="ghost"
-                                      size="sm"
-                                      className="h-6 w-6 p-0 text-destructive hover:text-destructive hover:bg-destructive/10"
-                                      onClick={() => handleDeletarLance(lance.id)}
-                                    >
-                                      <Trash2 className="h-3 w-3" />
-                                    </Button>
-                                  </TableCell>
+                                  {!readOnly && (
+                                    <TableCell className="text-xs">
+                                      <Button
+                                        variant="ghost"
+                                        size="sm"
+                                        className="h-6 w-6 p-0 text-destructive hover:text-destructive hover:bg-destructive/10"
+                                        onClick={() => handleDeletarLance(lance.id)}
+                                      >
+                                        <Trash2 className="h-3 w-3" />
+                                      </Button>
+                                    </TableCell>
+                                  )}
                                 </TableRow>
                               ))}
                               {getLancesDoItem(itemSelecionadoLances).length === 0 && (
@@ -4715,6 +4725,7 @@ export function DialogSessaoLances({
         </div>
 
         {/* Botão Finalizar Sessão ou Remarcar Vencedores - Posição fixa no rodapé */}
+        {!readOnly && (
         <div className="flex-shrink-0 pt-4 border-t bg-background">
           {!sessaoFinalizada ? (
             (() => {
@@ -4812,6 +4823,7 @@ export function DialogSessaoLances({
               : "Sessão já finalizada - Use para recalcular os vencedores se necessário"}
           </p>
         </div>
+        )}
       </DialogContent>
     </Dialog>
 
