@@ -1051,50 +1051,60 @@ export default function PropostasSelecao() {
                                 >
                                   <Eye className="h-4 w-4" />
                                 </Button>
-                                <Button
-                                  variant="destructive"
-                                  size="sm"
-                                  onClick={() => handleExcluirPdfPropostaRealinhada(proposta)}
-                                  title="Excluir PDF"
-                                >
-                                  <Trash2 className="h-4 w-4" />
-                                </Button>
+                                {canEdit && (
+                                  <Button
+                                    variant="destructive"
+                                    size="sm"
+                                    onClick={() => handleExcluirPdfPropostaRealinhada(proposta)}
+                                    title="Excluir PDF"
+                                  >
+                                    <Trash2 className="h-4 w-4" />
+                                  </Button>
+                                )}
                               </>
                             ) : (
+                              canEdit ? (
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => handleGerarPdfPropostaRealinhada(proposta)}
+                                  disabled={gerandoPDF === proposta.id}
+                                  title="Gerar PDF"
+                                >
+                                  <RefreshCw className={`h-4 w-4 ${gerandoPDF === proposta.id ? "animate-spin" : ""}`} />
+                                </Button>
+                              ) : (
+                                <span className="text-sm text-muted-foreground">PDF não gerado</span>
+                              )
+                            )}
+                            {canEdit && (
                               <Button
                                 variant="outline"
                                 size="sm"
-                                onClick={() => handleGerarPdfPropostaRealinhada(proposta)}
-                                disabled={gerandoPDF === proposta.id}
-                                title="Gerar PDF"
+                                onClick={() => {
+                                  setPropostaParaCorrecao(proposta);
+                                  setMotivoCorrecao("");
+                                  setDialogCorrecaoOpen(true);
+                                }}
+                                title="Solicitar Correção"
                               >
-                                <RefreshCw className={`h-4 w-4 ${gerandoPDF === proposta.id ? "animate-spin" : ""}`} />
+                                <MessageSquare className="h-4 w-4" />
                               </Button>
                             )}
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => {
-                                setPropostaParaCorrecao(proposta);
-                                setMotivoCorrecao("");
-                                setDialogCorrecaoOpen(true);
-                              }}
-                              title="Solicitar Correção"
-                            >
-                              <MessageSquare className="h-4 w-4" />
-                            </Button>
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              className="text-destructive hover:text-destructive"
-                              onClick={() => {
-                                setPropostaRealinhadaParaExcluir(proposta);
-                                setConfirmDeleteRealinhadaOpen(true);
-                              }}
-                              title="Excluir Proposta (geral)"
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
+                            {canEdit && (
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                className="text-destructive hover:text-destructive"
+                                onClick={() => {
+                                  setPropostaRealinhadaParaExcluir(proposta);
+                                  setConfirmDeleteRealinhadaOpen(true);
+                                }}
+                                title="Excluir Proposta (geral)"
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            )}
                           </div>
                         </TableCell>
                       </TableRow>
