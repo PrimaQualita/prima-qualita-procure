@@ -606,7 +606,7 @@ export function AppSidebar({
                         {profile?.nome_completo || "Usuário"}
                       </span>
                       <span className="text-xs text-sidebar-foreground/70 font-medium">
-                        {isGestor ? "Gestor" : isColaborador ? "Colaborador" : apenasGerenteContratos ? "Gerente de Contratos" : apenasContabilidade ? "Contabilidade" : "Usuário"}
+                        {profile?.cargo || (isGestor ? "Gestor" : isColaborador ? "Colaborador" : apenasGerenteContratos ? "Gerente de Contratos" : apenasContabilidade ? "Contabilidade" : "Usuário")}
                       </span>
                     </div>
                   )}
