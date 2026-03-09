@@ -1325,26 +1325,31 @@ export default function RespostasCotacao() {
                                   </>
                                 )}
                               </Button>
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => {
-                                  setRespostaSelecionada(resposta);
-                                  setEmailCorrecaoOpen(true);
-                                }}
-                              >
-                                <Mail className="h-4 w-4 text-blue-600" />
-                              </Button>
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => {
-                                  setRespostaParaExcluir(resposta.id);
-                                  setTipoExclusaoResposta('anexos');
-                                  setConfirmDeleteRespostaOpen(true);
-                                }}
-                              >
-                                <Trash2 className="h-4 w-4 text-destructive" />
+                              {canEdit && (
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => {
+                                    setRespostaSelecionada(resposta);
+                                    setEmailCorrecaoOpen(true);
+                                  }}
+                                >
+                                  <Mail className="h-4 w-4 text-blue-600" />
+                                </Button>
+                              )}
+                              {canEdit && (
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => {
+                                    setRespostaParaExcluir(resposta.id);
+                                    setTipoExclusaoResposta('anexos');
+                                    setConfirmDeleteRespostaOpen(true);
+                                  }}
+                                >
+                                  <Trash2 className="h-4 w-4 text-destructive" />
+                                </Button>
+                              )
                               </Button>
                             </>
                           ) : (
