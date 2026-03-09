@@ -87,6 +87,7 @@ interface DialogSessaoLancesProps {
   sessaoFinalizada?: boolean;
   onFinalizarSessao?: () => void;
   onVencedoresAtualizados?: () => void;
+  readOnly?: boolean;
 }
 
 // Helper para converter número para numeral romano
