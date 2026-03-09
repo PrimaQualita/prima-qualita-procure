@@ -56,6 +56,7 @@ interface Documento {
 
 interface Props {
   fornecedorId: string;
+  canEdit?: boolean;
 }
 
 const DOCUMENTOS_VALIDADE = [

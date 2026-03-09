@@ -996,7 +996,7 @@ export default function Fornecedores() {
             {/* Gestão de Documentos pelo Gestor */}
             {fornecedorSelecionado && (
               <div>
-                <GestaoDocumentosGestor fornecedorId={fornecedorSelecionado.id} />
+                <GestaoDocumentosGestor fornecedorId={fornecedorSelecionado.id} canEdit={canEdit} />
               </div>
             )}
 
