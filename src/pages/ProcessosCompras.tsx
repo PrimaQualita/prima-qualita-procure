@@ -101,7 +101,7 @@ const ProcessosCompras = () => {
   const [processoParaAnexos, setProcessoParaAnexos] = useState<Processo | null>(null);
 
   // Verifica se é usuário interno (gestor ou colaborador) com permissões completas
-  // Responsável Legal NÃO pode editar/excluir contratos nem processos
+  // Responsável Legal só é restrito se for APENAS RL (sem outros perfis com permissão)
   const isUsuarioInterno = !isGerenteContratos && !isResponsavelLegal;
 
   useEffect(() => {
