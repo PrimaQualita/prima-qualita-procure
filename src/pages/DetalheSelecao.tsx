@@ -1359,17 +1359,15 @@ const [itens, setItens] = useState<Item[]>([]);
 
         {/* Botão de Sessão de Lances */}
         <div className="mb-6 space-y-3">
-          {canEditSelecao && (
-            <Button
-              variant="default"
-              size="lg"
-              className="w-full"
-              onClick={() => setDialogSessaoOpen(true)}
-            >
-              <Gavel className="h-5 w-5 mr-2" />
-              Abrir Sessão de Lances (Controle + Chat + Sistema de Lances)
-            </Button>
-          )}
+          <Button
+            variant={canEditSelecao ? "default" : "outline"}
+            size="lg"
+            className="w-full"
+            onClick={() => setDialogSessaoOpen(true)}
+          >
+            <Gavel className="h-5 w-5 mr-2" />
+            {canEditSelecao ? "Abrir Sessão de Lances (Controle + Chat + Sistema de Lances)" : "Visualizar Sessão de Lances"}
+          </Button>
           
           {/* Análise Documental - só disponível após finalizar sessão */}
           {canEditSelecao && selecao.sessao_finalizada && (
