@@ -144,6 +144,7 @@ const Cotacoes = () => {
   const [emailsFornecedoresAnexados, setEmailsFornecedoresAnexados] = useState<File[]>([]);
   const [uploadingAutorizacao, setUploadingAutorizacao] = useState(false);
   const [isResponsavelLegal, setIsResponsavelLegal] = useState(cachedUserData?.isResponsavelLegal || false);
+  const [hasResponsavelLegal, setHasResponsavelLegal] = useState(cachedUserData?.hasResponsavelLegal || false);
   const [usuarioNome, setUsuarioNome] = useState(cachedUserData?.nome || '');
   const [usuarioCpf, setUsuarioCpf] = useState(cachedUserData?.cpf || '');
   const [autorizacaoSelecaoUrl, setAutorizacaoSelecaoUrl] = useState('');
