@@ -75,8 +75,31 @@ export default function PropostasSelecao() {
   const [propostaParaCorrecao, setPropostaParaCorrecao] = useState<any>(null);
   const [motivoCorrecao, setMotivoCorrecao] = useState("");
   const [dialogCorrecaoOpen, setDialogCorrecaoOpen] = useState(false);
+  const [canEdit, setCanEdit] = useState(false);
 
   const isRealinhadas = tipoPropostas === "realinhadas";
+
+  useEffect(() => {
+    const loadPermissions = async () => {
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) { setCanEdit(true); return; }
+        const { data: profile } = await supabase
+          .from("profiles")
+          .select("responsavel_legal, gestor, colaborador, compliance, superintendente_executivo")
+          .eq("id", user.id)
+          .single();
+        if (profile) {
+          const isRL = profile.responsavel_legal || false;
+          const hasEditRole = profile.gestor || profile.colaborador || profile.compliance || profile.superintendente_executivo;
+          setCanEdit(isRL ? !!(hasEditRole) : true);
+        } else {
+          setCanEdit(true);
+        }
+      } catch { setCanEdit(true); }
+    };
+    loadPermissions();
+  }, []);
 
   useEffect(() => {
     if (selecaoId) {
