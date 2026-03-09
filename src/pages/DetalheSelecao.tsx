@@ -199,26 +199,29 @@ const [itens, setItens] = useState<Item[]>([]);
       return;
     }
 
-    // Verificar se usuário é responsável legal
-    const { data: profile, error } = await supabase
+    // Verificar se usuário é responsável legal e outros perfis
+    const { data: profile } = await supabase
       .from("profiles")
-      .select("responsavel_legal, nome_completo, email")
+      .select("responsavel_legal, compliance, superintendente_executivo")
       .eq("id", session.user.id)
       .single();
 
-    console.log("🔍 DEBUG - Verificando responsável legal:");
-    console.log("User ID:", session.user.id);
-    console.log("Profile data:", profile);
-    console.log("responsavel_legal value:", profile?.responsavel_legal);
-    console.log("Error:", error);
+    // Consultar user_roles para gestor/colaborador
+    const { data: userRoles } = await supabase
+      .from("user_roles")
+      .select("role")
+      .eq("user_id", session.user.id);
+
+    const hasUserRole = userRoles?.some(r => ["gestor", "colaborador"].includes(r.role));
+    const hasProfileEditRole = profile?.compliance || profile?.superintendente_executivo;
 
     if (profile) {
       const isRL = profile.responsavel_legal === true;
-      setIsResponsavelLegal(isRL);
-      console.log("✅ isResponsavelLegal setado para:", isRL);
+      // Só restringe se é APENAS RL (sem outros perfis com permissão de edição)
+      const isOnlyRL = isRL && !hasProfileEditRole && !hasUserRole;
+      setIsResponsavelLegal(isOnlyRL);
     } else {
       setIsResponsavelLegal(false);
-      console.log("❌ Profile não encontrado, setando isResponsavelLegal para false");
     }
   };
 
