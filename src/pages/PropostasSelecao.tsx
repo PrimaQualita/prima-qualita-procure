@@ -86,13 +86,23 @@ export default function PropostasSelecao() {
         if (!user) { setCanEdit(true); return; }
         const { data: profile } = await supabase
           .from("profiles")
-          .select("responsavel_legal, gestor, compliance, superintendente_executivo")
+          .select("responsavel_legal, compliance, superintendente_executivo")
           .eq("id", user.id)
           .single();
+        
+        // Consultar user_roles para gestor/colaborador
+        const { data: userRoles } = await supabase
+          .from("user_roles")
+          .select("role")
+          .eq("user_id", user.id);
+        
+        const hasUserRole = userRoles?.some(r => ["gestor", "colaborador"].includes(r.role));
+        
         if (profile) {
           const isRL = (profile as any).responsavel_legal || false;
-          const hasEditRole = (profile as any).gestor || (profile as any).compliance || (profile as any).superintendente_executivo;
-          setCanEdit(isRL ? !!(hasEditRole) : true);
+          const hasProfileEditRole = (profile as any).compliance || (profile as any).superintendente_executivo;
+          // Só restringe se é APENAS RL (sem outros perfis)
+          setCanEdit(isRL ? !!(hasProfileEditRole || hasUserRole) : true);
         } else {
           setCanEdit(true);
         }

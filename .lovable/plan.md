@@ -1,51 +1,40 @@
 
 
-# Problema: Perfis cumulativos não respeitados nas restrições do Responsável Legal
+## Problema Identificado
 
-## Diagnóstico
+No modo **Comparativo** do BI Controle, o componente `ComparativoKPICard` exibe cada KPI individualmente como `[KPI, Restante]` — por isso aparece "Requisição - Solicitadas vs Restante", "Requisição - Geradas vs Restante", etc. Esse "Restante" é o total do módulo menos o valor do KPI, o que não faz sentido para o módulo **Processo**.
 
-O usuário Diego tem **múltiplos perfis** (incluindo Responsável Legal + outros). A regra do sistema é que perfis são **cumulativos** — o usuário herda a **união** de todas as permissões. Porém, as implementações atuais restringem o usuário apenas por ter a flag `responsavel_legal = true`, sem verificar se ele também tem outros perfis com mais permissões.
+## Solução
 
-### Problemas encontrados:
+Para o módulo **Processo** (`documentos_processo`), o modo comparativo deve funcionar de forma diferente dos demais módulos:
 
-1. **`DetalheSelecao.tsx`** (linha 109): `canEditSelecao = !isResponsavelLegal` — bloqueia edição se é RL, **ignorando completamente** outros perfis. Também só busca `responsavel_legal` do profiles, sem checar `user_roles` (gestor/colaborador).
+1. **Agrupamento por categoria**: Os 18 KPIs são agrupados em 6 categorias (Requisição, Aut. Despesa, Aut. Seleção, Aut. Compra Direta, Homologação, Atas), cada uma com 3 métricas (Solicitadas/Geradas/Pendentes).
 
-2. **`RespostasCotacao.tsx`** (linha 1008-1010): Verifica `hasEditRole` com `gestor, compliance, superintendente_executivo` do profiles, mas **não inclui `colaborador`** (que vem da tabela `user_roles`, não do `profiles`).
+2. **Seleção múltipla de grupos**: O usuário pode marcar mais de um grupo (ex: Requisição + Aut. Despesa) para comparar lado a lado.
 
-3. **`PropostasSelecao.tsx`** (linha 93-95): Mesmo problema — verifica apenas profiles, sem consultar `user_roles` para o papel de colaborador/gestor.
+3. **Um gráfico por grupo selecionado**: Cada grupo selecionado gera um card com um único gráfico mostrando as 3 barras (Solicitadas, Geradas, Pendentes) — sem "Restante".
 
-## Plano de correção
+4. **Demais módulos inalterados**: Contratos, Compliance, Seleções, etc. continuam com o comportamento atual.
 
-### 1. `DetalheSelecao.tsx`
-- Expandir a query do profile para incluir `gestor, compliance, superintendente_executivo`
-- Consultar `user_roles` para verificar se tem papel `gestor` ou `colaborador`
-- Mudar `canEditSelecao` para: só restringir se é RL **puro** (sem outros perfis com permissão de edição)
+## Alterações Técnicas
 
-### 2. `RespostasCotacao.tsx`
-- Adicionar consulta a `user_roles` para verificar papel `colaborador` ou `gestor`
-- Incluir esse resultado no cálculo de `hasEditRole`
+### `src/components/dashboard/DashboardBIOperacional.tsx`
 
-### 3. `PropostasSelecao.tsx`
-- Mesma correção: consultar `user_roles` e incluir no `hasEditRole`
+- Definir constante com os 6 grupos do módulo Processo:
+  ```
+  GRUPOS_PROCESSO = [
+    { key: "requisicao", title: "Requisição", indices: [0,1,2] },
+    { key: "aut_despesa", title: "Aut. Despesa", indices: [3,4,5] },
+    ...
+  ]
+  ```
 
-### Lógica unificada para os 3 arquivos:
-```typescript
-// Buscar profile flags
-const isRL = profile.responsavel_legal || false;
-const hasProfileEditRole = profile.gestor || profile.compliance || profile.superintendente_executivo;
+- Adicionar estado `gruposProcessoSelecionados: string[]` (default: `["requisicao"]`).
 
-// Buscar user_roles
-const { data: userRoles } = await supabase
-  .from("user_roles")
-  .select("role")
-  .eq("user_id", user.id)
-  .in("role", ["gestor", "colaborador"]);
+- No bloco comparativo (linha ~700), quando `selectedKey === 'documentos_processo'`:
+  - Renderizar checkboxes para selecionar os grupos (Requisição, Aut. Despesa, etc.)
+  - Para cada grupo selecionado, renderizar um card com gráfico de 3 barras (Solicitadas/Geradas/Pendentes)
+  - Cada card tem seu próprio seletor de tipo de gráfico (barras/pizza/vela/pareto)
 
-const hasUserRole = userRoles && userRoles.length > 0;
-
-// Só restringe se é APENAS RL
-const canEdit = isRL ? !!(hasProfileEditRole || hasUserRole) : true;
-```
-
-Isso garante que se Diego é RL + Gestor (ou qualquer outro perfil), ele terá acesso completo.
+- Quando `selectedKey !== 'documentos_processo'`: manter o comportamento atual com `ComparativoKPICard` e "Restante".
 
