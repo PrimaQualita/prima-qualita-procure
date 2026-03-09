@@ -105,6 +105,9 @@ const [itens, setItens] = useState<Item[]>([]);
   const [enviandoSolicitacao, setEnviandoSolicitacao] = useState(false);
   const [isResponsavelLegal, setIsResponsavelLegal] = useState(false);
   
+  // RL pode APENAS visualizar + gerar/excluir homologação
+  const canEditSelecao = !isResponsavelLegal;
+  
   // Estado para Processo Completo
   const [gerandoProcessoCompleto, setGerandoProcessoCompleto] = useState(false);
   const [processoCompletoSalvo, setProcessoCompletoSalvo] = useState<any>(null);
@@ -1257,14 +1260,16 @@ const [itens, setItens] = useState<Item[]>([]);
             <div className="space-y-4">
               {/* Aviso de Seleção */}
               <div>
-                <Button
-                  variant="outline"
-                  className="w-full"
-                  onClick={() => setDialogAvisoOpen(true)}
-                >
-                  <Upload className="h-4 w-4 mr-2" />
-                  {avisoAnexado ? "Atualizar Aviso de Seleção" : "Anexar Aviso de Seleção"}
-                </Button>
+                {canEditSelecao && (
+                  <Button
+                    variant="outline"
+                    className="w-full"
+                    onClick={() => setDialogAvisoOpen(true)}
+                  >
+                    <Upload className="h-4 w-4 mr-2" />
+                    {avisoAnexado ? "Atualizar Aviso de Seleção" : "Anexar Aviso de Seleção"}
+                  </Button>
+                )}
                 {avisoAnexado && (
                   <div className="flex gap-2 mt-2">
                     <p className="text-sm text-green-600 flex-1">✓ Aviso anexado</p>
@@ -1276,28 +1281,32 @@ const [itens, setItens] = useState<Item[]>([]);
                       <FileText className="h-4 w-4 mr-1" />
                       Visualizar
                     </Button>
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      className="text-red-600 hover:text-red-700"
-                      onClick={() => setConfirmDeleteAviso(true)}
-                    >
-                      Excluir
-                    </Button>
+                    {canEditSelecao && (
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        className="text-red-600 hover:text-red-700"
+                        onClick={() => setConfirmDeleteAviso(true)}
+                      >
+                        Excluir
+                      </Button>
+                    )}
                   </div>
                 )}
               </div>
 
               {/* Edital */}
               <div>
-                <Button
-                  variant="outline"
-                  className="w-full"
-                  onClick={() => setDialogEditalOpen(true)}
-                >
-                  <Upload className="h-4 w-4 mr-2" />
-                  {editalAnexado ? "Atualizar Edital" : "Anexar Edital"}
-                </Button>
+                {canEditSelecao && (
+                  <Button
+                    variant="outline"
+                    className="w-full"
+                    onClick={() => setDialogEditalOpen(true)}
+                  >
+                    <Upload className="h-4 w-4 mr-2" />
+                    {editalAnexado ? "Atualizar Edital" : "Anexar Edital"}
+                  </Button>
+                )}
                 {editalAnexado && (
                   <div className="flex gap-2 mt-2">
                     <p className="text-sm text-green-600 flex-1">✓ Edital anexado</p>
@@ -1309,27 +1318,31 @@ const [itens, setItens] = useState<Item[]>([]);
                       <FileText className="h-4 w-4 mr-1" />
                       Visualizar
                     </Button>
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      className="text-red-600 hover:text-red-700"
-                      onClick={() => setConfirmDeleteEdital(true)}
-                    >
-                      Excluir
-                    </Button>
+                    {canEditSelecao && (
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        className="text-red-600 hover:text-red-700"
+                        onClick={() => setConfirmDeleteEdital(true)}
+                      >
+                        Excluir
+                      </Button>
+                    )}
                   </div>
                 )}
               </div>
 
               {/* Gerar Link para Fornecedores */}
-              <Button
-                variant="default"
-                className="w-full"
-                onClick={handleEnviarFornecedores}
-              >
-                <Link className="h-4 w-4 mr-2" />
-                Gerar Link para Fornecedores
-              </Button>
+              {canEditSelecao && (
+                <Button
+                  variant="default"
+                  className="w-full"
+                  onClick={handleEnviarFornecedores}
+                >
+                  <Link className="h-4 w-4 mr-2" />
+                  Gerar Link para Fornecedores
+                </Button>
+              )}
 
               {/* Ver Propostas */}
               <Button
@@ -1346,18 +1359,20 @@ const [itens, setItens] = useState<Item[]>([]);
 
         {/* Botão de Sessão de Lances */}
         <div className="mb-6 space-y-3">
-          <Button
-            variant="default"
-            size="lg"
-            className="w-full"
-            onClick={() => setDialogSessaoOpen(true)}
-          >
-            <Gavel className="h-5 w-5 mr-2" />
-            Abrir Sessão de Lances (Controle + Chat + Sistema de Lances)
-          </Button>
+          {canEditSelecao && (
+            <Button
+              variant="default"
+              size="lg"
+              className="w-full"
+              onClick={() => setDialogSessaoOpen(true)}
+            >
+              <Gavel className="h-5 w-5 mr-2" />
+              Abrir Sessão de Lances (Controle + Chat + Sistema de Lances)
+            </Button>
+          )}
           
           {/* Análise Documental - só disponível após finalizar sessão */}
-          {selecao.sessao_finalizada && (
+          {canEditSelecao && selecao.sessao_finalizada && (
             <Button
               variant="outline"
               size="lg"
@@ -1370,28 +1385,30 @@ const [itens, setItens] = useState<Item[]>([]);
           )}
           
           {/* Gerar Ata */}
-          <Button
-            variant="default"
-            size="lg"
-            className="w-full"
-            disabled={gerandoAta}
-            onClick={async () => {
-              setGerandoAta(true);
-              try {
-                const resultado = await gerarAtaSelecaoPDF(selecaoId!);
-                toast.success("Ata gerada com sucesso!");
-                await loadAtasGeradas();
-              } catch (error) {
-                console.error("Erro ao gerar ata:", error);
-                toast.error("Erro ao gerar Ata");
-              } finally {
-                setGerandoAta(false);
-              }
-            }}
-          >
-            <FileCheck className="h-5 w-5 mr-2" />
-            {gerandoAta ? "Gerando..." : "Gerar Ata"}
-          </Button>
+          {canEditSelecao && (
+            <Button
+              variant="default"
+              size="lg"
+              className="w-full"
+              disabled={gerandoAta}
+              onClick={async () => {
+                setGerandoAta(true);
+                try {
+                  const resultado = await gerarAtaSelecaoPDF(selecaoId!);
+                  toast.success("Ata gerada com sucesso!");
+                  await loadAtasGeradas();
+                } catch (error) {
+                  console.error("Erro ao gerar ata:", error);
+                  toast.error("Erro ao gerar Ata");
+                } finally {
+                  setGerandoAta(false);
+                }
+              }}
+            >
+              <FileCheck className="h-5 w-5 mr-2" />
+              {gerandoAta ? "Gerando..." : "Gerar Ata"}
+            </Button>
+          )}
 
           {/* Atas Geradas */}
           {atasGeradas.length > 0 && (
@@ -1427,16 +1444,18 @@ const [itens, setItens] = useState<Item[]>([]);
                         >
                           <Eye className="h-4 w-4" />
                         </Button>
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          className="text-red-600 hover:text-red-700"
-                          onClick={() => setConfirmDeleteAta(ata.id)}
-                          title="Excluir"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                        {ata.enviada_fornecedores && (
+                        {canEditSelecao && (
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            className="text-red-600 hover:text-red-700"
+                            onClick={() => setConfirmDeleteAta(ata.id)}
+                            title="Excluir"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        )}
+                        {canEditSelecao && ata.enviada_fornecedores && (
                           <Button
                             size="sm"
                             variant="outline"
@@ -1448,7 +1467,7 @@ const [itens, setItens] = useState<Item[]>([]);
                             {atualizandoPDF === ata.id ? "Atualizando..." : "Atualizar PDF"}
                           </Button>
                         )}
-                        {!ata.enviada_fornecedores && (
+                        {canEditSelecao && !ata.enviada_fornecedores && (
                           <Button
                             size="sm"
                             variant="default"
@@ -1459,7 +1478,7 @@ const [itens, setItens] = useState<Item[]>([]);
                             Enviar para Assinatura
                           </Button>
                         )}
-                        {ata.enviada_fornecedores && (
+                        {canEditSelecao && ata.enviada_fornecedores && (
                           <Button
                             size="sm"
                             variant="secondary"
@@ -1502,14 +1521,16 @@ const [itens, setItens] = useState<Item[]>([]);
               <CardContent className="py-2">
                 <div className="space-y-3">
                   {/* Botão Gerar */}
-                  <Button
-                    onClick={gerarEncaminhamentoContabilidade}
-                    disabled={gerandoEncaminhamentoContab}
-                    className="w-full"
-                  >
-                    <FileText className="h-4 w-4 mr-2" />
-                    {gerandoEncaminhamentoContab ? "Gerando..." : "Gerar Encaminhamento para Contabilidade"}
-                  </Button>
+                  {canEditSelecao && (
+                    <Button
+                      onClick={gerarEncaminhamentoContabilidade}
+                      disabled={gerandoEncaminhamentoContab}
+                      className="w-full"
+                    >
+                      <FileText className="h-4 w-4 mr-2" />
+                      {gerandoEncaminhamentoContab ? "Gerando..." : "Gerar Encaminhamento para Contabilidade"}
+                    </Button>
+                  )}
 
                   {/* Lista de Encaminhamentos */}
                   {encaminhamentosContabilidade.length > 0 && (
@@ -1591,7 +1612,7 @@ const [itens, setItens] = useState<Item[]>([]);
                               >
                                 <Download className="h-4 w-4" />
                               </Button>
-                              {!enc.enviado_contabilidade && (
+                              {canEditSelecao && !enc.enviado_contabilidade && (
                                 <Button
                                   size="sm"
                                   variant="default"
@@ -1602,15 +1623,17 @@ const [itens, setItens] = useState<Item[]>([]);
                                   Enviar
                                 </Button>
                               )}
-                              <Button
-                                size="sm"
-                                variant="ghost"
-                                className="text-destructive hover:text-destructive hover:bg-destructive/10"
-                                onClick={() => setConfirmDeleteEncContab(enc)}
-                                title="Excluir"
-                              >
-                                <Trash2 className="h-4 w-4" />
-                              </Button>
+                              {canEditSelecao && (
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  className="text-destructive hover:text-destructive hover:bg-destructive/10"
+                                  onClick={() => setConfirmDeleteEncContab(enc)}
+                                  title="Excluir"
+                                >
+                                  <Trash2 className="h-4 w-4" />
+                                </Button>
+                              )}
                             </div>
                           </div>
 
@@ -1778,17 +1801,19 @@ const [itens, setItens] = useState<Item[]>([]);
                 </div>
                 
                 {/* Botão Finalizar Processo */}
-                <div className="mt-4 pt-4 border-t">
-                  <Button
-                    onClick={handleGerarProcessoCompleto}
-                    disabled={gerandoProcessoCompleto}
-                    className="w-full"
-                    size="lg"
-                  >
-                    <Download className="h-5 w-5 mr-2" />
-                    {gerandoProcessoCompleto ? "Gerando Processo Completo..." : "Finalizar Processo (Download Completo)"}
-                  </Button>
-                </div>
+                {canEditSelecao && (
+                  <div className="mt-4 pt-4 border-t">
+                    <Button
+                      onClick={handleGerarProcessoCompleto}
+                      disabled={gerandoProcessoCompleto}
+                      className="w-full"
+                      size="lg"
+                    >
+                      <Download className="h-5 w-5 mr-2" />
+                      {gerandoProcessoCompleto ? "Gerando Processo Completo..." : "Finalizar Processo (Download Completo)"}
+                    </Button>
+                  </div>
+                )}
               </CardContent>
             </Card>
           )}

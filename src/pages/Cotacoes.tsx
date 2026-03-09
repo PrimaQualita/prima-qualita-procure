@@ -2146,14 +2146,16 @@ const Cotacoes = () => {
                         )}
                       </Tooltip>
                     </TooltipProvider>
-                    <Button 
-                      variant="outline"
-                      onClick={() => navigate(`/incluir-precos-publicos?cotacao=${cotacaoSelecionada?.id}&contrato=${contratoSelecionado?.id}&processo=${processoSelecionado?.id}`)}
-                      disabled={itens.length === 0}
-                      size="sm"
-                    >
-                      Incluir Preços Públicos
-                    </Button>
+                    {!isResponsavelLegal && (
+                      <Button 
+                        variant="outline"
+                        onClick={() => navigate(`/incluir-precos-publicos?cotacao=${cotacaoSelecionada?.id}&contrato=${contratoSelecionado?.id}&processo=${processoSelecionado?.id}`)}
+                        disabled={itens.length === 0}
+                        size="sm"
+                      >
+                        Incluir Preços Públicos
+                      </Button>
+                    )}
                     {canEdit && (
                       <>
                         <Button 
