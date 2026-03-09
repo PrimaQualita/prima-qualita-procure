@@ -1274,17 +1274,18 @@ export default function RespostasCotacao() {
                                 >
                                   <Download className="h-4 w-4" />
                                 </Button>
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  onClick={() => {
-                                    setAnexoParaExcluir({ ...anexo, respostaId: resposta.id });
-                                    setConfirmDeleteAnexoOpen(true);
-                                  }}
-                                  className={!canEdit ? 'hidden' : ''}
-                                >
-                                  <Trash2 className="h-4 w-4 text-destructive" />
-                                </Button>
+                                {canEdit && (
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() => {
+                                      setAnexoParaExcluir({ ...anexo, respostaId: resposta.id });
+                                      setConfirmDeleteAnexoOpen(true);
+                                    }}
+                                  >
+                                    <Trash2 className="h-4 w-4 text-destructive" />
+                                  </Button>
+                                )}
                               </div>
                             ))}
                           </div>
