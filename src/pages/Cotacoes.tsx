@@ -2654,18 +2654,20 @@ const Cotacoes = () => {
                             <h3 className="font-semibold">
                               LOTE {lote.numero_lote} - {lote.descricao_lote}
                             </h3>
-                            <Button
-                              variant="secondary"
-                              size="sm"
-                              onClick={() => {
-                                setItemEditando(null);
-                                setLoteParaAdicionarItem(lote.id);
-                                setDialogItemOpen(true);
-                              }}
-                            >
-                              <Plus className="h-4 w-4 mr-2" />
-                              Adicionar Item
-                            </Button>
+                            {!isResponsavelLegal && (
+                              <Button
+                                variant="secondary"
+                                size="sm"
+                                onClick={() => {
+                                  setItemEditando(null);
+                                  setLoteParaAdicionarItem(lote.id);
+                                  setDialogItemOpen(true);
+                                }}
+                              >
+                                <Plus className="h-4 w-4 mr-2" />
+                                Adicionar Item
+                              </Button>
+                            )}
                           </div>
                           <Table>
                             <TableHeader>
