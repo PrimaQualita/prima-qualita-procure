@@ -75,8 +75,31 @@ export default function PropostasSelecao() {
   const [propostaParaCorrecao, setPropostaParaCorrecao] = useState<any>(null);
   const [motivoCorrecao, setMotivoCorrecao] = useState("");
   const [dialogCorrecaoOpen, setDialogCorrecaoOpen] = useState(false);
+  const [canEdit, setCanEdit] = useState(false);
 
   const isRealinhadas = tipoPropostas === "realinhadas";
+
+  useEffect(() => {
+    const loadPermissions = async () => {
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) { setCanEdit(true); return; }
+        const { data: profile } = await supabase
+          .from("profiles")
+          .select("responsavel_legal, gestor, compliance, superintendente_executivo")
+          .eq("id", user.id)
+          .single();
+        if (profile) {
+          const isRL = (profile as any).responsavel_legal || false;
+          const hasEditRole = (profile as any).gestor || (profile as any).compliance || (profile as any).superintendente_executivo;
+          setCanEdit(isRL ? !!(hasEditRole) : true);
+        } else {
+          setCanEdit(true);
+        }
+      } catch { setCanEdit(true); }
+    };
+    loadPermissions();
+  }, []);
 
   useEffect(() => {
     if (selecaoId) {
@@ -1028,50 +1051,60 @@ export default function PropostasSelecao() {
                                 >
                                   <Eye className="h-4 w-4" />
                                 </Button>
-                                <Button
-                                  variant="destructive"
-                                  size="sm"
-                                  onClick={() => handleExcluirPdfPropostaRealinhada(proposta)}
-                                  title="Excluir PDF"
-                                >
-                                  <Trash2 className="h-4 w-4" />
-                                </Button>
+                                {canEdit && (
+                                  <Button
+                                    variant="destructive"
+                                    size="sm"
+                                    onClick={() => handleExcluirPdfPropostaRealinhada(proposta)}
+                                    title="Excluir PDF"
+                                  >
+                                    <Trash2 className="h-4 w-4" />
+                                  </Button>
+                                )}
                               </>
                             ) : (
+                              canEdit ? (
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => handleGerarPdfPropostaRealinhada(proposta)}
+                                  disabled={gerandoPDF === proposta.id}
+                                  title="Gerar PDF"
+                                >
+                                  <RefreshCw className={`h-4 w-4 ${gerandoPDF === proposta.id ? "animate-spin" : ""}`} />
+                                </Button>
+                              ) : (
+                                <span className="text-sm text-muted-foreground">PDF não gerado</span>
+                              )
+                            )}
+                            {canEdit && (
                               <Button
                                 variant="outline"
                                 size="sm"
-                                onClick={() => handleGerarPdfPropostaRealinhada(proposta)}
-                                disabled={gerandoPDF === proposta.id}
-                                title="Gerar PDF"
+                                onClick={() => {
+                                  setPropostaParaCorrecao(proposta);
+                                  setMotivoCorrecao("");
+                                  setDialogCorrecaoOpen(true);
+                                }}
+                                title="Solicitar Correção"
                               >
-                                <RefreshCw className={`h-4 w-4 ${gerandoPDF === proposta.id ? "animate-spin" : ""}`} />
+                                <MessageSquare className="h-4 w-4" />
                               </Button>
                             )}
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => {
-                                setPropostaParaCorrecao(proposta);
-                                setMotivoCorrecao("");
-                                setDialogCorrecaoOpen(true);
-                              }}
-                              title="Solicitar Correção"
-                            >
-                              <MessageSquare className="h-4 w-4" />
-                            </Button>
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              className="text-destructive hover:text-destructive"
-                              onClick={() => {
-                                setPropostaRealinhadaParaExcluir(proposta);
-                                setConfirmDeleteRealinhadaOpen(true);
-                              }}
-                              title="Excluir Proposta (geral)"
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
+                            {canEdit && (
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                className="text-destructive hover:text-destructive"
+                                onClick={() => {
+                                  setPropostaRealinhadaParaExcluir(proposta);
+                                  setConfirmDeleteRealinhadaOpen(true);
+                                }}
+                                title="Excluir Proposta (geral)"
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            )}
                           </div>
                         </TableCell>
                       </TableRow>
@@ -1179,33 +1212,41 @@ export default function PropostasSelecao() {
                                 <Download className="h-4 w-4 mr-2" />
                                 {gerandoPDF === proposta.id ? "..." : "Baixar"}
                               </Button>
-                              <Button
-                                variant="destructive"
-                                size="sm"
-                                onClick={() => handleExcluirProposta(proposta)}
-                                title="Excluir PDF"
-                              >
-                                <Trash2 className="h-4 w-4" />
-                              </Button>
+                              {canEdit && (
+                                <Button
+                                  variant="destructive"
+                                  size="sm"
+                                  onClick={() => handleExcluirProposta(proposta)}
+                                  title="Excluir PDF"
+                                >
+                                  <Trash2 className="h-4 w-4" />
+                                </Button>
+                              )}
                             </>
                           ) : (
                             <div className="flex items-center gap-2">
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() => handleVisualizarProposta(proposta.id)}
-                                disabled={gerandoPDF === proposta.id}
-                              >
-                                {gerandoPDF === proposta.id ? "Gerando..." : "Gerar PDF"}
-                              </Button>
-                              <Button
-                                variant="destructive"
-                                size="sm"
-                                onClick={() => handleExcluirPropostaCompleta(proposta)}
-                                title="Excluir proposta completa"
-                              >
-                                <Trash2 className="h-4 w-4" />
-                              </Button>
+                              {canEdit ? (
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => handleVisualizarProposta(proposta.id)}
+                                  disabled={gerandoPDF === proposta.id}
+                                >
+                                  {gerandoPDF === proposta.id ? "Gerando..." : "Gerar PDF"}
+                                </Button>
+                              ) : (
+                                <span className="text-sm text-muted-foreground">PDF não gerado</span>
+                              )}
+                              {canEdit && (
+                                <Button
+                                  variant="destructive"
+                                  size="sm"
+                                  onClick={() => handleExcluirPropostaCompleta(proposta)}
+                                  title="Excluir proposta completa"
+                                >
+                                  <Trash2 className="h-4 w-4" />
+                                </Button>
+                              )}
                             </div>
                           )}
                         </div>

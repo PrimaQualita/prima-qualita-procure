@@ -99,7 +99,8 @@ export default function RespostasCotacao() {
   const [confirmDeleteRespostaOpen, setConfirmDeleteRespostaOpen] = useState(false);
   const [tipoExclusaoResposta, setTipoExclusaoResposta] = useState<'anexos' | 'completa'>('anexos');
   const [isResponsavelLegal, setIsResponsavelLegal] = useState(false);
-  const [canEdit, setCanEdit] = useState(true);
+  const [canEdit, setCanEdit] = useState(false);
+  const [permissionsLoaded, setPermissionsLoaded] = useState(false);
 
   // Definir funções auxiliares ANTES do useEffect
   const loadAnaliseCompliance = async () => {
@@ -999,17 +1000,22 @@ export default function RespostasCotacao() {
         if (!user) return;
         const { data: profile } = await supabase
           .from("profiles")
-          .select("responsavel_legal, gestor, colaborador, compliance, superintendente_executivo")
+          .select("responsavel_legal, gestor, compliance, superintendente_executivo")
           .eq("id", user.id)
           .single();
         if (profile) {
-          const isRL = profile.responsavel_legal || false;
-          const hasEditRole = profile.gestor || profile.colaborador || profile.compliance || profile.superintendente_executivo;
+          const isRL = (profile as any).responsavel_legal || false;
+          const hasEditRole = (profile as any).gestor || (profile as any).compliance || (profile as any).superintendente_executivo;
           setIsResponsavelLegal(isRL);
           setCanEdit(isRL ? !!(hasEditRole) : true);
+        } else {
+          setCanEdit(true);
         }
       } catch (error) {
         console.error("Erro ao carregar permissões:", error);
+        setCanEdit(true);
+      } finally {
+        setPermissionsLoaded(true);
       }
     };
 
@@ -1268,17 +1274,18 @@ export default function RespostasCotacao() {
                                 >
                                   <Download className="h-4 w-4" />
                                 </Button>
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  onClick={() => {
-                                    setAnexoParaExcluir({ ...anexo, respostaId: resposta.id });
-                                    setConfirmDeleteAnexoOpen(true);
-                                  }}
-                                  className={!canEdit ? 'hidden' : ''}
-                                >
-                                  <Trash2 className="h-4 w-4 text-destructive" />
-                                </Button>
+                                {canEdit && (
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() => {
+                                      setAnexoParaExcluir({ ...anexo, respostaId: resposta.id });
+                                      setConfirmDeleteAnexoOpen(true);
+                                    }}
+                                  >
+                                    <Trash2 className="h-4 w-4 text-destructive" />
+                                  </Button>
+                                )}
                               </div>
                             ))}
                           </div>
