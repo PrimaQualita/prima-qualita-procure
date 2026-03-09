@@ -200,7 +200,10 @@ const ProcessosCompras = () => {
       .eq("id", session.user.id)
       .maybeSingle();
 
-    setIsResponsavelLegal(!!profileData?.responsavel_legal);
+    // RL só é restrito se for APENAS RL (sem outros perfis com permissão de edição)
+    const isRL = !!profileData?.responsavel_legal;
+    const hasOtherEditRoles = isUsuarioInternoCheck || !!profileData?.compliance || !!profileData?.superintendente_executivo;
+    setIsResponsavelLegal(isRL && !hasOtherEditRoles);
     setIsCompliance(!!profileData?.compliance);
     setIsSuperintendenteExecutivo(!!profileData?.superintendente_executivo);
 
