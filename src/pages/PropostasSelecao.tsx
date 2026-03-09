@@ -1212,33 +1212,41 @@ export default function PropostasSelecao() {
                                 <Download className="h-4 w-4 mr-2" />
                                 {gerandoPDF === proposta.id ? "..." : "Baixar"}
                               </Button>
-                              <Button
-                                variant="destructive"
-                                size="sm"
-                                onClick={() => handleExcluirProposta(proposta)}
-                                title="Excluir PDF"
-                              >
-                                <Trash2 className="h-4 w-4" />
-                              </Button>
+                              {canEdit && (
+                                <Button
+                                  variant="destructive"
+                                  size="sm"
+                                  onClick={() => handleExcluirProposta(proposta)}
+                                  title="Excluir PDF"
+                                >
+                                  <Trash2 className="h-4 w-4" />
+                                </Button>
+                              )}
                             </>
                           ) : (
                             <div className="flex items-center gap-2">
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() => handleVisualizarProposta(proposta.id)}
-                                disabled={gerandoPDF === proposta.id}
-                              >
-                                {gerandoPDF === proposta.id ? "Gerando..." : "Gerar PDF"}
-                              </Button>
-                              <Button
-                                variant="destructive"
-                                size="sm"
-                                onClick={() => handleExcluirPropostaCompleta(proposta)}
-                                title="Excluir proposta completa"
-                              >
-                                <Trash2 className="h-4 w-4" />
-                              </Button>
+                              {canEdit ? (
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => handleVisualizarProposta(proposta.id)}
+                                  disabled={gerandoPDF === proposta.id}
+                                >
+                                  {gerandoPDF === proposta.id ? "Gerando..." : "Gerar PDF"}
+                                </Button>
+                              ) : (
+                                <span className="text-sm text-muted-foreground">PDF não gerado</span>
+                              )}
+                              {canEdit && (
+                                <Button
+                                  variant="destructive"
+                                  size="sm"
+                                  onClick={() => handleExcluirPropostaCompleta(proposta)}
+                                  title="Excluir proposta completa"
+                                >
+                                  <Trash2 className="h-4 w-4" />
+                                </Button>
+                              )}
                             </div>
                           )}
                         </div>
