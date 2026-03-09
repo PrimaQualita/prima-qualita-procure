@@ -34,7 +34,7 @@ import { AnoReferenciaFilter, extrairAnos, filtrarPorAno } from "@/components/An
 
 // Cache global para evitar recarregamentos desnecessários
 let cachedContratos: Contrato[] | null = null;
-let cachedUserData: { isResponsavelLegal: boolean; nome: string; cpf: string; userId: string } | null = null;
+let cachedUserData: { isResponsavelLegal: boolean; hasResponsavelLegal: boolean; nome: string; cpf: string; userId: string } | null = null;
 let contratosLoaded = false;
 let userDataLoaded = false;
 
@@ -144,6 +144,7 @@ const Cotacoes = () => {
   const [emailsFornecedoresAnexados, setEmailsFornecedoresAnexados] = useState<File[]>([]);
   const [uploadingAutorizacao, setUploadingAutorizacao] = useState(false);
   const [isResponsavelLegal, setIsResponsavelLegal] = useState(cachedUserData?.isResponsavelLegal || false);
+  const [hasResponsavelLegal, setHasResponsavelLegal] = useState(cachedUserData?.hasResponsavelLegal || false);
   const [usuarioNome, setUsuarioNome] = useState(cachedUserData?.nome || '');
   const [usuarioCpf, setUsuarioCpf] = useState(cachedUserData?.cpf || '');
   const [autorizacaoSelecaoUrl, setAutorizacaoSelecaoUrl] = useState('');
@@ -191,6 +192,7 @@ const Cotacoes = () => {
       // Usar cache se disponível
       if (userDataLoaded && cachedUserData) {
         setIsResponsavelLegal(cachedUserData.isResponsavelLegal);
+        setHasResponsavelLegal(cachedUserData.hasResponsavelLegal);
         setUsuarioNome(cachedUserData.nome);
         setUsuarioCpf(cachedUserData.cpf);
       } else {
@@ -436,6 +438,7 @@ const Cotacoes = () => {
     // Usar cache se disponível e do mesmo usuário
     if (userDataLoaded && cachedUserData && cachedUserData.userId === session.user.id) {
       setIsResponsavelLegal(cachedUserData.isResponsavelLegal);
+      setHasResponsavelLegal(cachedUserData.hasResponsavelLegal);
       setUsuarioNome(cachedUserData.nome);
       setUsuarioCpf(cachedUserData.cpf);
       return;
@@ -461,11 +464,13 @@ const Cotacoes = () => {
       hasUserRole = userRoles?.some(r => ["gestor", "colaborador"].includes(r.role)) || false;
     }
     
-    // Só é RL restrito se não tem outros perfis de edição
+    // isOnlyRL = restringe edição (sem outros perfis)
+    // hasRL = tem o perfil RL (pode gerar/deletar autorizações)
     const isOnlyRL = isRL && !hasProfileEditRole && !hasUserRole;
     
     const userData = {
       isResponsavelLegal: isOnlyRL,
+      hasResponsavelLegal: isRL,
       nome: profile?.nome_completo || '',
       cpf: profile?.cpf || '',
       userId: session.user.id
@@ -476,6 +481,7 @@ const Cotacoes = () => {
     userDataLoaded = true;
     
     setIsResponsavelLegal(userData.isResponsavelLegal);
+    setHasResponsavelLegal(userData.hasResponsavelLegal);
     setUsuarioNome(userData.nome);
     setUsuarioCpf(userData.cpf);
   };
@@ -2337,7 +2343,7 @@ const Cotacoes = () => {
                     </div>
 
                     {/* Botão para enviar ao responsável legal apenas se NÃO for responsável legal */}
-                    {processoSelecionado?.requer_selecao === true && !isResponsavelLegal && (
+                    {processoSelecionado?.requer_selecao === true && !hasResponsavelLegal && (
                       <div className="mt-4 p-4 bg-yellow-50 dark:bg-yellow-950 border border-yellow-200 dark:border-yellow-800 rounded-lg">
                         <p className="text-sm text-yellow-800 dark:text-yellow-200 mb-3 flex items-center">
                           <AlertCircle className="h-4 w-4 mr-2 flex-shrink-0" />
@@ -2447,7 +2453,7 @@ const Cotacoes = () => {
                                   </Button>
                                 </div>
                                 {/* Apenas Responsável Legal pode deletar */}
-                                {isResponsavelLegal && autorizacaoSelecaoId && (
+                                {hasResponsavelLegal && autorizacaoSelecaoId && (
                                   <Button
                                     variant="destructive"
                                     onClick={() => deletarAutorizacao(autorizacaoSelecaoId, 'selecao_fornecedores')}
@@ -2458,7 +2464,7 @@ const Cotacoes = () => {
                                   </Button>
                                 )}
                               </div>
-                            ) : isResponsavelLegal ? (
+                            ) : hasResponsavelLegal ? (
                               <>
                                 <div className="mb-2 p-2 bg-green-50 dark:bg-green-950 border border-green-200 dark:border-green-800 rounded text-xs text-green-700 dark:text-green-300">
                                   ✓ Você tem permissão para gerar Autorização
