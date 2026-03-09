@@ -438,6 +438,7 @@ const Cotacoes = () => {
     // Usar cache se disponível e do mesmo usuário
     if (userDataLoaded && cachedUserData && cachedUserData.userId === session.user.id) {
       setIsResponsavelLegal(cachedUserData.isResponsavelLegal);
+      setHasResponsavelLegal(cachedUserData.hasResponsavelLegal);
       setUsuarioNome(cachedUserData.nome);
       setUsuarioCpf(cachedUserData.cpf);
       return;
@@ -463,11 +464,13 @@ const Cotacoes = () => {
       hasUserRole = userRoles?.some(r => ["gestor", "colaborador"].includes(r.role)) || false;
     }
     
-    // Só é RL restrito se não tem outros perfis de edição
+    // isOnlyRL = restringe edição (sem outros perfis)
+    // hasRL = tem o perfil RL (pode gerar/deletar autorizações)
     const isOnlyRL = isRL && !hasProfileEditRole && !hasUserRole;
     
     const userData = {
       isResponsavelLegal: isOnlyRL,
+      hasResponsavelLegal: isRL,
       nome: profile?.nome_completo || '',
       cpf: profile?.cpf || '',
       userId: session.user.id
@@ -478,6 +481,7 @@ const Cotacoes = () => {
     userDataLoaded = true;
     
     setIsResponsavelLegal(userData.isResponsavelLegal);
+    setHasResponsavelLegal(userData.hasResponsavelLegal);
     setUsuarioNome(userData.nome);
     setUsuarioCpf(userData.cpf);
   };
