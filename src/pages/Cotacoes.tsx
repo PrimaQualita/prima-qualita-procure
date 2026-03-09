@@ -34,7 +34,7 @@ import { AnoReferenciaFilter, extrairAnos, filtrarPorAno } from "@/components/An
 
 // Cache global para evitar recarregamentos desnecessários
 let cachedContratos: Contrato[] | null = null;
-let cachedUserData: { isResponsavelLegal: boolean; nome: string; cpf: string } | null = null;
+let cachedUserData: { isResponsavelLegal: boolean; nome: string; cpf: string; userId: string } | null = null;
 let contratosLoaded = false;
 let userDataLoaded = false;
 
