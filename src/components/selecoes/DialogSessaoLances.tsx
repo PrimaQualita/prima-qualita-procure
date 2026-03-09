@@ -3978,14 +3978,16 @@ export function DialogSessaoLances({
                                 >
                                   Visualizar
                                 </Button>
-                                <Button
-                                  variant="destructive"
-                                  size="sm"
-                                  onClick={() => setConfirmDeletePlanilha({ open: true, planilhaId: planilha.id, urlArquivo: planilha.url_arquivo })}
-                                  className="h-7 px-2"
-                                >
-                                  <Trash2 className="h-3 w-3" />
-                                </Button>
+                                {!readOnly && (
+                                  <Button
+                                    variant="destructive"
+                                    size="sm"
+                                    onClick={() => setConfirmDeletePlanilha({ open: true, planilhaId: planilha.id, urlArquivo: planilha.url_arquivo })}
+                                    className="h-7 px-2"
+                                  >
+                                    <Trash2 className="h-3 w-3" />
+                                  </Button>
+                                )}
                               </div>
                             </div>
                           </CardContent>
