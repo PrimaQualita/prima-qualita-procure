@@ -121,7 +121,10 @@ export function DialogAnexosProcesso({
       if (profile) {
         setUserProfile({ nome_completo: profile.nome_completo, cargo: profile.cargo, genero: profile.genero });
         setIsSuperintendenteExecutivo(profile.superintendente_executivo || false);
-        setIsResponsavelLegal(profile.responsavel_legal || false);
+        // RL só é restrito se for APENAS RL (sem gestor/colaborador ou outros perfis)
+        const isRL = profile.responsavel_legal || false;
+        const hasOtherRoles = !!userRole || profile.superintendente_executivo;
+        setIsResponsavelLegal(isRL && !hasOtherRoles);
 
         // Se for gerente de contratos, verificar se tem acesso ao contrato deste processo
         if (profile.gerente_contratos) {
