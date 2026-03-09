@@ -993,7 +993,28 @@ export default function RespostasCotacao() {
   };
 
   useEffect(() => {
+    const loadUserPermissions = async () => {
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) return;
+        const { data: profile } = await supabase
+          .from("profiles")
+          .select("responsavel_legal, gestor, colaborador, compliance, superintendente_executivo")
+          .eq("id", user.id)
+          .single();
+        if (profile) {
+          const isRL = profile.responsavel_legal || false;
+          const hasEditRole = profile.gestor || profile.colaborador || profile.compliance || profile.superintendente_executivo;
+          setIsResponsavelLegal(isRL);
+          setCanEdit(isRL ? !!(hasEditRole) : true);
+        }
+      } catch (error) {
+        console.error("Erro ao carregar permissões:", error);
+      }
+    };
+
     if (cotacaoId) {
+      loadUserPermissions();
       loadRespostas();
       loadPlanilhaGerada();
       loadEncaminhamento();
