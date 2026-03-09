@@ -192,6 +192,7 @@ const Cotacoes = () => {
       // Usar cache se disponível
       if (userDataLoaded && cachedUserData) {
         setIsResponsavelLegal(cachedUserData.isResponsavelLegal);
+        setHasResponsavelLegal(cachedUserData.hasResponsavelLegal);
         setUsuarioNome(cachedUserData.nome);
         setUsuarioCpf(cachedUserData.cpf);
       } else {
