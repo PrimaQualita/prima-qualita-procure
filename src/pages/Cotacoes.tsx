@@ -2544,14 +2544,16 @@ const Cotacoes = () => {
                             )}
                           </div>
                         </div>
-                        <Button
-                          onClick={() => setDialogCriarSelecaoOpen(true)}
-                          disabled={itens.length === 0 || (!autorizacaoSelecaoUrl && !autorizacaoSelecaoAnexada)}
-                          size="lg"
-                          className="md:w-auto w-full"
-                        >
-                          Enviar para Seleção de Fornecedores
-                        </Button>
+                        {!isResponsavelLegal && (
+                          <Button
+                            onClick={() => setDialogCriarSelecaoOpen(true)}
+                            disabled={itens.length === 0 || (!autorizacaoSelecaoUrl && !autorizacaoSelecaoAnexada)}
+                            size="lg"
+                            className="md:w-auto w-full"
+                          >
+                            Enviar para Seleção de Fornecedores
+                          </Button>
+                        )}
                       </div>
                     )}
 
