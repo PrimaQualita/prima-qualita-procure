@@ -996,7 +996,7 @@ export default function Fornecedores() {
             {/* Gestão de Documentos pelo Gestor */}
             {fornecedorSelecionado && (
               <div>
-                <GestaoDocumentosGestor fornecedorId={fornecedorSelecionado.id} />
+                <GestaoDocumentosGestor fornecedorId={fornecedorSelecionado.id} canEdit={canEdit} />
               </div>
             )}
 
@@ -1166,7 +1166,7 @@ export default function Fornecedores() {
             })()}
 
             {/* Ação */}
-            {fornecedorSelecionado && fornecedorSelecionado.status_aprovacao === "pendente" && (
+            {canEdit && fornecedorSelecionado && fornecedorSelecionado.status_aprovacao === "pendente" && (
               <div>
                 <Label>Decisão</Label>
                 <div className="flex gap-2 mt-2">

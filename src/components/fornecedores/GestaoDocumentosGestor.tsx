@@ -56,6 +56,7 @@ interface Documento {
 
 interface Props {
   fornecedorId: string;
+  canEdit?: boolean;
 }
 
 const DOCUMENTOS_VALIDADE = [
@@ -72,7 +73,7 @@ const DOCUMENTOS_VALIDADE = [
   { tipo: "certificado_gestor", label: "Certificado de Fornecedor", temValidade: true },
 ];
 
-export default function GestaoDocumentosGestor({ fornecedorId }: Props) {
+export default function GestaoDocumentosGestor({ fornecedorId, canEdit = true }: Props) {
   const [documentos, setDocumentos] = useState<Documento[]>([]);
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -614,21 +615,25 @@ export default function GestaoDocumentosGestor({ fornecedorId }: Props) {
                               </Button>
                             </DropdownMenuTrigger>
                             <DropdownMenuContent align="end">
-                              {docConfig.temValidade && (
+                              {canEdit && docConfig.temValidade && (
                                 <DropdownMenuItem onClick={() => handleAbrirDialogEditar(doc)}>
                                   <Edit className="h-4 w-4 mr-2" />
                                   Editar Validade
                                 </DropdownMenuItem>
                               )}
-                              <DropdownMenuItem onClick={() => handleAbrirDialogAtualizar(doc)}>
-                                <Upload className="h-4 w-4 mr-2" />
-                                Atualizar Documento
-                              </DropdownMenuItem>
-                              <DropdownMenuItem onClick={() => handleAbrirDialogSolicitarAtualizacao(doc)}>
-                                <RefreshCw className="h-4 w-4 mr-2" />
-                                Solicitar Atualização
-                              </DropdownMenuItem>
-                              {docConfig.tipo === "certificado_gestor" && (
+                              {canEdit && (
+                                <DropdownMenuItem onClick={() => handleAbrirDialogAtualizar(doc)}>
+                                  <Upload className="h-4 w-4 mr-2" />
+                                  Atualizar Documento
+                                </DropdownMenuItem>
+                              )}
+                              {canEdit && (
+                                <DropdownMenuItem onClick={() => handleAbrirDialogSolicitarAtualizacao(doc)}>
+                                  <RefreshCw className="h-4 w-4 mr-2" />
+                                  Solicitar Atualização
+                                </DropdownMenuItem>
+                              )}
+                              {canEdit && docConfig.tipo === "certificado_gestor" && (
                                 <>
                                   <DropdownMenuSeparator />
                                   <DropdownMenuItem
