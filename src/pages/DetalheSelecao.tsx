@@ -1959,6 +1959,7 @@ const [itens, setItens] = useState<Item[]>([]);
           console.log("📢 [DETALHE] Vencedores atualizados! Forçando reload...");
           setForceReloadVencedores(prev => prev + 1);
         }}
+        readOnly={isResponsavelLegal}
       />
 
       <DialogAnaliseDocumentalSelecao
