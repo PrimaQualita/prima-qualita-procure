@@ -1354,36 +1354,42 @@ export default function RespostasCotacao() {
                             </>
                           ) : (
                             <>
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() => handleVisualizarProposta(resposta.id)}
-                                disabled={gerandoPDF === resposta.id}
-                              >
-                                {gerandoPDF === resposta.id ? (
-                                  <span className="flex items-center gap-2">
-                                    <span className="h-4 w-4 animate-spin rounded-full border-2 border-primary border-t-transparent" />
-                                    Gerando...
-                                  </span>
-                                ) : (
-                                  <>
-                                    <FileText className="h-4 w-4 mr-1" />
-                                    Gerar Proposta
-                                  </>
-                                )}
-                              </Button>
-                              <Button
-                                variant="destructive"
-                                size="sm"
-                                onClick={() => {
-                                  setRespostaParaExcluir(resposta.id);
-                                  setTipoExclusaoResposta('completa');
-                                  setConfirmDeleteRespostaOpen(true);
-                                }}
-                              >
-                                <Trash2 className="h-4 w-4 mr-1" />
-                                Excluir Fornecedor
-                              </Button>
+                              {canEdit ? (
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => handleVisualizarProposta(resposta.id)}
+                                  disabled={gerandoPDF === resposta.id}
+                                >
+                                  {gerandoPDF === resposta.id ? (
+                                    <span className="flex items-center gap-2">
+                                      <span className="h-4 w-4 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+                                      Gerando...
+                                    </span>
+                                  ) : (
+                                    <>
+                                      <FileText className="h-4 w-4 mr-1" />
+                                      Gerar Proposta
+                                    </>
+                                  )}
+                                </Button>
+                              ) : (
+                                <span className="text-sm text-muted-foreground">Sem proposta</span>
+                              )}
+                              {canEdit && (
+                                <Button
+                                  variant="destructive"
+                                  size="sm"
+                                  onClick={() => {
+                                    setRespostaParaExcluir(resposta.id);
+                                    setTipoExclusaoResposta('completa');
+                                    setConfirmDeleteRespostaOpen(true);
+                                  }}
+                                >
+                                  <Trash2 className="h-4 w-4 mr-1" />
+                                  Excluir Fornecedor
+                                </Button>
+                              )}
                             </>
                           )}
                         </div>
