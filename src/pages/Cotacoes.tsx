@@ -439,12 +439,28 @@ const Cotacoes = () => {
     // Verificar se é responsável legal e buscar dados do usuário
     const { data: profile } = await supabase
       .from("profiles")
-      .select("responsavel_legal, nome_completo, cpf")
+      .select("responsavel_legal, nome_completo, cpf, gestor, compliance, superintendente_executivo")
       .eq("id", session.user.id)
       .single();
     
+    const isRL = profile?.responsavel_legal || false;
+    const hasProfileEditRole = profile?.gestor || profile?.compliance || profile?.superintendente_executivo;
+    
+    // Verificar user_roles para papéis cumulativos
+    let hasUserRole = false;
+    if (isRL && !hasProfileEditRole) {
+      const { data: userRoles } = await supabase
+        .from("user_roles")
+        .select("role")
+        .eq("user_id", session.user.id);
+      hasUserRole = userRoles?.some(r => ["gestor", "colaborador"].includes(r.role)) || false;
+    }
+    
+    // Só é RL restrito se não tem outros perfis de edição
+    const isOnlyRL = isRL && !hasProfileEditRole && !hasUserRole;
+    
     const userData = {
-      isResponsavelLegal: profile?.responsavel_legal || false,
+      isResponsavelLegal: isOnlyRL,
       nome: profile?.nome_completo || '',
       cpf: profile?.cpf || ''
     };
@@ -2528,14 +2544,16 @@ const Cotacoes = () => {
                             )}
                           </div>
                         </div>
-                        <Button
-                          onClick={() => setDialogCriarSelecaoOpen(true)}
-                          disabled={itens.length === 0 || (!autorizacaoSelecaoUrl && !autorizacaoSelecaoAnexada)}
-                          size="lg"
-                          className="md:w-auto w-full"
-                        >
-                          Enviar para Seleção de Fornecedores
-                        </Button>
+                        {!isResponsavelLegal && (
+                          <Button
+                            onClick={() => setDialogCriarSelecaoOpen(true)}
+                            disabled={itens.length === 0 || (!autorizacaoSelecaoUrl && !autorizacaoSelecaoAnexada)}
+                            size="lg"
+                            className="md:w-auto w-full"
+                          >
+                            Enviar para Seleção de Fornecedores
+                          </Button>
+                        )}
                       </div>
                     )}
 
@@ -2558,20 +2576,22 @@ const Cotacoes = () => {
                   <div className="mb-6">
                     <div className="flex items-center justify-between mb-4">
                       <h3 className="text-lg font-semibold">Lotes</h3>
-                      <Button size="sm" onClick={() => {
-                        setLoteEditando(null);
-                        setDialogLoteOpen(true);
-                      }}>
-                        <Plus className="h-4 w-4 mr-2" />
-                        Novo Lote
-                      </Button>
+                      {!isResponsavelLegal && (
+                        <Button size="sm" onClick={() => {
+                          setLoteEditando(null);
+                          setDialogLoteOpen(true);
+                        }}>
+                          <Plus className="h-4 w-4 mr-2" />
+                          Novo Lote
+                        </Button>
+                      )}
                     </div>
                     <Table>
                       <TableHeader>
                         <TableRow>
                           <TableHead className="w-24">Nº Lote</TableHead>
                           <TableHead>Descrição</TableHead>
-                          <TableHead className="w-32 text-right">Ações</TableHead>
+                          {!isResponsavelLegal && <TableHead className="w-32 text-right">Ações</TableHead>}
                         </TableRow>
                       </TableHeader>
                       <TableBody>
@@ -2587,25 +2607,27 @@ const Cotacoes = () => {
                               <TableCell>{lote.numero_lote}</TableCell>
                               <TableCell>{lote.descricao_lote}</TableCell>
                               <TableCell className="text-right">
-                                <div className="flex gap-2 justify-end">
-                                  <Button
-                                    variant="ghost"
-                                    size="sm"
-                                    onClick={() => {
-                                      setLoteEditando(lote);
-                                      setDialogLoteOpen(true);
-                                    }}
-                                  >
-                                    <Edit className="h-4 w-4" />
-                                  </Button>
-                                  <Button
-                                    variant="ghost"
-                                    size="sm"
-                                    onClick={() => handleDeleteLote(lote.id)}
-                                  >
-                                    <Trash2 className="h-4 w-4 text-destructive" />
-                                  </Button>
-                                </div>
+                                {!isResponsavelLegal ? (
+                                  <div className="flex gap-2 justify-end">
+                                    <Button
+                                      variant="ghost"
+                                      size="sm"
+                                      onClick={() => {
+                                        setLoteEditando(lote);
+                                        setDialogLoteOpen(true);
+                                      }}
+                                    >
+                                      <Edit className="h-4 w-4" />
+                                    </Button>
+                                    <Button
+                                      variant="ghost"
+                                      size="sm"
+                                      onClick={() => handleDeleteLote(lote.id)}
+                                    >
+                                      <Trash2 className="h-4 w-4 text-destructive" />
+                                    </Button>
+                                  </div>
+                                ) : null}
                               </TableCell>
                             </TableRow>
                           ))
@@ -2634,18 +2656,20 @@ const Cotacoes = () => {
                             <h3 className="font-semibold">
                               LOTE {lote.numero_lote} - {lote.descricao_lote}
                             </h3>
-                            <Button
-                              variant="secondary"
-                              size="sm"
-                              onClick={() => {
-                                setItemEditando(null);
-                                setLoteParaAdicionarItem(lote.id);
-                                setDialogItemOpen(true);
-                              }}
-                            >
-                              <Plus className="h-4 w-4 mr-2" />
-                              Adicionar Item
-                            </Button>
+                            {!isResponsavelLegal && (
+                              <Button
+                                variant="secondary"
+                                size="sm"
+                                onClick={() => {
+                                  setItemEditando(null);
+                                  setLoteParaAdicionarItem(lote.id);
+                                  setDialogItemOpen(true);
+                                }}
+                              >
+                                <Plus className="h-4 w-4 mr-2" />
+                                Adicionar Item
+                              </Button>
+                            )}
                           </div>
                           <Table>
                             <TableHeader>
@@ -2679,7 +2703,7 @@ const Cotacoes = () => {
                                     <TableHead className="w-32 text-right">Vlr. Total</TableHead>
                                   </>
                                 )}
-                                <TableHead className="w-32 text-right">Ações</TableHead>
+                                {!isResponsavelLegal && <TableHead className="w-32 text-right">Ações</TableHead>}
                               </TableRow>
                             </TableHeader>
                             <TableBody>
@@ -2730,27 +2754,29 @@ const Cotacoes = () => {
                                            </TableCell>
                                          </>
                                        )}
-                                       <TableCell className="text-right">
-                                         <div className="flex gap-1 justify-end">
-                                           <Button
-                                             variant="ghost"
-                                             size="sm"
-                                             onClick={() => {
-                                               setItemEditando(item);
-                                               setDialogItemOpen(true);
-                                            }}
-                                          >
-                                            <Edit className="h-4 w-4" />
-                                          </Button>
-                                          <Button
-                                            variant="ghost"
-                                            size="sm"
-                                            onClick={() => handleDeleteItem(item.id)}
-                                          >
-                                            <Trash2 className="h-4 w-4" />
-                                          </Button>
-                                        </div>
-                                      </TableCell>
+                                       {!isResponsavelLegal && (
+                                         <TableCell className="text-right">
+                                           <div className="flex gap-1 justify-end">
+                                             <Button
+                                               variant="ghost"
+                                               size="sm"
+                                               onClick={() => {
+                                                  setItemEditando(item);
+                                                  setDialogItemOpen(true);
+                                              }}
+                                            >
+                                              <Edit className="h-4 w-4" />
+                                            </Button>
+                                            <Button
+                                              variant="ghost"
+                                              size="sm"
+                                              onClick={() => handleDeleteItem(item.id)}
+                                            >
+                                              <Trash2 className="h-4 w-4" />
+                                            </Button>
+                                          </div>
+                                        </TableCell>
+                                       )}
                                     </TableRow>
                                   ))}
                                   <TableRow className="bg-muted/50">
@@ -2813,7 +2839,7 @@ const Cotacoes = () => {
                             <TableHead className="w-32 text-right">Vlr. Total</TableHead>
                           </>
                         )}
-                        <TableHead className="w-32 text-right">Ações</TableHead>
+                        {!isResponsavelLegal && <TableHead className="w-32 text-right">Ações</TableHead>}
                       </TableRow>
                     </TableHeader>
                       <TableBody>
@@ -2880,27 +2906,29 @@ const Cotacoes = () => {
                                   </TableCell>
                                 </>
                               )}
-                              <TableCell className="text-right">
-                                <div className="flex gap-1 justify-end">
-                                  <Button
-                                    variant="ghost"
-                                    size="sm"
-                                    onClick={() => {
-                                      setItemEditando(item);
-                                      setDialogItemOpen(true);
-                                    }}
-                                  >
-                                    <Edit className="h-4 w-4" />
-                                  </Button>
-                                  <Button
-                                    variant="ghost"
-                                    size="sm"
-                                    onClick={() => handleDeleteItem(item.id)}
-                                  >
-                                    <Trash2 className="h-4 w-4" />
-                                  </Button>
-                                </div>
-                              </TableCell>
+                              {!isResponsavelLegal && (
+                                <TableCell className="text-right">
+                                  <div className="flex gap-1 justify-end">
+                                    <Button
+                                      variant="ghost"
+                                      size="sm"
+                                      onClick={() => {
+                                        setItemEditando(item);
+                                        setDialogItemOpen(true);
+                                      }}
+                                    >
+                                      <Edit className="h-4 w-4" />
+                                    </Button>
+                                    <Button
+                                      variant="ghost"
+                                      size="sm"
+                                      onClick={() => handleDeleteItem(item.id)}
+                                    >
+                                      <Trash2 className="h-4 w-4" />
+                                    </Button>
+                                  </div>
+                                </TableCell>
+                              )}
                             </TableRow>
                           ))}
                           <TableRow className="font-bold bg-muted">
