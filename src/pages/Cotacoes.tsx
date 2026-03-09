@@ -439,12 +439,28 @@ const Cotacoes = () => {
     // Verificar se é responsável legal e buscar dados do usuário
     const { data: profile } = await supabase
       .from("profiles")
-      .select("responsavel_legal, nome_completo, cpf")
+      .select("responsavel_legal, nome_completo, cpf, gestor, compliance, superintendente_executivo")
       .eq("id", session.user.id)
       .single();
     
+    const isRL = profile?.responsavel_legal || false;
+    const hasProfileEditRole = profile?.gestor || profile?.compliance || profile?.superintendente_executivo;
+    
+    // Verificar user_roles para papéis cumulativos
+    let hasUserRole = false;
+    if (isRL && !hasProfileEditRole) {
+      const { data: userRoles } = await supabase
+        .from("user_roles")
+        .select("role")
+        .eq("user_id", session.user.id);
+      hasUserRole = userRoles?.some(r => ["gestor", "colaborador"].includes(r.role)) || false;
+    }
+    
+    // Só é RL restrito se não tem outros perfis de edição
+    const isOnlyRL = isRL && !hasProfileEditRole && !hasUserRole;
+    
     const userData = {
-      isResponsavelLegal: profile?.responsavel_legal || false,
+      isResponsavelLegal: isOnlyRL,
       nome: profile?.nome_completo || '',
       cpf: profile?.cpf || ''
     };
