@@ -4096,16 +4096,18 @@ export function DialogSessaoLances({
                                     })()}
                                   </TableCell>
                                   <TableCell className="text-xs">{formatDateTime(lance.data_hora_lance)}</TableCell>
-                                  <TableCell className="text-xs">
-                                    <Button
-                                      variant="ghost"
-                                      size="sm"
-                                      className="h-6 w-6 p-0 text-destructive hover:text-destructive hover:bg-destructive/10"
-                                      onClick={() => handleDeletarLance(lance.id)}
-                                    >
-                                      <Trash2 className="h-3 w-3" />
-                                    </Button>
-                                  </TableCell>
+                                  {!readOnly && (
+                                    <TableCell className="text-xs">
+                                      <Button
+                                        variant="ghost"
+                                        size="sm"
+                                        className="h-6 w-6 p-0 text-destructive hover:text-destructive hover:bg-destructive/10"
+                                        onClick={() => handleDeletarLance(lance.id)}
+                                      >
+                                        <Trash2 className="h-3 w-3" />
+                                      </Button>
+                                    </TableCell>
+                                  )}
                                 </TableRow>
                               );
                             })
