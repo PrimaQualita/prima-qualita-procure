@@ -1801,17 +1801,19 @@ const [itens, setItens] = useState<Item[]>([]);
                 </div>
                 
                 {/* Botão Finalizar Processo */}
-                <div className="mt-4 pt-4 border-t">
-                  <Button
-                    onClick={handleGerarProcessoCompleto}
-                    disabled={gerandoProcessoCompleto}
-                    className="w-full"
-                    size="lg"
-                  >
-                    <Download className="h-5 w-5 mr-2" />
-                    {gerandoProcessoCompleto ? "Gerando Processo Completo..." : "Finalizar Processo (Download Completo)"}
-                  </Button>
-                </div>
+                {canEditSelecao && (
+                  <div className="mt-4 pt-4 border-t">
+                    <Button
+                      onClick={handleGerarProcessoCompleto}
+                      disabled={gerandoProcessoCompleto}
+                      className="w-full"
+                      size="lg"
+                    >
+                      <Download className="h-5 w-5 mr-2" />
+                      {gerandoProcessoCompleto ? "Gerando Processo Completo..." : "Finalizar Processo (Download Completo)"}
+                    </Button>
+                  </div>
+                )}
               </CardContent>
             </Card>
           )}
