@@ -2255,24 +2255,24 @@ const Cotacoes = () => {
                         </div>
                       )}
                       
-                      <div className="flex items-center gap-2">
-                        <Input
-                          id="emails-fornecedores-upload"
-                            type="file"
-                            accept=".pdf,.eml,.msg,.zip"
-                            multiple
-                            onChange={async (e) => {
-                              const files = Array.from(e.target.files || []);
-                              if (files.length > 0) {
-                                // Salvar automaticamente no banco
-                                await salvarEmailsAnexados(files);
-                                // Limpar o input
-                                e.target.value = '';
-                              }
-                            }}
-                            className="flex-1"
-                          />
-                        </div>
+                      {canEdit && (
+                        <div className="flex items-center gap-2">
+                          <Input
+                            id="emails-fornecedores-upload"
+                              type="file"
+                              accept=".pdf,.eml,.msg,.zip"
+                              multiple
+                              onChange={async (e) => {
+                                const files = Array.from(e.target.files || []);
+                                if (files.length > 0) {
+                                  await salvarEmailsAnexados(files);
+                                  e.target.value = '';
+                                }
+                              }}
+                              className="flex-1"
+                            />
+                          </div>
+                      )}
                       <p className="text-xs text-muted-foreground mt-1">
                         Anexe a cópia dos e-mails enviados aos fornecedores (PDF, EML, MSG ou ZIP)
                       </p>
