@@ -2239,13 +2239,15 @@ const Cotacoes = () => {
                                   >
                                     <FileText className="h-4 w-4" />
                                   </Button>
-                                  <Button
-                                    variant="ghost"
-                                    size="sm"
-                                    onClick={() => handleDeleteEmail(email.id)}
-                                  >
-                                    <Trash2 className="h-4 w-4" />
-                                  </Button>
+                                  {canEdit && (
+                                    <Button
+                                      variant="ghost"
+                                      size="sm"
+                                      onClick={() => handleDeleteEmail(email.id)}
+                                    >
+                                      <Trash2 className="h-4 w-4" />
+                                    </Button>
+                                  )}
                                 </div>
                               </div>
                             );
@@ -2253,24 +2255,24 @@ const Cotacoes = () => {
                         </div>
                       )}
                       
-                      <div className="flex items-center gap-2">
-                        <Input
-                          id="emails-fornecedores-upload"
-                            type="file"
-                            accept=".pdf,.eml,.msg,.zip"
-                            multiple
-                            onChange={async (e) => {
-                              const files = Array.from(e.target.files || []);
-                              if (files.length > 0) {
-                                // Salvar automaticamente no banco
-                                await salvarEmailsAnexados(files);
-                                // Limpar o input
-                                e.target.value = '';
-                              }
-                            }}
-                            className="flex-1"
-                          />
-                        </div>
+                      {canEdit && (
+                        <div className="flex items-center gap-2">
+                          <Input
+                            id="emails-fornecedores-upload"
+                              type="file"
+                              accept=".pdf,.eml,.msg,.zip"
+                              multiple
+                              onChange={async (e) => {
+                                const files = Array.from(e.target.files || []);
+                                if (files.length > 0) {
+                                  await salvarEmailsAnexados(files);
+                                  e.target.value = '';
+                                }
+                              }}
+                              className="flex-1"
+                            />
+                          </div>
+                      )}
                       <p className="text-xs text-muted-foreground mt-1">
                         Anexe a cópia dos e-mails enviados aos fornecedores (PDF, EML, MSG ou ZIP)
                       </p>
@@ -2281,6 +2283,7 @@ const Cotacoes = () => {
                         <Checkbox
                           id="requer_selecao"
                           checked={processoSelecionado?.requer_selecao === true}
+                          disabled={!canEdit}
                           onCheckedChange={(checked) => {
                             if (checked) {
                               handleUpdateRequerSelecao(true);
@@ -2297,6 +2300,7 @@ const Cotacoes = () => {
                         <Checkbox
                           id="nao_requer_selecao"
                           checked={processoSelecionado?.requer_selecao === false}
+                          disabled={!canEdit}
                           onCheckedChange={(checked) => {
                             if (checked) {
                               handleUpdateRequerSelecao(false);

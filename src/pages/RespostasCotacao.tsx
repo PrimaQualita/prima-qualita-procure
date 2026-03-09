@@ -98,6 +98,8 @@ export default function RespostasCotacao() {
   const [respostaParaExcluir, setRespostaParaExcluir] = useState<string | null>(null);
   const [confirmDeleteRespostaOpen, setConfirmDeleteRespostaOpen] = useState(false);
   const [tipoExclusaoResposta, setTipoExclusaoResposta] = useState<'anexos' | 'completa'>('anexos');
+  const [isResponsavelLegal, setIsResponsavelLegal] = useState(false);
+  const [canEdit, setCanEdit] = useState(true);
 
   // Definir funções auxiliares ANTES do useEffect
   const loadAnaliseCompliance = async () => {
@@ -991,7 +993,28 @@ export default function RespostasCotacao() {
   };
 
   useEffect(() => {
+    const loadUserPermissions = async () => {
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) return;
+        const { data: profile } = await supabase
+          .from("profiles")
+          .select("responsavel_legal, gestor, colaborador, compliance, superintendente_executivo")
+          .eq("id", user.id)
+          .single();
+        if (profile) {
+          const isRL = profile.responsavel_legal || false;
+          const hasEditRole = profile.gestor || profile.colaborador || profile.compliance || profile.superintendente_executivo;
+          setIsResponsavelLegal(isRL);
+          setCanEdit(isRL ? !!(hasEditRole) : true);
+        }
+      } catch (error) {
+        console.error("Erro ao carregar permissões:", error);
+      }
+    };
+
     if (cotacaoId) {
+      loadUserPermissions();
       loadRespostas();
       loadPlanilhaGerada();
       loadEncaminhamento();
@@ -1252,6 +1275,7 @@ export default function RespostasCotacao() {
                                     setAnexoParaExcluir({ ...anexo, respostaId: resposta.id });
                                     setConfirmDeleteAnexoOpen(true);
                                   }}
+                                  className={!canEdit ? 'hidden' : ''}
                                 >
                                   <Trash2 className="h-4 w-4 text-destructive" />
                                 </Button>
@@ -1301,60 +1325,71 @@ export default function RespostasCotacao() {
                                   </>
                                 )}
                               </Button>
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => {
-                                  setRespostaSelecionada(resposta);
-                                  setEmailCorrecaoOpen(true);
-                                }}
-                              >
-                                <Mail className="h-4 w-4 text-blue-600" />
-                              </Button>
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => {
-                                  setRespostaParaExcluir(resposta.id);
-                                  setTipoExclusaoResposta('anexos');
-                                  setConfirmDeleteRespostaOpen(true);
-                                }}
-                              >
-                                <Trash2 className="h-4 w-4 text-destructive" />
-                              </Button>
+                              {canEdit && (
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => {
+                                    setRespostaSelecionada(resposta);
+                                    setEmailCorrecaoOpen(true);
+                                  }}
+                                >
+                                  <Mail className="h-4 w-4 text-blue-600" />
+                                </Button>
+                              )}
+                              {canEdit && (
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => {
+                                    setRespostaParaExcluir(resposta.id);
+                                    setTipoExclusaoResposta('anexos');
+                                    setConfirmDeleteRespostaOpen(true);
+                                  }}
+                                >
+                                  <Trash2 className="h-4 w-4 text-destructive" />
+                                </Button>
+                              )}
+
                             </>
                           ) : (
                             <>
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() => handleVisualizarProposta(resposta.id)}
-                                disabled={gerandoPDF === resposta.id}
-                              >
-                                {gerandoPDF === resposta.id ? (
-                                  <span className="flex items-center gap-2">
-                                    <span className="h-4 w-4 animate-spin rounded-full border-2 border-primary border-t-transparent" />
-                                    Gerando...
-                                  </span>
-                                ) : (
-                                  <>
-                                    <FileText className="h-4 w-4 mr-1" />
-                                    Gerar Proposta
-                                  </>
-                                )}
-                              </Button>
-                              <Button
-                                variant="destructive"
-                                size="sm"
-                                onClick={() => {
-                                  setRespostaParaExcluir(resposta.id);
-                                  setTipoExclusaoResposta('completa');
-                                  setConfirmDeleteRespostaOpen(true);
-                                }}
-                              >
-                                <Trash2 className="h-4 w-4 mr-1" />
-                                Excluir Fornecedor
-                              </Button>
+                              {canEdit ? (
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => handleVisualizarProposta(resposta.id)}
+                                  disabled={gerandoPDF === resposta.id}
+                                >
+                                  {gerandoPDF === resposta.id ? (
+                                    <span className="flex items-center gap-2">
+                                      <span className="h-4 w-4 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+                                      Gerando...
+                                    </span>
+                                  ) : (
+                                    <>
+                                      <FileText className="h-4 w-4 mr-1" />
+                                      Gerar Proposta
+                                    </>
+                                  )}
+                                </Button>
+                              ) : (
+                                <span className="text-sm text-muted-foreground">Sem proposta</span>
+                              )}
+                              {canEdit && (
+                                <Button
+                                  variant="destructive"
+                                  size="sm"
+                                  onClick={() => {
+                                    setRespostaParaExcluir(resposta.id);
+                                    setTipoExclusaoResposta('completa');
+                                    setConfirmDeleteRespostaOpen(true);
+                                  }}
+                                >
+                                  <Trash2 className="h-4 w-4 mr-1" />
+                                  Excluir Fornecedor
+                                </Button>
+                              )}
                             </>
                           )}
                         </div>
@@ -1421,16 +1456,18 @@ export default function RespostasCotacao() {
                         <Download className="mr-2 h-4 w-4" />
                         Baixar
                       </Button>
-                      <Button
-                        variant="destructive"
-                        size="sm"
-                        onClick={() => {
-                          setPlanilhaParaExcluir(planilha);
-                          setConfirmDeletePlanilhaOpen(true);
-                        }}
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
+                      {canEdit && (
+                        <Button
+                          variant="destructive"
+                          size="sm"
+                          onClick={() => {
+                            setPlanilhaParaExcluir(planilha);
+                            setConfirmDeletePlanilhaOpen(true);
+                          }}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      )}
                     </div>
                   </div>
                 ))}
@@ -1438,17 +1475,21 @@ export default function RespostasCotacao() {
             )}
 
             {/* Botão para gerar nova planilha */}
-            <Button 
-              onClick={() => setPlanilhaConsolidadaOpen(true)}
-              disabled={gerandoPlanilha}
-              className="w-full"
-            >
-              <FileSpreadsheet className="mr-2 h-4 w-4" />
-              {gerandoPlanilha ? "Gerando..." : "Gerar Planilha Consolidada"}
-            </Button>
-            <p className="text-xs text-muted-foreground text-center">
-              Você poderá escolher o método de cálculo (menor preço, média, mediana)
-            </p>
+            {canEdit && (
+              <>
+                <Button 
+                  onClick={() => setPlanilhaConsolidadaOpen(true)}
+                  disabled={gerandoPlanilha}
+                  className="w-full"
+                >
+                  <FileSpreadsheet className="mr-2 h-4 w-4" />
+                  {gerandoPlanilha ? "Gerando..." : "Gerar Planilha Consolidada"}
+                </Button>
+                <p className="text-xs text-muted-foreground text-center">
+                  Você poderá escolher o método de cálculo (menor preço, média, mediana)
+                </p>
+              </>
+            )}
           </div>
 
           {/* ========== 3. ENCAMINHAMENTOS (só aparece se tiver planilha ou encaminhamentos) ========== */}
@@ -1494,16 +1535,18 @@ export default function RespostasCotacao() {
                           <Download className="mr-2 h-4 w-4" />
                           Baixar
                         </Button>
-                        <Button
-                          variant="destructive"
-                          size="sm"
-                          onClick={() => {
-                            setEncaminhamentoParaExcluir(enc);
-                            setConfirmDeleteEncaminhamentoOpen(true);
-                          }}
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
+                        {canEdit && (
+                          <Button
+                            variant="destructive"
+                            size="sm"
+                            onClick={() => {
+                              setEncaminhamentoParaExcluir(enc);
+                              setConfirmDeleteEncaminhamentoOpen(true);
+                            }}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        )}
                       </div>
                     </div>
                   ))}
@@ -1511,7 +1554,7 @@ export default function RespostasCotacao() {
               )}
 
               {/* Botão Gerar Encaminhamento */}
-              {planilhasAnteriores.length > 0 && (
+              {canEdit && planilhasAnteriores.length > 0 && (
                 <Button
                   onClick={gerarEncaminhamento}
                   disabled={gerandoEncaminhamento}
@@ -1524,7 +1567,7 @@ export default function RespostasCotacao() {
               )}
 
               {/* Botão Enviar ao Compliance */}
-              {planilhasAnteriores.length > 0 && (
+              {canEdit && planilhasAnteriores.length > 0 && (
                 <Button
                   onClick={enviarAoCompliance}
                   disabled={enviandoCompliance}
@@ -1638,16 +1681,18 @@ export default function RespostasCotacao() {
                           <Download className="mr-2 h-4 w-4" />
                           Baixar
                         </Button>
-                        <Button
-                          variant="destructive"
-                          size="sm"
-                          onClick={() => {
-                            setAnaliseParaExcluir(analise);
-                            setConfirmDeleteAnaliseOpen(true);
-                          }}
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
+                        {canEdit && (
+                          <Button
+                            variant="destructive"
+                            size="sm"
+                            onClick={() => {
+                              setAnaliseParaExcluir(analise);
+                              setConfirmDeleteAnaliseOpen(true);
+                            }}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        )}
                       </div>
                     )}
                   </div>
