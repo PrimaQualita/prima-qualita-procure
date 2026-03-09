@@ -1359,18 +1359,20 @@ const [itens, setItens] = useState<Item[]>([]);
 
         {/* Botão de Sessão de Lances */}
         <div className="mb-6 space-y-3">
-          <Button
-            variant="default"
-            size="lg"
-            className="w-full"
-            onClick={() => setDialogSessaoOpen(true)}
-          >
-            <Gavel className="h-5 w-5 mr-2" />
-            Abrir Sessão de Lances (Controle + Chat + Sistema de Lances)
-          </Button>
+          {canEditSelecao && (
+            <Button
+              variant="default"
+              size="lg"
+              className="w-full"
+              onClick={() => setDialogSessaoOpen(true)}
+            >
+              <Gavel className="h-5 w-5 mr-2" />
+              Abrir Sessão de Lances (Controle + Chat + Sistema de Lances)
+            </Button>
+          )}
           
           {/* Análise Documental - só disponível após finalizar sessão */}
-          {selecao.sessao_finalizada && (
+          {canEditSelecao && selecao.sessao_finalizada && (
             <Button
               variant="outline"
               size="lg"
@@ -1383,28 +1385,30 @@ const [itens, setItens] = useState<Item[]>([]);
           )}
           
           {/* Gerar Ata */}
-          <Button
-            variant="default"
-            size="lg"
-            className="w-full"
-            disabled={gerandoAta}
-            onClick={async () => {
-              setGerandoAta(true);
-              try {
-                const resultado = await gerarAtaSelecaoPDF(selecaoId!);
-                toast.success("Ata gerada com sucesso!");
-                await loadAtasGeradas();
-              } catch (error) {
-                console.error("Erro ao gerar ata:", error);
-                toast.error("Erro ao gerar Ata");
-              } finally {
-                setGerandoAta(false);
-              }
-            }}
-          >
-            <FileCheck className="h-5 w-5 mr-2" />
-            {gerandoAta ? "Gerando..." : "Gerar Ata"}
-          </Button>
+          {canEditSelecao && (
+            <Button
+              variant="default"
+              size="lg"
+              className="w-full"
+              disabled={gerandoAta}
+              onClick={async () => {
+                setGerandoAta(true);
+                try {
+                  const resultado = await gerarAtaSelecaoPDF(selecaoId!);
+                  toast.success("Ata gerada com sucesso!");
+                  await loadAtasGeradas();
+                } catch (error) {
+                  console.error("Erro ao gerar ata:", error);
+                  toast.error("Erro ao gerar Ata");
+                } finally {
+                  setGerandoAta(false);
+                }
+              }}
+            >
+              <FileCheck className="h-5 w-5 mr-2" />
+              {gerandoAta ? "Gerando..." : "Gerar Ata"}
+            </Button>
+          )}
 
           {/* Atas Geradas */}
           {atasGeradas.length > 0 && (
@@ -1440,16 +1444,18 @@ const [itens, setItens] = useState<Item[]>([]);
                         >
                           <Eye className="h-4 w-4" />
                         </Button>
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          className="text-red-600 hover:text-red-700"
-                          onClick={() => setConfirmDeleteAta(ata.id)}
-                          title="Excluir"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                        {ata.enviada_fornecedores && (
+                        {canEditSelecao && (
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            className="text-red-600 hover:text-red-700"
+                            onClick={() => setConfirmDeleteAta(ata.id)}
+                            title="Excluir"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        )}
+                        {canEditSelecao && ata.enviada_fornecedores && (
                           <Button
                             size="sm"
                             variant="outline"
@@ -1461,7 +1467,7 @@ const [itens, setItens] = useState<Item[]>([]);
                             {atualizandoPDF === ata.id ? "Atualizando..." : "Atualizar PDF"}
                           </Button>
                         )}
-                        {!ata.enviada_fornecedores && (
+                        {canEditSelecao && !ata.enviada_fornecedores && (
                           <Button
                             size="sm"
                             variant="default"
@@ -1472,7 +1478,7 @@ const [itens, setItens] = useState<Item[]>([]);
                             Enviar para Assinatura
                           </Button>
                         )}
-                        {ata.enviada_fornecedores && (
+                        {canEditSelecao && ata.enviada_fornecedores && (
                           <Button
                             size="sm"
                             variant="secondary"
