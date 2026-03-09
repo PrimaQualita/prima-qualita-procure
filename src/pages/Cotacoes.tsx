@@ -34,7 +34,7 @@ import { AnoReferenciaFilter, extrairAnos, filtrarPorAno } from "@/components/An
 
 // Cache global para evitar recarregamentos desnecessários
 let cachedContratos: Contrato[] | null = null;
-let cachedUserData: { isResponsavelLegal: boolean; nome: string; cpf: string } | null = null;
+let cachedUserData: { isResponsavelLegal: boolean; nome: string; cpf: string; userId: string } | null = null;
 let contratosLoaded = false;
 let userDataLoaded = false;
 
@@ -422,17 +422,22 @@ const Cotacoes = () => {
   };
 
   const checkAuth = async () => {
-    // Usar cache se disponível
-    if (userDataLoaded && cachedUserData) {
-      setIsResponsavelLegal(cachedUserData.isResponsavelLegal);
-      setUsuarioNome(cachedUserData.nome);
-      setUsuarioCpf(cachedUserData.cpf);
-      return;
-    }
-    
     const { data: { session } } = await supabase.auth.getSession();
     if (!session) {
       navigate("/auth");
+      return;
+    }
+    
+    // Invalidar cache se o userId mudou
+    if (cachedUserData && cachedUserData.userId !== session.user.id) {
+      clearCotacoesCache();
+    }
+    
+    // Usar cache se disponível e do mesmo usuário
+    if (userDataLoaded && cachedUserData && cachedUserData.userId === session.user.id) {
+      setIsResponsavelLegal(cachedUserData.isResponsavelLegal);
+      setUsuarioNome(cachedUserData.nome);
+      setUsuarioCpf(cachedUserData.cpf);
       return;
     }
     
@@ -462,7 +467,8 @@ const Cotacoes = () => {
     const userData = {
       isResponsavelLegal: isOnlyRL,
       nome: profile?.nome_completo || '',
-      cpf: profile?.cpf || ''
+      cpf: profile?.cpf || '',
+      userId: session.user.id
     };
     
     // Salvar no cache
