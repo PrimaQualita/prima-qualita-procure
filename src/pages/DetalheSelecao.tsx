@@ -1521,14 +1521,16 @@ const [itens, setItens] = useState<Item[]>([]);
               <CardContent className="py-2">
                 <div className="space-y-3">
                   {/* Botão Gerar */}
-                  <Button
-                    onClick={gerarEncaminhamentoContabilidade}
-                    disabled={gerandoEncaminhamentoContab}
-                    className="w-full"
-                  >
-                    <FileText className="h-4 w-4 mr-2" />
-                    {gerandoEncaminhamentoContab ? "Gerando..." : "Gerar Encaminhamento para Contabilidade"}
-                  </Button>
+                  {canEditSelecao && (
+                    <Button
+                      onClick={gerarEncaminhamentoContabilidade}
+                      disabled={gerandoEncaminhamentoContab}
+                      className="w-full"
+                    >
+                      <FileText className="h-4 w-4 mr-2" />
+                      {gerandoEncaminhamentoContab ? "Gerando..." : "Gerar Encaminhamento para Contabilidade"}
+                    </Button>
+                  )}
 
                   {/* Lista de Encaminhamentos */}
                   {encaminhamentosContabilidade.length > 0 && (
@@ -1610,7 +1612,7 @@ const [itens, setItens] = useState<Item[]>([]);
                               >
                                 <Download className="h-4 w-4" />
                               </Button>
-                              {!enc.enviado_contabilidade && (
+                              {canEditSelecao && !enc.enviado_contabilidade && (
                                 <Button
                                   size="sm"
                                   variant="default"
@@ -1621,15 +1623,17 @@ const [itens, setItens] = useState<Item[]>([]);
                                   Enviar
                                 </Button>
                               )}
-                              <Button
-                                size="sm"
-                                variant="ghost"
-                                className="text-destructive hover:text-destructive hover:bg-destructive/10"
-                                onClick={() => setConfirmDeleteEncContab(enc)}
-                                title="Excluir"
-                              >
-                                <Trash2 className="h-4 w-4" />
-                              </Button>
+                              {canEditSelecao && (
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  className="text-destructive hover:text-destructive hover:bg-destructive/10"
+                                  onClick={() => setConfirmDeleteEncContab(enc)}
+                                  title="Excluir"
+                                >
+                                  <Trash2 className="h-4 w-4" />
+                                </Button>
+                              )}
                             </div>
                           </div>
 
