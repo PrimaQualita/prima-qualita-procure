@@ -1166,7 +1166,7 @@ export default function Fornecedores() {
             })()}
 
             {/* Ação */}
-            {fornecedorSelecionado && fornecedorSelecionado.status_aprovacao === "pendente" && (
+            {canEdit && fornecedorSelecionado && fornecedorSelecionado.status_aprovacao === "pendente" && (
               <div>
                 <Label>Decisão</Label>
                 <div className="flex gap-2 mt-2">
