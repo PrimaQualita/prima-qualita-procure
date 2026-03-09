@@ -86,12 +86,12 @@ export default function PropostasSelecao() {
         if (!user) { setCanEdit(true); return; }
         const { data: profile } = await supabase
           .from("profiles")
-          .select("responsavel_legal, gestor, colaborador, compliance, superintendente_executivo")
+          .select("responsavel_legal, gestor, compliance, superintendente_executivo")
           .eq("id", user.id)
           .single();
         if (profile) {
-          const isRL = profile.responsavel_legal || false;
-          const hasEditRole = profile.gestor || profile.colaborador || profile.compliance || profile.superintendente_executivo;
+          const isRL = (profile as any).responsavel_legal || false;
+          const hasEditRole = (profile as any).gestor || (profile as any).compliance || (profile as any).superintendente_executivo;
           setCanEdit(isRL ? !!(hasEditRole) : true);
         } else {
           setCanEdit(true);
