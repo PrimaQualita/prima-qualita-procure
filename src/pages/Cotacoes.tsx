@@ -2239,13 +2239,15 @@ const Cotacoes = () => {
                                   >
                                     <FileText className="h-4 w-4" />
                                   </Button>
-                                  <Button
-                                    variant="ghost"
-                                    size="sm"
-                                    onClick={() => handleDeleteEmail(email.id)}
-                                  >
-                                    <Trash2 className="h-4 w-4" />
-                                  </Button>
+                                  {canEdit && (
+                                    <Button
+                                      variant="ghost"
+                                      size="sm"
+                                      onClick={() => handleDeleteEmail(email.id)}
+                                    >
+                                      <Trash2 className="h-4 w-4" />
+                                    </Button>
+                                  )}
                                 </div>
                               </div>
                             );
