@@ -1008,9 +1008,14 @@ export default function RespostasCotacao() {
           const hasEditRole = profile.gestor || profile.colaborador || profile.compliance || profile.superintendente_executivo;
           setIsResponsavelLegal(isRL);
           setCanEdit(isRL ? !!(hasEditRole) : true);
+        } else {
+          setCanEdit(true);
         }
       } catch (error) {
         console.error("Erro ao carregar permissões:", error);
+        setCanEdit(true);
+      } finally {
+        setPermissionsLoaded(true);
       }
     };
 
