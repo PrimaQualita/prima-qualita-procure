@@ -98,6 +98,8 @@ export default function RespostasCotacao() {
   const [respostaParaExcluir, setRespostaParaExcluir] = useState<string | null>(null);
   const [confirmDeleteRespostaOpen, setConfirmDeleteRespostaOpen] = useState(false);
   const [tipoExclusaoResposta, setTipoExclusaoResposta] = useState<'anexos' | 'completa'>('anexos');
+  const [isResponsavelLegal, setIsResponsavelLegal] = useState(false);
+  const [canEdit, setCanEdit] = useState(true);
 
   // Definir funções auxiliares ANTES do useEffect
   const loadAnaliseCompliance = async () => {
