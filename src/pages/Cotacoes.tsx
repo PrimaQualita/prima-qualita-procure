@@ -2576,13 +2576,15 @@ const Cotacoes = () => {
                   <div className="mb-6">
                     <div className="flex items-center justify-between mb-4">
                       <h3 className="text-lg font-semibold">Lotes</h3>
-                      <Button size="sm" onClick={() => {
-                        setLoteEditando(null);
-                        setDialogLoteOpen(true);
-                      }}>
-                        <Plus className="h-4 w-4 mr-2" />
-                        Novo Lote
-                      </Button>
+                      {!isResponsavelLegal && (
+                        <Button size="sm" onClick={() => {
+                          setLoteEditando(null);
+                          setDialogLoteOpen(true);
+                        }}>
+                          <Plus className="h-4 w-4 mr-2" />
+                          Novo Lote
+                        </Button>
+                      )}
                     </div>
                     <Table>
                       <TableHeader>
