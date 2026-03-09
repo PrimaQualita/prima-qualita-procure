@@ -421,7 +421,7 @@ export function DashboardBIOperacional({
     // === FORNECEDORES (excluir fictícios de preços públicos) ===
     const fornecedoresReais = fornecedores.filter(f => !f.email?.includes('precos.publicos'));
     const fornAprovados = fornecedoresReais.filter(f => f.status_aprovacao === "aprovado");
-    const fornEmAberto = fornecedoresReais.filter(f => f.status_aprovacao !== "aprovado" && f.status_aprovacao !== "rejeitado" && f.user_id);
+    const fornEmAberto = fornecedoresReais.filter(f => f.status_aprovacao === "pendente");
 
     // Label map for document types
     const TIPO_DOC_LABELS: Record<string, string> = {
