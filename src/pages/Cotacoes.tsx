@@ -2300,6 +2300,7 @@ const Cotacoes = () => {
                         <Checkbox
                           id="nao_requer_selecao"
                           checked={processoSelecionado?.requer_selecao === false}
+                          disabled={!canEdit}
                           onCheckedChange={(checked) => {
                             if (checked) {
                               handleUpdateRequerSelecao(false);
