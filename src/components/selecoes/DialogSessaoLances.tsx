@@ -4823,6 +4823,7 @@ export function DialogSessaoLances({
               : "Sessão já finalizada - Use para recalcular os vencedores se necessário"}
           </p>
         </div>
+        )}
       </DialogContent>
     </Dialog>
 
