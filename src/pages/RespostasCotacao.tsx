@@ -1275,6 +1275,7 @@ export default function RespostasCotacao() {
                                     setAnexoParaExcluir({ ...anexo, respostaId: resposta.id });
                                     setConfirmDeleteAnexoOpen(true);
                                   }}
+                                  className={!canEdit ? 'hidden' : ''}
                                 >
                                   <Trash2 className="h-4 w-4 text-destructive" />
                                 </Button>
