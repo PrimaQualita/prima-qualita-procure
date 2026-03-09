@@ -1475,17 +1475,21 @@ export default function RespostasCotacao() {
             )}
 
             {/* Botão para gerar nova planilha */}
-            <Button 
-              onClick={() => setPlanilhaConsolidadaOpen(true)}
-              disabled={gerandoPlanilha}
-              className="w-full"
-            >
-              <FileSpreadsheet className="mr-2 h-4 w-4" />
-              {gerandoPlanilha ? "Gerando..." : "Gerar Planilha Consolidada"}
-            </Button>
-            <p className="text-xs text-muted-foreground text-center">
-              Você poderá escolher o método de cálculo (menor preço, média, mediana)
-            </p>
+            {canEdit && (
+              <>
+                <Button 
+                  onClick={() => setPlanilhaConsolidadaOpen(true)}
+                  disabled={gerandoPlanilha}
+                  className="w-full"
+                >
+                  <FileSpreadsheet className="mr-2 h-4 w-4" />
+                  {gerandoPlanilha ? "Gerando..." : "Gerar Planilha Consolidada"}
+                </Button>
+                <p className="text-xs text-muted-foreground text-center">
+                  Você poderá escolher o método de cálculo (menor preço, média, mediana)
+                </p>
+              </>
+            )}
           </div>
 
           {/* ========== 3. ENCAMINHAMENTOS (só aparece se tiver planilha ou encaminhamentos) ========== */}
