@@ -73,7 +73,7 @@ const DOCUMENTOS_VALIDADE = [
   { tipo: "certificado_gestor", label: "Certificado de Fornecedor", temValidade: true },
 ];
 
-export default function GestaoDocumentosGestor({ fornecedorId }: Props) {
+export default function GestaoDocumentosGestor({ fornecedorId, canEdit = true }: Props) {
   const [documentos, setDocumentos] = useState<Documento[]>([]);
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
