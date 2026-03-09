@@ -2343,7 +2343,7 @@ const Cotacoes = () => {
                     </div>
 
                     {/* Botão para enviar ao responsável legal apenas se NÃO for responsável legal */}
-                    {processoSelecionado?.requer_selecao === true && !isResponsavelLegal && (
+                    {processoSelecionado?.requer_selecao === true && !hasResponsavelLegal && (
                       <div className="mt-4 p-4 bg-yellow-50 dark:bg-yellow-950 border border-yellow-200 dark:border-yellow-800 rounded-lg">
                         <p className="text-sm text-yellow-800 dark:text-yellow-200 mb-3 flex items-center">
                           <AlertCircle className="h-4 w-4 mr-2 flex-shrink-0" />
