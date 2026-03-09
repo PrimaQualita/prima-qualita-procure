@@ -2703,7 +2703,7 @@ const Cotacoes = () => {
                                     <TableHead className="w-32 text-right">Vlr. Total</TableHead>
                                   </>
                                 )}
-                                <TableHead className="w-32 text-right">Ações</TableHead>
+                                {!isResponsavelLegal && <TableHead className="w-32 text-right">Ações</TableHead>}
                               </TableRow>
                             </TableHeader>
                             <TableBody>
