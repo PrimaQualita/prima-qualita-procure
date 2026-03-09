@@ -105,6 +105,9 @@ const [itens, setItens] = useState<Item[]>([]);
   const [enviandoSolicitacao, setEnviandoSolicitacao] = useState(false);
   const [isResponsavelLegal, setIsResponsavelLegal] = useState(false);
   
+  // RL pode APENAS visualizar + gerar/excluir homologação
+  const canEditSelecao = !isResponsavelLegal;
+  
   // Estado para Processo Completo
   const [gerandoProcessoCompleto, setGerandoProcessoCompleto] = useState(false);
   const [processoCompletoSalvo, setProcessoCompletoSalvo] = useState<any>(null);
