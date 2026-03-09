@@ -1554,7 +1554,7 @@ export default function RespostasCotacao() {
               )}
 
               {/* Botão Gerar Encaminhamento */}
-              {planilhasAnteriores.length > 0 && (
+              {canEdit && planilhasAnteriores.length > 0 && (
                 <Button
                   onClick={gerarEncaminhamento}
                   disabled={gerandoEncaminhamento}
@@ -1567,7 +1567,7 @@ export default function RespostasCotacao() {
               )}
 
               {/* Botão Enviar ao Compliance */}
-              {planilhasAnteriores.length > 0 && (
+              {canEdit && planilhasAnteriores.length > 0 && (
                 <Button
                   onClick={enviarAoCompliance}
                   disabled={enviandoCompliance}
