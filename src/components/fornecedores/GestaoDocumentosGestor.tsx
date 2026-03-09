@@ -615,21 +615,25 @@ export default function GestaoDocumentosGestor({ fornecedorId, canEdit = true }:
                               </Button>
                             </DropdownMenuTrigger>
                             <DropdownMenuContent align="end">
-                              {docConfig.temValidade && (
+                              {canEdit && docConfig.temValidade && (
                                 <DropdownMenuItem onClick={() => handleAbrirDialogEditar(doc)}>
                                   <Edit className="h-4 w-4 mr-2" />
                                   Editar Validade
                                 </DropdownMenuItem>
                               )}
-                              <DropdownMenuItem onClick={() => handleAbrirDialogAtualizar(doc)}>
-                                <Upload className="h-4 w-4 mr-2" />
-                                Atualizar Documento
-                              </DropdownMenuItem>
-                              <DropdownMenuItem onClick={() => handleAbrirDialogSolicitarAtualizacao(doc)}>
-                                <RefreshCw className="h-4 w-4 mr-2" />
-                                Solicitar Atualização
-                              </DropdownMenuItem>
-                              {docConfig.tipo === "certificado_gestor" && (
+                              {canEdit && (
+                                <DropdownMenuItem onClick={() => handleAbrirDialogAtualizar(doc)}>
+                                  <Upload className="h-4 w-4 mr-2" />
+                                  Atualizar Documento
+                                </DropdownMenuItem>
+                              )}
+                              {canEdit && (
+                                <DropdownMenuItem onClick={() => handleAbrirDialogSolicitarAtualizacao(doc)}>
+                                  <RefreshCw className="h-4 w-4 mr-2" />
+                                  Solicitar Atualização
+                                </DropdownMenuItem>
+                              )}
+                              {canEdit && docConfig.tipo === "certificado_gestor" && (
                                 <>
                                   <DropdownMenuSeparator />
                                   <DropdownMenuItem
