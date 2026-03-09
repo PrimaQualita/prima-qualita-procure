@@ -43,58 +43,55 @@ export async function gerarHomologacaoSelecaoPDF(selecaoId: string, isRegistroPr
     const criterioJulgamento = processo?.criterio_julgamento;
     const enteFederativo = processo?.contratos_gestao?.ente_federativo || "Santa Maria Madalena - RJ";
 
-    // Buscar itens e vencedores
-    const { data: todosLancesData, error: lancesError } = await supabase
-      .from("lances_fornecedores")
-      .select(`
-        numero_item,
-        valor_lance,
-        fornecedor_id,
-        tipo_lance,
-        fornecedores (
-          razao_social,
-          cnpj
-        )
-      `)
-      .eq("selecao_id", selecaoId);
+    // Buscar itens, lances, propostas e vencedores
+    const [lancesRes, propostasRes, itensCotacaoRes, inabilitacoesRes] = await Promise.all([
+      supabase
+        .from("lances_fornecedores")
+        .select(`numero_item, valor_lance, fornecedor_id, tipo_lance, fornecedores (razao_social, cnpj)`)
+        .eq("selecao_id", selecaoId),
+      supabase
+        .from("selecao_propostas_fornecedor")
+        .select("id, fornecedor_id, fornecedores (razao_social, cnpj)")
+        .eq("selecao_id", selecaoId),
+      selecao.cotacao_relacionada_id
+        ? supabase.from("itens_cotacao").select("numero_item, quantidade, lote_id").eq("cotacao_id", selecao.cotacao_relacionada_id)
+        : Promise.resolve({ data: [], error: null }),
+      supabase
+        .from("fornecedores_inabilitados_selecao")
+        .select("fornecedor_id, itens_afetados, revertido")
+        .eq("selecao_id", selecaoId),
+    ]);
 
-    if (lancesError) throw lancesError;
+    if (lancesRes.error) throw lancesRes.error;
+    const todosLancesData = lancesRes.data || [];
 
-    // Buscar itens da cotação para obter quantidades (necessário para critério por_item)
+    // Buscar itens da cotação para obter quantidades
     let quantidadesPorItem = new Map<number, number>();
-    if (criterioJulgamento === "por_item" && selecao.cotacao_relacionada_id) {
-      const { data: itensData } = await supabase
-        .from("itens_cotacao")
-        .select("numero_item, quantidade")
-        .eq("cotacao_id", selecao.cotacao_relacionada_id);
-      
-      (itensData || []).forEach((item: any) => {
-        quantidadesPorItem.set(item.numero_item, item.quantidade || 1);
-      });
-    }
-
-    // Buscar inabilitações
-    const { data: inabilitacoesData } = await supabase
-      .from("fornecedores_inabilitados_selecao")
-      .select("fornecedor_id, itens_afetados, revertido")
-      .eq("selecao_id", selecaoId);
+    (itensCotacaoRes.data || []).forEach((item: any) => {
+      quantidadesPorItem.set(item.numero_item, item.quantidade || 1);
+    });
 
     // Filtrar inabilitados
     const inabilitacoesPorFornecedor = new Map<string, number[]>();
-    (inabilitacoesData || []).forEach((inab) => {
+    (inabilitacoesRes.data || []).forEach((inab: any) => {
       if (!inab.revertido) {
         inabilitacoesPorFornecedor.set(inab.fornecedor_id, inab.itens_afetados || []);
       }
     });
 
-    const lancesFiltrados = (todosLancesData || []).filter((lance: any) => {
-      const itensInabilitados = inabilitacoesPorFornecedor.get(lance.fornecedor_id);
-      if (!itensInabilitados) return true;
-      return !itensInabilitados.includes(lance.numero_item || 0);
+    const isInabilitado = (fornecedorId: string, numero: number) => {
+      const itens = inabilitacoesPorFornecedor.get(fornecedorId);
+      if (!itens) return false;
+      if (itens.length === 0) return true; // global
+      return itens.includes(numero);
+    };
+
+    const lancesFiltrados = todosLancesData.filter((lance: any) => {
+      return !isInabilitado(lance.fornecedor_id, lance.numero_item || 0);
     });
 
-    // Ordenar e identificar vencedores
-    const isDesconto = criterioJulgamento === "desconto";
+    // Ordenar e identificar vencedores por lances
+    const isDesconto = criterioJulgamento === "desconto" || criterioJulgamento === "maior_percentual_desconto";
     const lancesOrdenados = lancesFiltrados.sort((a: any, b: any) => {
       if (a.numero_item !== b.numero_item) {
         return a.numero_item - b.numero_item;
@@ -117,6 +114,62 @@ export async function gerarHomologacaoSelecaoPDF(selecaoId: string, isRegistroPr
       }
     });
 
+    // Fallback: se não houver lances para um item, usar proposta inicial
+    if (propostasRes.data && propostasRes.data.length > 0) {
+      const propostaIds = propostasRes.data.map((p: any) => p.id);
+      const { data: respostasItens } = await supabase
+        .from("selecao_respostas_itens_fornecedor")
+        .select("proposta_id, numero_item, lote_id, valor_unitario_ofertado, valor_total_item, desclassificado")
+        .in("proposta_id", propostaIds);
+
+      const propostaIdParaFornecedor = new Map<string, any>();
+      (propostasRes.data || []).forEach((p: any) => {
+        propostaIdParaFornecedor.set(p.id, p);
+      });
+
+      // Agrupar propostas por item e encontrar melhor valor
+      const propostasPorItemMap = new Map<number, { fornecedor_id: string; fornecedores: any; valor: number }[]>();
+      
+      (respostasItens || []).forEach((resp: any) => {
+        if (resp.desclassificado) return;
+        const proposta = propostaIdParaFornecedor.get(resp.proposta_id);
+        if (!proposta) return;
+        const fornecedorId = proposta.fornecedor_id;
+        const numeroItem = resp.numero_item || 0;
+        
+        if (isInabilitado(fornecedorId, numeroItem)) return;
+        
+        const valorUnitario = Number(resp.valor_unitario_ofertado || 0);
+        if (valorUnitario <= 0) return;
+
+        if (!propostasPorItemMap.has(numeroItem)) {
+          propostasPorItemMap.set(numeroItem, []);
+        }
+        propostasPorItemMap.get(numeroItem)!.push({
+          fornecedor_id: fornecedorId,
+          fornecedores: proposta.fornecedores,
+          valor: valorUnitario,
+        });
+      });
+
+      // Para cada item sem lance, usar a melhor proposta inicial
+      propostasPorItemMap.forEach((candidatos, numeroItem) => {
+        if (vencedoresPorItem.has(numeroItem)) return; // já tem vencedor por lance
+        
+        candidatos.sort((a, b) => isDesconto ? b.valor - a.valor : a.valor - b.valor);
+        const melhor = candidatos[0];
+        if (melhor) {
+          vencedoresPorItem.set(numeroItem, {
+            fornecedor_id: melhor.fornecedor_id,
+            fornecedores: melhor.fornecedores,
+            valor_lance: melhor.valor,
+            numero_item: numeroItem,
+            tipo_lance: "proposta_inicial",
+          });
+        }
+      });
+    }
+
     // Agrupar por fornecedor
     const vencedoresPorFornecedor = new Map<string, { fornecedor: any; itens: number[]; valorTotal: number }>();
     
@@ -133,7 +186,6 @@ export async function gerarHomologacaoSelecaoPDF(selecaoId: string, isRegistroPr
       grupo.itens.push(numeroItem);
       
       // Para critério por_item: valor total = valor_lance × quantidade
-      // Para outros critérios: mantém lógica original
       if (criterioJulgamento === "por_item") {
         const quantidade = quantidadesPorItem.get(numeroItem) || 1;
         grupo.valorTotal += (lance.valor_lance || 0) * quantidade;
