@@ -4725,6 +4725,7 @@ export function DialogSessaoLances({
         </div>
 
         {/* Botão Finalizar Sessão ou Remarcar Vencedores - Posição fixa no rodapé */}
+        {!readOnly && (
         <div className="flex-shrink-0 pt-4 border-t bg-background">
           {!sessaoFinalizada ? (
             (() => {
