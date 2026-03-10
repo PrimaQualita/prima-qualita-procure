@@ -519,7 +519,7 @@ const SistemaLancesFornecedor = () => {
 
       // Polling adaptativo - mais frequente quando há itens em fechamento
       // Isso reduz carga no servidor quando não há atividade crítica
-      let pollingInterval: NodeJS.Timeout | null = null;
+      let pollingInterval: ReturnType<typeof setInterval> | null = null;
       let lastPollTime = 0;
       const MIN_POLL_INTERVAL = 500; // Debounce mínimo de 500ms
       
