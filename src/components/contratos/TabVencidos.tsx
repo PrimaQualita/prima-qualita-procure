@@ -48,11 +48,6 @@ export function TabVencidos({ contratoGestaoId, contratoGestaoNome, processoComp
           .eq("contrato_gestao_id", contratoGestaoId)
           .in("processo_compra_id", processoCompraIds);
         pcIds = pcData?.map(p => p.id) || [];
-        if (pcIds.length === 0) {
-          setContratos([]);
-          setLoading(false);
-          return;
-        }
       }
 
       let query = supabase
@@ -61,7 +56,7 @@ export function TabVencidos({ contratoGestaoId, contratoGestaoNome, processoComp
         .eq("contrato_gestao_id", contratoGestaoId);
 
       if (pcIds.length > 0) {
-        query = query.in("processo_para_contratar_id", pcIds);
+        query = query.or(`processo_para_contratar_id.in.(${pcIds.join(",")}),processo_para_contratar_id.is.null`);
       }
 
       const { data, error } = await query.order("fim_vigencia_atual", { ascending: true });
