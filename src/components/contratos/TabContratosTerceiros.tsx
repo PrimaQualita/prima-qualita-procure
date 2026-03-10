@@ -217,10 +217,6 @@ export function TabContratosTerceiros({ contratoGestaoId, contratoGestaoNome, pr
       toast.error("Preencha os campos obrigatórios (Código e Objeto)");
       return;
     }
-    if (!arquivo && !editando?.url_arquivo_principal) {
-      toast.error("Anexe o arquivo principal do contrato");
-      return;
-    }
 
     try {
       setUploading(true);
