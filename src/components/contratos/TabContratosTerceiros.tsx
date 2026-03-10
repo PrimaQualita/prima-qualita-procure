@@ -156,6 +156,7 @@ export function TabContratosTerceiros({ contratoGestaoId, contratoGestaoNome, pr
         .eq("contrato_gestao_id", contratoGestaoId);
 
       // Filter by processoCompraIds (array) or single processoCompraId
+      // Only filter if IDs are provided - otherwise show ALL contracts (including legacy ones without process)
       if (processoCompraIds && processoCompraIds.length > 0) {
         const { data: pcData } = await supabase
           .from("processos_para_contratar")
@@ -163,11 +164,11 @@ export function TabContratosTerceiros({ contratoGestaoId, contratoGestaoNome, pr
           .in("processo_compra_id", processoCompraIds);
         const pcIds = pcData?.map(p => p.id) || [];
         if (pcIds.length > 0) {
-          query = query.in("processo_para_contratar_id", pcIds);
+          // Show contracts linked to filtered processes OR contracts without a process link (legacy)
+          query = query.or(`processo_para_contratar_id.in.(${pcIds.join(",")}),processo_para_contratar_id.is.null`);
         } else {
-          setContratos([]);
-          setLoading(false);
-          return;
+          // No matching processes - only show legacy contracts (without process link)
+          query = query.is("processo_para_contratar_id", null);
         }
       } else if (processoCompraId) {
         const { data: pcData } = await supabase
@@ -176,13 +177,12 @@ export function TabContratosTerceiros({ contratoGestaoId, contratoGestaoNome, pr
           .eq("processo_compra_id", processoCompraId);
         const pcIds = pcData?.map(p => p.id) || [];
         if (pcIds.length > 0) {
-          query = query.in("processo_para_contratar_id", pcIds);
+          query = query.or(`processo_para_contratar_id.in.(${pcIds.join(",")}),processo_para_contratar_id.is.null`);
         } else {
-          setContratos([]);
-          setLoading(false);
-          return;
+          query = query.is("processo_para_contratar_id", null);
         }
       }
+      // If no processoCompraIds and no processoCompraId, load ALL contracts for this contrato_gestao
 
       const { data, error } = await query.order("created_at", { ascending: false });
 
