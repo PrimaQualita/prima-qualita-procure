@@ -209,7 +209,7 @@ export default function Contratos() {
 
   // Load notification counts when filter changes + polling every 15s
   useEffect(() => {
-    if (contratoSelecionado && processoCompraIdsFiltrados.length > 0) {
+    if (contratoSelecionado) {
       loadNotificationCounts(contratoSelecionado.id, processoCompraIdsFiltrados);
       const interval = setInterval(() => {
         loadNotificationCounts(contratoSelecionado.id, processoCompraIdsFiltrados);
