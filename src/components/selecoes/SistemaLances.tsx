@@ -35,7 +35,7 @@ export function SistemaLances({ selecaoId, criterioJulgamento }: SistemaLancesPr
     loadLances();
 
     // Auto-refresh a cada 5 segundos se ativado
-    let interval: NodeJS.Timeout;
+    let interval: ReturnType<typeof setInterval>;
     if (autoRefresh) {
       interval = setInterval(() => {
         loadLances();

@@ -209,7 +209,7 @@ export function DialogSessaoLances({
   useEffect(() => {
     if (!open) return;
 
-    let interval: NodeJS.Timeout;
+    let interval: ReturnType<typeof setInterval>;
     if (autoRefresh) {
       interval = setInterval(() => {
         loadLances();
