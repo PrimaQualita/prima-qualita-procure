@@ -365,12 +365,14 @@ export default function Contratos() {
                 <div className="text-center py-8 text-muted-foreground text-sm">Carregando...</div>
               ) : (
                 <div className="space-y-4">
-                  {/* Filtro por Ano de Referência */}
-                  <AnoReferenciaFilter
-                    anos={anosDisponiveis}
-                    anoSelecionado={anoSelecionado}
-                    onAnoChange={setAnoSelecionado}
-                  />
+                  {/* Filtro por Ano de Referência - só exibe se houver processos */}
+                  {processosAnos.length > 0 && (
+                    <AnoReferenciaFilter
+                      anos={anosDisponiveis}
+                      anoSelecionado={anoSelecionado}
+                      onAnoChange={setAnoSelecionado}
+                    />
+                  )}
 
                   {/* 4 Sub-Tabs dentro do ano */}
                    <Tabs value={activeTab} onValueChange={setActiveTab}>
