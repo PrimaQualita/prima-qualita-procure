@@ -376,6 +376,17 @@ const ProcessosCompras = () => {
           .eq("id", processoParaEditar.id);
 
         if (error) throw error;
+
+        // Sincronizar descricao_cotacao das cotações vinculadas ao processo
+        try {
+          const objetoTexto = stripHtml(processo.objeto_resumido);
+          await supabase
+            .from("cotacoes_precos")
+            .update({ descricao_cotacao: objetoTexto })
+            .eq("processo_compra_id", processoParaEditar.id);
+        } catch (syncError) {
+          console.error("Erro ao sincronizar descrição das cotações:", syncError);
+        }
         
         // Auditoria de edição
         await registrarAuditoria({
