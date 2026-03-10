@@ -64,12 +64,6 @@ export default function Contratos() {
           .eq("contrato_gestao_id", contratoGestaoId)
           .in("processo_compra_id", pcIds);
         filterPcIds = pcData?.map(p => p.id) || [];
-
-        if (filterPcIds.length === 0) {
-          setCountAVencer(0);
-          setCountVencidos(0);
-          return;
-        }
       }
 
       let query = supabase
@@ -77,11 +71,11 @@ export default function Contratos() {
         .select("id, fim_vigencia_atual, ciente_nao_renovar, processo_para_contratar_id")
         .eq("contrato_gestao_id", contratoGestaoId)
         .eq("status", "vigente")
-        .not("fim_vigencia_atual", "is", null)
-        .not("processo_para_contratar_id", "is", null);
+        .not("fim_vigencia_atual", "is", null);
 
       if (filterPcIds.length > 0) {
-        query = query.in("processo_para_contratar_id", filterPcIds);
+        // Include contracts linked to filtered processes OR legacy contracts (without process link)
+        query = query.or(`processo_para_contratar_id.in.(${filterPcIds.join(",")}),processo_para_contratar_id.is.null`);
       }
 
       const { data } = await query;
@@ -215,7 +209,7 @@ export default function Contratos() {
 
   // Load notification counts when filter changes + polling every 15s
   useEffect(() => {
-    if (contratoSelecionado && processoCompraIdsFiltrados.length > 0) {
+    if (contratoSelecionado) {
       loadNotificationCounts(contratoSelecionado.id, processoCompraIdsFiltrados);
       const interval = setInterval(() => {
         loadNotificationCounts(contratoSelecionado.id, processoCompraIdsFiltrados);
@@ -363,18 +357,16 @@ export default function Contratos() {
               )}
               {loadingProcessos ? (
                 <div className="text-center py-8 text-muted-foreground text-sm">Carregando...</div>
-              ) : processosAnos.length === 0 ? (
-                <div className="text-center py-8 text-muted-foreground text-sm">
-                  Nenhum processo finalizado neste contrato de gestão
-                </div>
               ) : (
                 <div className="space-y-4">
-                  {/* Filtro por Ano de Referência */}
-                  <AnoReferenciaFilter
-                    anos={anosDisponiveis}
-                    anoSelecionado={anoSelecionado}
-                    onAnoChange={setAnoSelecionado}
-                  />
+                  {/* Filtro por Ano de Referência - só exibe se houver processos */}
+                  {processosAnos.length > 0 && (
+                    <AnoReferenciaFilter
+                      anos={anosDisponiveis}
+                      anoSelecionado={anoSelecionado}
+                      onAnoChange={setAnoSelecionado}
+                    />
+                  )}
 
                   {/* 4 Sub-Tabs dentro do ano */}
                    <Tabs value={activeTab} onValueChange={setActiveTab}>
