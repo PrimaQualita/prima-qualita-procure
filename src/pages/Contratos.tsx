@@ -363,10 +363,6 @@ export default function Contratos() {
               )}
               {loadingProcessos ? (
                 <div className="text-center py-8 text-muted-foreground text-sm">Carregando...</div>
-              ) : processosAnos.length === 0 ? (
-                <div className="text-center py-8 text-muted-foreground text-sm">
-                  Nenhum processo finalizado neste contrato de gestão
-                </div>
               ) : (
                 <div className="space-y-4">
                   {/* Filtro por Ano de Referência */}
