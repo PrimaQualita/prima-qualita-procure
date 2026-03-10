@@ -64,12 +64,6 @@ export default function Contratos() {
           .eq("contrato_gestao_id", contratoGestaoId)
           .in("processo_compra_id", pcIds);
         filterPcIds = pcData?.map(p => p.id) || [];
-
-        if (filterPcIds.length === 0) {
-          setCountAVencer(0);
-          setCountVencidos(0);
-          return;
-        }
       }
 
       let query = supabase
@@ -77,11 +71,11 @@ export default function Contratos() {
         .select("id, fim_vigencia_atual, ciente_nao_renovar, processo_para_contratar_id")
         .eq("contrato_gestao_id", contratoGestaoId)
         .eq("status", "vigente")
-        .not("fim_vigencia_atual", "is", null)
-        .not("processo_para_contratar_id", "is", null);
+        .not("fim_vigencia_atual", "is", null);
 
       if (filterPcIds.length > 0) {
-        query = query.in("processo_para_contratar_id", filterPcIds);
+        // Include contracts linked to filtered processes OR legacy contracts (without process link)
+        query = query.or(`processo_para_contratar_id.in.(${filterPcIds.join(",")}),processo_para_contratar_id.is.null`);
       }
 
       const { data } = await query;
