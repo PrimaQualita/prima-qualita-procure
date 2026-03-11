@@ -100,9 +100,10 @@ const ProcessosCompras = () => {
   const [dialogRelatorioOpen, setDialogRelatorioOpen] = useState(false);
   const [processoParaAnexos, setProcessoParaAnexos] = useState<Processo | null>(null);
 
-  // Verifica se é usuário interno (gestor ou colaborador) com permissões completas
-  // Responsável Legal só é restrito se for APENAS RL (sem outros perfis com permissão)
-  const isUsuarioInterno = !isGerenteContratos && !isResponsavelLegal;
+  // Verifica se é usuário interno com permissões completas
+  // Se tem perfis como compliance, superintendente, gestor ou colaborador, tem acesso total
+  const temPerfilAcessoTotal = isGestor || isCompliance || isSuperintendenteExecutivo;
+  const isUsuarioInterno = temPerfilAcessoTotal || (!isGerenteContratos && !isResponsavelLegal);
 
   useEffect(() => {
     checkAuth();
