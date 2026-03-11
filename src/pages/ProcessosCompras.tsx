@@ -220,7 +220,13 @@ const ProcessosCompras = () => {
       if (vinculos && vinculos.length > 0) {
         setIsGerenteContratos(true);
         setContratosVinculados(vinculos.map(v => v.contrato_gestao_id));
+      } else {
+        setIsGerenteContratos(false);
+        setContratosVinculados([]);
       }
+    } else {
+      setIsGerenteContratos(false);
+      setContratosVinculados([]);
     }
 
     setLoading(false);
