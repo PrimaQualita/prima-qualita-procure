@@ -112,11 +112,11 @@ serve(async (req) => {
 
     const { data: callerProfile } = await supabaseAdmin
       .from('profiles')
-      .select('superintendente_executivo')
+      .select('superintendente_executivo, gestor')
       .eq('id', callerUser.id)
       .single();
 
-    const isGestor = !!callerRoles;
+    const isGestor = !!callerRoles || callerProfile?.gestor === true;
     const isSuperintendenteExecutivo = callerProfile?.superintendente_executivo === true;
 
     if (!isGestor && !isSuperintendenteExecutivo) {
