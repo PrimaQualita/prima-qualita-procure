@@ -220,7 +220,13 @@ const ProcessosCompras = () => {
       if (vinculos && vinculos.length > 0) {
         setIsGerenteContratos(true);
         setContratosVinculados(vinculos.map(v => v.contrato_gestao_id));
+      } else {
+        setIsGerenteContratos(false);
+        setContratosVinculados([]);
       }
+    } else {
+      setIsGerenteContratos(false);
+      setContratosVinculados([]);
     }
 
     setLoading(false);
@@ -233,8 +239,9 @@ const ProcessosCompras = () => {
         .select("*")
         .order("nome_contrato");
 
-      // Gerente de Contratos só vê seus contratos vinculados
-      if (isGerenteContratos && contratosVinculados.length > 0) {
+      // Gerente de Contratos só vê seus contratos vinculados quando for APENAS gerente
+      const restringirPorGerente = isGerenteContratos && !isGestor && !isCompliance && !isSuperintendenteExecutivo;
+      if (restringirPorGerente && contratosVinculados.length > 0) {
         query = query.in("id", contratosVinculados);
       }
 
@@ -566,7 +573,7 @@ const ProcessosCompras = () => {
                 <div>
                   <CardTitle>Contratos de Gestão</CardTitle>
                   <CardDescription>
-                    {isGerenteContratos ? "Contratos vinculados à sua gestão" : "Gerencie todos os contratos de gestão"}
+                    {isGerenteContratos && !isGestor && !isCompliance && !isSuperintendenteExecutivo ? "Contratos vinculados à sua gestão" : "Gerencie todos os contratos de gestão"}
                   </CardDescription>
                 </div>
                 {isUsuarioInterno && (
