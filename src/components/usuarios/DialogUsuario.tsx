@@ -329,7 +329,7 @@ export function DialogUsuario({ open, onOpenChange, onSuccess, usuarioEdit }: Di
             .from("user_roles")
             .delete()
             .eq("user_id", usuarioEdit.id)
-            .in("role", rolesToDelete);
+            .in("role", rolesToDelete as Array<"gestor" | "colaborador" | "compliance">);
 
           if (deleteRolesError) throw deleteRolesError;
         }
