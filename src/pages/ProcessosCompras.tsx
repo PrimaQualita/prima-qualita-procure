@@ -645,7 +645,7 @@ const ProcessosCompras = () => {
                                 <Edit className="h-4 w-4" />
                               </Button>
                             )}
-                            {isUsuarioInterno && (isGestor || isCompliance || isSuperintendenteExecutivo) && (
+                            {isUsuarioInterno && (isCompliance || isSuperintendenteExecutivo) && (
                               <Button
                                 variant="ghost"
                                 size="icon"
