@@ -586,13 +586,15 @@ const ProcessosCompras = () => {
                       <Download className="mr-2 h-4 w-4" />
                       Exportar Relatório
                     </Button>
-                    <Button onClick={() => {
-                      setContratoParaEditar(null);
-                      setDialogContratoOpen(true);
-                    }}>
-                      <Plus className="mr-2 h-4 w-4" />
-                      Novo Contrato
-                    </Button>
+                    {podeEditarContratoGestao && (
+                      <Button onClick={() => {
+                        setContratoParaEditar(null);
+                        setDialogContratoOpen(true);
+                      }}>
+                        <Plus className="mr-2 h-4 w-4" />
+                        Novo Contrato
+                      </Button>
+                    )}
                   </div>
                 )}
               </div>
