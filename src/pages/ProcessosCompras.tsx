@@ -208,8 +208,10 @@ const ProcessosCompras = () => {
     setIsCompliance(!!profileData?.compliance);
     setIsSuperintendenteExecutivo(!!profileData?.superintendente_executivo);
 
-    // Se é gerente de contratos e NÃO é usuário interno (gestor/colaborador)
-    if (profileData?.gerente_contratos && !isUsuarioInternoCheck) {
+    // Se é gerente de contratos e NÃO tem outros perfis com acesso total
+    // (gestor/colaborador/compliance/superintendente), restringe aos contratos vinculados
+    const temAcessoTotal = isUsuarioInternoCheck || !!profileData?.compliance || !!profileData?.superintendente_executivo;
+    if (profileData?.gerente_contratos && !temAcessoTotal) {
       const { data: vinculos } = await supabase
         .from("gerentes_contratos_gestao")
         .select("contrato_gestao_id")
