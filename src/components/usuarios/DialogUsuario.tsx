@@ -23,6 +23,7 @@ interface Usuario {
   data_nascimento?: string;
   ativo: boolean;
   role?: string;
+  gestor?: boolean;
   responsavel_legal?: boolean;
   compliance?: boolean;
   contabilidade?: boolean;

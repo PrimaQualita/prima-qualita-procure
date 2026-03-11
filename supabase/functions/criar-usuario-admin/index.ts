@@ -34,6 +34,7 @@ const createUserSchema = z.object({
   cpf: z.string().regex(/^\d{3}\.\d{3}\.\d{3}-\d{2}$/),
   dataNascimento: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
   role: z.enum(['gestor', 'colaborador']).optional(), // Agora é opcional
+  gestor: z.boolean().optional(),
   responsavelLegal: z.boolean().optional(),
   compliance: z.boolean().optional(),
   contabilidade: z.boolean().optional(),
