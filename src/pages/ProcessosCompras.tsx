@@ -100,9 +100,10 @@ const ProcessosCompras = () => {
   const [dialogRelatorioOpen, setDialogRelatorioOpen] = useState(false);
   const [processoParaAnexos, setProcessoParaAnexos] = useState<Processo | null>(null);
 
-  // Verifica se é usuário interno (gestor ou colaborador) com permissões completas
-  // Responsável Legal só é restrito se for APENAS RL (sem outros perfis com permissão)
-  const isUsuarioInterno = !isGerenteContratos && !isResponsavelLegal;
+  // Verifica se é usuário interno com permissões completas
+  // Se tem perfis como compliance, superintendente, gestor ou colaborador, tem acesso total
+  const temPerfilAcessoTotal = isGestor || isCompliance || isSuperintendenteExecutivo;
+  const isUsuarioInterno = temPerfilAcessoTotal || (!isGerenteContratos && !isResponsavelLegal);
 
   useEffect(() => {
     checkAuth();
@@ -207,8 +208,10 @@ const ProcessosCompras = () => {
     setIsCompliance(!!profileData?.compliance);
     setIsSuperintendenteExecutivo(!!profileData?.superintendente_executivo);
 
-    // Se é gerente de contratos e NÃO é usuário interno (gestor/colaborador)
-    if (profileData?.gerente_contratos && !isUsuarioInternoCheck) {
+    // Se é gerente de contratos e NÃO tem outros perfis com acesso total
+    // (gestor/colaborador/compliance/superintendente), restringe aos contratos vinculados
+    const temAcessoTotal = isUsuarioInternoCheck || !!profileData?.compliance || !!profileData?.superintendente_executivo;
+    if (profileData?.gerente_contratos && !temAcessoTotal) {
       const { data: vinculos } = await supabase
         .from("gerentes_contratos_gestao")
         .select("contrato_gestao_id")
