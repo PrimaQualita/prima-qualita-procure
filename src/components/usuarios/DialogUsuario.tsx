@@ -171,7 +171,7 @@ export function DialogUsuario({ open, onOpenChange, onSuccess, usuarioEdit }: Di
         
         if (!rolesError && userRoles) {
           const roles = userRoles.map(r => r.role);
-          setGestor(roles.includes("gestor"));
+          setGestor(roles.includes("gestor") || (usuarioEdit as any).gestor === true);
           setColaborador(roles.includes("colaborador"));
         }
 

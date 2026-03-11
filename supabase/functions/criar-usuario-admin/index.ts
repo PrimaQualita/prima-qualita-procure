@@ -136,7 +136,8 @@ serve(async (req) => {
       nomeCompleto, 
       cpf, 
       dataNascimento, 
-      role, 
+      role,
+      gestor,
       responsavelLegal, 
       compliance,
       contabilidade,
@@ -150,6 +151,7 @@ serve(async (req) => {
     } = createUserSchema.parse(await req.json());
 
     const superintendenteExecutivoFinal = (superintendenteExecutivo ?? gerenteFinanceiro) || false;
+    const gestorFinal = gestor ?? role === 'gestor';
 
     // Verificar se o usuário já existe
     const { data: existingUsers, error: listError } = await supabaseAdmin.auth.admin.listUsers();
