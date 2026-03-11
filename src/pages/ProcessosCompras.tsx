@@ -646,7 +646,7 @@ const ProcessosCompras = () => {
                               <ChevronRight className="h-4 w-4 mr-2" />
                               Ver Processos
                             </Button>
-                            {isUsuarioInterno && (
+                            {podeEditarContratoGestao && (
                               <Button
                                 variant="ghost"
                                 size="icon"
