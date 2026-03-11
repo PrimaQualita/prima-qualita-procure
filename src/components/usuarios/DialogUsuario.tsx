@@ -80,22 +80,20 @@ export function DialogUsuario({ open, onOpenChange, onSuccess, usuarioEdit }: Di
         return;
       }
 
-      // Verificar se é gestor
-      const { data: roleData } = await supabase
-        .from("user_roles")
-        .select("role")
-        .eq("user_id", session.user.id)
-        .eq("role", "gestor")
-        .maybeSingle();
+      const [roleResult, profileResult] = await Promise.all([
+        supabase.rpc("has_role", { _user_id: session.user.id, _role: "gestor" }),
+        supabase
+          .from("profiles")
+          .select("compliance, superintendente_executivo, gestor")
+          .eq("id", session.user.id)
+          .single(),
+      ]);
 
-      // Verificar se é compliance ou superintendente executivo
-      const { data: profileCheck } = await supabase
-        .from("profiles")
-        .select("compliance, superintendente_executivo")
-        .eq("id", session.user.id)
-        .single();
+      if (roleResult.error) throw roleResult.error;
+      if (profileResult.error) throw profileResult.error;
 
-      const isGestorCheck = !!roleData;
+      const profileCheck = profileResult.data;
+      const isGestorCheck = roleResult.data === true || profileCheck?.gestor === true;
       const isComplianceCheck = profileCheck?.compliance === true;
       const isSuperintendenteCheck = profileCheck?.superintendente_executivo === true;
 
