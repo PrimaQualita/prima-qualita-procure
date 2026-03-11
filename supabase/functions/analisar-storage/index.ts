@@ -1,4 +1,4 @@
-import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.81.0/+esm";
+import { createClient } from "npm:@supabase/supabase-js@2.81.0";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
