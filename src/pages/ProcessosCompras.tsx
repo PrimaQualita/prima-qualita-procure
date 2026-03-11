@@ -105,6 +105,10 @@ const ProcessosCompras = () => {
   const temPerfilAcessoTotal = isGestor || isCompliance || isSuperintendenteExecutivo;
   const isUsuarioInterno = temPerfilAcessoTotal || (!isGerenteContratos && !isResponsavelLegal);
 
+  // Permissão para editar/excluir Contrato de Gestão: apenas Compliance ou Superintendente Executivo
+  // Gestor NÃO pode editar/excluir contrato de gestão, a menos que tenha cumulativamente um desses perfis
+  const podeEditarContratoGestao = isCompliance || isSuperintendenteExecutivo;
+
   useEffect(() => {
     checkAuth();
   }, []);
