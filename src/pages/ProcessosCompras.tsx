@@ -573,7 +573,7 @@ const ProcessosCompras = () => {
                 <div>
                   <CardTitle>Contratos de Gestão</CardTitle>
                   <CardDescription>
-                    {isGerenteContratos ? "Contratos vinculados à sua gestão" : "Gerencie todos os contratos de gestão"}
+                    {isGerenteContratos && !isGestor && !isCompliance && !isSuperintendenteExecutivo ? "Contratos vinculados à sua gestão" : "Gerencie todos os contratos de gestão"}
                   </CardDescription>
                 </div>
                 {isUsuarioInterno && (
