@@ -239,8 +239,9 @@ const ProcessosCompras = () => {
         .select("*")
         .order("nome_contrato");
 
-      // Gerente de Contratos só vê seus contratos vinculados
-      if (isGerenteContratos && contratosVinculados.length > 0) {
+      // Gerente de Contratos só vê seus contratos vinculados quando for APENAS gerente
+      const restringirPorGerente = isGerenteContratos && !isGestor && !isCompliance && !isSuperintendenteExecutivo;
+      if (restringirPorGerente && contratosVinculados.length > 0) {
         query = query.in("id", contratosVinculados);
       }
 
