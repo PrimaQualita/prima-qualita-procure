@@ -105,6 +105,10 @@ const ProcessosCompras = () => {
   const temPerfilAcessoTotal = isGestor || isCompliance || isSuperintendenteExecutivo;
   const isUsuarioInterno = temPerfilAcessoTotal || (!isGerenteContratos && !isResponsavelLegal);
 
+  // Permissão para editar/excluir Contrato de Gestão: apenas Compliance ou Superintendente Executivo
+  // Gestor NÃO pode editar/excluir contrato de gestão, a menos que tenha cumulativamente um desses perfis
+  const podeEditarContratoGestao = isCompliance || isSuperintendenteExecutivo;
+
   useEffect(() => {
     checkAuth();
   }, []);
@@ -582,13 +586,15 @@ const ProcessosCompras = () => {
                       <Download className="mr-2 h-4 w-4" />
                       Exportar Relatório
                     </Button>
-                    <Button onClick={() => {
-                      setContratoParaEditar(null);
-                      setDialogContratoOpen(true);
-                    }}>
-                      <Plus className="mr-2 h-4 w-4" />
-                      Novo Contrato
-                    </Button>
+                    {podeEditarContratoGestao && (
+                      <Button onClick={() => {
+                        setContratoParaEditar(null);
+                        setDialogContratoOpen(true);
+                      }}>
+                        <Plus className="mr-2 h-4 w-4" />
+                        Novo Contrato
+                      </Button>
+                    )}
                   </div>
                 )}
               </div>
@@ -642,7 +648,7 @@ const ProcessosCompras = () => {
                               <ChevronRight className="h-4 w-4 mr-2" />
                               Ver Processos
                             </Button>
-                            {isUsuarioInterno && (
+                            {podeEditarContratoGestao && (
                               <Button
                                 variant="ghost"
                                 size="icon"
