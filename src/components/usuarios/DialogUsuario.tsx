@@ -408,6 +408,7 @@ export function DialogUsuario({ open, onOpenChange, onSuccess, usuarioEdit }: Di
               cpf,
               dataNascimento,
               role: roleParaEnviar,
+              gestor,
               responsavelLegal,
               compliance,
               cargo,
