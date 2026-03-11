@@ -102,16 +102,26 @@ serve(async (req) => {
       );
     }
 
-    // Verificar se o usuário tem role 'gestor'
-    const { data: callerRoles, error: roleError } = await supabaseAdmin
+    // Verificar se o usuário tem role 'gestor' OU é superintendente executivo
+    const { data: callerRoles } = await supabaseAdmin
       .from('user_roles')
       .select('role')
       .eq('user_id', callerUser.id)
+      .eq('role', 'gestor')
+      .maybeSingle();
+
+    const { data: callerProfile } = await supabaseAdmin
+      .from('profiles')
+      .select('superintendente_executivo')
+      .eq('id', callerUser.id)
       .single();
 
-    if (roleError || callerRoles?.role !== 'gestor') {
+    const isGestor = !!callerRoles;
+    const isSuperintendenteExecutivo = callerProfile?.superintendente_executivo === true;
+
+    if (!isGestor && !isSuperintendenteExecutivo) {
       return new Response(
-        JSON.stringify({ error: "Apenas gestores podem criar usuários" }),
+        JSON.stringify({ error: "Apenas gestores e superintendentes executivos podem criar usuários" }),
         {
           headers: { ...corsHeaders, "Content-Type": "application/json" },
           status: 403,
