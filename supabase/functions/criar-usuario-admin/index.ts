@@ -34,6 +34,7 @@ const createUserSchema = z.object({
   cpf: z.string().regex(/^\d{3}\.\d{3}\.\d{3}-\d{2}$/),
   dataNascimento: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
   role: z.enum(['gestor', 'colaborador']).optional(), // Agora é opcional
+  gestor: z.boolean().optional(),
   responsavelLegal: z.boolean().optional(),
   compliance: z.boolean().optional(),
   contabilidade: z.boolean().optional(),
@@ -135,7 +136,8 @@ serve(async (req) => {
       nomeCompleto, 
       cpf, 
       dataNascimento, 
-      role, 
+      role,
+      gestor,
       responsavelLegal, 
       compliance,
       contabilidade,
@@ -149,6 +151,7 @@ serve(async (req) => {
     } = createUserSchema.parse(await req.json());
 
     const superintendenteExecutivoFinal = (superintendenteExecutivo ?? gerenteFinanceiro) || false;
+    const gestorFinal = gestor ?? role === 'gestor';
 
     // Verificar se o usuário já existe
     const { data: existingUsers, error: listError } = await supabaseAdmin.auth.admin.listUsers();
@@ -205,6 +208,7 @@ serve(async (req) => {
           primeiro_acesso: true,
           senha_temporaria: true,
           ativo: true,
+          gestor: gestorFinal,
           responsavel_legal: responsavelLegal || false,
           compliance: compliance || false,
           contabilidade: contabilidade || false,
@@ -228,6 +232,7 @@ serve(async (req) => {
           primeiro_acesso: true,
           senha_temporaria: true,
           ativo: true,
+          gestor: gestorFinal,
           responsavel_legal: responsavelLegal || false,
           compliance: compliance || false,
           contabilidade: contabilidade || false,

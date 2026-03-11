@@ -23,6 +23,7 @@ interface Usuario {
   data_nascimento?: string;
   ativo: boolean;
   role?: string;
+  gestor?: boolean;
   responsavel_legal?: boolean;
   compliance?: boolean;
   contabilidade?: boolean;
@@ -170,7 +171,7 @@ export function DialogUsuario({ open, onOpenChange, onSuccess, usuarioEdit }: Di
         
         if (!rolesError && userRoles) {
           const roles = userRoles.map(r => r.role);
-          setGestor(roles.includes("gestor"));
+          setGestor(roles.includes("gestor") || (usuarioEdit as any).gestor === true);
           setColaborador(roles.includes("colaborador"));
         }
 
@@ -292,6 +293,7 @@ export function DialogUsuario({ open, onOpenChange, onSuccess, usuarioEdit }: Di
             nome_completo: nomeCompleto,
             cpf: cpfLimpo,
             data_nascimento: dataNascimento,
+            gestor: gestor,
             responsavel_legal: responsavelLegal,
             compliance: compliance,
             cargo: cargo || null,
@@ -305,20 +307,41 @@ export function DialogUsuario({ open, onOpenChange, onSuccess, usuarioEdit }: Di
 
         if (profileError) throw profileError;
 
-        // Deletar roles atuais
-        await supabase.from("user_roles").delete().eq("user_id", usuarioEdit.id);
+        // Atualizar roles sem remover tudo antes (evita perder permissão ao editar o próprio usuário)
+        const { data: currentRoles, error: currentRolesError } = await supabase
+          .from("user_roles")
+          .select("role")
+          .eq("user_id", usuarioEdit.id);
 
-        // Inserir novas roles
-        const rolesToInsert: { user_id: string; role: "gestor" | "colaborador" }[] = [];
-        if (gestor) {
-          rolesToInsert.push({ user_id: usuarioEdit.id, role: "gestor" });
+        if (currentRolesError) throw currentRolesError;
+
+        const desiredRoles: Array<"gestor" | "colaborador"> = [];
+        if (gestor) desiredRoles.push("gestor");
+        if (colaborador) desiredRoles.push("colaborador");
+
+        const currentRoleNames = (currentRoles || []).map((r) => r.role) as string[];
+        const rolesToDelete = currentRoleNames.filter(
+          (role) => (role === "gestor" || role === "colaborador") && !desiredRoles.includes(role as "gestor" | "colaborador")
+        );
+
+        if (rolesToDelete.length > 0) {
+          const { error: deleteRolesError } = await supabase
+            .from("user_roles")
+            .delete()
+            .eq("user_id", usuarioEdit.id)
+            .in("role", rolesToDelete as Array<"gestor" | "colaborador" | "compliance">);
+
+          if (deleteRolesError) throw deleteRolesError;
         }
-        if (colaborador) {
-          rolesToInsert.push({ user_id: usuarioEdit.id, role: "colaborador" });
-        }
-        
+
+        const rolesToInsert = desiredRoles.filter((role) => !currentRoleNames.includes(role));
+
         if (rolesToInsert.length > 0) {
-          await supabase.from("user_roles").insert(rolesToInsert);
+          const { error: insertRolesError } = await supabase.from("user_roles").insert(
+            rolesToInsert.map((role) => ({ user_id: usuarioEdit.id, role }))
+          );
+
+          if (insertRolesError) throw insertRolesError;
         }
 
         // Atualizar contratos vinculados ao gerente
@@ -385,6 +408,7 @@ export function DialogUsuario({ open, onOpenChange, onSuccess, usuarioEdit }: Di
               cpf,
               dataNascimento,
               role: roleParaEnviar,
+              gestor,
               responsavelLegal,
               compliance,
               cargo,
