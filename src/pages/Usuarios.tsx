@@ -59,7 +59,6 @@ const Usuarios = () => {
   const [usuarios, setUsuarios] = useState<Usuario[]>([]);
   const [filtro, setFiltro] = useState("");
   const [dialogOpen, setDialogOpen] = useState(false);
-  const [isGestor, setIsGestor] = useState(false);
   const [usuarioParaExcluir, setUsuarioParaExcluir] = useState<string | null>(null);
   const [usuarioParaEditar, setUsuarioParaEditar] = useState<Usuario | null>(null);
 
@@ -68,43 +67,51 @@ const Usuarios = () => {
   }, []);
 
   const checkAuth = async () => {
-    const { data: { session } } = await supabase.auth.getSession();
-    if (!session) {
-      navigate("/auth");
-      return;
-    }
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        navigate("/auth");
+        return;
+      }
 
-    // Verificar se é gestor ou compliance
-    const { data: profile } = await supabase
-      .from("profiles")
-      .select("compliance, superintendente_executivo")
-      .eq("id", session.user.id)
-      .single();
+      const [profileResult, gestorResult] = await Promise.all([
+        supabase
+          .from("profiles")
+          .select("compliance, superintendente_executivo")
+          .eq("id", session.user.id)
+          .single(),
+        supabase.rpc("has_role", { _user_id: session.user.id, _role: "gestor" }),
+      ]);
 
-    const { data: roleData } = await supabase
-      .from("user_roles")
-      .select("role")
-      .eq("user_id", session.user.id)
-      .eq("role", "gestor")
-      .maybeSingle();
+      if (profileResult.error) throw profileResult.error;
+      if (gestorResult.error) throw gestorResult.error;
 
-    const isGestorCheck = !!roleData;
-    const isCompliance = profile?.compliance === true;
-    const isSuperintendenteExecutivo = profile?.superintendente_executivo === true;
+      const profile = profileResult.data;
+      const isGestorCheck = gestorResult.data === true;
+      const isCompliance = profile?.compliance === true;
+      const isSuperintendenteExecutivo = profile?.superintendente_executivo === true;
 
-    if (!isGestorCheck && !isCompliance && !isSuperintendenteExecutivo) {
+      if (!isGestorCheck && !isCompliance && !isSuperintendenteExecutivo) {
+        toast({
+          title: "Acesso negado",
+          description: "Apenas gestores, compliance e superintendentes executivos podem acessar esta página.",
+          variant: "destructive",
+        });
+        navigate("/dashboard");
+        return;
+      }
+
+      await loadUsuarios();
+    } catch (error: any) {
       toast({
-        title: "Acesso negado",
-        description: "Apenas gestores, compliance e superintendentes executivos podem acessar esta página.",
+        title: "Erro ao validar acesso",
+        description: error.message,
         variant: "destructive",
       });
       navigate("/dashboard");
-      return;
+    } finally {
+      setLoading(false);
     }
-
-    setIsGestor(isGestorCheck);
-    loadUsuarios();
-    setLoading(false);
   };
 
   const loadUsuarios = async () => {
