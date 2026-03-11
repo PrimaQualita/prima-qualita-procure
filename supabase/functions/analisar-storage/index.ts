@@ -3994,6 +3994,7 @@ Deno.serve(async (req) => {
           tamanhoMB: Number((estatisticasPorCategoria.relatorios_compras.tamanho / (1024 * 1024)).toFixed(2)),
           detalhes: estatisticasPorCategoria.relatorios_compras.detalhes,
         },
+        autorizacoes_compra_direta: {
           arquivos: estatisticasPorCategoria.autorizacoes_compra_direta.arquivos,
           tamanhoMB: Number((estatisticasPorCategoria.autorizacoes_compra_direta.tamanho / (1024 * 1024)).toFixed(2)),
           detalhes: estatisticasPorCategoria.autorizacoes_compra_direta.detalhes,
