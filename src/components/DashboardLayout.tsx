@@ -204,7 +204,7 @@ export function DashboardLayout() {
 
       if (roleError && roleError.code !== "PGRST116") throw roleError;
       
-      cachedIsGestor = !!roleData;
+      cachedIsGestor = !!roleData || profileData?.gestor === true;
       setIsGestor(cachedIsGestor);
 
       // Verificar se é gestor ou colaborador (usuário interno com permissões completas)
