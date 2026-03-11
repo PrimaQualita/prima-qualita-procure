@@ -89,17 +89,26 @@ serve(async (req) => {
       );
     }
 
-    // Check if user has gestor role
-    const { data: gestorRole, error: gestorRoleError } = await supabaseAdmin
+    // Check if user has gestor role OR is superintendente executivo
+    const { data: gestorRole } = await supabaseAdmin
       .from('user_roles')
       .select('role')
       .eq('user_id', requestingUser.id)
       .eq('role', 'gestor')
+      .maybeSingle();
+
+    const { data: requestingProfile } = await supabaseAdmin
+      .from('profiles')
+      .select('superintendente_executivo')
+      .eq('id', requestingUser.id)
       .single();
 
-    if (gestorRoleError || !gestorRole) {
+    const isGestor = !!gestorRole;
+    const isSuperintendenteExecutivo = requestingProfile?.superintendente_executivo === true;
+
+    if (!isGestor && !isSuperintendenteExecutivo) {
       return new Response(
-        JSON.stringify({ error: "Acesso negado. Apenas gestores podem deletar usuários." }),
+        JSON.stringify({ error: "Acesso negado. Apenas gestores e superintendentes executivos podem deletar usuários." }),
         {
           headers: { ...corsHeaders, "Content-Type": "application/json" },
           status: 403,
