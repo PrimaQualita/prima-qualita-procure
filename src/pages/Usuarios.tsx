@@ -77,7 +77,7 @@ const Usuarios = () => {
       const [profileResult, gestorResult] = await Promise.all([
         supabase
           .from("profiles")
-          .select("compliance, superintendente_executivo, role")
+          .select("compliance, superintendente_executivo")
           .eq("id", session.user.id)
           .single(),
         supabase.rpc("has_role", { _user_id: session.user.id, _role: "gestor" }),
@@ -87,7 +87,7 @@ const Usuarios = () => {
       if (gestorResult.error) throw gestorResult.error;
 
       const profile = profileResult.data;
-      const isGestorCheck = gestorResult.data === true || profile?.role === "gestor";
+      const isGestorCheck = gestorResult.data === true;
       const isCompliance = profile?.compliance === true;
       const isSuperintendenteExecutivo = profile?.superintendente_executivo === true;
 
