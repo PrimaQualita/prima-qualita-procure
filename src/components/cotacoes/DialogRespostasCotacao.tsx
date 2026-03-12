@@ -459,6 +459,27 @@ export function DialogRespostasCotacao({
         },
       });
 
+      // Verificar se ainda existem encaminhamentos para esta cotação
+      const { data: encRestantes } = await supabase
+        .from("encaminhamentos_processo")
+        .select("id")
+        .eq("cotacao_id", cotacaoId)
+        .limit(1);
+
+      // Se não há mais encaminhamentos, resetar o status de envio ao compliance
+      if (!encRestantes || encRestantes.length === 0) {
+        console.log("📝 [DialogRespostasCotacao] Nenhum encaminhamento restante, resetando envio ao compliance...");
+        await supabase
+          .from("cotacoes_precos")
+          .update({
+            enviado_compliance: false,
+            respondido_compliance: false,
+            data_envio_compliance: null,
+            data_resposta_compliance: null,
+          })
+          .eq("id", cotacaoId);
+      }
+
       console.log('✅ Encaminhamento excluído, recarregando lista...');
       setEncaminhamentoParaExcluir(null);
       setConfirmDeleteEncaminhamentoOpen(false);
@@ -1446,14 +1467,16 @@ export function DialogRespostasCotacao({
                         <FileText className="mr-2 h-4 w-4" />
                         {gerandoEncaminhamento ? "Gerando..." : "Gerar Encaminhamento"}
                       </Button>
-                      <Button
-                        onClick={enviarAoCompliance}
-                        disabled={enviandoCompliance}
-                        className="flex-1"
-                      >
-                        <Send className="mr-2 h-4 w-4" />
-                        {enviandoCompliance ? "Enviando..." : "Enviar ao Compliance"}
-                      </Button>
+                      {encaminhamentos.length > 0 && (
+                        <Button
+                          onClick={enviarAoCompliance}
+                          disabled={enviandoCompliance}
+                          className="flex-1"
+                        >
+                          <Send className="mr-2 h-4 w-4" />
+                          {enviandoCompliance ? "Enviando..." : "Enviar ao Compliance"}
+                        </Button>
+                      )}
                     </div>
                   )}
                 </div>
