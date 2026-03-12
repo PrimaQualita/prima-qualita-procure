@@ -581,7 +581,7 @@ export function DashboardBIOperacional({
   }, [contratosTerceiros, processosParaContratar, cotacoesPrecos, processos, selecoes, fornecedores, contratoSelecionado, hoje, docData, processoContratoMap, docsFornecedor, respostasCotacao]);
 
   const [selectedKpiName, setSelectedKpiName] = useState<string | null>(null);
-  const [gruposProcessoSelecionados, setGruposProcessoSelecionados] = useState<string[]>(["requisicao"]);
+  const [gruposProcessoSelecionados, setGruposProcessoSelecionados] = useState<string[]>(["status_processo"]);
   const [grupoChartTypes, setGrupoChartTypes] = useState<Record<string, ChartType>>({});
 
   const selectedKey = moduloSelecionado as ModuloKey;
