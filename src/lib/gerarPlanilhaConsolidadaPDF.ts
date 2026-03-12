@@ -1036,11 +1036,86 @@ export async function gerarPlanilhaConsolidadaPDF(
   // Pegar posição Y após a tabela
   const finalY = (doc as any).lastAutoTable.finalY;
 
-  // Verificar se precisa de nova página para certificação
+  // --- OBSERVAÇÃO sobre critério de cálculo aplicado ---
+  const nomesCriterio: Record<string, string> = {
+    menor: 'Menor Preço',
+    media: 'Média',
+    mediana: 'Mediana',
+  };
+
+  // Montar texto da observação baseado nos critérios aplicados
+  let textoObservacao = '';
+  
+  if (calculosPorItem && Object.keys(calculosPorItem).length > 0) {
+    // Agrupar itens por critério
+    const itensPorCriterio: Record<string, number[]> = {};
+    
+    Object.entries(calculosPorItem).forEach(([chave, criterio]) => {
+      if (!itensPorCriterio[criterio]) {
+        itensPorCriterio[criterio] = [];
+      }
+      // Extrair número do item da chave composta (formato: "lote_item" ou "0_item")
+      const partes = chave.split('_');
+      const numItem = parseInt(partes[partes.length - 1]);
+      if (!isNaN(numItem) && !itensPorCriterio[criterio].includes(numItem)) {
+        itensPorCriterio[criterio].push(numItem);
+      }
+    });
+
+    // Ordenar itens dentro de cada critério
+    Object.values(itensPorCriterio).forEach(arr => arr.sort((a, b) => a - b));
+
+    const criteriosUsados = Object.keys(itensPorCriterio);
+
+    if (criteriosUsados.length === 1) {
+      // Todos os itens usam o mesmo critério
+      const criterio = criteriosUsados[0];
+      textoObservacao = `Observação: Foi aplicado a todos os itens o parâmetro de cálculo "${nomesCriterio[criterio] || criterio}" para composição da estimativa de preços.`;
+    } else {
+      // Critérios diferentes por item
+      const partes = criteriosUsados.map(criterio => {
+        const nums = itensPorCriterio[criterio];
+        const listaItens = nums.length === 1
+          ? `item ${nums[0].toString().padStart(2, '0')}`
+          : `itens ${nums.map(n => n.toString().padStart(2, '0')).join(', ')}`;
+        return `${listaItens} o parâmetro "${nomesCriterio[criterio] || criterio}"`;
+      });
+      textoObservacao = `Observação: Para composição da estimativa de preços, foi aplicado no ${partes.join('; no ')}.`;
+    }
+  }
+
+  // Calcular espaço necessário para observação
+  let alturaObservacao = 0;
+  let linhasObservacao: string[] = [];
+  if (textoObservacao) {
+    doc.setFontSize(9);
+    doc.setFont('helvetica', 'italic');
+    linhasObservacao = doc.splitTextToSize(textoObservacao, larguraUtil);
+    alturaObservacao = linhasObservacao.length * 4.5 + 8; // linhas + margem
+  }
+
+  // Verificar se precisa de nova página para observação + certificação
   const alturaCertificacao = 35;
-  // Não há rodapé nesta planilha; usar margem inferior pequena só para evitar corte visual.
   const margemInferior = 5;
   let y2 = finalY + 10;
+  
+  if (y2 + alturaObservacao + alturaCertificacao > pageHeight - margemInferior) {
+    doc.addPage();
+    y2 = 20;
+  }
+
+  // Desenhar observação
+  if (textoObservacao && linhasObservacao.length > 0) {
+    doc.setFontSize(9);
+    doc.setFont('helvetica', 'italic');
+    doc.setTextColor(80, 80, 80);
+    linhasObservacao.forEach((linha: string) => {
+      doc.text(linha, margemEsquerda, y2);
+      y2 += 4.5;
+    });
+    y2 += 4; // espaço entre observação e certificação
+  }
+
   if (y2 + alturaCertificacao > pageHeight - margemInferior) {
     doc.addPage();
     y2 = 20;
