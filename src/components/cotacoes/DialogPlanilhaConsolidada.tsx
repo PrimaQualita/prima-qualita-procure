@@ -943,13 +943,13 @@ export function DialogPlanilhaConsolidada({
                       <p className="text-xs text-muted-foreground line-clamp-1">{lote.descricao}</p>
                     </div>
                     <Select 
-                      value={calculosPorLote[lote.id] || "menor"} 
+                      value={calculosPorLote[lote.id] || ""} 
                       onValueChange={(v: "media" | "mediana" | "menor") => {
                         setCalculosPorLote(prev => ({ ...prev, [lote.id]: v }));
                       }}
                     >
                       <SelectTrigger className="w-[160px]">
-                        <SelectValue />
+                        <SelectValue placeholder="Selecione..." />
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="menor">Menor Preço</SelectItem>
