@@ -898,7 +898,7 @@ export function DialogPlanilhaConsolidada({
                 <Label>Tipo de Cálculo Global</Label>
                 <Select value={calculoGlobal} onValueChange={(v: "media" | "mediana" | "menor") => setCalculoGlobal(v)}>
                   <SelectTrigger>
-                    <SelectValue />
+                    <SelectValue placeholder="Selecione o parâmetro..." />
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="menor">Menor Preço</SelectItem>
