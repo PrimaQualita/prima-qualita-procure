@@ -267,27 +267,6 @@ export default function RespostasCotacao() {
         },
       });
 
-      // Verificar se ainda existem encaminhamentos para esta cotação
-      const { data: encRestantes } = await supabase
-        .from("encaminhamentos_processo")
-        .select("id")
-        .eq("cotacao_id", cotacaoId)
-        .limit(1);
-
-      // Se não há mais encaminhamentos, resetar o status de envio ao compliance
-      if (!encRestantes || encRestantes.length === 0) {
-        console.log("📝 [RespostasCotacao] Nenhum encaminhamento restante, resetando envio ao compliance...");
-        await supabase
-          .from("cotacoes_precos")
-          .update({
-            enviado_compliance: false,
-            respondido_compliance: false,
-            data_envio_compliance: null,
-            data_resposta_compliance: null,
-          })
-          .eq("id", cotacaoId);
-      }
-
       setEncaminhamentoParaExcluir(null);
       setConfirmDeleteEncaminhamentoOpen(false);
       loadEncaminhamento();
@@ -1604,8 +1583,8 @@ export default function RespostasCotacao() {
                 </Button>
               )}
 
-              {/* Botão Enviar ao Compliance - só aparece após gerar encaminhamento */}
-              {canEdit && planilhasAnteriores.length > 0 && encaminhamentos.length > 0 && (
+              {/* Botão Enviar ao Compliance */}
+              {canEdit && planilhasAnteriores.length > 0 && (
                 <Button
                   onClick={enviarAoCompliance}
                   disabled={enviandoCompliance}

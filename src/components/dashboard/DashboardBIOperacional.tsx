@@ -86,13 +86,12 @@ const COLORS: Record<string, string> = {
 };
 
 const GRUPOS_PROCESSO = [
-  { key: "status_processo", title: "Status do Processo", indices: [0, 1] },
-  { key: "requisicao", title: "Requisição", indices: [2, 3, 4] },
-  { key: "aut_despesa", title: "Aut. Despesa", indices: [5, 6, 7] },
-  { key: "aut_selecao", title: "Aut. Seleção", indices: [8, 9, 10] },
-  { key: "aut_compra_direta", title: "Aut. Compra Direta", indices: [11, 12, 13] },
-  { key: "homologacao", title: "Homologação", indices: [14, 15, 16] },
-  { key: "atas", title: "Atas", indices: [17, 18, 19] },
+  { key: "requisicao", title: "Requisição", indices: [0, 1, 2] },
+  { key: "aut_despesa", title: "Aut. Despesa", indices: [3, 4, 5] },
+  { key: "aut_selecao", title: "Aut. Seleção", indices: [6, 7, 8] },
+  { key: "aut_compra_direta", title: "Aut. Compra Direta", indices: [9, 10, 11] },
+  { key: "homologacao", title: "Homologação", indices: [12, 13, 14] },
+  { key: "atas", title: "Atas", indices: [15, 16, 17] },
 ];
 
 type ModuloKey = "documentos_processo" | "cotacoes_bi" | "contratos" | "compliance" | "selecoes" | "credenciamentos" | "contratacoes" | "fornecedores";
@@ -504,24 +503,8 @@ export function DashboardBIOperacional({
     // Em Aberto: suppliers not approved and not rejected
     const fornEmAbertoDetails = fornEmAberto.map(f => ({ fornecedor: f.razao_social || f.nome_fantasia || 'N/A', status: f.status_aprovacao || 'Pendente' }));
 
-    // === STATUS DO PROCESSO (Abertos vs Finalizados) ===
-    const procFiltradosStatus = filterCG(processos);
-    const procAbertos = procFiltradosStatus.filter(p => p.status_processo !== "concluido");
-    const procFinalizados = procFiltradosStatus.filter(p => p.status_processo === "concluido");
-
-    const procAbertosDetail = procAbertos.map((p: any) => ({
-      numero: p.numero_processo_interno || 'N/A',
-      contrato: p.contratos_gestao?.nome_contrato || 'Sem Contrato',
-    }));
-    const procFinalizadosDetail = procFinalizados.map((p: any) => ({
-      numero: p.numero_processo_interno || 'N/A',
-      contrato: p.contratos_gestao?.nome_contrato || 'Sem Contrato',
-    }));
-
     return {
       documentos_processo: [
-        { name: "Processos Abertos", value: procAbertos.length, color: "info", icon: Clock, detailItems: procAbertosDetail },
-        { name: "Processos Finalizados", value: procFinalizados.length, color: "success", icon: CheckCircle2, detailItems: procFinalizadosDetail },
         { name: "Requisição - Solicitadas", value: reqSolicitadas, color: "info", icon: FileClock, detailItems: reqSolDetail },
         { name: "Requisição - Geradas", value: reqGeradasCount, color: "success", icon: FileCheck, detailItems: reqGerDetail },
         { name: "Requisição - Pendentes", value: reqPendentes, color: reqPendentes > 0 ? "danger" : "success", icon: Clock, detailItems: reqPendDetail },
@@ -581,7 +564,7 @@ export function DashboardBIOperacional({
   }, [contratosTerceiros, processosParaContratar, cotacoesPrecos, processos, selecoes, fornecedores, contratoSelecionado, hoje, docData, processoContratoMap, docsFornecedor, respostasCotacao]);
 
   const [selectedKpiName, setSelectedKpiName] = useState<string | null>(null);
-  const [gruposProcessoSelecionados, setGruposProcessoSelecionados] = useState<string[]>(["status_processo"]);
+  const [gruposProcessoSelecionados, setGruposProcessoSelecionados] = useState<string[]>(["requisicao"]);
   const [grupoChartTypes, setGrupoChartTypes] = useState<Record<string, ChartType>>({});
 
   const selectedKey = moduloSelecionado as ModuloKey;
