@@ -86,12 +86,13 @@ const COLORS: Record<string, string> = {
 };
 
 const GRUPOS_PROCESSO = [
-  { key: "requisicao", title: "Requisição", indices: [0, 1, 2] },
-  { key: "aut_despesa", title: "Aut. Despesa", indices: [3, 4, 5] },
-  { key: "aut_selecao", title: "Aut. Seleção", indices: [6, 7, 8] },
-  { key: "aut_compra_direta", title: "Aut. Compra Direta", indices: [9, 10, 11] },
-  { key: "homologacao", title: "Homologação", indices: [12, 13, 14] },
-  { key: "atas", title: "Atas", indices: [15, 16, 17] },
+  { key: "status_processo", title: "Status do Processo", indices: [0, 1] },
+  { key: "requisicao", title: "Requisição", indices: [2, 3, 4] },
+  { key: "aut_despesa", title: "Aut. Despesa", indices: [5, 6, 7] },
+  { key: "aut_selecao", title: "Aut. Seleção", indices: [8, 9, 10] },
+  { key: "aut_compra_direta", title: "Aut. Compra Direta", indices: [11, 12, 13] },
+  { key: "homologacao", title: "Homologação", indices: [14, 15, 16] },
+  { key: "atas", title: "Atas", indices: [17, 18, 19] },
 ];
 
 type ModuloKey = "documentos_processo" | "cotacoes_bi" | "contratos" | "compliance" | "selecoes" | "credenciamentos" | "contratacoes" | "fornecedores";
