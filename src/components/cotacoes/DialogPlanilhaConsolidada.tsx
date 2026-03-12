@@ -267,27 +267,15 @@ export function DialogPlanilhaConsolidada({
       // Armazenar TODOS os itens da cotação para usar na configuração
       setTodosItens(itensFormatados || []);
       
-      // Inicializar cálculos com "menor" para TODOS os itens da cotação
-      // Usar chave composta "loteId_itemId" para diferenciar itens de lotes diferentes
+      // Inicializar cálculos VAZIOS para TODOS os itens da cotação
+      // O usuário deve selecionar o parâmetro antes de gerar
       if (itensFormatados && itensFormatados.length > 0) {
-        const novosCalculos: Record<string, "media" | "mediana" | "menor"> = {};
-        itensFormatados.forEach((item: any) => {
-          const chave = `${item.lote_id || 'sem-lote'}_${item.id}`;
-          novosCalculos[chave] = "menor";
-        });
-        setCalculosPorItem(novosCalculos as any);
+        setCalculosPorItem({});
+        setCalculoGlobal("");
 
-        // Inicializar cálculos por lote se aplicável
+        // Inicializar cálculos por lote vazios se aplicável
         if (criterioJulgamento === "por_lote") {
-          const lotes = new Set<string>();
-          itensFormatados.forEach((item: any) => {
-            if (item.lote_id) lotes.add(item.lote_id);
-          });
-          const novosCalculosLote: Record<string, "media" | "mediana" | "menor"> = {};
-          lotes.forEach(loteId => {
-            novosCalculosLote[loteId] = "menor";
-          });
-          setCalculosPorLote(novosCalculosLote);
+          setCalculosPorLote({});
         }
       }
     } catch (error) {
