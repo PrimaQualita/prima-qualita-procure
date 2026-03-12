@@ -1467,14 +1467,16 @@ export function DialogRespostasCotacao({
                         <FileText className="mr-2 h-4 w-4" />
                         {gerandoEncaminhamento ? "Gerando..." : "Gerar Encaminhamento"}
                       </Button>
-                      <Button
-                        onClick={enviarAoCompliance}
-                        disabled={enviandoCompliance}
-                        className="flex-1"
-                      >
-                        <Send className="mr-2 h-4 w-4" />
-                        {enviandoCompliance ? "Enviando..." : "Enviar ao Compliance"}
-                      </Button>
+                      {encaminhamentos.length > 0 && (
+                        <Button
+                          onClick={enviarAoCompliance}
+                          disabled={enviandoCompliance}
+                          className="flex-1"
+                        >
+                          <Send className="mr-2 h-4 w-4" />
+                          {enviandoCompliance ? "Enviando..." : "Enviar ao Compliance"}
+                        </Button>
+                      )}
                     </div>
                   )}
                 </div>
