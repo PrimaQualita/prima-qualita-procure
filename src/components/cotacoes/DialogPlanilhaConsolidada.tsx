@@ -307,6 +307,37 @@ export function DialogPlanilhaConsolidada({
   };
 
   const gerarPlanilha = async () => {
+    // Validar se todos os parâmetros de cálculo foram selecionados
+    if (tipoVisualizacao === "global" && !calculoGlobal) {
+      toast.error("Selecione o parâmetro de cálculo", {
+        description: "É necessário definir o tipo de cálculo global antes de gerar a planilha.",
+      });
+      return;
+    }
+    if (tipoVisualizacao === "lote" && criterioJulgamento === "por_lote") {
+      const loteSemCalculo = todosItens
+        .filter((i: any) => i.lote_id)
+        .some((i: any) => !calculosPorLote[i.lote_id]);
+      if (loteSemCalculo) {
+        toast.error("Selecione o parâmetro de cálculo para todos os lotes", {
+          description: "Cada lote precisa ter um tipo de cálculo definido antes de gerar a planilha.",
+        });
+        return;
+      }
+    }
+    if (tipoVisualizacao === "item") {
+      const itemSemCalculo = todosItens.some((item: any) => {
+        const chave = `${item.lote_id || 'sem-lote'}_${item.id}`;
+        return !calculosPorItem[chave];
+      });
+      if (itemSemCalculo) {
+        toast.error("Selecione o parâmetro de cálculo para todos os itens", {
+          description: "Cada item precisa ter um tipo de cálculo definido. Use \"Aplicar para todos\" para agilizar.",
+        });
+        return;
+      }
+    }
+
     try {
       setLoadingPlanilha(true);
       
