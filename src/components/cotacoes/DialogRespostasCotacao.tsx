@@ -459,6 +459,27 @@ export function DialogRespostasCotacao({
         },
       });
 
+      // Verificar se ainda existem encaminhamentos para esta cotação
+      const { data: encRestantes } = await supabase
+        .from("encaminhamentos_processo")
+        .select("id")
+        .eq("cotacao_id", cotacaoId)
+        .limit(1);
+
+      // Se não há mais encaminhamentos, resetar o status de envio ao compliance
+      if (!encRestantes || encRestantes.length === 0) {
+        console.log("📝 [DialogRespostasCotacao] Nenhum encaminhamento restante, resetando envio ao compliance...");
+        await supabase
+          .from("cotacoes_precos")
+          .update({
+            enviado_compliance: false,
+            respondido_compliance: false,
+            data_envio_compliance: null,
+            data_resposta_compliance: null,
+          })
+          .eq("id", cotacaoId);
+      }
+
       console.log('✅ Encaminhamento excluído, recarregando lista...');
       setEncaminhamentoParaExcluir(null);
       setConfirmDeleteEncaminhamentoOpen(false);
