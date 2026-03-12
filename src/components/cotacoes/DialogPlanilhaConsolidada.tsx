@@ -65,7 +65,7 @@ export function DialogPlanilhaConsolidada({
   const tipoVisualizacao = criterioJulgamento === "por_lote" ? "lote" : criterioJulgamento === "global" ? "global" : "item";
   const [calculosPorItem, setCalculosPorItem] = useState<Record<string, "media" | "mediana" | "menor">>({});
   const [calculosPorLote, setCalculosPorLote] = useState<Record<string, "media" | "mediana" | "menor">>({});
-  const [calculoGlobal, setCalculoGlobal] = useState<"media" | "mediana" | "menor">("menor");
+  const [calculoGlobal, setCalculoGlobal] = useState<"media" | "mediana" | "menor" | "">("")
   const [todosItens, setTodosItens] = useState<any[]>([]);
   const [tipoProcesso, setTipoProcesso] = useState<string>("");
   const [empresasSelecionadas, setEmpresasSelecionadas] = useState<Set<string>>(new Set());
