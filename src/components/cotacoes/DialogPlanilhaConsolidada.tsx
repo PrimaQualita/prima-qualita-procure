@@ -74,6 +74,10 @@ export function DialogPlanilhaConsolidada({
 
   useEffect(() => {
     if (open && cotacaoId) {
+      // Resetar todos os parâmetros ao abrir o dialog
+      setCalculosPorItem({});
+      setCalculosPorLote({});
+      setCalculoGlobal("");
       loadRespostas();
     }
   }, [open, cotacaoId]);
