@@ -1604,8 +1604,8 @@ export default function RespostasCotacao() {
                 </Button>
               )}
 
-              {/* Botão Enviar ao Compliance */}
-              {canEdit && planilhasAnteriores.length > 0 && (
+              {/* Botão Enviar ao Compliance - só aparece após gerar encaminhamento */}
+              {canEdit && planilhasAnteriores.length > 0 && encaminhamentos.length > 0 && (
                 <Button
                   onClick={enviarAoCompliance}
                   disabled={enviandoCompliance}

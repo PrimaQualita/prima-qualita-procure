@@ -504,8 +504,24 @@ export function DashboardBIOperacional({
     // Em Aberto: suppliers not approved and not rejected
     const fornEmAbertoDetails = fornEmAberto.map(f => ({ fornecedor: f.razao_social || f.nome_fantasia || 'N/A', status: f.status_aprovacao || 'Pendente' }));
 
+    // === STATUS DO PROCESSO (Abertos vs Finalizados) ===
+    const procFiltradosStatus = filterCG(processos);
+    const procAbertos = procFiltradosStatus.filter(p => p.status_processo !== "concluido");
+    const procFinalizados = procFiltradosStatus.filter(p => p.status_processo === "concluido");
+
+    const procAbertosDetail = procAbertos.map((p: any) => ({
+      numero: p.numero_processo_interno || 'N/A',
+      contrato: p.contratos_gestao?.nome_contrato || 'Sem Contrato',
+    }));
+    const procFinalizadosDetail = procFinalizados.map((p: any) => ({
+      numero: p.numero_processo_interno || 'N/A',
+      contrato: p.contratos_gestao?.nome_contrato || 'Sem Contrato',
+    }));
+
     return {
       documentos_processo: [
+        { name: "Processos Abertos", value: procAbertos.length, color: "info", icon: Clock, detailItems: procAbertosDetail },
+        { name: "Processos Finalizados", value: procFinalizados.length, color: "success", icon: CheckCircle2, detailItems: procFinalizadosDetail },
         { name: "Requisição - Solicitadas", value: reqSolicitadas, color: "info", icon: FileClock, detailItems: reqSolDetail },
         { name: "Requisição - Geradas", value: reqGeradasCount, color: "success", icon: FileCheck, detailItems: reqGerDetail },
         { name: "Requisição - Pendentes", value: reqPendentes, color: reqPendentes > 0 ? "danger" : "success", icon: Clock, detailItems: reqPendDetail },
