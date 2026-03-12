@@ -65,7 +65,7 @@ export function DialogPlanilhaConsolidada({
   const tipoVisualizacao = criterioJulgamento === "por_lote" ? "lote" : criterioJulgamento === "global" ? "global" : "item";
   const [calculosPorItem, setCalculosPorItem] = useState<Record<string, "media" | "mediana" | "menor">>({});
   const [calculosPorLote, setCalculosPorLote] = useState<Record<string, "media" | "mediana" | "menor">>({});
-  const [calculoGlobal, setCalculoGlobal] = useState<"media" | "mediana" | "menor">("menor");
+  const [calculoGlobal, setCalculoGlobal] = useState<"media" | "mediana" | "menor" | "">("")
   const [todosItens, setTodosItens] = useState<any[]>([]);
   const [tipoProcesso, setTipoProcesso] = useState<string>("");
   const [empresasSelecionadas, setEmpresasSelecionadas] = useState<Set<string>>(new Set());
@@ -267,27 +267,15 @@ export function DialogPlanilhaConsolidada({
       // Armazenar TODOS os itens da cotação para usar na configuração
       setTodosItens(itensFormatados || []);
       
-      // Inicializar cálculos com "menor" para TODOS os itens da cotação
-      // Usar chave composta "loteId_itemId" para diferenciar itens de lotes diferentes
+      // Inicializar cálculos VAZIOS para TODOS os itens da cotação
+      // O usuário deve selecionar o parâmetro antes de gerar
       if (itensFormatados && itensFormatados.length > 0) {
-        const novosCalculos: Record<string, "media" | "mediana" | "menor"> = {};
-        itensFormatados.forEach((item: any) => {
-          const chave = `${item.lote_id || 'sem-lote'}_${item.id}`;
-          novosCalculos[chave] = "menor";
-        });
-        setCalculosPorItem(novosCalculos as any);
+        setCalculosPorItem({});
+        setCalculoGlobal("");
 
-        // Inicializar cálculos por lote se aplicável
+        // Inicializar cálculos por lote vazios se aplicável
         if (criterioJulgamento === "por_lote") {
-          const lotes = new Set<string>();
-          itensFormatados.forEach((item: any) => {
-            if (item.lote_id) lotes.add(item.lote_id);
-          });
-          const novosCalculosLote: Record<string, "media" | "mediana" | "menor"> = {};
-          lotes.forEach(loteId => {
-            novosCalculosLote[loteId] = "menor";
-          });
-          setCalculosPorLote(novosCalculosLote);
+          setCalculosPorLote({});
         }
       }
     } catch (error) {
@@ -319,6 +307,37 @@ export function DialogPlanilhaConsolidada({
   };
 
   const gerarPlanilha = async () => {
+    // Validar se todos os parâmetros de cálculo foram selecionados
+    if (tipoVisualizacao === "global" && !calculoGlobal) {
+      toast.error("Selecione o parâmetro de cálculo", {
+        description: "É necessário definir o tipo de cálculo global antes de gerar a planilha.",
+      });
+      return;
+    }
+    if (tipoVisualizacao === "lote" && criterioJulgamento === "por_lote") {
+      const loteSemCalculo = todosItens
+        .filter((i: any) => i.lote_id)
+        .some((i: any) => !calculosPorLote[i.lote_id]);
+      if (loteSemCalculo) {
+        toast.error("Selecione o parâmetro de cálculo para todos os lotes", {
+          description: "Cada lote precisa ter um tipo de cálculo definido antes de gerar a planilha.",
+        });
+        return;
+      }
+    }
+    if (tipoVisualizacao === "item") {
+      const itemSemCalculo = todosItens.some((item: any) => {
+        const chave = `${item.lote_id || 'sem-lote'}_${item.id}`;
+        return !calculosPorItem[chave];
+      });
+      if (itemSemCalculo) {
+        toast.error("Selecione o parâmetro de cálculo para todos os itens", {
+          description: "Cada item precisa ter um tipo de cálculo definido. Use \"Aplicar para todos\" para agilizar.",
+        });
+        return;
+      }
+    }
+
     try {
       setLoadingPlanilha(true);
       
@@ -910,7 +929,7 @@ export function DialogPlanilhaConsolidada({
                 <Label>Tipo de Cálculo Global</Label>
                 <Select value={calculoGlobal} onValueChange={(v: "media" | "mediana" | "menor") => setCalculoGlobal(v)}>
                   <SelectTrigger>
-                    <SelectValue />
+                    <SelectValue placeholder="Selecione o parâmetro..." />
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="menor">Menor Preço</SelectItem>
@@ -955,13 +974,13 @@ export function DialogPlanilhaConsolidada({
                       <p className="text-xs text-muted-foreground line-clamp-1">{lote.descricao}</p>
                     </div>
                     <Select 
-                      value={calculosPorLote[lote.id] || "menor"} 
+                      value={calculosPorLote[lote.id] || ""} 
                       onValueChange={(v: "media" | "mediana" | "menor") => {
                         setCalculosPorLote(prev => ({ ...prev, [lote.id]: v }));
                       }}
                     >
                       <SelectTrigger className="w-[160px]">
-                        <SelectValue />
+                        <SelectValue placeholder="Selecione..." />
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="menor">Menor Preço</SelectItem>
@@ -1016,13 +1035,13 @@ export function DialogPlanilhaConsolidada({
                         )}
                       </div>
                       <Select 
-                        value={calculosPorItem[chaveItem] || "menor"} 
+                        value={calculosPorItem[chaveItem] || ""} 
                         onValueChange={(v: "media" | "mediana" | "menor") => {
                           setCalculosPorItem(prev => ({ ...prev, [chaveItem]: v }));
                         }}
                       >
                         <SelectTrigger className="w-[160px]">
-                          <SelectValue />
+                          <SelectValue placeholder="Selecione..." />
                         </SelectTrigger>
                         <SelectContent>
                           <SelectItem value="menor">Menor Preço</SelectItem>
