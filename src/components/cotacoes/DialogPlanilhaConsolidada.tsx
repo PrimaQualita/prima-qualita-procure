@@ -1004,13 +1004,13 @@ export function DialogPlanilhaConsolidada({
                         )}
                       </div>
                       <Select 
-                        value={calculosPorItem[chaveItem] || "menor"} 
+                        value={calculosPorItem[chaveItem] || ""} 
                         onValueChange={(v: "media" | "mediana" | "menor") => {
                           setCalculosPorItem(prev => ({ ...prev, [chaveItem]: v }));
                         }}
                       >
                         <SelectTrigger className="w-[160px]">
-                          <SelectValue />
+                          <SelectValue placeholder="Selecione..." />
                         </SelectTrigger>
                         <SelectContent>
                           <SelectItem value="menor">Menor Preço</SelectItem>
