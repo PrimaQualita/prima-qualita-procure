@@ -2,10 +2,11 @@ import { useEffect, useState } from "react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { CheckCircle, XCircle, ExternalLink, AlertCircle } from "lucide-react";
+import { CheckCircle, XCircle, ExternalLink, AlertCircle, FileText, Loader2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useNavigate } from "react-router-dom";
+import { gerarProcessoCompletoPDF } from "@/lib/gerarProcessoCompletoPDF";
 
 interface Solicitacao {
   id: string;
@@ -22,6 +23,7 @@ export function SolicitacoesAutorizacao() {
   const [solicitacoes, setSolicitacoes] = useState<Solicitacao[]>([]);
   const [loading, setLoading] = useState(false);
   const [fechado, setFechado] = useState(false);
+  const [gerandoPDF, setGerandoPDF] = useState<string | null>(null);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -142,9 +144,27 @@ export function SolicitacoesAutorizacao() {
     }
   };
 
+  const verProcessoPDF = async (cotacaoId: string, processoNumero: string) => {
+    try {
+      setGerandoPDF(cotacaoId);
+      toast.info("Gerando PDF do processo completo, aguarde...");
+      const result = await gerarProcessoCompletoPDF(cotacaoId, processoNumero, true);
+      if (result?.url) {
+        window.open(result.url, '_blank');
+      } else if (result?.blob) {
+        const url = URL.createObjectURL(result.blob);
+        window.open(url, '_blank');
+      }
+    } catch (error) {
+      console.error("Erro ao gerar PDF do processo:", error);
+      toast.error("Erro ao gerar o PDF do processo completo");
+    } finally {
+      setGerandoPDF(null);
+    }
+  };
+
   const irParaCotacao = (cotacaoId: string) => {
     navigate("/cotacoes");
-    // Nota: Aqui você pode adicionar lógica adicional para abrir o dialog específico
   };
 
   if (solicitacoes.length === 0 || fechado) {
@@ -192,7 +212,7 @@ export function SolicitacoesAutorizacao() {
                   {new Date(solicitacao.data_solicitacao).toLocaleString("pt-BR")}
                 </p>
               </div>
-              <div className="flex gap-2 w-full sm:w-auto">
+              <div className="flex flex-wrap gap-2 w-full sm:w-auto">
                 <Button
                   onClick={() => irParaCotacao(solicitacao.cotacao_id)}
                   variant="outline"
@@ -201,6 +221,20 @@ export function SolicitacoesAutorizacao() {
                 >
                   <ExternalLink className="h-4 w-4 mr-1" />
                   Ver Processo
+                </Button>
+                <Button
+                  onClick={() => verProcessoPDF(solicitacao.cotacao_id, solicitacao.processo_numero)}
+                  disabled={gerandoPDF === solicitacao.cotacao_id}
+                  variant="outline"
+                  size="sm"
+                  className="flex-1 sm:flex-none border-blue-400 text-blue-700 hover:bg-blue-50 dark:text-blue-300 dark:hover:bg-blue-900"
+                >
+                  {gerandoPDF === solicitacao.cotacao_id ? (
+                    <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+                  ) : (
+                    <FileText className="h-4 w-4 mr-1" />
+                  )}
+                  Ver Processo em PDF
                 </Button>
                 <Button
                   onClick={() => autorizarSolicitacao(solicitacao.cotacao_id)}
