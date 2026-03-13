@@ -144,9 +144,27 @@ export function SolicitacoesAutorizacao() {
     }
   };
 
+  const verProcessoPDF = async (cotacaoId: string, processoNumero: string) => {
+    try {
+      setGerandoPDF(cotacaoId);
+      toast.info("Gerando PDF do processo completo, aguarde...");
+      const result = await gerarProcessoCompletoPDF(cotacaoId, processoNumero, true);
+      if (result?.url) {
+        window.open(result.url, '_blank');
+      } else if (result?.blob) {
+        const url = URL.createObjectURL(result.blob);
+        window.open(url, '_blank');
+      }
+    } catch (error) {
+      console.error("Erro ao gerar PDF do processo:", error);
+      toast.error("Erro ao gerar o PDF do processo completo");
+    } finally {
+      setGerandoPDF(null);
+    }
+  };
+
   const irParaCotacao = (cotacaoId: string) => {
     navigate("/cotacoes");
-    // Nota: Aqui você pode adicionar lógica adicional para abrir o dialog específico
   };
 
   if (solicitacoes.length === 0 || fechado) {
