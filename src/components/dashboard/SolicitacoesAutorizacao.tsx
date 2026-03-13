@@ -23,6 +23,7 @@ export function SolicitacoesAutorizacao() {
   const [solicitacoes, setSolicitacoes] = useState<Solicitacao[]>([]);
   const [loading, setLoading] = useState(false);
   const [fechado, setFechado] = useState(false);
+  const [gerandoPDF, setGerandoPDF] = useState<string | null>(null);
   const navigate = useNavigate();
 
   useEffect(() => {
