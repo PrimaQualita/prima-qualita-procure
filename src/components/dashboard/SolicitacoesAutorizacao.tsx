@@ -212,7 +212,7 @@ export function SolicitacoesAutorizacao() {
                   {new Date(solicitacao.data_solicitacao).toLocaleString("pt-BR")}
                 </p>
               </div>
-              <div className="flex gap-2 w-full sm:w-auto">
+              <div className="flex flex-wrap gap-2 w-full sm:w-auto">
                 <Button
                   onClick={() => irParaCotacao(solicitacao.cotacao_id)}
                   variant="outline"
@@ -221,6 +221,20 @@ export function SolicitacoesAutorizacao() {
                 >
                   <ExternalLink className="h-4 w-4 mr-1" />
                   Ver Processo
+                </Button>
+                <Button
+                  onClick={() => verProcessoPDF(solicitacao.cotacao_id, solicitacao.processo_numero)}
+                  disabled={gerandoPDF === solicitacao.cotacao_id}
+                  variant="outline"
+                  size="sm"
+                  className="flex-1 sm:flex-none border-blue-400 text-blue-700 hover:bg-blue-50 dark:text-blue-300 dark:hover:bg-blue-900"
+                >
+                  {gerandoPDF === solicitacao.cotacao_id ? (
+                    <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+                  ) : (
+                    <FileText className="h-4 w-4 mr-1" />
+                  )}
+                  Ver Processo em PDF
                 </Button>
                 <Button
                   onClick={() => autorizarSolicitacao(solicitacao.cotacao_id)}
