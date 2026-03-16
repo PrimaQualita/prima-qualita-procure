@@ -94,10 +94,11 @@ const GRUPOS_PROCESSO = [
   { key: "atas", title: "Atas", indices: [15, 16, 17] },
 ];
 
-type ModuloKey = "documentos_processo" | "cotacoes_bi" | "contratos" | "compliance" | "selecoes" | "credenciamentos" | "contratacoes" | "fornecedores";
+type ModuloKey = "processos_bi" | "documentos_processo" | "cotacoes_bi" | "contratos" | "compliance" | "selecoes" | "credenciamentos" | "contratacoes" | "fornecedores";
 
 const MODULO_CONFIG: Record<ModuloKey, { label: string; icon: any }> = {
-  documentos_processo: { label: "Processo", icon: Stamp },
+  processos_bi: { label: "Processo", icon: ClipboardList },
+  documentos_processo: { label: "Documentos de Processos", icon: Stamp },
   cotacoes_bi: { label: "Cotações", icon: Receipt },
   contratos: { label: "Contratos", icon: FileText },
   compliance: { label: "Análise de Compliance", icon: ShieldCheck },
