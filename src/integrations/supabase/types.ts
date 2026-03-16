@@ -1463,6 +1463,30 @@ export type Database = {
           },
         ]
       }
+      eventos_processo_cientes: {
+        Row: {
+          created_at: string
+          id: string
+          referencia_id: string
+          tipo_evento: string
+          usuario_ciente_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          referencia_id: string
+          tipo_evento: string
+          usuario_ciente_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          referencia_id?: string
+          tipo_evento?: string
+          usuario_ciente_id?: string
+        }
+        Relationships: []
+      }
       fornecedores: {
         Row: {
           ativo: boolean | null

@@ -14,6 +14,7 @@ import { SolicitacoesHomologacao } from "@/components/dashboard/SolicitacoesHomo
 import { SolicitacoesAutorizacaoSelecao } from "@/components/dashboard/SolicitacoesAutorizacaoSelecao";
 import { SolicitacoesDocumentosProcesso } from "@/components/dashboard/SolicitacoesDocumentosProcesso";
 import { SolicitacoesPropostasCotacao } from "@/components/dashboard/SolicitacoesPropostasCotacao";
+import { NotificacoesEventosGestor } from "@/components/dashboard/NotificacoesEventosGestor";
 import { atualizarAtaComAssinaturas } from "@/lib/gerarAtaSelecaoPDF";
 import { DashboardBIFilters } from "@/components/dashboard/DashboardBIFilters";
 import { DashboardBIKPIs } from "@/components/dashboard/DashboardBIKPIs";
@@ -469,8 +470,9 @@ const Dashboard = () => {
 
         {/* Notificações de propostas de cotação recebidas (Gestores) */}
         {userContext?.isGestor && (
-          <div className="mb-4">
+          <div className="mb-4 space-y-4">
             <SolicitacoesPropostasCotacao />
+            <NotificacoesEventosGestor />
           </div>
         )}
 
