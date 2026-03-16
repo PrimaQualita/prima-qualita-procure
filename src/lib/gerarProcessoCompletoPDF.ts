@@ -291,7 +291,7 @@ export const gerarProcessoCompletoPDF = async (
             
             documentosCronologicos.push({
               tipo: "Proposta Fornecedor",
-              data: anexo.data_upload || resposta.data_envio_resposta,
+              data: resposta.data_envio_resposta || anexo.data_upload,
               nome: `${razaoSocial} - ${anexo.nome_arquivo}`,
               storagePath: anexo.url_arquivo,
               bucket: "processo-anexos"
