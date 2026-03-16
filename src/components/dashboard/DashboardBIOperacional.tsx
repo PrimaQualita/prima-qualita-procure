@@ -504,7 +504,26 @@ export function DashboardBIOperacional({
     // Em Aberto: suppliers not approved and not rejected
     const fornEmAbertoDetails = fornEmAberto.map(f => ({ fornecedor: f.razao_social || f.nome_fantasia || 'N/A', status: f.status_aprovacao || 'Pendente' }));
 
+    // === PROCESSOS BI (Abertos vs Finalizados) ===
+    const procBIFiltrados = filterCG(processos);
+    const procFinalizados = procBIFiltrados.filter(p => p.status_processo === "finalizado" || p.status_processo === "concluido");
+    const procAbertos = procBIFiltrados.filter(p => p.status_processo !== "finalizado" && p.status_processo !== "concluido");
+
+    const buildProcessoDetail = (proc: any) => ({
+      contrato: proc.contratos_gestao?.nome_contrato || 'Sem Contrato',
+      numero: proc.numero_processo_interno || 'N/A',
+      objeto: proc.objeto || 'N/A',
+      status: proc.status_processo || 'N/A',
+    });
+
+    const procAbertosDetail = procAbertos.map(buildProcessoDetail);
+    const procFinalizadosDetail = procFinalizados.map(buildProcessoDetail);
+
     return {
+      processos_bi: [
+        { name: "Processos Abertos", value: procAbertos.length, color: "info", icon: Clock, detailItems: procAbertosDetail, _baseTotal: procBIFiltrados.length },
+        { name: "Processos Finalizados", value: procFinalizados.length, color: "success", icon: CheckCircle2, detailItems: procFinalizadosDetail, _baseTotal: procBIFiltrados.length },
+      ],
       documentos_processo: [
         { name: "Requisição - Solicitadas", value: reqSolicitadas, color: "info", icon: FileClock, detailItems: reqSolDetail },
         { name: "Requisição - Geradas", value: reqGeradasCount, color: "success", icon: FileCheck, detailItems: reqGerDetail },
