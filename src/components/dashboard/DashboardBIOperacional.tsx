@@ -794,7 +794,30 @@ export function DashboardBIOperacional({
               </CardHeader>
               <CardContent>
                 <div className="max-h-[400px] overflow-y-auto">
-                  {selectedKey === 'cotacoes_bi' ? (
+                  {selectedKey === 'processos_bi' ? (
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead className="text-xs">#</TableHead>
+                          <TableHead className="text-xs">Contrato de Gestão</TableHead>
+                          <TableHead className="text-xs">Processo</TableHead>
+                          <TableHead className="text-xs">Objeto</TableHead>
+                          <TableHead className="text-xs">Status</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {selectedKpiDetail.map((detail: any, idx: number) => (
+                          <TableRow key={idx}>
+                            <TableCell className="text-xs">{idx + 1}</TableCell>
+                            <TableCell className="text-xs">{detail.contrato}</TableCell>
+                            <TableCell className="text-xs font-medium">{detail.numero}</TableCell>
+                            <TableCell className="text-xs">{detail.objeto}</TableCell>
+                            <TableCell className="text-xs capitalize">{detail.status}</TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  ) : selectedKey === 'cotacoes_bi' ? (
                     <Table>
                       <TableHeader>
                         <TableRow>
