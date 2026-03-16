@@ -750,7 +750,7 @@ export function DashboardBIOperacional({
                     const ItemIcon = item.icon;
                     const baseTotal = item._baseTotal ?? selectedTotal;
                     const percentage = baseTotal > 0 ? ((item.value / baseTotal) * 100).toFixed(1) : "0";
-                    const isClickable = (selectedKey === 'fornecedores' || selectedKey === 'cotacoes_bi') && item.detailItems;
+                    const isClickable = (selectedKey === 'fornecedores' || selectedKey === 'cotacoes_bi' || selectedKey === 'processos_bi') && item.detailItems;
                     return (
                       <Tooltip key={i}>
                         <TooltipTrigger asChild>
