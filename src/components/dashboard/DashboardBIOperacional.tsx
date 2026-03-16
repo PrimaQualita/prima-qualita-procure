@@ -94,10 +94,11 @@ const GRUPOS_PROCESSO = [
   { key: "atas", title: "Atas", indices: [15, 16, 17] },
 ];
 
-type ModuloKey = "documentos_processo" | "cotacoes_bi" | "contratos" | "compliance" | "selecoes" | "credenciamentos" | "contratacoes" | "fornecedores";
+type ModuloKey = "processos_bi" | "documentos_processo" | "cotacoes_bi" | "contratos" | "compliance" | "selecoes" | "credenciamentos" | "contratacoes" | "fornecedores";
 
 const MODULO_CONFIG: Record<ModuloKey, { label: string; icon: any }> = {
-  documentos_processo: { label: "Processo", icon: Stamp },
+  processos_bi: { label: "Processo", icon: ClipboardList },
+  documentos_processo: { label: "Documentos de Processos", icon: Stamp },
   cotacoes_bi: { label: "Cotações", icon: Receipt },
   contratos: { label: "Contratos", icon: FileText },
   compliance: { label: "Análise de Compliance", icon: ShieldCheck },
@@ -503,7 +504,26 @@ export function DashboardBIOperacional({
     // Em Aberto: suppliers not approved and not rejected
     const fornEmAbertoDetails = fornEmAberto.map(f => ({ fornecedor: f.razao_social || f.nome_fantasia || 'N/A', status: f.status_aprovacao || 'Pendente' }));
 
+    // === PROCESSOS BI (Abertos vs Finalizados) ===
+    const procBIFiltrados = filterCG(processos);
+    const procFinalizados = procBIFiltrados.filter(p => p.status_processo === "finalizado" || p.status_processo === "concluido");
+    const procAbertos = procBIFiltrados.filter(p => p.status_processo !== "finalizado" && p.status_processo !== "concluido");
+
+    const buildProcessoDetail = (proc: any) => ({
+      contrato: proc.contratos_gestao?.nome_contrato || 'Sem Contrato',
+      numero: proc.numero_processo_interno || 'N/A',
+      objeto: proc.objeto || 'N/A',
+      status: proc.status_processo || 'N/A',
+    });
+
+    const procAbertosDetail = procAbertos.map(buildProcessoDetail);
+    const procFinalizadosDetail = procFinalizados.map(buildProcessoDetail);
+
     return {
+      processos_bi: [
+        { name: "Processos Abertos", value: procAbertos.length, color: "info", icon: Clock, detailItems: procAbertosDetail, _baseTotal: procBIFiltrados.length },
+        { name: "Processos Finalizados", value: procFinalizados.length, color: "success", icon: CheckCircle2, detailItems: procFinalizadosDetail, _baseTotal: procBIFiltrados.length },
+      ],
       documentos_processo: [
         { name: "Requisição - Solicitadas", value: reqSolicitadas, color: "info", icon: FileClock, detailItems: reqSolDetail },
         { name: "Requisição - Geradas", value: reqGeradasCount, color: "success", icon: FileCheck, detailItems: reqGerDetail },
@@ -574,7 +594,7 @@ export function DashboardBIOperacional({
 
   // Detail items for the selected KPI (supports documentos_processo, fornecedores, and cotacoes_bi)
   const selectedKpiDetail = useMemo(() => {
-    if (!selectedKpiName || (selectedKey !== 'documentos_processo' && selectedKey !== 'fornecedores' && selectedKey !== 'cotacoes_bi')) return null;
+    if (!selectedKpiName || (selectedKey !== 'documentos_processo' && selectedKey !== 'fornecedores' && selectedKey !== 'cotacoes_bi' && selectedKey !== 'processos_bi')) return null;
     const item = selectedItems.find(i => i.name === selectedKpiName);
     return item?.detailItems || null;
   }, [selectedKpiName, selectedItems, selectedKey]);
@@ -730,7 +750,7 @@ export function DashboardBIOperacional({
                     const ItemIcon = item.icon;
                     const baseTotal = item._baseTotal ?? selectedTotal;
                     const percentage = baseTotal > 0 ? ((item.value / baseTotal) * 100).toFixed(1) : "0";
-                    const isClickable = (selectedKey === 'fornecedores' || selectedKey === 'cotacoes_bi') && item.detailItems;
+                    const isClickable = (selectedKey === 'fornecedores' || selectedKey === 'cotacoes_bi' || selectedKey === 'processos_bi') && item.detailItems;
                     return (
                       <Tooltip key={i}>
                         <TooltipTrigger asChild>
@@ -774,7 +794,30 @@ export function DashboardBIOperacional({
               </CardHeader>
               <CardContent>
                 <div className="max-h-[400px] overflow-y-auto">
-                  {selectedKey === 'cotacoes_bi' ? (
+                  {selectedKey === 'processos_bi' ? (
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead className="text-xs">#</TableHead>
+                          <TableHead className="text-xs">Contrato de Gestão</TableHead>
+                          <TableHead className="text-xs">Processo</TableHead>
+                          <TableHead className="text-xs">Objeto</TableHead>
+                          <TableHead className="text-xs">Status</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {selectedKpiDetail.map((detail: any, idx: number) => (
+                          <TableRow key={idx}>
+                            <TableCell className="text-xs">{idx + 1}</TableCell>
+                            <TableCell className="text-xs">{detail.contrato}</TableCell>
+                            <TableCell className="text-xs font-medium">{detail.numero}</TableCell>
+                            <TableCell className="text-xs">{detail.objeto}</TableCell>
+                            <TableCell className="text-xs capitalize">{detail.status}</TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  ) : selectedKey === 'cotacoes_bi' ? (
                     <Table>
                       <TableHeader>
                         <TableRow>
