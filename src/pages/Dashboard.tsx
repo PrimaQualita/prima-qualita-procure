@@ -470,8 +470,9 @@ const Dashboard = () => {
 
         {/* Notificações de propostas de cotação recebidas (Gestores) */}
         {userContext?.isGestor && (
-          <div className="mb-4">
+          <div className="mb-4 space-y-4">
             <SolicitacoesPropostasCotacao />
+            <NotificacoesEventosGestor />
           </div>
         )}
 
