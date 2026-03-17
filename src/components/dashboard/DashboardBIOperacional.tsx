@@ -70,6 +70,8 @@ interface Props {
   selecoes: any[];
   fornecedores: any[];
   contratoSelecionado: string;
+  anoSelecionado?: string;
+  mesSelecionado?: string;
   chartType: ChartType;
   moduloSelecionado: string;
   setModuloSelecionado: (v: string) => void;
@@ -112,10 +114,11 @@ const MODULO_KEYS = Object.keys(MODULO_CONFIG) as ModuloKey[];
 
 export function DashboardBIOperacional({
   contratosTerceiros, processosParaContratar, cotacoesPrecos,
-  processos, selecoes, fornecedores, contratoSelecionado, chartType,
+  processos, selecoes, fornecedores, contratoSelecionado, anoSelecionado, mesSelecionado, chartType,
   moduloSelecionado, setModuloSelecionado,
   modoVisualizacao, setModoVisualizacao,
 }: Props) {
+  const meses = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"];
   const hoje = useMemo(() => toZonedTime(new Date(), "America/Sao_Paulo"), []);
 
   // === Data for "Processo" module ===
@@ -170,8 +173,22 @@ export function DashboardBIOperacional({
   }, []);
 
   const filterCG = (items: any[], field = "contrato_gestao_id") => {
-    if (contratoSelecionado === "todos") return items;
-    return items.filter(i => i[field] === contratoSelecionado);
+    let filtered = items;
+    if (contratoSelecionado !== "todos") {
+      filtered = filtered.filter(i => i[field] === contratoSelecionado);
+    }
+    if (anoSelecionado) {
+      const ano = parseInt(anoSelecionado);
+      filtered = filtered.filter(i => i.ano_referencia === ano);
+    }
+    if (mesSelecionado && mesSelecionado !== "todos") {
+      const mesIdx = meses.indexOf(mesSelecionado);
+      filtered = filtered.filter(i => {
+        const d = i.data_abertura ? new Date(i.data_abertura) : i.created_at ? new Date(i.created_at) : null;
+        return d && d.getMonth() === mesIdx;
+      });
+    }
+    return filtered;
   };
 
   // Build lookup: processo_compra_id → contrato_gestao_id
@@ -521,7 +538,8 @@ export function DashboardBIOperacional({
 
     return {
       processos_bi: [
-        { name: "Processos Abertos", value: procAbertos.length, color: "info", icon: Clock, detailItems: procAbertosDetail, _baseTotal: procBIFiltrados.length },
+        { name: "Total de Processos", value: procBIFiltrados.length, color: "muted", icon: ClipboardList, detailItems: procBIFiltrados.map(buildProcessoDetail), _baseTotal: procBIFiltrados.length },
+        { name: "Processos em Andamento", value: procAbertos.length, color: "info", icon: Clock, detailItems: procAbertosDetail, _baseTotal: procBIFiltrados.length },
         { name: "Processos Finalizados", value: procFinalizados.length, color: "success", icon: CheckCircle2, detailItems: procFinalizadosDetail, _baseTotal: procBIFiltrados.length },
       ],
       documentos_processo: [
