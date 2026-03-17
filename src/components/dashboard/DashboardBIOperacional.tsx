@@ -114,10 +114,11 @@ const MODULO_KEYS = Object.keys(MODULO_CONFIG) as ModuloKey[];
 
 export function DashboardBIOperacional({
   contratosTerceiros, processosParaContratar, cotacoesPrecos,
-  processos, selecoes, fornecedores, contratoSelecionado, chartType,
+  processos, selecoes, fornecedores, contratoSelecionado, anoSelecionado, mesSelecionado, chartType,
   moduloSelecionado, setModuloSelecionado,
   modoVisualizacao, setModoVisualizacao,
 }: Props) {
+  const meses = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"];
   const hoje = useMemo(() => toZonedTime(new Date(), "America/Sao_Paulo"), []);
 
   // === Data for "Processo" module ===
