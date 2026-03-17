@@ -343,7 +343,7 @@ export async function gerarPlanilhaConsolidadaPDF(
     // Se for preço público, mostrar apenas a razão social (fonte) sem CNPJ/email
     const isPrecosPublicos = ehPrecoPublico(email);
     const headerText = isPrecosPublicos 
-      ? `${razaoSocial}\n(Preço Público)` 
+      ? razaoSocial 
       : `${razaoSocial}\nCNPJ: ${cnpjFormatado}\n${email}`;
     
     colunas.push({

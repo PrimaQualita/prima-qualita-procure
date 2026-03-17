@@ -999,9 +999,13 @@ export async function gerarPropostaSelecaoPDF(
     // Espaçamento uniforme entre linhas (1.15)
     const espacamentoLinha = 5.75; // 5 * 1.15
     
+    // Formatar data de envio
+    const dataEnvioFormatada = new Date(dataEnvioProposta).toLocaleString('pt-BR');
+    
     // Quebrar textos longos
     doc.setFontSize(11);
     const responsavelLines = doc.splitTextToSize(`Responsável: ${responsavelLegal || fornecedor.razao_social}`, larguraInternaQuadro);
+    const dataEnvioLines = doc.splitTextToSize(`Data/Hora de Envio: ${dataEnvioFormatada}`, larguraInternaQuadro);
     const protocoloFormatado = formatarProtocoloExibicao(protocolo);
     const protocoloLines = doc.splitTextToSize(`Protocolo: ${protocoloFormatado}`, larguraInternaQuadro);
     
@@ -1012,6 +1016,7 @@ export async function gerarPropostaSelecaoPDF(
     // Calcular altura total do quadro
     const alturaQuadro = 10 + 8 + 
                         (responsavelLines.length * espacamentoLinha) + 
+                        (dataEnvioLines.length * espacamentoLinha) +
                         (protocoloLines.length * espacamentoLinha) + 
                         espacamentoLinha + 
                         (linkLines.length * espacamentoLinha) + 
@@ -1041,6 +1046,12 @@ export async function gerarPropostaSelecaoPDF(
       doc.text(linha, margemEsquerda + 5, y + (index * espacamentoLinha));
     });
     y += (responsavelLines.length * espacamentoLinha);
+    
+    // Data/Hora de Envio
+    dataEnvioLines.forEach((linha: string, index: number) => {
+      doc.text(linha, margemEsquerda + 5, y + (index * espacamentoLinha));
+    });
+    y += (dataEnvioLines.length * espacamentoLinha);
     
     // Protocolo
     protocoloLines.forEach((linha: string, index: number) => {
