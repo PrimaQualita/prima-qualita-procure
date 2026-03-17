@@ -661,6 +661,8 @@ const Dashboard = () => {
               selecoes={selecoes}
               fornecedores={fornecedores}
               contratoSelecionado={contratoSelecionado}
+              anoSelecionado={anoSelecionado}
+              mesSelecionado={mesSelecionado}
               chartType={tipoGraficoControle}
               moduloSelecionado={moduloControle}
               setModuloSelecionado={setModuloControle}
