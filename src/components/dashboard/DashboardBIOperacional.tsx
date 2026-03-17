@@ -538,7 +538,8 @@ export function DashboardBIOperacional({
 
     return {
       processos_bi: [
-        { name: "Processos Abertos", value: procAbertos.length, color: "info", icon: Clock, detailItems: procAbertosDetail, _baseTotal: procBIFiltrados.length },
+        { name: "Total de Processos", value: procBIFiltrados.length, color: "muted", icon: ClipboardList, detailItems: procBIFiltrados.map(buildProcessoDetail), _baseTotal: procBIFiltrados.length },
+        { name: "Processos em Andamento", value: procAbertos.length, color: "info", icon: Clock, detailItems: procAbertosDetail, _baseTotal: procBIFiltrados.length },
         { name: "Processos Finalizados", value: procFinalizados.length, color: "success", icon: CheckCircle2, detailItems: procFinalizadosDetail, _baseTotal: procBIFiltrados.length },
       ],
       documentos_processo: [
