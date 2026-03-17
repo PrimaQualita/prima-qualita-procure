@@ -704,8 +704,19 @@ export async function gerarPropostaFornecedorPDF(
     const font = await pdfFinal.embedFont(StandardFonts.Helvetica);
     const fontBold = await pdfFinal.embedFont(StandardFonts.HelveticaBold);
 
-    // Altura do quadro de certificação (ajustado com responsável)
-    const alturaQuadro = 95;
+    // Buscar data de envio da resposta
+    const { data: respostaData } = await sb
+      .from('cotacao_respostas_fornecedor')
+      .select('data_envio_resposta')
+      .eq('id', respostaId)
+      .single();
+    
+    const dataEnvioFormatada = respostaData?.data_envio_resposta
+      ? new Date(respostaData.data_envio_resposta).toLocaleString('pt-BR')
+      : new Date().toLocaleString('pt-BR');
+
+    // Altura do quadro de certificação (ajustado com responsável + data)
+    const alturaQuadro = 110;
 
     // Desenhar retângulo de fundo
     paginaCert.drawRectangle({
@@ -737,15 +748,21 @@ export async function gerarPropostaFornecedorPDF(
     };
 
     // Responsável pela geração
-    // Se for preços públicos, SEMPRE usar o usuário que preencheu
-    // Se tiver responsável legal selecionado, usar ele
-    // Se for fornecedor normal, usar a razão social do fornecedor
     const isPrecosPublicosCert = ehPrecoPublicoCert((fornecedor as any).email);
     const responsavel = isPrecosPublicosCert
       ? (usuarioNome || 'Não informado')
       : (responsavelLegal || fornecedor.razao_social);
     
     paginaCert.drawText(`Responsável: ${responsavel}`, {
+      x: 50,
+      y: yPos,
+      size: fontSize,
+      font: font,
+    });
+    yPos -= lineHeight;
+
+    // Data/Hora de Envio
+    paginaCert.drawText(`Data/Hora de Envio: ${dataEnvioFormatada}`, {
       x: 50,
       y: yPos,
       size: fontSize,
