@@ -173,8 +173,22 @@ export function DashboardBIOperacional({
   }, []);
 
   const filterCG = (items: any[], field = "contrato_gestao_id") => {
-    if (contratoSelecionado === "todos") return items;
-    return items.filter(i => i[field] === contratoSelecionado);
+    let filtered = items;
+    if (contratoSelecionado !== "todos") {
+      filtered = filtered.filter(i => i[field] === contratoSelecionado);
+    }
+    if (anoSelecionado) {
+      const ano = parseInt(anoSelecionado);
+      filtered = filtered.filter(i => i.ano_referencia === ano);
+    }
+    if (mesSelecionado && mesSelecionado !== "todos") {
+      const mesIdx = meses.indexOf(mesSelecionado);
+      filtered = filtered.filter(i => {
+        const d = i.data_abertura ? new Date(i.data_abertura) : i.created_at ? new Date(i.created_at) : null;
+        return d && d.getMonth() === mesIdx;
+      });
+    }
+    return filtered;
   };
 
   // Build lookup: processo_compra_id → contrato_gestao_id
