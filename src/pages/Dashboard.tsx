@@ -626,22 +626,19 @@ const Dashboard = () => {
           </>
         ) : (
           <>
-            {/* BI Controle - Filtro de contrato */}
-            <div className="bg-card border rounded-2xl shadow-sm p-5 mb-6">
-              <div className="flex flex-wrap items-center gap-3">
-                <Select value={contratoSelecionado} onValueChange={setContratoSelecionado}>
-                  <SelectTrigger className="w-[240px] text-xs h-10 rounded-lg border-2 border-muted hover:border-primary/40 transition-colors">
-                    <SelectValue placeholder="Contrato de Gestão" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {!isGerenteContratosOnly && <SelectItem value="todos">Todos os Contratos</SelectItem>}
-                    {contratosDisponiveis.map(c => (
-                      <SelectItem key={c.id} value={c.id}>{c.nome_contrato}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
+            <DashboardBIFilters
+              contratos={contratosDisponiveis}
+              ocultarTodosContratos={isGerenteContratosOnly}
+              anosDisponiveis={anosDisponiveis}
+              contratoSelecionado={contratoSelecionado}
+              setContratoSelecionado={setContratoSelecionado}
+              anoSelecionado={anoSelecionado}
+              setAnoSelecionado={setAnoSelecionado}
+              mesSelecionado={mesSelecionado}
+              setMesSelecionado={setMesSelecionado}
+              modoVisualizacao={modoControle}
+              setModoVisualizacao={setModoControle}
+            />
 
             {/* Modelo de gráfico ACIMA do painel */}
             <div className="mb-6">
