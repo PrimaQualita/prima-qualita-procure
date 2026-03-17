@@ -70,6 +70,8 @@ interface Props {
   selecoes: any[];
   fornecedores: any[];
   contratoSelecionado: string;
+  anoSelecionado?: string;
+  mesSelecionado?: string;
   chartType: ChartType;
   moduloSelecionado: string;
   setModuloSelecionado: (v: string) => void;
