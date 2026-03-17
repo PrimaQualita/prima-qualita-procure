@@ -679,7 +679,7 @@ export async function gerarPropostaFornecedorPDF(
     const { height } = ultimaPagina.getSize();
     
     // Altura do quadro de certificação
-    const alturaQuadroCert = 100;
+    const alturaQuadroCert = 115;
     
     // Converter posição Y do jsPDF para pdf-lib (invertendo o eixo Y)
     // jsPDF mede do topo para baixo, pdf-lib mede de baixo para cima
