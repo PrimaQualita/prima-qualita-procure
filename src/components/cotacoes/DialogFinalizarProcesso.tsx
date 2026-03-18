@@ -31,6 +31,7 @@ import { stripHtml } from "@/lib/htmlUtils";
 import { identificarVencedoresPorCriterio, carregarItensVencedoresPorFornecedor } from "@/lib/identificadorVencedores";
 import { registrarAuditoria } from "@/lib/registrarAuditoria";
 import { copiarDocumentosFornecedorParaProcesso } from "@/lib/copiarArquivoStorage";
+import { sincronizarProcessosParaContratarAposFinalizacao } from "@/lib/sincronizarProcessosParaContratar";
 
 interface FornecedorVencedor {
   razaoSocial: string;
