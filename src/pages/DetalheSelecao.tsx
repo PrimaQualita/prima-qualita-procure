@@ -1030,25 +1030,56 @@ const [itens, setItens] = useState<Item[]>([]);
         console.log(`🏆 Vencedores finais para processos_para_contratar (seleção):`);
         valoresPorFornecedor.forEach((v) => console.log(`  → ${v.nome}: R$ ${v.valorTotal.toFixed(2)}`));
 
-        if (valoresPorFornecedor.size > 0) {
-          const registros = Array.from(valoresPorFornecedor.entries()).map(([, dados]) => ({
-            processo_compra_id: processo.id,
-            contrato_gestao_id: processo.contrato_gestao_id,
-            numero_processo: processo.numero_processo_interno,
-            tipo_processo: tipoProcesso,
-            data_finalizacao: new Date().toISOString(),
-            fornecedor_vencedor_nome: dados.nome,
-            fornecedor_vencedor_id: dados.id,
-            objeto: objetoLimpo,
-            valor_aprovado: dados.valorTotal,
-            conta_gerencial: processo.centro_custo || null,
-            url_dossie: result.url,
-            status: "pronto_para_contratar",
-          }));
+        // Verificar quais fornecedores já possuem contrato formalizado para este processo
+        const { data: ppcExistentes } = await supabase
+          .from("processos_para_contratar")
+          .select("id, fornecedor_vencedor_id")
+          .eq("processo_compra_id", processo.id);
 
-          await supabase.from("processos_para_contratar").insert(registros);
-          console.log(`✅ ${registros.length} registro(s) em processos_para_contratar criado(s) automaticamente (seleção)`);
-        } else {
+        const fornecedoresJaContratados = new Set<string | null>();
+        if (ppcExistentes && ppcExistentes.length > 0) {
+          const ppcIds = ppcExistentes.map(r => r.id);
+          const { data: contratosExistentes } = await supabase
+            .from("contratos_terceiros")
+            .select("processo_para_contratar_id")
+            .in("processo_para_contratar_id", ppcIds);
+
+          if (contratosExistentes) {
+            const idsComContrato = new Set(contratosExistentes.map(c => c.processo_para_contratar_id));
+            ppcExistentes.forEach(ppc => {
+              if (idsComContrato.has(ppc.id)) {
+                fornecedoresJaContratados.add(ppc.fornecedor_vencedor_id);
+              }
+            });
+          }
+        }
+
+        if (valoresPorFornecedor.size > 0) {
+          const registros = Array.from(valoresPorFornecedor.entries())
+            .filter(([fornecedorId]) => !fornecedoresJaContratados.has(fornecedorId))
+            .map(([, dados]) => ({
+              processo_compra_id: processo.id,
+              contrato_gestao_id: processo.contrato_gestao_id,
+              numero_processo: processo.numero_processo_interno,
+              tipo_processo: tipoProcesso,
+              data_finalizacao: new Date().toISOString(),
+              fornecedor_vencedor_nome: dados.nome,
+              fornecedor_vencedor_id: dados.id,
+              objeto: objetoLimpo,
+              valor_aprovado: dados.valorTotal,
+              conta_gerencial: processo.centro_custo || null,
+              url_dossie: result.url,
+              status: "pronto_para_contratar",
+            }));
+
+          if (registros.length > 0) {
+            await supabase.from("processos_para_contratar").insert(registros);
+            console.log(`✅ ${registros.length} registro(s) em processos_para_contratar criado(s) automaticamente (seleção)`);
+          }
+          if (fornecedoresJaContratados.size > 0) {
+            console.log(`⚠️ ${fornecedoresJaContratados.size} fornecedor(es) ignorado(s) (já possuem contrato formalizado)`);
+          }
+        } else if (!fornecedoresJaContratados.size) {
           await supabase.from("processos_para_contratar").insert({
             processo_compra_id: processo.id,
             contrato_gestao_id: processo.contrato_gestao_id,

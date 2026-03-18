@@ -3945,26 +3945,58 @@ export function DialogFinalizarProcesso({
           console.log(`🏆 Vencedores finais para processos_para_contratar:`);
           valoresPorFornecedor.forEach((v, k) => console.log(`  → ${v.nome}: R$ ${v.valorTotal.toFixed(2)}`));
 
-          // 9. Criar registros
-          if (valoresPorFornecedor.size > 0) {
-            const registros = Array.from(valoresPorFornecedor.entries()).map(([fornecedorId, dados]) => ({
-              processo_compra_id: processoId,
-              contrato_gestao_id: processoInfo.contrato_gestao_id,
-              numero_processo: numeroProcesso,
-              tipo_processo: tipoProcesso,
-              data_finalizacao: new Date().toISOString(),
-              fornecedor_vencedor_nome: dados.nome,
-              fornecedor_vencedor_id: dados.id,
-              objeto: objetoLimpo,
-              valor_aprovado: dados.valorTotal,
-              conta_gerencial: processoInfo.centro_custo || null,
-              url_dossie: processoCompleto.url,
-              status: "pronto_para_contratar",
-            }));
+          // 9. Verificar quais fornecedores já possuem contrato formalizado para este processo
+          // (evita duplicar processos_para_contratar quando re-finaliza)
+          const { data: ppcExistentes } = await supabase
+            .from("processos_para_contratar")
+            .select("id, fornecedor_vencedor_id")
+            .eq("processo_compra_id", processoId);
 
-            await supabase.from("processos_para_contratar").insert(registros);
-            console.log(`✅ ${registros.length} registro(s) em processos_para_contratar criado(s) automaticamente`);
-          } else {
+          const fornecedoresJaContratados = new Set<string | null>();
+          if (ppcExistentes && ppcExistentes.length > 0) {
+            const ppcIds = ppcExistentes.map(r => r.id);
+            const { data: contratosExistentes } = await supabase
+              .from("contratos_terceiros")
+              .select("processo_para_contratar_id")
+              .in("processo_para_contratar_id", ppcIds);
+
+            if (contratosExistentes) {
+              const idsComContrato = new Set(contratosExistentes.map(c => c.processo_para_contratar_id));
+              ppcExistentes.forEach(ppc => {
+                if (idsComContrato.has(ppc.id)) {
+                  fornecedoresJaContratados.add(ppc.fornecedor_vencedor_id);
+                }
+              });
+            }
+          }
+
+          // Criar registros apenas para fornecedores que ainda não foram contratados
+          if (valoresPorFornecedor.size > 0) {
+            const registros = Array.from(valoresPorFornecedor.entries())
+              .filter(([fornecedorId]) => !fornecedoresJaContratados.has(fornecedorId))
+              .map(([fornecedorId, dados]) => ({
+                processo_compra_id: processoId,
+                contrato_gestao_id: processoInfo.contrato_gestao_id,
+                numero_processo: numeroProcesso,
+                tipo_processo: tipoProcesso,
+                data_finalizacao: new Date().toISOString(),
+                fornecedor_vencedor_nome: dados.nome,
+                fornecedor_vencedor_id: dados.id,
+                objeto: objetoLimpo,
+                valor_aprovado: dados.valorTotal,
+                conta_gerencial: processoInfo.centro_custo || null,
+                url_dossie: processoCompleto.url,
+                status: "pronto_para_contratar",
+              }));
+
+            if (registros.length > 0) {
+              await supabase.from("processos_para_contratar").insert(registros);
+              console.log(`✅ ${registros.length} registro(s) em processos_para_contratar criado(s) automaticamente`);
+            }
+            if (fornecedoresJaContratados.size > 0) {
+              console.log(`⚠️ ${fornecedoresJaContratados.size} fornecedor(es) ignorado(s) (já possuem contrato formalizado)`);
+            }
+          } else if (!fornecedoresJaContratados.size) {
             await supabase.from("processos_para_contratar").insert({
               processo_compra_id: processoId,
               contrato_gestao_id: processoInfo.contrato_gestao_id,
