@@ -1031,68 +1031,39 @@ const [itens, setItens] = useState<Item[]>([]);
         console.log(`🏆 Vencedores finais para processos_para_contratar (seleção):`);
         valoresPorFornecedor.forEach((v) => console.log(`  → ${v.nome}: R$ ${v.valorTotal.toFixed(2)}`));
 
-        // Verificar quais fornecedores já possuem contrato formalizado para este processo
-        const { data: ppcExistentes } = await supabase
-          .from("processos_para_contratar")
-          .select("id, fornecedor_vencedor_id")
-          .eq("processo_compra_id", processo.id);
+        const vencedoresParaContratar = Array.from(valoresPorFornecedor.values()).map((dados) => ({
+          fornecedorId: dados.id,
+          fornecedorNome: dados.nome,
+          valorAprovado: dados.valorTotal,
+        }));
 
-        const fornecedoresJaContratados = new Set<string | null>();
-        if (ppcExistentes && ppcExistentes.length > 0) {
-          const ppcIds = ppcExistentes.map(r => r.id);
-          const { data: contratosExistentes } = await supabase
-            .from("contratos_terceiros")
-            .select("processo_para_contratar_id")
-            .in("processo_para_contratar_id", ppcIds);
+        const {
+          fornecedoresIgnoradosPorContrato,
+          registrosSincronizados,
+          registroGenericoSincronizado,
+        } = await sincronizarProcessosParaContratarAposFinalizacao({
+          processoCompraId: processo.id,
+          contratoGestaoId: processo.contrato_gestao_id,
+          numeroProcesso: processo.numero_processo_interno,
+          tipoProcesso,
+          dataFinalizacaoIso: new Date().toISOString(),
+          objeto: objetoLimpo,
+          contaGerencial: processo.centro_custo || null,
+          urlDossie: result.url,
+          valorGenerico: valorTotalFechamento,
+          vencedores: vencedoresParaContratar,
+        });
 
-          if (contratosExistentes) {
-            const idsComContrato = new Set(contratosExistentes.map(c => c.processo_para_contratar_id));
-            ppcExistentes.forEach(ppc => {
-              if (idsComContrato.has(ppc.id)) {
-                fornecedoresJaContratados.add(ppc.fornecedor_vencedor_id);
-              }
-            });
-          }
+        if (registrosSincronizados > 0) {
+          console.log(`✅ ${registrosSincronizados} registro(s) em processos_para_contratar sincronizado(s) automaticamente (seleção)`);
         }
 
-        if (valoresPorFornecedor.size > 0) {
-          const registros = Array.from(valoresPorFornecedor.entries())
-            .filter(([fornecedorId]) => !fornecedoresJaContratados.has(fornecedorId))
-            .map(([, dados]) => ({
-              processo_compra_id: processo.id,
-              contrato_gestao_id: processo.contrato_gestao_id,
-              numero_processo: processo.numero_processo_interno,
-              tipo_processo: tipoProcesso,
-              data_finalizacao: new Date().toISOString(),
-              fornecedor_vencedor_nome: dados.nome,
-              fornecedor_vencedor_id: dados.id,
-              objeto: objetoLimpo,
-              valor_aprovado: dados.valorTotal,
-              conta_gerencial: processo.centro_custo || null,
-              url_dossie: result.url,
-              status: "pronto_para_contratar",
-            }));
+        if (registroGenericoSincronizado && vencedoresParaContratar.length === 0) {
+          console.log("✅ Registro genérico em processos_para_contratar sincronizado (seleção)");
+        }
 
-          if (registros.length > 0) {
-            await supabase.from("processos_para_contratar").insert(registros);
-            console.log(`✅ ${registros.length} registro(s) em processos_para_contratar criado(s) automaticamente (seleção)`);
-          }
-          if (fornecedoresJaContratados.size > 0) {
-            console.log(`⚠️ ${fornecedoresJaContratados.size} fornecedor(es) ignorado(s) (já possuem contrato formalizado)`);
-          }
-        } else if (!fornecedoresJaContratados.size) {
-          await supabase.from("processos_para_contratar").insert({
-            processo_compra_id: processo.id,
-            contrato_gestao_id: processo.contrato_gestao_id,
-            numero_processo: processo.numero_processo_interno,
-            tipo_processo: tipoProcesso,
-            data_finalizacao: new Date().toISOString(),
-            objeto: objetoLimpo,
-            valor_aprovado: valorTotalFechamento,
-            url_dossie: result.url,
-            status: "pronto_para_contratar",
-          });
-          console.log("✅ Registro genérico em processos_para_contratar criado (seleção)");
+        if (fornecedoresIgnoradosPorContrato > 0) {
+          console.log(`⚠️ ${fornecedoresIgnoradosPorContrato} fornecedor(es) ignorado(s) (já possuem contrato formalizado)`);
         }
       } catch (ppcError) {
         console.warn("Erro ao criar registro em processos_para_contratar (seleção):", ppcError);
