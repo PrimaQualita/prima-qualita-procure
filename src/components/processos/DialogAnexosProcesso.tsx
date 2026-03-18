@@ -372,6 +372,41 @@ export function DialogAnexosProcesso({
         if (statusError) {
           console.error("Erro ao atualizar status do processo:", statusError);
         }
+
+        // Limpar processos_para_contratar pendentes (que ainda não foram formalizados como contrato)
+        try {
+          // Buscar todos os processos_para_contratar deste processo
+          const { data: ppcRecords } = await supabase
+            .from("processos_para_contratar")
+            .select("id")
+            .eq("processo_compra_id", processoId);
+
+          if (ppcRecords && ppcRecords.length > 0) {
+            const ppcIds = ppcRecords.map(r => r.id);
+            
+            // Verificar quais já têm contrato com terceiros formalizado
+            const { data: contratosExistentes } = await supabase
+              .from("contratos_terceiros")
+              .select("processo_para_contratar_id")
+              .in("processo_para_contratar_id", ppcIds);
+
+            const idsComContrato = new Set((contratosExistentes || []).map(c => c.processo_para_contratar_id));
+            const idsSemContrato = ppcIds.filter(id => !idsComContrato.has(id));
+
+            if (idsSemContrato.length > 0) {
+              await supabase
+                .from("processos_para_contratar")
+                .delete()
+                .in("id", idsSemContrato);
+              console.log(`🗑️ ${idsSemContrato.length} registro(s) pendentes em processos_para_contratar removidos`);
+            }
+            if (idsComContrato.size > 0) {
+              console.log(`⚠️ ${idsComContrato.size} registro(s) em processos_para_contratar mantidos (já possuem contrato formalizado)`);
+            }
+          }
+        } catch (ppcError) {
+          console.warn("Erro ao limpar processos_para_contratar:", ppcError);
+        }
         
         console.log("✅ Processo completo deletado, status revertido");
       }
