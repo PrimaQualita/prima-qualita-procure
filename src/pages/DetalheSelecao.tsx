@@ -30,6 +30,7 @@ import { gerarProcessoCompletoSelecaoPDF } from "@/lib/gerarProcessoCompletoSele
 import { gerarEncaminhamentoContabilidadePDF, gerarProtocoloContabilidade } from "@/lib/gerarEncaminhamentoContabilidadePDF";
 import { registrarAuditoria } from "@/lib/registrarAuditoria";
 import { carregarFornecedoresVencedoresAtuaisSelecao } from "@/lib/selecaoVencedoresAtuais";
+import { sincronizarProcessosParaContratarAposFinalizacao } from "@/lib/sincronizarProcessosParaContratar";
 
 interface Item {
   id: string;
