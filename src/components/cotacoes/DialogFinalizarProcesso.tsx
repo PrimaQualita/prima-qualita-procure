@@ -5297,7 +5297,8 @@ export function DialogFinalizarProcesso({
                 onClick={async () => {
                   try {
                     toast.info("Gerando visualização do processo completo, aguarde...");
-                    const result = await gerarProcessoCompletoPDF(cotacaoId, processo?.numero_processo_interno || "S/N", true);
+                    const dadosProc = await obterDadosProcessoParaAuditoria();
+                    const result = await gerarProcessoCompletoPDF(cotacaoId, dadosProc.numero_processo || "S/N", true);
                     if (result?.url) {
                       window.open(result.url, '_blank');
                     }
