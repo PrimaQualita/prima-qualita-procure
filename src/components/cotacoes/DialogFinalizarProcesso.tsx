@@ -5291,6 +5291,30 @@ export function DialogFinalizarProcesso({
               </div>
             )}
             
+            {/* Botão Visualizar Processo Completo - antes de enviar ao RL */}
+            {relatoriosFinais.length > 0 && (
+              <Button
+                onClick={async () => {
+                  try {
+                    toast.info("Gerando visualização do processo completo, aguarde...");
+                    const dadosProc = await obterDadosProcessoParaAuditoria();
+                    const result = await gerarProcessoCompletoPDF(cotacaoId, dadosProc.numero_processo || "S/N", true);
+                    if (result?.url) {
+                      window.open(result.url, '_blank');
+                    }
+                  } catch (error) {
+                    console.error("Erro ao visualizar processo:", error);
+                    toast.error("Erro ao gerar visualização do processo");
+                  }
+                }}
+                variant="outline"
+                className="w-full"
+              >
+                <Eye className="h-4 w-4 mr-2" />
+                Visualizar Processo Completo
+              </Button>
+            )}
+
             {/* Solicitação de Autorização - Qualquer usuário interno pode solicitar */}
             {relatoriosFinais.length > 0 && (
               <Button

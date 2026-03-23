@@ -135,11 +135,10 @@ export function NotificacoesEventosGestor() {
           .order("data_resposta_contabilidade", { ascending: false })
           .limit(500),
 
-        // Already acknowledged events - filter by current user only
+        // Already acknowledged events - global (any gestor marking ciente removes for all)
         supabase
           .from("eventos_processo_cientes")
-          .select("tipo_evento, referencia_id")
-          .eq("usuario_ciente_id", user.id),
+          .select("tipo_evento, referencia_id"),
       ]);
 
       // Build set of already acknowledged events

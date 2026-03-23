@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { FileDown, Mail, Trash2, FileSpreadsheet, Eye, Download, Send, FileText, ArrowLeft } from "lucide-react";
+import { gerarProcessoCompletoPDF } from "@/lib/gerarProcessoCompletoPDF";
 import { toast } from "sonner";
 import { gerarEncaminhamentoPDF } from '@/lib/gerarEncaminhamentoPDF';
 import { gerarPropostaFornecedorPDF } from '@/lib/gerarPropostaFornecedorPDF';
@@ -1580,6 +1581,29 @@ export default function RespostasCotacao() {
                 >
                   <FileText className="mr-2 h-4 w-4" />
                   {gerandoEncaminhamento ? "Gerando..." : "Gerar Encaminhamento"}
+                </Button>
+              )}
+
+              {/* Botão Visualizar Processo */}
+              {canEdit && planilhasAnteriores.length > 0 && (
+                <Button
+                  onClick={async () => {
+                    try {
+                      toast.info("Gerando visualização do processo, aguarde...");
+                      const result = await gerarProcessoCompletoPDF(cotacaoId!, processoNumero, true);
+                      if (result?.url) {
+                        window.open(result.url, '_blank');
+                      }
+                    } catch (error) {
+                      console.error("Erro ao visualizar processo:", error);
+                      toast.error("Erro ao gerar visualização do processo");
+                    }
+                  }}
+                  variant="outline"
+                  className="w-full"
+                >
+                  <Eye className="mr-2 h-4 w-4" />
+                  Visualizar Processo
                 </Button>
               )}
 

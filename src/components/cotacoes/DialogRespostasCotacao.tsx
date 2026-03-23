@@ -11,6 +11,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { FileDown, Mail, Trash2, FileSpreadsheet, Eye, Download, Send, FileText } from "lucide-react";
+import { gerarProcessoCompletoPDF } from "@/lib/gerarProcessoCompletoPDF";
 import { toast } from "sonner";
 import { gerarEncaminhamentoPDF } from '@/lib/gerarEncaminhamentoPDF';
 import { gerarPropostaFornecedorPDF } from '@/lib/gerarPropostaFornecedorPDF';
@@ -1435,24 +1436,45 @@ export function DialogRespostasCotacao({
                     </div>
                   ))}
 
-                  {/* Botões para gerar encaminhamento e enviar ao compliance (só se tiver planilha) */}
+                  {/* Botões para gerar encaminhamento, visualizar processo e enviar ao compliance (só se tiver planilha) */}
                   {planilhasAnteriores.length > 0 && (
-                    <div className="flex gap-2">
+                    <div className="flex flex-col gap-2">
+                      <div className="flex gap-2">
+                        <Button
+                          onClick={gerarEncaminhamento}
+                          disabled={gerandoEncaminhamento}
+                          className="flex-1"
+                        >
+                          <FileText className="mr-2 h-4 w-4" />
+                          {gerandoEncaminhamento ? "Gerando..." : "Gerar Encaminhamento"}
+                        </Button>
+                        <Button
+                          onClick={enviarAoCompliance}
+                          disabled={enviandoCompliance}
+                          className="flex-1"
+                        >
+                          <Send className="mr-2 h-4 w-4" />
+                          {enviandoCompliance ? "Enviando..." : "Enviar ao Compliance"}
+                        </Button>
+                      </div>
                       <Button
-                        onClick={gerarEncaminhamento}
-                        disabled={gerandoEncaminhamento}
-                        className="flex-1"
+                        onClick={async () => {
+                          try {
+                            toast.info("Gerando visualização do processo, aguarde...");
+                            const result = await gerarProcessoCompletoPDF(cotacaoId, processoNumero, true);
+                            if (result?.url) {
+                              window.open(result.url, '_blank');
+                            }
+                          } catch (error) {
+                            console.error("Erro ao visualizar processo:", error);
+                            toast.error("Erro ao gerar visualização do processo");
+                          }
+                        }}
+                        variant="outline"
+                        className="w-full"
                       >
-                        <FileText className="mr-2 h-4 w-4" />
-                        {gerandoEncaminhamento ? "Gerando..." : "Gerar Encaminhamento"}
-                      </Button>
-                      <Button
-                        onClick={enviarAoCompliance}
-                        disabled={enviandoCompliance}
-                        className="flex-1"
-                      >
-                        <Send className="mr-2 h-4 w-4" />
-                        {enviandoCompliance ? "Enviando..." : "Enviar ao Compliance"}
+                        <Eye className="mr-2 h-4 w-4" />
+                        Visualizar Processo
                       </Button>
                     </div>
                   )}
