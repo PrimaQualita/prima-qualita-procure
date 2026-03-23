@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { FileDown, Mail, Trash2, FileSpreadsheet, Eye, Download, Send, FileText, ArrowLeft } from "lucide-react";
+import { gerarProcessoCompletoPDF } from "@/lib/gerarProcessoCompletoPDF";
 import { toast } from "sonner";
 import { gerarEncaminhamentoPDF } from '@/lib/gerarEncaminhamentoPDF';
 import { gerarPropostaFornecedorPDF } from '@/lib/gerarPropostaFornecedorPDF';
