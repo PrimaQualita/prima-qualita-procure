@@ -4197,7 +4197,7 @@ export function DialogFinalizarProcesso({
                   
                   <CardContent className="space-y-6">
                     {/* Documentos Válidos em Cadastro ou Aviso de Cadastro Pendente */}
-                    {fornData.documentosExistentes.length === 0 ? (
+                    {fornData.documentosExistentes.every((doc: any) => doc._ausente === true) ? (
                       <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-4">
                         <h3 className="font-semibold text-yellow-900 mb-3">⚠️ Fornecedor sem Cadastro Completo</h3>
                         <p className="text-sm text-yellow-800 mb-4">
