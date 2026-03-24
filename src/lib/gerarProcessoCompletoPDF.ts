@@ -11,7 +11,8 @@ interface ProcessoCompletoResult {
 export const gerarProcessoCompletoPDF = async (
   cotacaoId: string,
   numeroProcesso: string,
-  temporario: boolean = false
+  temporario: boolean = false,
+  apenasAteCompliance: boolean = false
 ): Promise<ProcessoCompletoResult> => {
   console.log(`Iniciando geração do processo completo para cotação ${cotacaoId}...`);
   
