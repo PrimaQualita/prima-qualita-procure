@@ -1787,6 +1787,39 @@ export function DialogAnaliseDocumentalSelecao({
         }
       });
       
+      // Nomes para exibição
+      const nomesMapeados: Record<string, string> = {
+        'contrato_social': 'Contrato Social',
+        'cartao_cnpj': 'CNPJ',
+        'doc_identificacao_responsavel': 'Doc. Identificação Responsável Legal',
+        'inscricao_estadual_municipal': 'Inscrição Municipal ou Estadual',
+        'cnd_federal': 'CND Federal',
+        'cnd_tributos_estaduais': 'CND Tributos Estaduais',
+        'cnd_divida_ativa_estadual': 'CND Dívida Ativa Estadual',
+        'cnd_tributos_municipais': 'CND Tributos Municipais',
+        'cnd_divida_ativa_municipal': 'CND Dívida Ativa Municipal',
+        'crf_fgts': 'CRF FGTS',
+        'cndt': 'CNDT',
+        'certificado_gestor': 'Certificado de Fornecedor',
+      };
+
+      // Garantir que todos os tipos obrigatórios apareçam, mesmo ausentes
+      const todosOsTipos = Object.keys(ordemDocumentos);
+      for (const tipo of todosOsTipos) {
+        if (!documentosPorTipo.has(tipo)) {
+          documentosPorTipo.set(tipo, {
+            id: `missing_${tipo}`,
+            tipo_documento: tipo,
+            nome_arquivo: '',
+            url_arquivo: '',
+            data_emissao: null,
+            data_validade: null,
+            em_vigor: false,
+            _ausente: true,
+          } as any);
+        }
+      }
+
       // Retornar ordenado pela ordem específica
       return Array.from(documentosPorTipo.values()).sort((a, b) => {
         const ordemA = ordemDocumentos[a.tipo_documento.toLowerCase()] || 99;
