@@ -143,7 +143,7 @@ export default function CadastroFornecedor() {
   };
 
   const handleFileUpload = async (tipoDoc: string, file: File) => {
-    const temValidade = !["contrato_social", "cartao_cnpj", "inscricao_estadual_municipal"].includes(tipoDoc);
+    const temValidade = !["contrato_social", "cartao_cnpj", "doc_identificacao_responsavel", "inscricao_estadual_municipal"].includes(tipoDoc);
     
     setDocumentos(prev => ({
       ...prev,
