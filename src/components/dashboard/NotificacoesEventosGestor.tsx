@@ -54,6 +54,7 @@ export function NotificacoesEventosGestor() {
   const loadEventos = async () => {
     try {
       const { data: { user } } = await supabase.auth.getUser();
+      console.log("[NotificacoesEventos] Carregando eventos para user:", user?.id);
       if (!user) return;
 
       // Fetch all data in parallel
@@ -174,6 +175,24 @@ export function NotificacoesEventosGestor() {
           .from("eventos_processo_cientes")
           .select("tipo_evento, referencia_id"),
       ]);
+
+      // Log query results for debugging
+      console.log("[NotificacoesEventos] Resultados:", {
+        autorizacoes: autorizacoesRes.data?.length || 0,
+        autorizacoesError: autorizacoesRes.error,
+        homologacoes: homologacoesRes.data?.length || 0,
+        homologacoesError: homologacoesRes.error,
+        compliance: complianceRes.data?.length || 0,
+        complianceError: complianceRes.error,
+        contabilidade: contabilidadeRes.data?.length || 0,
+        contabilidadeError: contabilidadeRes.error,
+        requisicoes: requisicoesRes.data?.length || 0,
+        requisicoesError: requisicoesRes.error,
+        autDespesa: autDespesaRes.data?.length || 0,
+        autDespesaError: autDespesaRes.error,
+        cientes: cientesRes.data?.length || 0,
+        cientesError: cientesRes.error,
+      });
 
       // Build set of already acknowledged events
       const cientesSet = new Set(
@@ -296,6 +315,7 @@ export function NotificacoesEventosGestor() {
         return db - da;
       });
 
+      console.log("[NotificacoesEventos] Eventos pendentes:", eventosFinais.length, eventosFinais.map(e => e.tipo_evento));
       setEventos(eventosFinais);
     } catch (error) {
       console.error("Erro ao carregar notificações de eventos:", error);
