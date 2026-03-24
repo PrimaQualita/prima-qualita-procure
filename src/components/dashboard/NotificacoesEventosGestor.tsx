@@ -348,6 +348,28 @@ export function NotificacoesEventosGestor() {
   const grupoKeys = Object.keys(grupos);
 
   const getCores = (tipo: string) => {
+    if (tipo === "requisicao_emitida") {
+      return {
+        border: "border-emerald-500",
+        bg: "bg-emerald-50 dark:bg-emerald-950/50",
+        text: "text-emerald-900 dark:text-emerald-100",
+        textSub: "text-emerald-800 dark:text-emerald-200",
+        icon: "text-emerald-500",
+        itemBorder: "border-emerald-200 dark:border-emerald-800",
+        btn: "bg-emerald-600 hover:bg-emerald-700 text-white",
+      };
+    }
+    if (tipo === "autorizacao_despesa_emitida") {
+      return {
+        border: "border-amber-500",
+        bg: "bg-amber-50 dark:bg-amber-950/50",
+        text: "text-amber-900 dark:text-amber-100",
+        textSub: "text-amber-800 dark:text-amber-200",
+        icon: "text-amber-500",
+        itemBorder: "border-amber-200 dark:border-amber-800",
+        btn: "bg-amber-600 hover:bg-amber-700 text-white",
+      };
+    }
     if (tipo.startsWith("autorizacao") || tipo === "homologacao") {
       return {
         border: "border-blue-500",
