@@ -920,7 +920,7 @@ export default function CadastroFornecedor() {
                             </Button>
                           </div>
                           
-                          {!["contrato_social", "cartao_cnpj", "inscricao_estadual_municipal"].includes(key) && (
+                          {!["contrato_social", "cartao_cnpj", "doc_identificacao_responsavel", "inscricao_estadual_municipal"].includes(key) && (
                             <div className="space-y-1">
                               <Label className="text-sm text-muted-foreground">Data de Validade</Label>
                               <Input

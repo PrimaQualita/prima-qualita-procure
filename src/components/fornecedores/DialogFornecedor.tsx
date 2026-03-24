@@ -65,6 +65,7 @@ export function DialogFornecedor({
     cndt: { tipo: "CNDT", arquivo: null, dataValidade: "", processando: false },
     contrato_social: { tipo: "Contrato Social Consolidado", arquivo: null, dataValidade: "", processando: false },
     cartao_cnpj: { tipo: "Cartão CNPJ", arquivo: null, dataValidade: "", processando: false },
+    doc_identificacao_responsavel: { tipo: "Doc. Identificação Responsável Legal", arquivo: null, dataValidade: "", processando: false },
   });
   
   const [formData, setFormData] = useState<Omit<Fornecedor, "id">>({
