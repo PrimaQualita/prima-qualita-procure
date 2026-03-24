@@ -4,7 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Button } from "@/components/ui/button";
-import { FileText, Stamp, ShieldCheck, Calculator, Inbox } from "lucide-react";
+import { FileText, Stamp, ShieldCheck, Calculator, Inbox, ClipboardList, DollarSign } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
 
@@ -25,6 +25,8 @@ const TIPO_LABELS: Record<string, string> = {
   homologacao: "Homologação",
   resposta_compliance: "Resposta do Compliance",
   resposta_contabilidade: "Resposta da Contabilidade",
+  requisicao_emitida: "Requisição Emitida",
+  autorizacao_despesa_emitida: "Autorização de Despesa Emitida",
 };
 
 const TIPO_ICONS: Record<string, any> = {
@@ -33,6 +35,8 @@ const TIPO_ICONS: Record<string, any> = {
   homologacao: Stamp,
   resposta_compliance: ShieldCheck,
   resposta_contabilidade: Calculator,
+  requisicao_emitida: ClipboardList,
+  autorizacao_despesa_emitida: DollarSign,
 };
 
 export function NotificacoesEventosGestor() {
@@ -53,7 +57,7 @@ export function NotificacoesEventosGestor() {
       if (!user) return;
 
       // Fetch all data in parallel
-      const [autorizacoesRes, homologacoesRes, complianceRes, contabilidadeRes, cientesRes] = await Promise.all([
+      const [autorizacoesRes, homologacoesRes, complianceRes, contabilidadeRes, requisicoesRes, autDespesaRes, cientesRes] = await Promise.all([
         // Autorizações (compra direta + seleção)
         supabase
           .from("autorizacoes_processo")
@@ -133,6 +137,36 @@ export function NotificacoesEventosGestor() {
           `)
           .eq("respondido_contabilidade", true)
           .order("data_resposta_contabilidade", { ascending: false })
+          .limit(500),
+
+        // Requisições emitidas (anexos_processo_compra tipo_anexo = 'requisicao')
+        supabase
+          .from("anexos_processo_compra")
+          .select(`
+            id, data_upload, tipo_anexo, nome_arquivo,
+            processos_compras:processo_compra_id (
+              numero_processo_interno,
+              contrato_gestao_id,
+              contratos_gestao (nome_contrato)
+            )
+          `)
+          .eq("tipo_anexo", "requisicao")
+          .order("data_upload", { ascending: false })
+          .limit(500),
+
+        // Autorizações de Despesa emitidas (anexos_processo_compra tipo_anexo = 'autorizacao_despesa')
+        supabase
+          .from("anexos_processo_compra")
+          .select(`
+            id, data_upload, tipo_anexo, nome_arquivo,
+            processos_compras:processo_compra_id (
+              numero_processo_interno,
+              contrato_gestao_id,
+              contratos_gestao (nome_contrato)
+            )
+          `)
+          .eq("tipo_anexo", "autorizacao_despesa")
+          .order("data_upload", { ascending: false })
           .limit(500),
 
         // Already acknowledged events - global (any gestor marking ciente removes for all)
@@ -222,7 +256,40 @@ export function NotificacoesEventosGestor() {
         });
       });
 
-      // Sort by date descending
+      // Process requisições emitidas
+      (requisicoesRes.data || []).forEach((req: any) => {
+        const key = `requisicao_emitida__${req.id}`;
+        if (cientesSet.has(key)) return;
+
+        const proc = req.processos_compras;
+        eventosFinais.push({
+          id: `requisicao_emitida-${req.id}`,
+          tipo_evento: "requisicao_emitida",
+          referencia_id: req.id,
+          descricao: TIPO_LABELS["requisicao_emitida"],
+          numero_processo: proc?.numero_processo_interno || "N/A",
+          contrato_gestao_nome: proc?.contratos_gestao?.nome_contrato || null,
+          data_evento: req.data_upload,
+        });
+      });
+
+      // Process autorizações de despesa emitidas
+      (autDespesaRes.data || []).forEach((aut: any) => {
+        const key = `autorizacao_despesa_emitida__${aut.id}`;
+        if (cientesSet.has(key)) return;
+
+        const proc = aut.processos_compras;
+        eventosFinais.push({
+          id: `autorizacao_despesa_emitida-${aut.id}`,
+          tipo_evento: "autorizacao_despesa_emitida",
+          referencia_id: aut.id,
+          descricao: TIPO_LABELS["autorizacao_despesa_emitida"],
+          numero_processo: proc?.numero_processo_interno || "N/A",
+          contrato_gestao_nome: proc?.contratos_gestao?.nome_contrato || null,
+          data_evento: aut.data_upload,
+        });
+      });
+
       eventosFinais.sort((a, b) => {
         const da = a.data_evento ? new Date(a.data_evento).getTime() : 0;
         const db = b.data_evento ? new Date(b.data_evento).getTime() : 0;
@@ -281,6 +348,28 @@ export function NotificacoesEventosGestor() {
   const grupoKeys = Object.keys(grupos);
 
   const getCores = (tipo: string) => {
+    if (tipo === "requisicao_emitida") {
+      return {
+        border: "border-emerald-500",
+        bg: "bg-emerald-50 dark:bg-emerald-950/50",
+        text: "text-emerald-900 dark:text-emerald-100",
+        textSub: "text-emerald-800 dark:text-emerald-200",
+        icon: "text-emerald-500",
+        itemBorder: "border-emerald-200 dark:border-emerald-800",
+        btn: "bg-emerald-600 hover:bg-emerald-700 text-white",
+      };
+    }
+    if (tipo === "autorizacao_despesa_emitida") {
+      return {
+        border: "border-amber-500",
+        bg: "bg-amber-50 dark:bg-amber-950/50",
+        text: "text-amber-900 dark:text-amber-100",
+        textSub: "text-amber-800 dark:text-amber-200",
+        icon: "text-amber-500",
+        itemBorder: "border-amber-200 dark:border-amber-800",
+        btn: "bg-amber-600 hover:bg-amber-700 text-white",
+      };
+    }
     if (tipo.startsWith("autorizacao") || tipo === "homologacao") {
       return {
         border: "border-blue-500",
