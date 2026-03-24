@@ -315,6 +315,7 @@ export function NotificacoesEventosGestor() {
         return db - da;
       });
 
+      console.log("[NotificacoesEventos] Eventos pendentes:", eventosFinais.length, eventosFinais.map(e => e.tipo_evento));
       setEventos(eventosFinais);
     } catch (error) {
       console.error("Erro ao carregar notificações de eventos:", error);
