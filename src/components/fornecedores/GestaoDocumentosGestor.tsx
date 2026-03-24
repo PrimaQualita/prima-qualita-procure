@@ -886,6 +886,93 @@ export default function GestaoDocumentosGestor({ fornecedorId, canEdit = true }:
         </AlertDialogContent>
       </AlertDialog>
 
+      {/* Dialog para atualizar documento */}
+      <Dialog open={dialogAtualizarDocumento} onOpenChange={setDialogAtualizarDocumento}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Atualizar Documento</DialogTitle>
+            <DialogDescription>
+              {documentoParaAtualizar && getTipoDocumentoLabel(documentoParaAtualizar.tipo_documento)}
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label>Arquivo PDF *</Label>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept=".pdf"
+                className="hidden"
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  if (file) {
+                    if (file.type !== 'application/pdf') {
+                      toast.error("Apenas arquivos PDF são permitidos");
+                      return;
+                    }
+                    handleArquivoSelecionadoAtualizar(file);
+                  }
+                }}
+              />
+              <div 
+                className="border-2 border-dashed rounded-lg p-6 text-center cursor-pointer hover:border-primary transition-colors"
+                onClick={() => fileInputRef.current?.click()}
+              >
+                {arquivoSelecionado ? (
+                  <div className="flex items-center justify-center gap-2">
+                    <FileText className="h-5 w-5 text-primary" />
+                    <span className="font-medium">{arquivoSelecionado.name}</span>
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    <Upload className="h-8 w-8 mx-auto text-muted-foreground" />
+                    <p className="text-sm text-muted-foreground">
+                      Clique para selecionar um arquivo PDF
+                    </p>
+                  </div>
+                )}
+              </div>
+              <p className="text-sm text-muted-foreground">
+                O documento antigo será arquivado se estiver vinculado a processos finalizados
+              </p>
+            </div>
+
+            {documentoParaAtualizar && DOCUMENTOS_VALIDADE.find(d => d.tipo === documentoParaAtualizar.tipo_documento)?.temValidade && (
+              <div className="space-y-2">
+                <Label htmlFor="data_validade">Data de Validade *</Label>
+                <Input
+                  id="data_validade"
+                  type="date"
+                  value={dataValidadeDocumento}
+                  onChange={(e) => setDataValidadeDocumento(e.target.value)}
+                />
+              </div>
+            )}
+          </div>
+
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setDialogAtualizarDocumento(false);
+                setArquivoSelecionado(null);
+                setDataValidadeDocumento("");
+              }}
+              disabled={processando}
+            >
+              Cancelar
+            </Button>
+            <Button
+              onClick={handleAtualizarDocumento}
+              disabled={processando || !arquivoSelecionado}
+            >
+              {processando ? "Atualizando..." : "Atualizar"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       {/* Dialog para incluir novo documento */}
       <Dialog open={dialogIncluirDocumento} onOpenChange={setDialogIncluirDocumento}>
         <DialogContent>
