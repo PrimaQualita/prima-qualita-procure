@@ -944,7 +944,7 @@ async function processarDocumentosHabilitacao(
 
     if (documentosCadastro && documentosCadastro.length > 0) {
       const ordemDocumentos = [
-        "contrato_social", "cartao_cnpj", "inscricao_estadual_municipal",
+        "contrato_social", "cartao_cnpj", "doc_identificacao_responsavel", "inscricao_estadual_municipal",
         "cnd_federal", "cnd_tributos_estaduais", "cnd_divida_ativa_estadual",
         "cnd_tributos_municipais", "cnd_divida_ativa_municipal", "crf_fgts", "cndt"
       ];

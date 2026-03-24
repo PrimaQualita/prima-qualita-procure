@@ -708,6 +708,7 @@ export const gerarProcessoCompletoPDF = async (
     const ordemDocumentos = [
       "contrato_social",
       "cartao_cnpj",
+      "doc_identificacao_responsavel",
       "inscricao_estadual_municipal",
       "cnd_federal",
       "cnd_tributos_estaduais",
