@@ -1787,6 +1787,39 @@ export function DialogAnaliseDocumentalSelecao({
         }
       });
       
+      // Nomes para exibição
+      const nomesMapeados: Record<string, string> = {
+        'contrato_social': 'Contrato Social',
+        'cartao_cnpj': 'CNPJ',
+        'doc_identificacao_responsavel': 'Doc. Identificação Responsável Legal',
+        'inscricao_estadual_municipal': 'Inscrição Municipal ou Estadual',
+        'cnd_federal': 'CND Federal',
+        'cnd_tributos_estaduais': 'CND Tributos Estaduais',
+        'cnd_divida_ativa_estadual': 'CND Dívida Ativa Estadual',
+        'cnd_tributos_municipais': 'CND Tributos Municipais',
+        'cnd_divida_ativa_municipal': 'CND Dívida Ativa Municipal',
+        'crf_fgts': 'CRF FGTS',
+        'cndt': 'CNDT',
+        'certificado_gestor': 'Certificado de Fornecedor',
+      };
+
+      // Garantir que todos os tipos obrigatórios apareçam, mesmo ausentes
+      const todosOsTipos = Object.keys(ordemDocumentos);
+      for (const tipo of todosOsTipos) {
+        if (!documentosPorTipo.has(tipo)) {
+          documentosPorTipo.set(tipo, {
+            id: `missing_${tipo}`,
+            tipo_documento: tipo,
+            nome_arquivo: '',
+            url_arquivo: '',
+            data_emissao: null,
+            data_validade: null,
+            em_vigor: false,
+            _ausente: true,
+          } as any);
+        }
+      }
+
       // Retornar ordenado pela ordem específica
       return Array.from(documentosPorTipo.values()).sort((a, b) => {
         const ordemA = ordemDocumentos[a.tipo_documento.toLowerCase()] || 99;
@@ -3514,7 +3547,7 @@ export function DialogAnaliseDocumentalSelecao({
               <FileText className="h-4 w-4" />
               Documentos do Cadastro
             </h4>
-            {data.documentosExistentes.length === 0 ? (
+            {data.documentosExistentes.every((doc: any) => doc._ausente === true) ? (
               <p className="text-sm text-muted-foreground">Nenhum documento cadastrado</p>
             ) : (
               <Table>
@@ -3528,10 +3561,56 @@ export function DialogAnaliseDocumentalSelecao({
                 </TableHeader>
                 <TableBody>
                   {data.documentosExistentes.map((doc) => {
+                    const isAusente = (doc as any)._ausente === true;
+                    
+                    // Nomes para exibição
+                    const nomesMapeados: Record<string, string> = {
+                      'contrato_social': 'Contrato Social',
+                      'cartao_cnpj': 'CNPJ',
+                      'doc_identificacao_responsavel': 'Doc. Identificação Responsável Legal',
+                      'inscricao_estadual_municipal': 'Inscrição Municipal ou Estadual',
+                      'cnd_federal': 'CND Federal',
+                      'cnd_tributos_estaduais': 'CND Tributos Estaduais',
+                      'cnd_divida_ativa_estadual': 'CND Dívida Ativa Estadual',
+                      'cnd_tributos_municipais': 'CND Tributos Municipais',
+                      'cnd_divida_ativa_municipal': 'CND Dívida Ativa Municipal',
+                      'crf_fgts': 'CRF FGTS',
+                      'cndt': 'CNDT',
+                      'certificado_gestor': 'Certificado de Fornecedor',
+                    };
+                    const nomeExibicao = nomesMapeados[doc.tipo_documento] || doc.tipo_documento;
+
+                    if (isAusente) {
+                      return (
+                        <TableRow key={doc.id} className="bg-yellow-50/50">
+                          <TableCell>{nomeExibicao}</TableCell>
+                          <TableCell>N/A</TableCell>
+                          <TableCell>
+                            <Badge variant="outline" className="bg-yellow-100 text-yellow-800 border-yellow-300">
+                              ⚠ Ausente
+                            </Badge>
+                          </TableCell>
+                          <TableCell>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => {
+                                setDocumentoParaAtualizar({ doc, fornecedorId: data.fornecedor.id });
+                                setDialogSolicitarAtualizacao(true);
+                              }}
+                            >
+                              <RefreshCw className="h-4 w-4 mr-1" />
+                              Solicitar Envio
+                            </Button>
+                          </TableCell>
+                        </TableRow>
+                      );
+                    }
+
                     const statusDoc = getStatusDocumento(doc);
                     return (
                       <TableRow key={doc.id}>
-                        <TableCell>{doc.tipo_documento}</TableCell>
+                        <TableCell>{nomeExibicao}</TableCell>
                         <TableCell>
                           {doc.data_validade
                             ? format(parseISO(doc.data_validade), "dd/MM/yyyy")
