@@ -1276,9 +1276,18 @@ export function DialogFinalizarProcesso({
               tipo_documento: nomesMapeados[tipo] || doc.tipo_documento
             };
           }
-          return undefined;
-        })
-        .filter((doc): doc is any => doc !== undefined);
+          // Retornar placeholder para documento ausente
+          return {
+            id: `missing_${tipo}`,
+            tipo_documento: nomesMapeados[tipo] || tipo,
+            nome_arquivo: "",
+            url_arquivo: "",
+            data_emissao: null,
+            data_validade: null,
+            em_vigor: false,
+            _ausente: true
+          };
+        });
 
       console.log(`📋 Documentos ordenados: ${documentosOrdenados.length}`);
 
