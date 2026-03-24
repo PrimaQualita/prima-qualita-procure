@@ -65,6 +65,7 @@ export function DialogFornecedor({
     cndt: { tipo: "CNDT", arquivo: null, dataValidade: "", processando: false },
     contrato_social: { tipo: "Contrato Social Consolidado", arquivo: null, dataValidade: "", processando: false },
     cartao_cnpj: { tipo: "Cartão CNPJ", arquivo: null, dataValidade: "", processando: false },
+    doc_identificacao_responsavel: { tipo: "Doc. Identificação Responsável Legal", arquivo: null, dataValidade: "", processando: false },
   });
   
   const [formData, setFormData] = useState<Omit<Fornecedor, "id">>({
@@ -162,7 +163,7 @@ export function DialogFornecedor({
   };
 
   const handleFileUpload = async (tipoDoc: string, file: File) => {
-    const temValidade = !["contrato_social", "cartao_cnpj"].includes(tipoDoc);
+    const temValidade = !["contrato_social", "cartao_cnpj", "doc_identificacao_responsavel"].includes(tipoDoc);
     
     setDocumentos(prev => ({
       ...prev,
@@ -451,7 +452,7 @@ export function DialogFornecedor({
                       />
                     </div>
                     
-                    {!["contrato_social", "cartao_cnpj"].includes(key) && (
+                    {!["contrato_social", "cartao_cnpj", "doc_identificacao_responsavel"].includes(key) && (
                       <div className="space-y-1">
                         <Input
                           type="date"

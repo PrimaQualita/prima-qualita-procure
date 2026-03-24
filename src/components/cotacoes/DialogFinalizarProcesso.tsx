@@ -1167,6 +1167,7 @@ export function DialogFinalizarProcesso({
       const tiposDocumentos = [
         "contrato_social",
         "cartao_cnpj",
+        "doc_identificacao_responsavel",
         "inscricao_estadual_municipal",
         "cnd_federal",
         "cnd_tributos_estaduais",
@@ -1238,6 +1239,7 @@ export function DialogFinalizarProcesso({
       const nomesMapeados: Record<string, string> = {
         "contrato_social": "Contrato Social",
         "cartao_cnpj": "CNPJ",
+        "doc_identificacao_responsavel": "Doc. Identificação Responsável Legal",
         "inscricao_estadual_municipal": "Inscrição Municipal ou Estadual",
         "cnd_federal": "CND Federal",
         "cnd_tributos_estaduais": "CND Tributos Estaduais",

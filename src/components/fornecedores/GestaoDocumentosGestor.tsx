@@ -62,6 +62,7 @@ interface Props {
 const DOCUMENTOS_VALIDADE = [
   { tipo: "contrato_social", label: "Contrato Social Consolidado", temValidade: false },
   { tipo: "cartao_cnpj", label: "Cartão CNPJ", temValidade: false },
+  { tipo: "doc_identificacao_responsavel", label: "Documento de Identificação do(s) Responsável(is) Legal(is)", temValidade: false },
   { tipo: "inscricao_estadual_municipal", label: "Inscrição Estadual ou Municipal", temValidade: false },
   { tipo: "cnd_federal", label: "CND Federal", temValidade: true },
   { tipo: "cnd_tributos_estaduais", label: "CND Tributos Estaduais", temValidade: true },

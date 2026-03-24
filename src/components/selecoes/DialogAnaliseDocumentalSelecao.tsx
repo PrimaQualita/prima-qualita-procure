@@ -1691,15 +1691,16 @@ export function DialogAnaliseDocumentalSelecao({
       const ordemDocumentos: Record<string, number> = {
         'contrato_social': 1,
         'cartao_cnpj': 2,
-        'inscricao_estadual_municipal': 3,
-        'cnd_federal': 4,
-        'cnd_tributos_estaduais': 5,
-        'cnd_divida_ativa_estadual': 6,
-        'cnd_tributos_municipais': 7,
-        'cnd_divida_ativa_municipal': 8,
-        'crf_fgts': 9,
-        'cndt': 10,
-        'certificado_gestor': 11,
+        'doc_identificacao_responsavel': 3,
+        'inscricao_estadual_municipal': 4,
+        'cnd_federal': 5,
+        'cnd_tributos_estaduais': 6,
+        'cnd_divida_ativa_estadual': 7,
+        'cnd_tributos_municipais': 8,
+        'cnd_divida_ativa_municipal': 9,
+        'crf_fgts': 10,
+        'cndt': 11,
+        'certificado_gestor': 12,
       };
 
       // BUSCAR DATA DE ENCERRAMENTO DA HABILITAÇÃO DA SELEÇÃO
