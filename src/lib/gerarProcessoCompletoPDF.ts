@@ -402,6 +402,11 @@ export const gerarProcessoCompletoPDF = async (
       }
     }
 
+    // Se for apenas visualização pré-compliance, parar aqui (sem habilitação, recursos, etc.)
+    if (apenasAteCompliance) {
+      console.log("\n⚡ Modo pré-compliance: pulando etapas 7-13...");
+    } else {
+
     // ============================================
     // 7 - DOCUMENTOS DOS FORNECEDORES (VENCEDORES E INABILITADOS)
     // ============================================
