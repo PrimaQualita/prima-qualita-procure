@@ -1099,8 +1099,9 @@ export const gerarProcessoCompletoPDF = async (
       console.log("  ⚠️ Nenhuma autorização encontrada");
     }
 
+    } // fim do else !apenasAteCompliance
+
     // ============================================
-    // FINALIZAÇÃO
     // ============================================
     const totalPaginas = pdfFinal.getPageCount();
     console.log(`\n📑 Total de páginas mescladas: ${totalPaginas}`);
