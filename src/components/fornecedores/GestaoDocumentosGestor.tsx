@@ -90,6 +90,11 @@ export default function GestaoDocumentosGestor({ fornecedorId, canEdit = true }:
   const [arquivoSelecionado, setArquivoSelecionado] = useState<File | null>(null);
   const [dataValidadeDocumento, setDataValidadeDocumento] = useState("");
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const fileInputIncluirRef = useRef<HTMLInputElement>(null);
+  const [dialogIncluirDocumento, setDialogIncluirDocumento] = useState(false);
+  const [tipoDocumentoIncluir, setTipoDocumentoIncluir] = useState<string>("");
+  const [arquivoIncluir, setArquivoIncluir] = useState<File | null>(null);
+  const [dataValidadeIncluir, setDataValidadeIncluir] = useState("");
 
   useEffect(() => {
     loadDocumentos();
@@ -499,6 +504,99 @@ export default function GestaoDocumentosGestor({ fornecedorId, canEdit = true }:
     }
   };
 
+  const handleIncluirDocumento = async () => {
+    if (!arquivoIncluir || !tipoDocumentoIncluir) {
+      toast.error("Selecione um arquivo");
+      return;
+    }
+
+    const docConfig = DOCUMENTOS_VALIDADE.find(d => d.tipo === tipoDocumentoIncluir);
+    if (docConfig?.temValidade && !dataValidadeIncluir) {
+      toast.error("Informe a data de validade do documento");
+      return;
+    }
+
+    setProcessando(true);
+    try {
+      const { data: fornecedor } = await supabase
+        .from("fornecedores")
+        .select("cnpj")
+        .eq("id", fornecedorId)
+        .single();
+
+      if (!fornecedor) throw new Error("Fornecedor não encontrado");
+
+      const cnpjLimpo = fornecedor.cnpj.replace(/\D/g, '');
+      const timestamp = Date.now();
+      const nomeArquivo = `${tipoDocumentoIncluir}_${timestamp}.pdf`;
+      const storagePath = `fornecedor_${cnpjLimpo}/${nomeArquivo}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from('processo-anexos')
+        .upload(storagePath, arquivoIncluir, { upsert: true });
+
+      if (uploadError) throw uploadError;
+
+      const { data: urlData } = supabase.storage
+        .from('processo-anexos')
+        .getPublicUrl(storagePath);
+
+      const dataValidadeISO = dataValidadeIncluir 
+        ? `${dataValidadeIncluir}T00:00:00.000Z`
+        : null;
+
+      const { error: insertError } = await supabase
+        .from("documentos_fornecedor")
+        .insert({
+          fornecedor_id: fornecedorId,
+          tipo_documento: tipoDocumentoIncluir,
+          nome_arquivo: arquivoIncluir.name,
+          url_arquivo: urlData.publicUrl,
+          data_upload: new Date().toISOString(),
+          data_validade: dataValidadeISO,
+          em_vigor: true
+        });
+
+      if (insertError) throw insertError;
+
+      toast.success("Documento incluído com sucesso!");
+      setDialogIncluirDocumento(false);
+      setTipoDocumentoIncluir("");
+      setArquivoIncluir(null);
+      setDataValidadeIncluir("");
+      loadDocumentos();
+    } catch (error: any) {
+      console.error("Erro ao incluir documento:", error);
+      toast.error("Erro ao incluir documento");
+    } finally {
+      setProcessando(false);
+    }
+  };
+
+  const handleArquivoIncluirSelecionado = async (arquivo: File | null) => {
+    setArquivoIncluir(arquivo);
+    
+    if (!arquivo || !tipoDocumentoIncluir) {
+      setDataValidadeIncluir("");
+      return;
+    }
+
+    const docConfig = DOCUMENTOS_VALIDADE.find(d => d.tipo === tipoDocumentoIncluir);
+    if (docConfig?.temValidade) {
+      toast.info("Extraindo data de validade do PDF...");
+      const resultado = await handleExtrairDataPDF(arquivo, tipoDocumentoIncluir);
+      
+      if (resultado?.dataValidade) {
+        setDataValidadeIncluir(resultado.dataValidade);
+        toast.success("Data de validade extraída automaticamente!");
+      } else if (resultado?.isScanned) {
+        toast.warning("PDF digitalizado detectado. Informe a data de validade manualmente.");
+      } else {
+        toast.warning("Não foi possível extrair a data automaticamente. Informe manualmente.");
+      }
+    }
+  };
+
   const getDocumentoMaisRecente = (tipo: string) => {
     return documentos.find(d => d.tipo_documento === tipo && d.em_vigor);
   };
@@ -574,7 +672,7 @@ export default function GestaoDocumentosGestor({ fornecedorId, canEdit = true }:
                       )}
                     </TableCell>
                     <TableCell className="text-right">
-                      {doc && (
+                      {doc ? (
                         <div className="flex items-center justify-end gap-2">
                           <Button
                             variant="ghost"
@@ -649,7 +747,21 @@ export default function GestaoDocumentosGestor({ fornecedorId, canEdit = true }:
                             </DropdownMenuContent>
                           </DropdownMenu>
                         </div>
-                      )}
+                      ) : canEdit ? (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => {
+                            setTipoDocumentoIncluir(docConfig.tipo);
+                            setArquivoIncluir(null);
+                            setDataValidadeIncluir("");
+                            setDialogIncluirDocumento(true);
+                          }}
+                        >
+                          <Upload className="h-4 w-4 mr-1" />
+                          Incluir
+                        </Button>
+                      ) : null}
                     </TableCell>
                   </TableRow>
                 );
@@ -856,6 +968,90 @@ export default function GestaoDocumentosGestor({ fornecedorId, canEdit = true }:
               disabled={processando || !arquivoSelecionado}
             >
               {processando ? "Atualizando..." : "Atualizar"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Dialog para incluir novo documento */}
+      <Dialog open={dialogIncluirDocumento} onOpenChange={setDialogIncluirDocumento}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Incluir Documento</DialogTitle>
+            <DialogDescription>
+              {getTipoDocumentoLabel(tipoDocumentoIncluir)}
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label>Arquivo PDF *</Label>
+              <input
+                ref={fileInputIncluirRef}
+                type="file"
+                accept=".pdf"
+                className="hidden"
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  if (file) {
+                    if (file.type !== 'application/pdf') {
+                      toast.error("Apenas arquivos PDF são permitidos");
+                      return;
+                    }
+                    handleArquivoIncluirSelecionado(file);
+                  }
+                }}
+              />
+              <div 
+                className="border-2 border-dashed rounded-lg p-6 text-center cursor-pointer hover:border-primary transition-colors"
+                onClick={() => fileInputIncluirRef.current?.click()}
+              >
+                {arquivoIncluir ? (
+                  <div className="flex items-center justify-center gap-2">
+                    <FileText className="h-5 w-5 text-primary" />
+                    <span className="font-medium">{arquivoIncluir.name}</span>
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    <Upload className="h-8 w-8 mx-auto text-muted-foreground" />
+                    <p className="text-sm text-muted-foreground">
+                      Clique para selecionar um arquivo PDF
+                    </p>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {DOCUMENTOS_VALIDADE.find(d => d.tipo === tipoDocumentoIncluir)?.temValidade && (
+              <div className="space-y-2">
+                <Label htmlFor="data_validade_incluir">Data de Validade *</Label>
+                <Input
+                  id="data_validade_incluir"
+                  type="date"
+                  value={dataValidadeIncluir}
+                  onChange={(e) => setDataValidadeIncluir(e.target.value)}
+                />
+              </div>
+            )}
+          </div>
+
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setDialogIncluirDocumento(false);
+                setArquivoIncluir(null);
+                setDataValidadeIncluir("");
+              }}
+              disabled={processando}
+            >
+              Cancelar
+            </Button>
+            <Button
+              onClick={handleIncluirDocumento}
+              disabled={processando || !arquivoIncluir}
+            >
+              {processando ? "Incluindo..." : "Incluir"}
             </Button>
           </DialogFooter>
         </DialogContent>
