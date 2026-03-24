@@ -176,6 +176,24 @@ export function NotificacoesEventosGestor() {
           .select("tipo_evento, referencia_id"),
       ]);
 
+      // Log query results for debugging
+      console.log("[NotificacoesEventos] Resultados:", {
+        autorizacoes: autorizacoesRes.data?.length || 0,
+        autorizacoesError: autorizacoesRes.error,
+        homologacoes: homologacoesRes.data?.length || 0,
+        homologacoesError: homologacoesRes.error,
+        compliance: complianceRes.data?.length || 0,
+        complianceError: complianceRes.error,
+        contabilidade: contabilidadeRes.data?.length || 0,
+        contabilidadeError: contabilidadeRes.error,
+        requisicoes: requisicoesRes.data?.length || 0,
+        requisicoesError: requisicoesRes.error,
+        autDespesa: autDespesaRes.data?.length || 0,
+        autDespesaError: autDespesaRes.error,
+        cientes: cientesRes.data?.length || 0,
+        cientesError: cientesRes.error,
+      });
+
       // Build set of already acknowledged events
       const cientesSet = new Set(
         (cientesRes.data || []).map((c: any) => `${c.tipo_evento}__${c.referencia_id}`)
