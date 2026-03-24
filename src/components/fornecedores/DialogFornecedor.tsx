@@ -163,7 +163,7 @@ export function DialogFornecedor({
   };
 
   const handleFileUpload = async (tipoDoc: string, file: File) => {
-    const temValidade = !["contrato_social", "cartao_cnpj"].includes(tipoDoc);
+    const temValidade = !["contrato_social", "cartao_cnpj", "doc_identificacao_responsavel"].includes(tipoDoc);
     
     setDocumentos(prev => ({
       ...prev,
