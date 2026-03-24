@@ -323,13 +323,13 @@ export default function CadastroFornecedor() {
           return;
         }
 
-        // É órfão de fornecedor - pode deletar
+        // É órfão de fornecedor - pode deletar via função dedicada (sem exigir perfil gestor)
         console.log('=== USUÁRIO ÓRFÃO DETECTADO, LIMPANDO E RECRIANDO ===');
         
         const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
         const SUPABASE_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
         
-        await fetch(`${SUPABASE_URL}/functions/v1/deletar-usuario-admin`, {
+        const cleanupResponse = await fetch(`${SUPABASE_URL}/functions/v1/limpar-usuario-orfao-fornecedor`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -337,6 +337,13 @@ export default function CadastroFornecedor() {
           },
           body: JSON.stringify({ email: formData.email })
         });
+        
+        const cleanupResult = await cleanupResponse.json();
+        console.log('=== RESULTADO LIMPEZA ÓRFÃO:', cleanupResult, '===');
+        
+        if (!cleanupResponse.ok) {
+          throw new Error(cleanupResult.error || 'Erro ao limpar cadastro anterior');
+        }
 
         await new Promise(resolve => setTimeout(resolve, 1500));
 
