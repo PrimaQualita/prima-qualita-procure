@@ -504,6 +504,99 @@ export default function GestaoDocumentosGestor({ fornecedorId, canEdit = true }:
     }
   };
 
+  const handleIncluirDocumento = async () => {
+    if (!arquivoIncluir || !tipoDocumentoIncluir) {
+      toast.error("Selecione um arquivo");
+      return;
+    }
+
+    const docConfig = DOCUMENTOS_VALIDADE.find(d => d.tipo === tipoDocumentoIncluir);
+    if (docConfig?.temValidade && !dataValidadeIncluir) {
+      toast.error("Informe a data de validade do documento");
+      return;
+    }
+
+    setProcessando(true);
+    try {
+      const { data: fornecedor } = await supabase
+        .from("fornecedores")
+        .select("cnpj")
+        .eq("id", fornecedorId)
+        .single();
+
+      if (!fornecedor) throw new Error("Fornecedor não encontrado");
+
+      const cnpjLimpo = fornecedor.cnpj.replace(/\D/g, '');
+      const timestamp = Date.now();
+      const nomeArquivo = `${tipoDocumentoIncluir}_${timestamp}.pdf`;
+      const storagePath = `fornecedor_${cnpjLimpo}/${nomeArquivo}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from('processo-anexos')
+        .upload(storagePath, arquivoIncluir, { upsert: true });
+
+      if (uploadError) throw uploadError;
+
+      const { data: urlData } = supabase.storage
+        .from('processo-anexos')
+        .getPublicUrl(storagePath);
+
+      const dataValidadeISO = dataValidadeIncluir 
+        ? `${dataValidadeIncluir}T00:00:00.000Z`
+        : null;
+
+      const { error: insertError } = await supabase
+        .from("documentos_fornecedor")
+        .insert({
+          fornecedor_id: fornecedorId,
+          tipo_documento: tipoDocumentoIncluir,
+          nome_arquivo: arquivoIncluir.name,
+          url_arquivo: urlData.publicUrl,
+          data_upload: new Date().toISOString(),
+          data_validade: dataValidadeISO,
+          em_vigor: true
+        });
+
+      if (insertError) throw insertError;
+
+      toast.success("Documento incluído com sucesso!");
+      setDialogIncluirDocumento(false);
+      setTipoDocumentoIncluir("");
+      setArquivoIncluir(null);
+      setDataValidadeIncluir("");
+      loadDocumentos();
+    } catch (error: any) {
+      console.error("Erro ao incluir documento:", error);
+      toast.error("Erro ao incluir documento");
+    } finally {
+      setProcessando(false);
+    }
+  };
+
+  const handleArquivoIncluirSelecionado = async (arquivo: File | null) => {
+    setArquivoIncluir(arquivo);
+    
+    if (!arquivo || !tipoDocumentoIncluir) {
+      setDataValidadeIncluir("");
+      return;
+    }
+
+    const docConfig = DOCUMENTOS_VALIDADE.find(d => d.tipo === tipoDocumentoIncluir);
+    if (docConfig?.temValidade) {
+      toast.info("Extraindo data de validade do PDF...");
+      const resultado = await handleExtrairDataPDF(arquivo, tipoDocumentoIncluir);
+      
+      if (resultado?.dataValidade) {
+        setDataValidadeIncluir(resultado.dataValidade);
+        toast.success("Data de validade extraída automaticamente!");
+      } else if (resultado?.isScanned) {
+        toast.warning("PDF digitalizado detectado. Informe a data de validade manualmente.");
+      } else {
+        toast.warning("Não foi possível extrair a data automaticamente. Informe manualmente.");
+      }
+    }
+  };
+
   const getDocumentoMaisRecente = (tipo: string) => {
     return documentos.find(d => d.tipo_documento === tipo && d.em_vigor);
   };
