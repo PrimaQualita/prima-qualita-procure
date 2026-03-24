@@ -57,7 +57,7 @@ export function NotificacoesEventosGestor() {
       if (!user) return;
 
       // Fetch all data in parallel
-      const [autorizacoesRes, homologacoesRes, complianceRes, contabilidadeRes, cientesRes] = await Promise.all([
+      const [autorizacoesRes, homologacoesRes, complianceRes, contabilidadeRes, requisicoesRes, autDespesaRes, cientesRes] = await Promise.all([
         // Autorizações (compra direta + seleção)
         supabase
           .from("autorizacoes_processo")
@@ -137,6 +137,36 @@ export function NotificacoesEventosGestor() {
           `)
           .eq("respondido_contabilidade", true)
           .order("data_resposta_contabilidade", { ascending: false })
+          .limit(500),
+
+        // Requisições emitidas (anexos_processo_compra tipo_anexo = 'requisicao')
+        supabase
+          .from("anexos_processo_compra")
+          .select(`
+            id, data_upload, tipo_anexo, nome_arquivo,
+            processos_compras:processo_compra_id (
+              numero_processo_interno,
+              contrato_gestao_id,
+              contratos_gestao (nome_contrato)
+            )
+          `)
+          .eq("tipo_anexo", "requisicao")
+          .order("data_upload", { ascending: false })
+          .limit(500),
+
+        // Autorizações de Despesa emitidas (anexos_processo_compra tipo_anexo = 'autorizacao_despesa')
+        supabase
+          .from("anexos_processo_compra")
+          .select(`
+            id, data_upload, tipo_anexo, nome_arquivo,
+            processos_compras:processo_compra_id (
+              numero_processo_interno,
+              contrato_gestao_id,
+              contratos_gestao (nome_contrato)
+            )
+          `)
+          .eq("tipo_anexo", "autorizacao_despesa")
+          .order("data_upload", { ascending: false })
           .limit(500),
 
         // Already acknowledged events - global (any gestor marking ciente removes for all)
