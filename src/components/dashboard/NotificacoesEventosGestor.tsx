@@ -54,6 +54,7 @@ export function NotificacoesEventosGestor() {
   const loadEventos = async () => {
     try {
       const { data: { user } } = await supabase.auth.getUser();
+      console.log("[NotificacoesEventos] Carregando eventos para user:", user?.id);
       if (!user) return;
 
       // Fetch all data in parallel
