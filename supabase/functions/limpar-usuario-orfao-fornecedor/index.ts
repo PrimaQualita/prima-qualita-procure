@@ -6,10 +6,9 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-// Rate limiter simples em memória
 const rateLimiter = new Map<string, { count: number; resetTime: number }>();
 
-function checkRateLimit(identifier: string, maxRequests: number = 3, windowMs: number = 60000): boolean {
+function checkRateLimit(identifier: string, maxRequests: number = 5, windowMs: number = 60000): boolean {
   const now = Date.now();
   const record = rateLimiter.get(identifier);
   if (!record || now > record.resetTime) {
@@ -27,7 +26,7 @@ serve(async (req) => {
   }
 
   const clientIp = req.headers.get("x-forwarded-for") || req.headers.get("x-real-ip") || "unknown";
-  if (!checkRateLimit(clientIp, 3, 60000)) {
+  if (!checkRateLimit(clientIp, 5, 60000)) {
     return new Response(
       JSON.stringify({ error: "Muitas requisições. Tente novamente em 1 minuto." }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 429 }
@@ -35,7 +34,8 @@ serve(async (req) => {
   }
 
   try {
-    const { email } = await req.json();
+    const body = await req.json();
+    const { email, action, fornecedorId, dadosAtualizacao } = body;
 
     if (!email || typeof email !== "string" || !email.includes("@")) {
       return new Response(
@@ -50,20 +50,66 @@ serve(async (req) => {
       { auth: { autoRefreshToken: false, persistSession: false } }
     );
 
-    // 1. Buscar o auth user pelo email
+    // ACTION: atualizar-fornecedor-orfao - update orphan supplier record with service role
+    if (action === "atualizar-fornecedor-orfao") {
+      if (!fornecedorId || !dadosAtualizacao) {
+        return new Response(
+          JSON.stringify({ error: "fornecedorId e dadosAtualizacao são obrigatórios" }),
+          { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 400 }
+        );
+      }
+
+      // Safety: verify this fornecedor exists and has no active user (orphan)
+      const { data: fornecedor } = await supabaseAdmin
+        .from("fornecedores")
+        .select("id, user_id")
+        .eq("id", fornecedorId)
+        .maybeSingle();
+
+      if (!fornecedor) {
+        return new Response(
+          JSON.stringify({ error: "Fornecedor não encontrado" }),
+          { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 404 }
+        );
+      }
+
+      // Clean old documents and due diligence responses
+      await supabaseAdmin.from('documentos_fornecedor').delete().eq('fornecedor_id', fornecedorId);
+      await supabaseAdmin.from('respostas_due_diligence_fornecedor').delete().eq('fornecedor_id', fornecedorId);
+
+      // Update the orphan record
+      const { data: updated, error: updateError } = await supabaseAdmin
+        .from("fornecedores")
+        .update(dadosAtualizacao)
+        .eq("id", fornecedorId)
+        .select()
+        .single();
+
+      if (updateError) {
+        console.error("Erro ao atualizar fornecedor órfão:", updateError);
+        throw new Error(`Erro ao atualizar fornecedor: ${updateError.message}`);
+      }
+
+      console.log(`Fornecedor órfão atualizado: ${fornecedorId}`);
+      return new Response(
+        JSON.stringify({ success: true, fornecedor: updated }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 200 }
+      );
+    }
+
+    // DEFAULT ACTION: limpar auth user órfão
     const { data: usersData, error: listError } = await supabaseAdmin.auth.admin.listUsers();
     if (listError) throw new Error(`Erro ao buscar usuários: ${listError.message}`);
 
     const authUser = usersData.users.find((u) => u.email === email);
     if (!authUser) {
-      // Não existe auth user - não precisa fazer nada
       return new Response(
         JSON.stringify({ success: true, message: "Nenhum usuário encontrado para limpar" }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 200 }
       );
     }
 
-    // 2. SEGURANÇA: Verificar se é usuário INTERNO (profiles) - NÃO deletar internos
+    // Safety: don't delete internal users
     const { data: profileCheck } = await supabaseAdmin
       .from("profiles")
       .select("id")
@@ -77,7 +123,7 @@ serve(async (req) => {
       );
     }
 
-    // 3. SEGURANÇA: Verificar se existe fornecedor ATIVO vinculado (user_id não nulo)
+    // Safety: don't delete active suppliers
     const { data: fornecedorAtivo } = await supabaseAdmin
       .from("fornecedores")
       .select("id")
@@ -91,9 +137,7 @@ serve(async (req) => {
       );
     }
 
-    // 4. É um auth user órfão (sem profile e sem fornecedor ativo) - pode deletar
     console.log(`Limpando auth user órfão: ${email} (${authUser.id})`);
-
     const { error: deleteError } = await supabaseAdmin.auth.admin.deleteUser(authUser.id);
     if (deleteError) throw new Error(`Erro ao deletar usuário órfão: ${deleteError.message}`);
 
