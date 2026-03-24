@@ -256,7 +256,40 @@ export function NotificacoesEventosGestor() {
         });
       });
 
-      // Sort by date descending
+      // Process requisições emitidas
+      (requisicoesRes.data || []).forEach((req: any) => {
+        const key = `requisicao_emitida__${req.id}`;
+        if (cientesSet.has(key)) return;
+
+        const proc = req.processos_compras;
+        eventosFinais.push({
+          id: `requisicao_emitida-${req.id}`,
+          tipo_evento: "requisicao_emitida",
+          referencia_id: req.id,
+          descricao: TIPO_LABELS["requisicao_emitida"],
+          numero_processo: proc?.numero_processo_interno || "N/A",
+          contrato_gestao_nome: proc?.contratos_gestao?.nome_contrato || null,
+          data_evento: req.data_upload,
+        });
+      });
+
+      // Process autorizações de despesa emitidas
+      (autDespesaRes.data || []).forEach((aut: any) => {
+        const key = `autorizacao_despesa_emitida__${aut.id}`;
+        if (cientesSet.has(key)) return;
+
+        const proc = aut.processos_compras;
+        eventosFinais.push({
+          id: `autorizacao_despesa_emitida-${aut.id}`,
+          tipo_evento: "autorizacao_despesa_emitida",
+          referencia_id: aut.id,
+          descricao: TIPO_LABELS["autorizacao_despesa_emitida"],
+          numero_processo: proc?.numero_processo_interno || "N/A",
+          contrato_gestao_nome: proc?.contratos_gestao?.nome_contrato || null,
+          data_evento: aut.data_upload,
+        });
+      });
+
       eventosFinais.sort((a, b) => {
         const da = a.data_evento ? new Date(a.data_evento).getTime() : 0;
         const db = b.data_evento ? new Date(b.data_evento).getTime() : 0;
