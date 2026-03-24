@@ -11,7 +11,8 @@ interface ProcessoCompletoResult {
 export const gerarProcessoCompletoPDF = async (
   cotacaoId: string,
   numeroProcesso: string,
-  temporario: boolean = false
+  temporario: boolean = false,
+  apenasAteCompliance: boolean = false
 ): Promise<ProcessoCompletoResult> => {
   console.log(`Iniciando geração do processo completo para cotação ${cotacaoId}...`);
   
@@ -400,6 +401,11 @@ export const gerarProcessoCompletoPDF = async (
         await buscarEMesclarDocumento(cleanPath, doc.bucket, doc.nome);
       }
     }
+
+    // Se for apenas visualização pré-compliance, parar aqui (sem habilitação, recursos, etc.)
+    if (apenasAteCompliance) {
+      console.log("\n⚡ Modo pré-compliance: pulando etapas 7-13...");
+    } else {
 
     // ============================================
     // 7 - DOCUMENTOS DOS FORNECEDORES (VENCEDORES E INABILITADOS)
@@ -1093,8 +1099,9 @@ export const gerarProcessoCompletoPDF = async (
       console.log("  ⚠️ Nenhuma autorização encontrada");
     }
 
+    } // fim do else !apenasAteCompliance
+
     // ============================================
-    // FINALIZAÇÃO
     // ============================================
     const totalPaginas = pdfFinal.getPageCount();
     console.log(`\n📑 Total de páginas mescladas: ${totalPaginas}`);
@@ -1138,8 +1145,9 @@ export const gerarProcessoCompletoPDF = async (
     console.log(`   Páginas: ${totalPaginas}`);
     
     if (temporario) {
+      const blobUrl = URL.createObjectURL(blob);
       return {
-        url: "",
+        url: blobUrl,
         filename,
         blob,
       };

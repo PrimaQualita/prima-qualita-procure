@@ -1590,7 +1590,7 @@ export default function RespostasCotacao() {
                   onClick={async () => {
                     try {
                       toast.info("Gerando visualização do processo, aguarde...");
-                      const result = await gerarProcessoCompletoPDF(cotacaoId!, processoNumero, true);
+                      const result = await gerarProcessoCompletoPDF(cotacaoId!, processoNumero, true, true);
                       if (result?.url) {
                         window.open(result.url, '_blank');
                       }
