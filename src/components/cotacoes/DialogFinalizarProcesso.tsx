@@ -4257,6 +4257,40 @@ export function DialogFinalizarProcesso({
                           </TableHeader>
                           <TableBody>
                             {fornData.documentosExistentes.map((doc) => {
+                              const isAusente = (doc as any)._ausente === true;
+                              
+                              if (isAusente) {
+                                return (
+                                  <TableRow key={doc.id} className="bg-yellow-50/50">
+                                    <TableCell className="font-medium">{doc.tipo_documento}</TableCell>
+                                    <TableCell>
+                                      <span className="text-sm text-muted-foreground italic">Não enviado</span>
+                                    </TableCell>
+                                    <TableCell>N/A</TableCell>
+                                    <TableCell>
+                                      <Badge variant="outline" className="bg-yellow-100 text-yellow-800 border-yellow-300">
+                                        ⚠ Ausente
+                                      </Badge>
+                                    </TableCell>
+                                    <TableCell>
+                                      <Button
+                                        variant="outline"
+                                        size="sm"
+                                        className="bg-orange-50 hover:bg-orange-100 text-orange-700 border-orange-300"
+                                        onClick={() => {
+                                          setDocumentoParaAtualizar(doc);
+                                          setMotivoAtualizacao("");
+                                          setDialogSolicitarAtualizacao(true);
+                                        }}
+                                      >
+                                        <Clock className="h-4 w-4 mr-1" />
+                                        Solicitar Envio
+                                      </Button>
+                                    </TableCell>
+                                  </TableRow>
+                                );
+                              }
+
                               const hoje = startOfDay(new Date());
                               const validade = doc.data_validade ? startOfDay(parseISO(doc.data_validade)) : null;
                               const diasRestantes = validade ? differenceInDays(validade, hoje) : null;
