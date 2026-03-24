@@ -886,13 +886,13 @@ export default function GestaoDocumentosGestor({ fornecedorId, canEdit = true }:
         </AlertDialogContent>
       </AlertDialog>
 
-      {/* Dialog para atualizar documento */}
-      <Dialog open={dialogAtualizarDocumento} onOpenChange={setDialogAtualizarDocumento}>
+      {/* Dialog para incluir novo documento */}
+      <Dialog open={dialogIncluirDocumento} onOpenChange={setDialogIncluirDocumento}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Atualizar Documento</DialogTitle>
+            <DialogTitle>Incluir Documento</DialogTitle>
             <DialogDescription>
-              {documentoParaAtualizar && getTipoDocumentoLabel(documentoParaAtualizar.tipo_documento)}
+              {getTipoDocumentoLabel(tipoDocumentoIncluir)}
             </DialogDescription>
           </DialogHeader>
 
@@ -900,7 +900,7 @@ export default function GestaoDocumentosGestor({ fornecedorId, canEdit = true }:
             <div className="space-y-2">
               <Label>Arquivo PDF *</Label>
               <input
-                ref={fileInputRef}
+                ref={fileInputIncluirRef}
                 type="file"
                 accept=".pdf"
                 className="hidden"
@@ -911,18 +911,18 @@ export default function GestaoDocumentosGestor({ fornecedorId, canEdit = true }:
                       toast.error("Apenas arquivos PDF são permitidos");
                       return;
                     }
-                    handleArquivoSelecionadoAtualizar(file);
+                    handleArquivoIncluirSelecionado(file);
                   }
                 }}
               />
               <div 
                 className="border-2 border-dashed rounded-lg p-6 text-center cursor-pointer hover:border-primary transition-colors"
-                onClick={() => fileInputRef.current?.click()}
+                onClick={() => fileInputIncluirRef.current?.click()}
               >
-                {arquivoSelecionado ? (
+                {arquivoIncluir ? (
                   <div className="flex items-center justify-center gap-2">
                     <FileText className="h-5 w-5 text-primary" />
-                    <span className="font-medium">{arquivoSelecionado.name}</span>
+                    <span className="font-medium">{arquivoIncluir.name}</span>
                   </div>
                 ) : (
                   <div className="space-y-2">
@@ -933,19 +933,16 @@ export default function GestaoDocumentosGestor({ fornecedorId, canEdit = true }:
                   </div>
                 )}
               </div>
-              <p className="text-sm text-muted-foreground">
-                O documento antigo será arquivado se estiver vinculado a processos finalizados
-              </p>
             </div>
 
-            {documentoParaAtualizar && DOCUMENTOS_VALIDADE.find(d => d.tipo === documentoParaAtualizar.tipo_documento)?.temValidade && (
+            {DOCUMENTOS_VALIDADE.find(d => d.tipo === tipoDocumentoIncluir)?.temValidade && (
               <div className="space-y-2">
-                <Label htmlFor="data_validade">Data de Validade *</Label>
+                <Label htmlFor="data_validade_incluir">Data de Validade *</Label>
                 <Input
-                  id="data_validade"
+                  id="data_validade_incluir"
                   type="date"
-                  value={dataValidadeDocumento}
-                  onChange={(e) => setDataValidadeDocumento(e.target.value)}
+                  value={dataValidadeIncluir}
+                  onChange={(e) => setDataValidadeIncluir(e.target.value)}
                 />
               </div>
             )}
@@ -955,19 +952,19 @@ export default function GestaoDocumentosGestor({ fornecedorId, canEdit = true }:
             <Button
               variant="outline"
               onClick={() => {
-                setDialogAtualizarDocumento(false);
-                setArquivoSelecionado(null);
-                setDataValidadeDocumento("");
+                setDialogIncluirDocumento(false);
+                setArquivoIncluir(null);
+                setDataValidadeIncluir("");
               }}
               disabled={processando}
             >
               Cancelar
             </Button>
             <Button
-              onClick={handleAtualizarDocumento}
-              disabled={processando || !arquivoSelecionado}
+              onClick={handleIncluirDocumento}
+              disabled={processando || !arquivoIncluir}
             >
-              {processando ? "Atualizando..." : "Atualizar"}
+              {processando ? "Incluindo..." : "Incluir"}
             </Button>
           </DialogFooter>
         </DialogContent>
