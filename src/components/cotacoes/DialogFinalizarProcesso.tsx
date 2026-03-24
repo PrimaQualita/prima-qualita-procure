@@ -1276,9 +1276,18 @@ export function DialogFinalizarProcesso({
               tipo_documento: nomesMapeados[tipo] || doc.tipo_documento
             };
           }
-          return undefined;
-        })
-        .filter((doc): doc is any => doc !== undefined);
+          // Retornar placeholder para documento ausente
+          return {
+            id: `missing_${tipo}`,
+            tipo_documento: nomesMapeados[tipo] || tipo,
+            nome_arquivo: "",
+            url_arquivo: "",
+            data_emissao: null,
+            data_validade: null,
+            em_vigor: false,
+            _ausente: true
+          };
+        });
 
       console.log(`📋 Documentos ordenados: ${documentosOrdenados.length}`);
 
@@ -4188,7 +4197,7 @@ export function DialogFinalizarProcesso({
                   
                   <CardContent className="space-y-6">
                     {/* Documentos Válidos em Cadastro ou Aviso de Cadastro Pendente */}
-                    {fornData.documentosExistentes.length === 0 ? (
+                    {fornData.documentosExistentes.every((doc: any) => doc._ausente === true) ? (
                       <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-4">
                         <h3 className="font-semibold text-yellow-900 mb-3">⚠️ Fornecedor sem Cadastro Completo</h3>
                         <p className="text-sm text-yellow-800 mb-4">
@@ -4248,6 +4257,40 @@ export function DialogFinalizarProcesso({
                           </TableHeader>
                           <TableBody>
                             {fornData.documentosExistentes.map((doc) => {
+                              const isAusente = (doc as any)._ausente === true;
+                              
+                              if (isAusente) {
+                                return (
+                                  <TableRow key={doc.id} className="bg-yellow-50/50">
+                                    <TableCell className="font-medium">{doc.tipo_documento}</TableCell>
+                                    <TableCell>
+                                      <span className="text-sm text-muted-foreground italic">Não enviado</span>
+                                    </TableCell>
+                                    <TableCell>N/A</TableCell>
+                                    <TableCell>
+                                      <Badge variant="outline" className="bg-yellow-100 text-yellow-800 border-yellow-300">
+                                        ⚠ Ausente
+                                      </Badge>
+                                    </TableCell>
+                                    <TableCell>
+                                      <Button
+                                        variant="outline"
+                                        size="sm"
+                                        className="bg-orange-50 hover:bg-orange-100 text-orange-700 border-orange-300"
+                                        onClick={() => {
+                                          setDocumentoParaAtualizar(doc);
+                                          setMotivoAtualizacao("");
+                                          setDialogSolicitarAtualizacao(true);
+                                        }}
+                                      >
+                                        <Clock className="h-4 w-4 mr-1" />
+                                        Solicitar Envio
+                                      </Button>
+                                    </TableCell>
+                                  </TableRow>
+                                );
+                              }
+
                               const hoje = startOfDay(new Date());
                               const validade = doc.data_validade ? startOfDay(parseISO(doc.data_validade)) : null;
                               const diasRestantes = validade ? differenceInDays(validade, hoje) : null;
