@@ -4,7 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Button } from "@/components/ui/button";
-import { FileText, Stamp, ShieldCheck, Calculator, Inbox } from "lucide-react";
+import { FileText, Stamp, ShieldCheck, Calculator, Inbox, ClipboardList, DollarSign } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
 
