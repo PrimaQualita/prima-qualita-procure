@@ -367,40 +367,46 @@ export default function CadastroFornecedor() {
       let fornecedorData;
       
       if (reutilizarFornecedorOrfao && fornecedorOrfaoId) {
-        // REUTILIZAR registro órfão existente (preserva propostas de cotação)
-        console.log('=== ATUALIZANDO REGISTRO ÓRFÃO:', fornecedorOrfaoId, '===');
+        // REUTILIZAR registro órfão existente via edge function (service role bypassa RLS)
+        console.log('=== ATUALIZANDO REGISTRO ÓRFÃO VIA EDGE FUNCTION:', fornecedorOrfaoId, '===');
         
-        // Limpar documentos e respostas antigas do órfão
-        await supabase.from('documentos_fornecedor').delete().eq('fornecedor_id', fornecedorOrfaoId);
-        await supabase.from('respostas_due_diligence_fornecedor').delete().eq('fornecedor_id', fornecedorOrfaoId);
-
-        // Atualizar o registro órfão com dados completos
         const responsaveisValidos = responsaveisLegais.filter(r => r.trim() !== '');
-        const { data: fornecedorAtualizado, error: updateError } = await supabase
-          .from("fornecedores")
-          .update({
-            user_id: authUserId,
-            razao_social: formData.razao_social,
-            nome_fantasia: formData.nome_fantasia || null,
-            cnpj: cnpjLimpo,
-            endereco_comercial: enderecoCompleto,
-            telefone: formData.telefone,
+        const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
+        const SUPABASE_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+        
+        const updateResponse = await fetch(`${SUPABASE_URL}/functions/v1/limpar-usuario-orfao-fornecedor`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${SUPABASE_KEY}`
+          },
+          body: JSON.stringify({
             email: formData.email,
-            status_aprovacao: 'pendente',
-            ativo: false,
-            data_cadastro: new Date().toISOString(),
-            responsaveis_legais: responsaveisValidos
+            action: 'atualizar-fornecedor-orfao',
+            fornecedorId: fornecedorOrfaoId,
+            dadosAtualizacao: {
+              user_id: authUserId,
+              razao_social: formData.razao_social,
+              nome_fantasia: formData.nome_fantasia || null,
+              cnpj: cnpjLimpo,
+              endereco_comercial: enderecoCompleto,
+              telefone: formData.telefone,
+              email: formData.email,
+              status_aprovacao: 'pendente',
+              ativo: false,
+              data_cadastro: new Date().toISOString(),
+              responsaveis_legais: responsaveisValidos
+            }
           })
-          .eq('id', fornecedorOrfaoId)
-          .select()
-          .single();
-
-        if (updateError) {
-          console.error('ERRO AO ATUALIZAR FORNECEDOR ÓRFÃO:', updateError);
-          throw updateError;
+        });
+        
+        const updateResult = await updateResponse.json();
+        if (!updateResponse.ok) {
+          console.error('ERRO AO ATUALIZAR FORNECEDOR ÓRFÃO:', updateResult);
+          throw new Error(updateResult.error || 'Erro ao atualizar fornecedor órfão');
         }
         
-        fornecedorData = fornecedorAtualizado;
+        fornecedorData = updateResult.fornecedor;
         console.log('=== FORNECEDOR ÓRFÃO ATUALIZADO COM SUCESSO:', fornecedorData.id, '===');
       } else {
         // CRIAR novo registro de fornecedor
