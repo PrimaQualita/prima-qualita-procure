@@ -672,7 +672,7 @@ export default function GestaoDocumentosGestor({ fornecedorId, canEdit = true }:
                       )}
                     </TableCell>
                     <TableCell className="text-right">
-                      {doc && (
+                      {doc ? (
                         <div className="flex items-center justify-end gap-2">
                           <Button
                             variant="ghost"
@@ -747,7 +747,21 @@ export default function GestaoDocumentosGestor({ fornecedorId, canEdit = true }:
                             </DropdownMenuContent>
                           </DropdownMenu>
                         </div>
-                      )}
+                      ) : canEdit ? (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => {
+                            setTipoDocumentoIncluir(docConfig.tipo);
+                            setArquivoIncluir(null);
+                            setDataValidadeIncluir("");
+                            setDialogIncluirDocumento(true);
+                          }}
+                        >
+                          <Upload className="h-4 w-4 mr-1" />
+                          Incluir
+                        </Button>
+                      ) : null}
                     </TableCell>
                   </TableRow>
                 );
