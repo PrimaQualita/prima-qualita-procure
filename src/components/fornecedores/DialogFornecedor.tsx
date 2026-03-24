@@ -452,7 +452,7 @@ export function DialogFornecedor({
                       />
                     </div>
                     
-                    {!["contrato_social", "cartao_cnpj"].includes(key) && (
+                    {!["contrato_social", "cartao_cnpj", "doc_identificacao_responsavel"].includes(key) && (
                       <div className="space-y-1">
                         <Input
                           type="date"
