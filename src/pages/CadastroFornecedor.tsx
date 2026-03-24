@@ -60,6 +60,7 @@ export default function CadastroFornecedor() {
   const [documentos, setDocumentos] = useState<Record<string, DocumentoUpload>>({
     contrato_social: { tipo: "contrato_social", label: "Contrato Social Consolidado (Última Alteração)", arquivo: null, dataValidade: "", processando: false, obrigatorio: true },
     cartao_cnpj: { tipo: "cartao_cnpj", label: "Cartão CNPJ", arquivo: null, dataValidade: "", processando: false, obrigatorio: true },
+    doc_identificacao_responsavel: { tipo: "doc_identificacao_responsavel", label: "Documento de Identificação do(s) Responsável(is) Legal(is)", arquivo: null, dataValidade: "", processando: false, obrigatorio: true },
     inscricao_estadual_municipal: { tipo: "inscricao_estadual_municipal", label: "Inscrição Estadual ou Municipal", arquivo: null, dataValidade: "", processando: false, obrigatorio: true },
     cnd_federal: { tipo: "cnd_federal", label: "CND Federal", arquivo: null, dataValidade: "", processando: false, obrigatorio: true },
     cnd_tributos_estaduais: { tipo: "cnd_tributos_estaduais", label: "CND Tributos Estaduais", arquivo: null, dataValidade: "", processando: false, obrigatorio: true },
