@@ -90,6 +90,11 @@ export default function GestaoDocumentosGestor({ fornecedorId, canEdit = true }:
   const [arquivoSelecionado, setArquivoSelecionado] = useState<File | null>(null);
   const [dataValidadeDocumento, setDataValidadeDocumento] = useState("");
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const fileInputIncluirRef = useRef<HTMLInputElement>(null);
+  const [dialogIncluirDocumento, setDialogIncluirDocumento] = useState(false);
+  const [tipoDocumentoIncluir, setTipoDocumentoIncluir] = useState<string>("");
+  const [arquivoIncluir, setArquivoIncluir] = useState<File | null>(null);
+  const [dataValidadeIncluir, setDataValidadeIncluir] = useState("");
 
   useEffect(() => {
     loadDocumentos();
