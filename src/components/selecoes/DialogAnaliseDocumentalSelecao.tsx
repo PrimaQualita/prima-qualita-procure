@@ -3547,7 +3547,7 @@ export function DialogAnaliseDocumentalSelecao({
               <FileText className="h-4 w-4" />
               Documentos do Cadastro
             </h4>
-            {data.documentosExistentes.length === 0 ? (
+            {data.documentosExistentes.every((doc: any) => doc._ausente === true) ? (
               <p className="text-sm text-muted-foreground">Nenhum documento cadastrado</p>
             ) : (
               <Table>
