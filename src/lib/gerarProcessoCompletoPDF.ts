@@ -1145,8 +1145,9 @@ export const gerarProcessoCompletoPDF = async (
     console.log(`   Páginas: ${totalPaginas}`);
     
     if (temporario) {
+      const blobUrl = URL.createObjectURL(blob);
       return {
-        url: "",
+        url: blobUrl,
         filename,
         blob,
       };
