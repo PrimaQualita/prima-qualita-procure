@@ -25,6 +25,8 @@ const TIPO_LABELS: Record<string, string> = {
   homologacao: "Homologação",
   resposta_compliance: "Resposta do Compliance",
   resposta_contabilidade: "Resposta da Contabilidade",
+  requisicao_emitida: "Requisição Emitida",
+  autorizacao_despesa_emitida: "Autorização de Despesa Emitida",
 };
 
 const TIPO_ICONS: Record<string, any> = {
@@ -33,6 +35,8 @@ const TIPO_ICONS: Record<string, any> = {
   homologacao: Stamp,
   resposta_compliance: ShieldCheck,
   resposta_contabilidade: Calculator,
+  requisicao_emitida: ClipboardList,
+  autorizacao_despesa_emitida: DollarSign,
 };
 
 export function NotificacoesEventosGestor() {
