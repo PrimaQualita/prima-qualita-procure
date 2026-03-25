@@ -573,33 +573,84 @@ export function DialogFinalizarProcesso({
         return;
       }
 
-      // CRÍTICO: Buscar itens de TODAS as respostas em PARALELO para performance
-      console.log(`📤 Buscando itens para ${respostas.length} respostas em paralelo`);
-      
-      const itensPromises = respostas.map(async (resposta) => {
-        const { data: itensFornecedor, error: itensError } = await supabase
-          .from("respostas_itens_fornecedor")
-          .select(`
-            id,
-            cotacao_resposta_fornecedor_id,
-            item_cotacao_id,
-            valor_unitario_ofertado,
-            percentual_desconto,
-            itens_cotacao!inner(numero_item, descricao, lote_id, quantidade, unidade, lotes_cotacao(numero_lote))
-          `)
-          .eq("cotacao_resposta_fornecedor_id", resposta.id)
-          .range(0, 999);
+      // Buscar itens em consulta única (sem JOIN pesado) para evitar timeout
+      const respostaIds = respostas.map((r) => r.id).filter(Boolean);
+      console.log(`📤 Buscando itens para ${respostaIds.length} respostas (consulta otimizada)`);
 
-        if (itensError) {
-          console.error(`❌ Erro ao buscar itens do fornecedor ${resposta.fornecedores.razao_social}:`, itensError);
-          throw itensError;
+      const { data: itensBase, error: itensBaseError } = await supabase
+        .from("respostas_itens_fornecedor")
+        .select("id, cotacao_resposta_fornecedor_id, item_cotacao_id, valor_unitario_ofertado, percentual_desconto")
+        .in("cotacao_resposta_fornecedor_id", respostaIds);
+
+      if (itensBaseError) {
+        console.error("❌ Erro ao buscar itens das respostas:", itensBaseError);
+        throw itensBaseError;
+      }
+
+      const itemCotacaoIds = Array.from(
+        new Set((itensBase || []).map((item) => item.item_cotacao_id).filter(Boolean))
+      );
+
+      let itensCotacaoMap = new Map<string, any>();
+
+      if (itemCotacaoIds.length > 0) {
+        const { data: itensCotacaoData, error: itensCotacaoError } = await supabase
+          .from("itens_cotacao")
+          .select("id, numero_item, descricao, lote_id, quantidade, unidade")
+          .in("id", itemCotacaoIds);
+
+        if (itensCotacaoError) {
+          console.error("❌ Erro ao buscar metadados de itens da cotação:", itensCotacaoError);
+          throw itensCotacaoError;
         }
 
-        return itensFornecedor || [];
-      });
+        const loteIds = Array.from(
+          new Set((itensCotacaoData || []).map((item) => item.lote_id).filter(Boolean))
+        ) as string[];
 
-      const itensArrays = await Promise.all(itensPromises);
-      const itens = itensArrays.flat();
+        let lotesMap = new Map<string, { numero_lote: number | null }>();
+
+        if (loteIds.length > 0) {
+          const { data: lotesData, error: lotesError } = await supabase
+            .from("lotes_cotacao")
+            .select("id, numero_lote")
+            .in("id", loteIds);
+
+          if (lotesError) {
+            console.error("❌ Erro ao buscar lotes da cotação:", lotesError);
+            throw lotesError;
+          }
+
+          lotesMap = new Map(
+            (lotesData || []).map((lote) => [
+              lote.id,
+              { numero_lote: lote.numero_lote ?? null },
+            ])
+          );
+        }
+
+        itensCotacaoMap = new Map(
+          (itensCotacaoData || []).map((item) => [
+            item.id,
+            {
+              numero_item: item.numero_item,
+              descricao: item.descricao,
+              lote_id: item.lote_id,
+              quantidade: item.quantidade,
+              unidade: item.unidade,
+              lotes_cotacao: item.lote_id ? lotesMap.get(item.lote_id) || null : null,
+            },
+          ])
+        );
+      }
+
+      const itens = (itensBase || [])
+        .map((item) => ({
+          ...item,
+          itens_cotacao: itensCotacaoMap.get(item.item_cotacao_id) || null,
+        }))
+        .filter((item) => item.itens_cotacao !== null);
+
       console.log(`📦 TOTAL de itens carregados: ${itens.length}`);
 
       const criterio = cotacao?.criterio_julgamento || "global";
