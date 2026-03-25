@@ -3309,6 +3309,7 @@ export function DialogFinalizarProcesso({
       if (error) throw error;
 
       toast.success("Solicitação enviada ao Responsável Legal com sucesso!");
+      setSolicitacaoAutorizacaoEnviada(true);
     } catch (error) {
       console.error("Erro ao enviar solicitação:", error);
       toast.error("Erro ao enviar solicitação");
