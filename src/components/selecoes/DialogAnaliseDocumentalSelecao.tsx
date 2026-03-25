@@ -1816,6 +1816,7 @@ export function DialogAnaliseDocumentalSelecao({
             data_validade: null,
             em_vigor: false,
             _ausente: true,
+            _tipoOriginal: tipo,
           } as any);
         }
       }
