@@ -1104,38 +1104,13 @@ export function DialogFinalizarProcesso({
       .sort((a, b) => a.razao_social.localeCompare(b.razao_social));
   };
 
-  const loadDocumentosFornecedor = async (fornecedorId: string): Promise<DocumentoExistente[]> => {
+  const loadDocumentosFornecedor = async (
+    fornecedorId: string, 
+    cnpjFornecedor?: string,
+    processoFinalizadoCache?: boolean
+  ): Promise<DocumentoExistente[]> => {
     try {
       console.log(`📄 Carregando documentos para fornecedor: ${fornecedorId}`);
-      
-      // CRÍTICO: Buscar fornecedor cadastrado completo com mesmo CNPJ
-      // para pegar documentos atualizados do cadastro
-      const { data: fornecedorResposta } = await supabase
-        .from("fornecedores")
-        .select("cnpj")
-        .eq("id", fornecedorId)
-        .single();
-
-      let fornecedorIdParaDocumentos = fornecedorId;
-
-      if (fornecedorResposta?.cnpj) {
-        console.log(`🔍 Buscando fornecedor cadastrado com CNPJ: ${fornecedorResposta.cnpj}`);
-        
-        // Buscar fornecedor com cadastro completo (user_id não nulo)
-        const { data: fornecedorCadastrado } = await supabase
-          .from("fornecedores")
-          .select("id")
-          .eq("cnpj", fornecedorResposta.cnpj)
-          .not("user_id", "is", null)
-          .maybeSingle();
-
-        if (fornecedorCadastrado) {
-          console.log(`✅ Encontrado fornecedor cadastrado! Usando ID: ${fornecedorCadastrado.id}`);
-          fornecedorIdParaDocumentos = fornecedorCadastrado.id;
-        } else {
-          console.log(`ℹ️ Fornecedor não tem cadastro completo, usando ID da resposta`);
-        }
-      }
       
       // Tipos de documentos conforme cadastrados no banco (em snake_case)
       const tiposDocumentos = [
@@ -1153,56 +1128,71 @@ export function DialogFinalizarProcesso({
         "certificado_gestor"
       ];
 
-      // BUSCAR SE O PROCESSO ESTÁ REALMENTE FINALIZADO (processo_finalizado = true)
-      // CRÍTICO: Usar processo_finalizado ao invés de data_finalizacao
-      // data_finalizacao pode ser definida antes da conclusão real do processo
-      // Documentos antigos só devem ser usados quando o processo está COMPLETAMENTE finalizado
-      const { data: cotacaoData } = await supabase
-        .from("cotacoes_precos")
-        .select("data_finalizacao, processo_finalizado")
-        .eq("id", cotacaoId)
-        .single();
+      // Usar CNPJ passado como parâmetro para evitar query redundante
+      let fornecedorIdParaDocumentos = fornecedorId;
+      const cnpj = cnpjFornecedor;
+
+      if (cnpj) {
+        console.log(`🔍 Buscando fornecedor cadastrado com CNPJ: ${cnpj}`);
+        
+        // Buscar fornecedor com cadastro completo (user_id não nulo)
+        const { data: fornecedorCadastrado } = await supabase
+          .from("fornecedores")
+          .select("id")
+          .eq("cnpj", cnpj)
+          .not("user_id", "is", null)
+          .maybeSingle();
+
+        if (fornecedorCadastrado) {
+          console.log(`✅ Encontrado fornecedor cadastrado! Usando ID: ${fornecedorCadastrado.id}`);
+          fornecedorIdParaDocumentos = fornecedorCadastrado.id;
+        } else {
+          console.log(`ℹ️ Fornecedor não tem cadastro completo, usando ID da resposta`);
+        }
+      }
       
-      const processoRealmenteFinalizado = cotacaoData?.processo_finalizado === true;
+      // Usar status de finalização cacheado quando disponível
+      const processoRealmenteFinalizado = processoFinalizadoCache === true;
       
-      console.log(`📅 Data de finalização do processo: ${cotacaoData?.data_finalizacao || 'não definida'}`);
       console.log(`🔒 Processo realmente finalizado (processo_finalizado): ${processoRealmenteFinalizado}`);
 
-      // BUSCAR DOCUMENTOS ANTIGOS DO FORNECEDOR VINCULADOS A ESTA COTAÇÃO
-      // APENAS quando o processo está REALMENTE finalizado
-      let docsAntigosParaUsar: Map<string, any> = new Map();
-      
-      if (processoRealmenteFinalizado) {
-        const { data: docsAntigos } = await supabase
-          .from("documentos_antigos")
+      // Buscar documentos antigos e documentos atuais em PARALELO
+      const [docsAntigosResult, docsAtuaisResult] = await Promise.all([
+        // BUSCAR DOCUMENTOS ANTIGOS DO FORNECEDOR VINCULADOS A ESTA COTAÇÃO
+        // APENAS quando o processo está REALMENTE finalizado
+        processoRealmenteFinalizado
+          ? supabase
+              .from("documentos_antigos")
+              .select("*")
+              .eq("fornecedor_id", fornecedorIdParaDocumentos)
+          : Promise.resolve({ data: null }),
+        // Buscar documentos em vigor OU com solicitação de atualização pendente
+        supabase
+          .from("documentos_fornecedor")
           .select("*")
-          .eq("fornecedor_id", fornecedorIdParaDocumentos);
+          .eq("fornecedor_id", fornecedorIdParaDocumentos)
+          .in("tipo_documento", tiposDocumentos)
+          .or("em_vigor.eq.true,atualizacao_solicitada.eq.true")
+          .order("tipo_documento")
+          .order("data_upload", { ascending: false })
+      ]);
+
+      // Processar documentos antigos
+      let docsAntigosParaUsar: Map<string, any> = new Map();
+      if (processoRealmenteFinalizado && docsAntigosResult.data && docsAntigosResult.data.length > 0) {
+        console.log(`📦 Documentos antigos encontrados: ${docsAntigosResult.data.length}`);
         
-        if (docsAntigos && docsAntigos.length > 0) {
-          console.log(`📦 Documentos antigos encontrados: ${docsAntigos.length}`);
-          
-          for (const docAntigo of docsAntigos) {
-            // Verificar se está vinculado a esta cotação
-            // CRÍTICO: Se está vinculado, usar documento antigo INDEPENDENTE de datas
-            // O vínculo indica que aquele documento era o ativo quando o processo foi finalizado
-            const vinculados = docAntigo.processos_vinculados || [];
-            if (vinculados.includes(cotacaoId)) {
-              console.log(`  ✅ Usando doc antigo: ${docAntigo.tipo_documento} (vinculado ao processo)`);
-              docsAntigosParaUsar.set(docAntigo.tipo_documento, docAntigo);
-            }
+        for (const docAntigo of docsAntigosResult.data) {
+          const vinculados = docAntigo.processos_vinculados || [];
+          if (vinculados.includes(cotacaoId)) {
+            console.log(`  ✅ Usando doc antigo: ${docAntigo.tipo_documento} (vinculado ao processo)`);
+            docsAntigosParaUsar.set(docAntigo.tipo_documento, docAntigo);
           }
         }
       }
 
-      // Buscar documentos em vigor OU com solicitação de atualização pendente
-      const { data, error } = await supabase
-        .from("documentos_fornecedor")
-        .select("*")
-        .eq("fornecedor_id", fornecedorIdParaDocumentos)
-        .in("tipo_documento", tiposDocumentos)
-        .or("em_vigor.eq.true,atualizacao_solicitada.eq.true")
-        .order("tipo_documento")
-        .order("data_upload", { ascending: false });
+      const data = docsAtuaisResult.data;
+      const error = docsAtuaisResult.error;
 
       if (error) {
         console.error("❌ Erro ao carregar documentos:", error);
