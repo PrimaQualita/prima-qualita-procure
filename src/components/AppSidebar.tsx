@@ -312,7 +312,7 @@ export function AppSidebar({
     },
   ];
 
-  // Menu para Compliance (apenas Dashboard, Compliance e Contato)
+  // Menu para Compliance (apenas Dashboard, Compliance, Cadastro de Fornecedores e Contato)
   const menuComplianceRestrito = [
     {
       title: "Dashboard",
@@ -323,6 +323,11 @@ export function AppSidebar({
       title: "Compliance",
       icon: FileCheck,
       href: "/compliance",
+    },
+    {
+      title: "Cadastro de Fornecedores",
+      icon: Building2,
+      href: "/fornecedores",
     },
     {
       title: "Contato",
