@@ -6453,6 +6453,7 @@ export function DialogFinalizarProcesso({
               onClick={() => {
                 setDialogSolicitarAtualizacao(false);
                 setDocumentoParaAtualizar(null);
+                setFornecedorIdParaAtualizar(null);
                 setMotivoAtualizacao("");
               }}
             >
