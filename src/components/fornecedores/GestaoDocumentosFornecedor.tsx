@@ -407,7 +407,7 @@ export default function GestaoDocumentosFornecedor({ fornecedorId }: Props) {
   }
 
   // Verificar se há documentos com atualização solicitada
-  const documentosComAtualizacaoSolicitada = documentos.filter(d => d.atualizacao_solicitada && d.em_vigor);
+  const documentosComAtualizacaoSolicitada = documentos.filter(d => d.atualizacao_solicitada);
 
   return (
     <div className="space-y-6">
