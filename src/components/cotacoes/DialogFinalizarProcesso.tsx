@@ -4472,8 +4472,6 @@ export function DialogFinalizarProcesso({
                                           </Button>
                                         );
                                       })()}
-                                        </Button>
-                                      )}
                                     </div>
                                   </TableCell>
                                 </TableRow>
