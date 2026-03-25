@@ -817,8 +817,8 @@ export function DashboardBIOperacional({
                       <TableHeader>
                         <TableRow>
                           <TableHead className="text-xs">#</TableHead>
-                          <TableHead className="text-xs">Contrato de Gestão</TableHead>
-                          <TableHead className="text-xs">Processo</TableHead>
+                          <TableHead className="text-xs w-[200px]">Contrato de Gestão</TableHead>
+                          <TableHead className="text-xs w-[100px]">Processo</TableHead>
                           <TableHead className="text-xs">Objeto</TableHead>
                           <TableHead className="text-xs">Status</TableHead>
                         </TableRow>
