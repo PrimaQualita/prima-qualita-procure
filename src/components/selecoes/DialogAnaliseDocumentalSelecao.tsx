@@ -3708,27 +3708,36 @@ export function DialogAnaliseDocumentalSelecao({
                     const nomeExibicao = nomesMapeados[doc.tipo_documento] || doc.tipo_documento;
 
                     if (isAusente) {
+                      const solicitacaoEnviada = (doc as any)._solicitacaoEnviada === true;
                       return (
                         <TableRow key={doc.id} className="bg-yellow-50/50">
                           <TableCell>{nomeExibicao}</TableCell>
                           <TableCell>N/A</TableCell>
                           <TableCell>
-                            <Badge variant="outline" className="bg-yellow-100 text-yellow-800 border-yellow-300">
-                              ⚠ Ausente
-                            </Badge>
+                            {solicitacaoEnviada ? (
+                              <Badge variant="outline" className="bg-orange-100 text-orange-800 border-orange-300">
+                                📩 Solicitação Enviada
+                              </Badge>
+                            ) : (
+                              <Badge variant="outline" className="bg-yellow-100 text-yellow-800 border-yellow-300">
+                                ⚠ Ausente
+                              </Badge>
+                            )}
                           </TableCell>
                           <TableCell>
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={() => {
-                                setDocumentoParaAtualizar({ doc, fornecedorId: data.fornecedor.id });
-                                setDialogSolicitarAtualizacao(true);
-                              }}
-                            >
-                              <RefreshCw className="h-4 w-4 mr-1" />
-                              Solicitar Envio
-                            </Button>
+                            {!solicitacaoEnviada && (
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => {
+                                  setDocumentoParaAtualizar({ doc, fornecedorId: data.fornecedor.id });
+                                  setDialogSolicitarAtualizacao(true);
+                                }}
+                              >
+                                <RefreshCw className="h-4 w-4 mr-1" />
+                                Solicitar Envio
+                              </Button>
+                            )}
                           </TableCell>
                         </TableRow>
                       );
