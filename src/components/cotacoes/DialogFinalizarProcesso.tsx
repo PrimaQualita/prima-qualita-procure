@@ -105,6 +105,7 @@ export function DialogFinalizarProcesso({
   canEdit = true,
 }: DialogFinalizarProcessoProps) {
   const [loading, setLoading] = useState(false);
+  const [solicitacaoAutorizacaoEnviada, setSolicitacaoAutorizacaoEnviada] = useState(false);
   const [fornecedoresData, setFornecedoresData] = useState<FornecedorData[]>([]);
   const [fornecedorExpandido, setFornecedorExpandido] = useState<string | null>(null);
   const [novosCampos, setNovosCampos] = useState<Record<string, {nome: string; descricao: string; obrigatorio: boolean}>>({});
