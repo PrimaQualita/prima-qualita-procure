@@ -1222,13 +1222,13 @@ export function DialogFinalizarProcesso({
         }
       }
 
-      // CRÍTICO: Buscar APENAS documentos válidos/mais recentes
+      // Buscar documentos em vigor OU com solicitação de atualização pendente
       const { data, error } = await supabase
         .from("documentos_fornecedor")
         .select("*")
         .eq("fornecedor_id", fornecedorIdParaDocumentos)
         .in("tipo_documento", tiposDocumentos)
-        .eq("em_vigor", true)  // Buscar apenas documentos em vigor
+        .or("em_vigor.eq.true,atualizacao_solicitada.eq.true")
         .order("tipo_documento")
         .order("data_upload", { ascending: false });
 
