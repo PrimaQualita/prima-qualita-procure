@@ -529,7 +529,7 @@ export function DashboardBIOperacional({
     const buildProcessoDetail = (proc: any) => ({
       contrato: proc.contratos_gestao?.nome_contrato || 'Sem Contrato',
       numero: proc.numero_processo_interno || 'N/A',
-      objeto: proc.objeto || 'N/A',
+      objeto: proc.objeto_resumido || 'N/A',
       status: proc.status_processo || 'N/A',
     });
 
