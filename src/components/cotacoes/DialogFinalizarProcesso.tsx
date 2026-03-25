@@ -1269,7 +1269,10 @@ export function DialogFinalizarProcesso({
               url_arquivo: docAntigo.url_arquivo,
               data_emissao: docAntigo.data_emissao,
               data_validade: docAntigo.data_validade,
-              em_vigor: true
+              em_vigor: true,
+              _fromArchive: true,
+              _tipoOriginal: tipo,
+              _docAntigoId: docAntigo.id
             };
           }
           
