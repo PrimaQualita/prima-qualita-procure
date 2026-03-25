@@ -130,6 +130,7 @@ export function DialogFinalizarProcesso({
   const [confirmFinalizarOpen, setConfirmFinalizarOpen] = useState(false);
   const [dialogSolicitarAtualizacao, setDialogSolicitarAtualizacao] = useState(false);
   const [documentoParaAtualizar, setDocumentoParaAtualizar] = useState<DocumentoExistente | null>(null);
+  const [fornecedorIdParaAtualizar, setFornecedorIdParaAtualizar] = useState<string | null>(null);
   const [motivoAtualizacao, setMotivoAtualizacao] = useState("");
   const [confirmDeleteEncaminhamentoOpen, setConfirmDeleteEncaminhamentoOpen] = useState(false);
   const [encaminhamentoParaExcluir, setEncaminhamentoParaExcluir] = useState<any>(null);
@@ -1286,7 +1287,8 @@ export function DialogFinalizarProcesso({
             data_emissao: null,
             data_validade: null,
             em_vigor: false,
-            _ausente: true
+            _ausente: true,
+            _tipoOriginal: tipo
           };
         });
 
@@ -2372,20 +2374,43 @@ export function DialogFinalizarProcesso({
     }
 
     try {
-      const { error } = await supabase
-        .from("documentos_fornecedor")
-        .update({
-          atualizacao_solicitada: true,
-          data_solicitacao_atualizacao: new Date().toISOString(),
-          motivo_solicitacao_atualizacao: motivoAtualizacao.trim()
-        })
-        .eq("id", documentoParaAtualizar.id);
+      const isAusente = (documentoParaAtualizar as any)._ausente === true;
 
-      if (error) throw error;
+      if (isAusente && fornecedorIdParaAtualizar) {
+        // Documento não existe ainda - criar registro placeholder com solicitação
+        const tipoOriginal = (documentoParaAtualizar as any)._tipoOriginal || documentoParaAtualizar.tipo_documento;
+        const { error } = await supabase
+          .from("documentos_fornecedor")
+          .insert({
+            fornecedor_id: fornecedorIdParaAtualizar,
+            tipo_documento: tipoOriginal,
+            nome_arquivo: "",
+            url_arquivo: "",
+            em_vigor: false,
+            atualizacao_solicitada: true,
+            data_solicitacao_atualizacao: new Date().toISOString(),
+            motivo_solicitacao_atualizacao: motivoAtualizacao.trim()
+          });
+
+        if (error) throw error;
+      } else {
+        // Documento existe - fazer update normalmente
+        const { error } = await supabase
+          .from("documentos_fornecedor")
+          .update({
+            atualizacao_solicitada: true,
+            data_solicitacao_atualizacao: new Date().toISOString(),
+            motivo_solicitacao_atualizacao: motivoAtualizacao.trim()
+          })
+          .eq("id", documentoParaAtualizar.id);
+
+        if (error) throw error;
+      }
 
       toast.success("Solicitação de atualização enviada para o fornecedor");
       setDialogSolicitarAtualizacao(false);
       setDocumentoParaAtualizar(null);
+      setFornecedorIdParaAtualizar(null);
       setMotivoAtualizacao("");
       await loadAllFornecedores();
     } catch (error: any) {
@@ -4281,6 +4306,7 @@ export function DialogFinalizarProcesso({
                                         className="bg-orange-50 hover:bg-orange-100 text-orange-700 border-orange-300"
                                         onClick={() => {
                                           setDocumentoParaAtualizar(doc);
+                                          setFornecedorIdParaAtualizar(fornData.fornecedor.id);
                                           setMotivoAtualizacao("");
                                           setDialogSolicitarAtualizacao(true);
                                         }}
@@ -4351,6 +4377,7 @@ export function DialogFinalizarProcesso({
                                           className="bg-orange-50 hover:bg-orange-100 text-orange-700 border-orange-300"
                                           onClick={() => {
                                             setDocumentoParaAtualizar(doc);
+                                            setFornecedorIdParaAtualizar(fornData.fornecedor.id);
                                             setMotivoAtualizacao("");
                                             setDialogSolicitarAtualizacao(true);
                                           }}
@@ -6426,6 +6453,7 @@ export function DialogFinalizarProcesso({
               onClick={() => {
                 setDialogSolicitarAtualizacao(false);
                 setDocumentoParaAtualizar(null);
+                setFornecedorIdParaAtualizar(null);
                 setMotivoAtualizacao("");
               }}
             >
