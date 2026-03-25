@@ -1834,17 +1834,30 @@ export function DialogAnaliseDocumentalSelecao({
       const todosOsTipos = Object.keys(ordemDocumentos);
       for (const tipo of todosOsTipos) {
         if (!documentosPorTipo.has(tipo)) {
-          documentosPorTipo.set(tipo, {
-            id: `missing_${tipo}`,
-            tipo_documento: tipo,
-            nome_arquivo: '',
-            url_arquivo: '',
-            data_emissao: null,
-            data_validade: null,
-            em_vigor: false,
-            _ausente: true,
-            _tipoOriginal: tipo,
-          } as any);
+          // Verificar se existe placeholder com solicitação pendente nos dados carregados
+          const docSolicitado = (data || []).find(
+            (d: any) => d.tipo_documento === tipo && !d.url_arquivo && d.atualizacao_solicitada
+          );
+          if (docSolicitado) {
+            documentosPorTipo.set(tipo, {
+              ...docSolicitado,
+              _ausente: true,
+              _solicitacaoEnviada: true,
+              _tipoOriginal: tipo,
+            } as any);
+          } else {
+            documentosPorTipo.set(tipo, {
+              id: `missing_${tipo}`,
+              tipo_documento: tipo,
+              nome_arquivo: '',
+              url_arquivo: '',
+              data_emissao: null,
+              data_validade: null,
+              em_vigor: false,
+              _ausente: true,
+              _tipoOriginal: tipo,
+            } as any);
+          }
         }
       }
 
@@ -1945,21 +1958,39 @@ export function DialogAnaliseDocumentalSelecao({
       const tipoOriginal = (documentoParaAtualizar.doc as any)._tipoOriginal || documentoParaAtualizar.doc.tipo_documento;
 
       if (isAusente) {
-        // Documento não existe ainda - criar registro placeholder com solicitação
-        const { error } = await supabase
+        // Verificar se já existe registro para evitar duplicatas
+        const { data: existente } = await supabase
           .from("documentos_fornecedor")
-          .insert({
-            fornecedor_id: documentoParaAtualizar.fornecedorId,
-            tipo_documento: tipoOriginal,
-            nome_arquivo: "",
-            url_arquivo: "",
-            em_vigor: false,
-            atualizacao_solicitada: true,
-            motivo_solicitacao_atualizacao: motivoAtualizacao,
-            data_solicitacao_atualizacao: new Date().toISOString(),
-          });
+          .select("id")
+          .eq("fornecedor_id", documentoParaAtualizar.fornecedorId)
+          .eq("tipo_documento", tipoOriginal)
+          .maybeSingle();
 
-        if (error) throw error;
+        if (existente) {
+          const { error } = await supabase
+            .from("documentos_fornecedor")
+            .update({
+              atualizacao_solicitada: true,
+              motivo_solicitacao_atualizacao: motivoAtualizacao,
+              data_solicitacao_atualizacao: new Date().toISOString(),
+            })
+            .eq("id", existente.id);
+          if (error) throw error;
+        } else {
+          const { error } = await supabase
+            .from("documentos_fornecedor")
+            .insert({
+              fornecedor_id: documentoParaAtualizar.fornecedorId,
+              tipo_documento: tipoOriginal,
+              nome_arquivo: "",
+              url_arquivo: "",
+              em_vigor: false,
+              atualizacao_solicitada: true,
+              motivo_solicitacao_atualizacao: motivoAtualizacao,
+              data_solicitacao_atualizacao: new Date().toISOString(),
+            });
+          if (error) throw error;
+        }
       } else if (isFromArchive) {
         // Documento é arquivado - o ID pertence a documentos_antigos, não documentos_fornecedor
         const { data: docAtual } = await supabase
@@ -3677,27 +3708,36 @@ export function DialogAnaliseDocumentalSelecao({
                     const nomeExibicao = nomesMapeados[doc.tipo_documento] || doc.tipo_documento;
 
                     if (isAusente) {
+                      const solicitacaoEnviada = (doc as any)._solicitacaoEnviada === true;
                       return (
                         <TableRow key={doc.id} className="bg-yellow-50/50">
                           <TableCell>{nomeExibicao}</TableCell>
                           <TableCell>N/A</TableCell>
                           <TableCell>
-                            <Badge variant="outline" className="bg-yellow-100 text-yellow-800 border-yellow-300">
-                              ⚠ Ausente
-                            </Badge>
+                            {solicitacaoEnviada ? (
+                              <Badge variant="outline" className="bg-orange-100 text-orange-800 border-orange-300">
+                                📩 Solicitação Enviada
+                              </Badge>
+                            ) : (
+                              <Badge variant="outline" className="bg-yellow-100 text-yellow-800 border-yellow-300">
+                                ⚠ Ausente
+                              </Badge>
+                            )}
                           </TableCell>
                           <TableCell>
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={() => {
-                                setDocumentoParaAtualizar({ doc, fornecedorId: data.fornecedor.id });
-                                setDialogSolicitarAtualizacao(true);
-                              }}
-                            >
-                              <RefreshCw className="h-4 w-4 mr-1" />
-                              Solicitar Envio
-                            </Button>
+                            {!solicitacaoEnviada && (
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => {
+                                  setDocumentoParaAtualizar({ doc, fornecedorId: data.fornecedor.id });
+                                  setDialogSolicitarAtualizacao(true);
+                                }}
+                              >
+                                <RefreshCw className="h-4 w-4 mr-1" />
+                                Solicitar Envio
+                              </Button>
+                            )}
                           </TableCell>
                         </TableRow>
                       );

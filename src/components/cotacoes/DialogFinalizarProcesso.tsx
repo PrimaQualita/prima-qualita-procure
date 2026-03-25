@@ -1222,13 +1222,13 @@ export function DialogFinalizarProcesso({
         }
       }
 
-      // CRÍTICO: Buscar APENAS documentos válidos/mais recentes
+      // Buscar documentos em vigor OU com solicitação de atualização pendente
       const { data, error } = await supabase
         .from("documentos_fornecedor")
         .select("*")
         .eq("fornecedor_id", fornecedorIdParaDocumentos)
         .in("tipo_documento", tiposDocumentos)
-        .eq("em_vigor", true)  // Buscar apenas documentos em vigor
+        .or("em_vigor.eq.true,atualizacao_solicitada.eq.true")
         .order("tipo_documento")
         .order("data_upload", { ascending: false });
 
@@ -1284,6 +1284,16 @@ export function DialogFinalizarProcesso({
           // Senão, usar documento atual
           const doc = data?.find(d => d.tipo_documento === tipo);
           if (doc) {
+            // Se é um placeholder (sem arquivo) com solicitação pendente, marcar como ausente + solicitado
+            if (!doc.url_arquivo && doc.atualizacao_solicitada) {
+              return {
+                ...doc,
+                tipo_documento: nomesMapeados[tipo] || doc.tipo_documento,
+                _ausente: true,
+                _solicitacaoEnviada: true,
+                _tipoOriginal: tipo
+              };
+            }
             return {
               ...doc,
               tipo_documento: nomesMapeados[tipo] || doc.tipo_documento
@@ -2433,21 +2443,41 @@ export function DialogFinalizarProcesso({
       const tipoOriginal = (documentoParaAtualizar as any)._tipoOriginal || documentoParaAtualizar.tipo_documento;
 
       if (isAusente && fornecedorIdParaAtualizar) {
-        // Documento não existe ainda - criar registro placeholder com solicitação
-        const { error } = await supabase
+        // Verificar se já existe registro (placeholder ou real) para evitar duplicatas
+        const { data: existente } = await supabase
           .from("documentos_fornecedor")
-          .insert({
-            fornecedor_id: fornecedorIdParaAtualizar,
-            tipo_documento: tipoOriginal,
-            nome_arquivo: "",
-            url_arquivo: "",
-            em_vigor: false,
-            atualizacao_solicitada: true,
-            data_solicitacao_atualizacao: new Date().toISOString(),
-            motivo_solicitacao_atualizacao: motivoAtualizacao.trim()
-          });
+          .select("id")
+          .eq("fornecedor_id", fornecedorIdParaAtualizar)
+          .eq("tipo_documento", tipoOriginal)
+          .maybeSingle();
 
-        if (error) throw error;
+        if (existente) {
+          // Já existe - apenas atualizar a flag
+          const { error } = await supabase
+            .from("documentos_fornecedor")
+            .update({
+              atualizacao_solicitada: true,
+              data_solicitacao_atualizacao: new Date().toISOString(),
+              motivo_solicitacao_atualizacao: motivoAtualizacao.trim()
+            })
+            .eq("id", existente.id);
+          if (error) throw error;
+        } else {
+          // Criar registro placeholder com solicitação
+          const { error } = await supabase
+            .from("documentos_fornecedor")
+            .insert({
+              fornecedor_id: fornecedorIdParaAtualizar,
+              tipo_documento: tipoOriginal,
+              nome_arquivo: "",
+              url_arquivo: "",
+              em_vigor: false,
+              atualizacao_solicitada: true,
+              data_solicitacao_atualizacao: new Date().toISOString(),
+              motivo_solicitacao_atualizacao: motivoAtualizacao.trim()
+            });
+          if (error) throw error;
+        }
       } else if (isFromArchive && fornecedorIdParaAtualizar) {
         // Documento é arquivado - o ID pertence a documentos_antigos, não documentos_fornecedor
         // Buscar o documento atual pelo tipo e fornecedor
@@ -4398,6 +4428,7 @@ export function DialogFinalizarProcesso({
                               const isAusente = (doc as any)._ausente === true;
                               
                               if (isAusente) {
+                                const solicitacaoEnviada = (doc as any)._solicitacaoEnviada === true;
                                 return (
                                   <TableRow key={doc.id} className="bg-yellow-50/50">
                                     <TableCell className="font-medium">{doc.tipo_documento}</TableCell>
@@ -4406,25 +4437,33 @@ export function DialogFinalizarProcesso({
                                     </TableCell>
                                     <TableCell>N/A</TableCell>
                                     <TableCell>
-                                      <Badge variant="outline" className="bg-yellow-100 text-yellow-800 border-yellow-300">
-                                        ⚠ Ausente
-                                      </Badge>
+                                      {solicitacaoEnviada ? (
+                                        <Badge variant="outline" className="bg-orange-100 text-orange-800 border-orange-300">
+                                          📩 Solicitação Enviada
+                                        </Badge>
+                                      ) : (
+                                        <Badge variant="outline" className="bg-yellow-100 text-yellow-800 border-yellow-300">
+                                          ⚠ Ausente
+                                        </Badge>
+                                      )}
                                     </TableCell>
                                     <TableCell>
-                                      <Button
-                                        variant="outline"
-                                        size="sm"
-                                        className="bg-orange-50 hover:bg-orange-100 text-orange-700 border-orange-300"
-                                        onClick={() => {
-                                          setDocumentoParaAtualizar(doc);
-                                          setFornecedorIdParaAtualizar(fornData.fornecedor.id);
-                                          setMotivoAtualizacao("");
-                                          setDialogSolicitarAtualizacao(true);
-                                        }}
-                                      >
-                                        <Clock className="h-4 w-4 mr-1" />
-                                        Solicitar Envio
-                                      </Button>
+                                      {!solicitacaoEnviada && (
+                                        <Button
+                                          variant="outline"
+                                          size="sm"
+                                          className="bg-orange-50 hover:bg-orange-100 text-orange-700 border-orange-300"
+                                          onClick={() => {
+                                            setDocumentoParaAtualizar(doc);
+                                            setFornecedorIdParaAtualizar(fornData.fornecedor.id);
+                                            setMotivoAtualizacao("");
+                                            setDialogSolicitarAtualizacao(true);
+                                          }}
+                                        >
+                                          <Clock className="h-4 w-4 mr-1" />
+                                          Solicitar Envio
+                                        </Button>
+                                      )}
                                     </TableCell>
                                   </TableRow>
                                 );
