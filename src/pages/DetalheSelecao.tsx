@@ -104,6 +104,7 @@ const [itens, setItens] = useState<Item[]>([]);
   const [responsaveisLegais, setResponsaveisLegais] = useState<any[]>([]);
   const [responsavelSelecionado, setResponsavelSelecionado] = useState<string>("");
   const [enviandoSolicitacao, setEnviandoSolicitacao] = useState(false);
+  const [solicitacaoHomologacaoEnviada, setSolicitacaoHomologacaoEnviada] = useState(false);
   const [isResponsavelLegal, setIsResponsavelLegal] = useState(false);
   
   // RL pode APENAS visualizar + gerar/excluir homologação
