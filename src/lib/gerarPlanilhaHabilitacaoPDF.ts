@@ -1140,7 +1140,7 @@ export async function gerarPlanilhaHabilitacaoPDF(
   }
 
   // Certificação Digital - usar currentY diretamente (já rastreia posição correta)
-  const alturaCertificacao = 35;
+  const alturaCertificacao = 40;
   // Não há rodapé nesta planilha; usar margem inferior pequena só para evitar corte visual.
   const margemInferior = 5;
   let certY = currentY + 10;
@@ -1154,10 +1154,10 @@ export async function gerarPlanilhaHabilitacaoPDF(
 
   // Quadro de certificação
   doc.setFillColor(245, 245, 245);
-  doc.rect(margemEsquerda, certY, larguraUtil, 35, 'F');
+  doc.rect(margemEsquerda, certY, larguraUtil, alturaCertificacao, 'F');
   doc.setDrawColor(0, 0, 0);
   doc.setLineWidth(0.5);
-  doc.rect(margemEsquerda, certY, larguraUtil, 35, 'S');
+  doc.rect(margemEsquerda, certY, larguraUtil, alturaCertificacao, 'S');
 
   certY += 6;
   doc.setFontSize(10);
@@ -1171,6 +1171,9 @@ export async function gerarPlanilhaHabilitacaoPDF(
   doc.setTextColor(0, 0, 0);
 
   doc.text(`Protocolo:  ${dadosProtocolo.protocolo}`, margemEsquerda + 3, certY);
+  certY += 5;
+  const dataHoraEmissaoHab = new Date().toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' });
+  doc.text(`Data/Hora de Emissão:  ${dataHoraEmissaoHab}`, margemEsquerda + 3, certY);
   certY += 5;
   doc.text(`Responsável:  ${dadosProtocolo.usuario.nome_completo}`, margemEsquerda + 3, certY);
   certY += 5;

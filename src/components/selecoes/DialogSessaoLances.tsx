@@ -3606,6 +3606,14 @@ export function DialogSessaoLances({
       doc.setFont("helvetica", "normal");
       doc.text(protocolo, certMargin + 35, certY);
 
+      // Data/Hora de Emissão
+      certY += 7;
+      doc.setFont("helvetica", "bold");
+      doc.text("Data/Hora de Emissão:", certMargin + 10, certY);
+      doc.setFont("helvetica", "normal");
+      const dataHoraEmissaoLances = new Date().toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' });
+      doc.text(dataHoraEmissaoLances, certMargin + 55, certY);
+
       // Responsável
       certY += 7;
       doc.setFont("helvetica", "bold");

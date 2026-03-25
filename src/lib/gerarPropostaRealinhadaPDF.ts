@@ -758,7 +758,7 @@ export const gerarPropostaRealinhadaPDF = async (
   doc.text(`Protocolo: ${protocolo}`, margin + 5, finalY + 28);
   
   doc.setFont('helvetica', 'bold');
-  doc.text('Verificar autenticidade em:', margin + 5, finalY + 28);
+  doc.text('Verificar autenticidade em:', margin + 5, finalY + 34);
   
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(8);
