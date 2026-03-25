@@ -2506,7 +2506,15 @@ export function DialogFinalizarProcesso({
       await loadAllFornecedores();
     } catch (error: any) {
       console.error("Erro ao solicitar atualização:", error);
-      toast.error("Erro ao enviar solicitação de atualização");
+      console.error("Doc para atualizar:", JSON.stringify({
+        id: documentoParaAtualizar?.id,
+        tipo: documentoParaAtualizar?.tipo_documento,
+        _ausente: (documentoParaAtualizar as any)?._ausente,
+        _fromArchive: (documentoParaAtualizar as any)?._fromArchive,
+        _tipoOriginal: (documentoParaAtualizar as any)?._tipoOriginal,
+        fornecedorId: fornecedorIdParaAtualizar
+      }));
+      toast.error(`Erro ao enviar solicitação: ${error?.message || 'Erro desconhecido'}`);
     }
   };
 
