@@ -4428,6 +4428,7 @@ export function DialogFinalizarProcesso({
                               const isAusente = (doc as any)._ausente === true;
                               
                               if (isAusente) {
+                                const solicitacaoEnviada = (doc as any)._solicitacaoEnviada === true;
                                 return (
                                   <TableRow key={doc.id} className="bg-yellow-50/50">
                                     <TableCell className="font-medium">{doc.tipo_documento}</TableCell>
@@ -4436,25 +4437,33 @@ export function DialogFinalizarProcesso({
                                     </TableCell>
                                     <TableCell>N/A</TableCell>
                                     <TableCell>
-                                      <Badge variant="outline" className="bg-yellow-100 text-yellow-800 border-yellow-300">
-                                        ⚠ Ausente
-                                      </Badge>
+                                      {solicitacaoEnviada ? (
+                                        <Badge variant="outline" className="bg-orange-100 text-orange-800 border-orange-300">
+                                          📩 Solicitação Enviada
+                                        </Badge>
+                                      ) : (
+                                        <Badge variant="outline" className="bg-yellow-100 text-yellow-800 border-yellow-300">
+                                          ⚠ Ausente
+                                        </Badge>
+                                      )}
                                     </TableCell>
                                     <TableCell>
-                                      <Button
-                                        variant="outline"
-                                        size="sm"
-                                        className="bg-orange-50 hover:bg-orange-100 text-orange-700 border-orange-300"
-                                        onClick={() => {
-                                          setDocumentoParaAtualizar(doc);
-                                          setFornecedorIdParaAtualizar(fornData.fornecedor.id);
-                                          setMotivoAtualizacao("");
-                                          setDialogSolicitarAtualizacao(true);
-                                        }}
-                                      >
-                                        <Clock className="h-4 w-4 mr-1" />
-                                        Solicitar Envio
-                                      </Button>
+                                      {!solicitacaoEnviada && (
+                                        <Button
+                                          variant="outline"
+                                          size="sm"
+                                          className="bg-orange-50 hover:bg-orange-100 text-orange-700 border-orange-300"
+                                          onClick={() => {
+                                            setDocumentoParaAtualizar(doc);
+                                            setFornecedorIdParaAtualizar(fornData.fornecedor.id);
+                                            setMotivoAtualizacao("");
+                                            setDialogSolicitarAtualizacao(true);
+                                          }}
+                                        >
+                                          <Clock className="h-4 w-4 mr-1" />
+                                          Solicitar Envio
+                                        </Button>
+                                      )}
                                     </TableCell>
                                   </TableRow>
                                 );
