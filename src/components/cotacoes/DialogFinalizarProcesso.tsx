@@ -672,12 +672,16 @@ export function DialogFinalizarProcesso({
       // Combinar vencedores + inabilitados para exibição na habilitação
       const todosFornecedoresHabilitacao = [...fornecedoresVencedores, ...fornecedoresInabilitados];
 
+      // Cache do status de finalização para evitar queries redundantes
+      const processoFinalizadoCache = cotacao?.processo_finalizado === true;
+
       // Carregar dados de cada fornecedor (vencedores + inabilitados)
       const fornecedoresComDados = await Promise.all(
         todosFornecedoresHabilitacao.map(async (forn) => {
           const resposta = respostas.find(r => r.fornecedor_id === forn.id);
+          const cnpjForn = (resposta?.fornecedores as any)?.cnpj || undefined;
           const [docs, itensVenc, campos] = await Promise.all([
-            loadDocumentosFornecedor(forn.id),
+            loadDocumentosFornecedor(forn.id, cnpjForn, processoFinalizadoCache),
             carregarItensVencedoresPorFornecedor(forn.id, criterio, cotacaoId, respostas, itens || []),
             loadCamposFornecedor(forn.id)
           ]);
