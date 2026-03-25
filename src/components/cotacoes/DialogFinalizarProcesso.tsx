@@ -2414,6 +2414,7 @@ export function DialogFinalizarProcesso({
     }
   };
 
+  const handleSolicitarAtualizacaoDocumento = async () => {
     if (!documentoParaAtualizar) return;
     
     if (!motivoAtualizacao || motivoAtualizacao.trim() === "") {
