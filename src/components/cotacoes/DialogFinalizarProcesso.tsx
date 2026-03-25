@@ -1181,23 +1181,26 @@ export function DialogFinalizarProcesso({
         "certificado_gestor"
       ];
 
-      // BUSCAR DATA DE FINALIZAÇÃO DO PROCESSO
+      // BUSCAR SE O PROCESSO ESTÁ REALMENTE FINALIZADO (processo_finalizado = true)
+      // CRÍTICO: Usar processo_finalizado ao invés de data_finalizacao
+      // data_finalizacao pode ser definida antes da conclusão real do processo
+      // Documentos antigos só devem ser usados quando o processo está COMPLETAMENTE finalizado
       const { data: cotacaoData } = await supabase
         .from("cotacoes_precos")
-        .select("data_finalizacao")
+        .select("data_finalizacao, processo_finalizado")
         .eq("id", cotacaoId)
         .single();
       
-      const dataFinalizacao = cotacaoData?.data_finalizacao 
-        ? new Date(cotacaoData.data_finalizacao) 
-        : null;
+      const processoRealmenteFinalizado = cotacaoData?.processo_finalizado === true;
       
-      console.log(`📅 Data de finalização do processo: ${dataFinalizacao?.toISOString() || 'não finalizado'}`);
+      console.log(`📅 Data de finalização do processo: ${cotacaoData?.data_finalizacao || 'não definida'}`);
+      console.log(`🔒 Processo realmente finalizado (processo_finalizado): ${processoRealmenteFinalizado}`);
 
       // BUSCAR DOCUMENTOS ANTIGOS DO FORNECEDOR VINCULADOS A ESTA COTAÇÃO
+      // APENAS quando o processo está REALMENTE finalizado
       let docsAntigosParaUsar: Map<string, any> = new Map();
       
-      if (dataFinalizacao) {
+      if (processoRealmenteFinalizado) {
         const { data: docsAntigos } = await supabase
           .from("documentos_antigos")
           .select("*")
@@ -1266,7 +1269,10 @@ export function DialogFinalizarProcesso({
               url_arquivo: docAntigo.url_arquivo,
               data_emissao: docAntigo.data_emissao,
               data_validade: docAntigo.data_validade,
-              em_vigor: true
+              em_vigor: true,
+              _fromArchive: true,
+              _tipoOriginal: tipo,
+              _docAntigoId: docAntigo.id
             };
           }
           
@@ -2362,6 +2368,49 @@ export function DialogFinalizarProcesso({
     } catch (error) {
       console.error('Erro ao apagar resposta:', error);
       toast.error('Erro ao apagar resposta');
+    }
+  };
+
+  // Handler para substituir documento arquivado pelo documento atual do cadastro
+  const handleUsarDocumentoAtual = async (fornecedorId: string, docAntigoId: string, tipoDocumento: string) => {
+    try {
+      // 1. Buscar o documento atual do cadastro
+      const { data: docAtual } = await supabase
+        .from("documentos_fornecedor")
+        .select("*")
+        .eq("fornecedor_id", fornecedorId)
+        .eq("tipo_documento", tipoDocumento)
+        .eq("em_vigor", true)
+        .order("data_upload", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (!docAtual) {
+        toast.error("Não há documento atual no cadastro para substituir");
+        return;
+      }
+
+      // 2. Atualizar o registro em documentos_antigos com os dados do documento atual
+      const { error: updateError } = await supabase
+        .from("documentos_antigos")
+        .update({
+          nome_arquivo: docAtual.nome_arquivo,
+          url_arquivo: docAtual.url_arquivo,
+          data_emissao: docAtual.data_emissao,
+          data_validade: docAtual.data_validade,
+          data_upload_original: docAtual.data_upload
+        })
+        .eq("id", docAntigoId);
+
+      if (updateError) throw updateError;
+
+      toast.success("Documento atualizado com sucesso! Usando versão atual do cadastro.");
+      
+      // 3. Recarregar dados
+      await loadAllFornecedores();
+    } catch (error: any) {
+      console.error("Erro ao atualizar documento arquivado:", error);
+      toast.error("Erro ao atualizar documento");
     }
   };
 
@@ -4336,8 +4385,17 @@ export function DialogFinalizarProcesso({
                               const isValido = diasRestantes !== null && diasRestantes >= 0;
 
                               return (
-                                <TableRow key={doc.id}>
-                                  <TableCell className="font-medium">{doc.tipo_documento}</TableCell>
+                                <TableRow key={doc.id} className={(doc as any)._fromArchive ? "bg-amber-50/50" : ""}>
+                                  <TableCell className="font-medium">
+                                    <div className="flex items-center gap-1">
+                                      {doc.tipo_documento}
+                                      {(doc as any)._fromArchive && (
+                                        <Badge variant="outline" className="text-[10px] px-1 py-0 bg-amber-100 text-amber-700 border-amber-300 ml-1">
+                                          Arquivado
+                                        </Badge>
+                                      )}
+                                    </div>
+                                  </TableCell>
                                   <TableCell>
                                     <a 
                                       href={doc.url_arquivo} 
@@ -4395,6 +4453,21 @@ export function DialogFinalizarProcesso({
                                         >
                                           <Clock className="h-4 w-4 mr-1" />
                                           Solicitar Atualização
+                                        </Button>
+                                      )}
+                                      {(doc as any)._fromArchive && (doc as any)._docAntigoId && (
+                                        <Button
+                                          variant="outline"
+                                          size="sm"
+                                          className="bg-blue-50 hover:bg-blue-100 text-blue-700 border-blue-300"
+                                          onClick={() => handleUsarDocumentoAtual(
+                                            fornData.fornecedor.id,
+                                            (doc as any)._docAntigoId,
+                                            (doc as any)._tipoOriginal
+                                          )}
+                                        >
+                                          <RefreshCw className="h-4 w-4 mr-1" />
+                                          Usar documento atual
                                         </Button>
                                       )}
                                     </div>
