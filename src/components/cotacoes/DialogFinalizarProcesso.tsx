@@ -130,6 +130,7 @@ export function DialogFinalizarProcesso({
   const [confirmFinalizarOpen, setConfirmFinalizarOpen] = useState(false);
   const [dialogSolicitarAtualizacao, setDialogSolicitarAtualizacao] = useState(false);
   const [documentoParaAtualizar, setDocumentoParaAtualizar] = useState<DocumentoExistente | null>(null);
+  const [fornecedorIdParaAtualizar, setFornecedorIdParaAtualizar] = useState<string | null>(null);
   const [motivoAtualizacao, setMotivoAtualizacao] = useState("");
   const [confirmDeleteEncaminhamentoOpen, setConfirmDeleteEncaminhamentoOpen] = useState(false);
   const [encaminhamentoParaExcluir, setEncaminhamentoParaExcluir] = useState<any>(null);
