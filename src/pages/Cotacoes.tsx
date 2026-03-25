@@ -153,6 +153,7 @@ const Cotacoes = () => {
   const [autorizacaoDiretaId, setAutorizacaoDiretaId] = useState('');
   const [emailsSalvos, setEmailsSalvos] = useState<Array<{id: string; nome_arquivo: string; url_arquivo: string}>>([]);
   const [anexosProcessoObrigatorios, setAnexosProcessoObrigatorios] = useState<string[]>([]);
+  const [solicitacaoSelecaoEnviada, setSolicitacaoSelecaoEnviada] = useState(false);
   const [novaCotacao, setNovaCotacao] = useState({
     titulo_cotacao: "",
     descricao_cotacao: "",
