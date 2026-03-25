@@ -4306,6 +4306,7 @@ export function DialogFinalizarProcesso({
                                         className="bg-orange-50 hover:bg-orange-100 text-orange-700 border-orange-300"
                                         onClick={() => {
                                           setDocumentoParaAtualizar(doc);
+                                          setFornecedorIdParaAtualizar(fornData.fornecedor.id);
                                           setMotivoAtualizacao("");
                                           setDialogSolicitarAtualizacao(true);
                                         }}
