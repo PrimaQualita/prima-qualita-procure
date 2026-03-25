@@ -318,7 +318,7 @@ export const gerarRespostaContabilidadePDF = async (
   });
 
   // Posicionar certificação acima do rodapé
-  const alturaCertificacao = 45;
+  const alturaCertificacao = 50;
   const yPosCertificacao = pageHeight - rodapeHeight - alturaCertificacao - 5;
 
   // Adicionar certificação simplificada

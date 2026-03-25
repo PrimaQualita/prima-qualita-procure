@@ -208,7 +208,7 @@ export const gerarRequisicaoPDF = async (dados: DadosRequisicao): Promise<Blob> 
   doc.text(`${localDocumento}, ${dataAtual}`, pageWidth / 2, yPos, { align: 'center' });
 
   // Posicionar certificação acima do rodapé (rodapeHeight já definido = 25)
-  const alturaCertificacao = 45; // altura aproximada da certificação
+  const alturaCertificacao = 50; // altura aproximada da certificação
   const yPosCertificacao = pageHeight - rodapeHeight - alturaCertificacao - 5;
 
   // Adicionar certificação simplificada

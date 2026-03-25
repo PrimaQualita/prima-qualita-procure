@@ -265,7 +265,7 @@ export const gerarEncaminhamentoContabilidadePDF = async (
   doc.text('Agradecemos antecipadamente pelo atendimento.', 20, yPos);
 
   // Posicionar certificação acima do rodapé
-  const alturaCertificacao = 45;
+  const alturaCertificacao = 50;
   const yPosCertificacao = pageHeight - rodapeHeight - alturaCertificacao - 5;
 
   // Adicionar certificação simplificada

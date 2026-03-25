@@ -742,7 +742,7 @@ export const gerarPropostaRealinhadaPDF = async (
   doc.setFillColor(245, 245, 245);
   doc.setDrawColor(0, 0, 0);
   doc.setLineWidth(0.5);
-  doc.rect(margin, finalY, pageWidth - margin * 2, 45, 'FD');
+  doc.rect(margin, finalY, pageWidth - margin * 2, 51, 'FD');
   
   doc.setTextColor(0, 0, 139);
   doc.setFontSize(12);
@@ -753,19 +753,21 @@ export const gerarPropostaRealinhadaPDF = async (
   doc.setFontSize(10);
   doc.setFont('helvetica', 'normal');
   doc.text(`Responsável: ${responsavelLegal || fornecedor.razao_social}`, margin + 5, finalY + 16);
-  doc.text(`Protocolo: ${protocolo}`, margin + 5, finalY + 22);
+  const dataHoraEmissaoReal = new Date().toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' });
+  doc.text(`Data/Hora de Emissão: ${dataHoraEmissaoReal}`, margin + 5, finalY + 22);
+  doc.text(`Protocolo: ${protocolo}`, margin + 5, finalY + 28);
   
   doc.setFont('helvetica', 'bold');
-  doc.text('Verificar autenticidade em:', margin + 5, finalY + 28);
+  doc.text('Verificar autenticidade em:', margin + 5, finalY + 34);
   
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(8);
   doc.setTextColor(0, 0, 255);
-  doc.textWithLink(linkVerificacao, margin + 5, finalY + 33, { url: linkVerificacao });
+  doc.textWithLink(linkVerificacao, margin + 5, finalY + 39, { url: linkVerificacao });
   
   doc.setTextColor(0, 0, 0);
   doc.setFontSize(7);
-  doc.text('Este documento possui certificação digital conforme Lei 14.063/2020', margin + 5, finalY + 40);
+  doc.text('Este documento possui certificação digital conforme Lei 14.063/2020', margin + 5, finalY + 46);
 
   // Rodapé em todas as páginas - apenas paginação
   const totalPagesAfter = doc.getNumberOfPages();

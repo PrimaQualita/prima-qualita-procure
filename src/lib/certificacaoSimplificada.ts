@@ -4,6 +4,7 @@ interface DadosCertificacaoSimplificada {
   protocolo: string;
   responsavel: string;
   linkVerificacao: string;
+  dataHoraEmissao?: string;
 }
 
 export const adicionarCertificacaoSimplificada = (
@@ -15,6 +16,9 @@ export const adicionarCertificacaoSimplificada = (
   const margemEsquerda = 15;
   const larguraUtil = pageWidth - 30;
   
+  // Gerar data/hora se não fornecida
+  const dataHora = dados.dataHoraEmissao || new Date().toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' });
+  
   let y = yInicial;
   const yInicioCertificacao = y;
   
@@ -22,6 +26,7 @@ export const adicionarCertificacaoSimplificada = (
   let yTemp = y + 6; // Título
   yTemp += 7; // Espaço após título
   yTemp += 5; // Protocolo
+  yTemp += 5; // Data/Hora
   yTemp += 5; // Responsável
   yTemp += 4; // "Verificar autenticidade em:"
   
@@ -58,6 +63,9 @@ export const adicionarCertificacaoSimplificada = (
   doc.setTextColor(0, 0, 0);
   
   doc.text(`Protocolo: ${dados.protocolo}`, margemEsquerda + 3, y);
+  y += 5;
+  
+  doc.text(`Data/Hora de Emissão: ${dataHora}`, margemEsquerda + 3, y);
   y += 5;
   
   doc.text(`Responsável: ${dados.responsavel}`, margemEsquerda + 3, y);

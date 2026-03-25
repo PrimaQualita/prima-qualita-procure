@@ -3567,7 +3567,7 @@ export function DialogSessaoLances({
       const certPageWidth = doc.internal.pageSize.width;
       const certMargin = 15;
       const certBoxWidth = certPageWidth - (certMargin * 2);
-      const certBoxHeight = 60; // Aumentado para acomodar mais conteúdo
+      const certBoxHeight = 67; // Aumentado para acomodar Data/Hora de Emissão
       let certY = finalY + 15;
 
       // Desenhar box com fundo cinza claro e borda
@@ -3605,6 +3605,14 @@ export function DialogSessaoLances({
       doc.text("Protocolo:", certMargin + 10, certY);
       doc.setFont("helvetica", "normal");
       doc.text(protocolo, certMargin + 35, certY);
+
+      // Data/Hora de Emissão
+      certY += 7;
+      doc.setFont("helvetica", "bold");
+      doc.text("Data/Hora de Emissão:", certMargin + 10, certY);
+      doc.setFont("helvetica", "normal");
+      const dataHoraEmissaoLances = new Date().toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' });
+      doc.text(dataHoraEmissaoLances, certMargin + 55, certY);
 
       // Responsável
       certY += 7;

@@ -478,7 +478,7 @@ export async function gerarHomologacaoSelecaoPDF(selecaoId: string, isRegistroPr
     
     doc.setFontSize(8);
     const urlLines = doc.splitTextToSize(verificationUrl, contentWidth - 10);
-    const certHeight = 38 + (urlLines.length * 3.5);
+    const certHeight = 43 + (urlLines.length * 3.5);
     
     // Fundo cinza
     doc.setFillColor(245, 245, 245);
@@ -503,6 +503,11 @@ export async function gerarHomologacaoSelecaoPDF(selecaoId: string, isRegistroPr
     
     // Protocolo
     doc.text(`Protocolo:  ${protocolo}`, marginLeft + 5, certTextY);
+    certTextY += 4;
+    
+    // Data/Hora de Emissão
+    const dataHoraEmissaoHomolog = new Date().toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' });
+    doc.text(`Data/Hora de Emissão:  ${dataHoraEmissaoHomolog}`, marginLeft + 5, certTextY);
     certTextY += 4;
     
     // Responsável

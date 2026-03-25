@@ -1782,7 +1782,7 @@ export async function gerarAtaSelecaoPDF(selecaoId: string): Promise<{ url: stri
   // Calcular altura real da certificação ANTES de decidir quebra de página
   doc.setFontSize(8);
   const urlLines = doc.splitTextToSize(verificationUrl, contentWidth - 10);
-  const certHeight = 38 + (urlLines.length * 3.5);
+  const certHeight = 43 + (urlLines.length * 3.5);
 
   // Garantir que a caixa inteira caiba na página atual quando houver espaço
   checkNewPage(certHeight + 4);
@@ -1812,6 +1812,11 @@ export async function gerarAtaSelecaoPDF(selecaoId: string): Promise<{ url: stri
   
   // Protocolo
   doc.text(`Protocolo:  ${protocoloFormatado}`, marginLeft + 5, certTextY);
+  certTextY += 4;
+  
+  // Data/Hora de Emissão
+  const dataHoraEmissaoAta = new Date().toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' });
+  doc.text(`Data/Hora de Emissão:  ${dataHoraEmissaoAta}`, marginLeft + 5, certTextY);
   certTextY += 4;
   
   // Responsável
