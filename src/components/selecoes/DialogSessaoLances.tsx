@@ -3567,7 +3567,7 @@ export function DialogSessaoLances({
       const certPageWidth = doc.internal.pageSize.width;
       const certMargin = 15;
       const certBoxWidth = certPageWidth - (certMargin * 2);
-      const certBoxHeight = 60; // Aumentado para acomodar mais conteúdo
+      const certBoxHeight = 67; // Aumentado para acomodar Data/Hora de Emissão
       let certY = finalY + 15;
 
       // Desenhar box com fundo cinza claro e borda
