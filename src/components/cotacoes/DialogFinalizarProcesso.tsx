@@ -1181,23 +1181,26 @@ export function DialogFinalizarProcesso({
         "certificado_gestor"
       ];
 
-      // BUSCAR DATA DE FINALIZAÇÃO DO PROCESSO
+      // BUSCAR SE O PROCESSO ESTÁ REALMENTE FINALIZADO (processo_finalizado = true)
+      // CRÍTICO: Usar processo_finalizado ao invés de data_finalizacao
+      // data_finalizacao pode ser definida antes da conclusão real do processo
+      // Documentos antigos só devem ser usados quando o processo está COMPLETAMENTE finalizado
       const { data: cotacaoData } = await supabase
         .from("cotacoes_precos")
-        .select("data_finalizacao")
+        .select("data_finalizacao, processo_finalizado")
         .eq("id", cotacaoId)
         .single();
       
-      const dataFinalizacao = cotacaoData?.data_finalizacao 
-        ? new Date(cotacaoData.data_finalizacao) 
-        : null;
+      const processoRealmenteFinalizado = cotacaoData?.processo_finalizado === true;
       
-      console.log(`📅 Data de finalização do processo: ${dataFinalizacao?.toISOString() || 'não finalizado'}`);
+      console.log(`📅 Data de finalização do processo: ${cotacaoData?.data_finalizacao || 'não definida'}`);
+      console.log(`🔒 Processo realmente finalizado (processo_finalizado): ${processoRealmenteFinalizado}`);
 
       // BUSCAR DOCUMENTOS ANTIGOS DO FORNECEDOR VINCULADOS A ESTA COTAÇÃO
+      // APENAS quando o processo está REALMENTE finalizado
       let docsAntigosParaUsar: Map<string, any> = new Map();
       
-      if (dataFinalizacao) {
+      if (processoRealmenteFinalizado) {
         const { data: docsAntigos } = await supabase
           .from("documentos_antigos")
           .select("*")
