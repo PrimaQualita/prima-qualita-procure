@@ -2389,6 +2389,7 @@ const Cotacoes = () => {
                               if (solicitacaoError) throw solicitacaoError;
 
                               toast.success(`Solicitação enviada para ${responsavelLegal.nome_completo}`);
+                              setSolicitacaoSelecaoEnviada(true);
                             } catch (error) {
                               console.error("Erro ao enviar solicitação:", error);
                               toast.error("Erro ao enviar solicitação");
@@ -2396,10 +2397,17 @@ const Cotacoes = () => {
                           }}
                           className="w-full"
                           variant="outline"
+                          disabled={solicitacaoSelecaoEnviada}
                         >
                           <Send className="h-4 w-4 mr-2" />
                           Solicitar Autorização ao Responsável Legal
                         </Button>
+                        {solicitacaoSelecaoEnviada && (
+                          <p className="text-xs text-green-600 dark:text-green-400 font-medium flex items-center gap-1 mt-1">
+                            <CheckCircle className="h-3.5 w-3.5" />
+                            Solicitação Enviada
+                          </p>
+                        )}
                       </div>
                     )}
 
