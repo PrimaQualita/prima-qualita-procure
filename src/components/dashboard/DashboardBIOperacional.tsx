@@ -526,10 +526,14 @@ export function DashboardBIOperacional({
     const procFinalizados = procBIFiltrados.filter(p => p.status_processo === "finalizado" || p.status_processo === "concluido");
     const procAbertos = procBIFiltrados.filter(p => p.status_processo !== "finalizado" && p.status_processo !== "concluido");
 
+    const stripHtml = (html: string) => {
+      const doc = new DOMParser().parseFromString(html, 'text/html');
+      return doc.body.textContent || '';
+    };
     const buildProcessoDetail = (proc: any) => ({
       contrato: proc.contratos_gestao?.nome_contrato || 'Sem Contrato',
       numero: proc.numero_processo_interno || 'N/A',
-      objeto: proc.objeto_resumido || 'N/A',
+      objeto: proc.objeto_resumido ? stripHtml(proc.objeto_resumido) : 'N/A',
       status: proc.status_processo || 'N/A',
     });
 
