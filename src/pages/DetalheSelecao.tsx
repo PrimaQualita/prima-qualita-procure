@@ -827,6 +827,7 @@ const [itens, setItens] = useState<Item[]>([]);
       if (error) throw error;
 
       toast.success("Solicitação enviada ao Responsável Legal com sucesso!");
+      setSolicitacaoHomologacaoEnviada(true);
       setDialogResponsavelLegal(false);
       setResponsavelSelecionado("");
     } catch (error) {
