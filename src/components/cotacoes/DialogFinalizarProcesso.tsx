@@ -4271,7 +4271,18 @@ export function DialogFinalizarProcesso({
                       </div>
                     ) : (
                       <div>
-                        <h4 className="font-semibold text-lg mb-3">📄 Documentos Válidos em Cadastro</h4>
+                        <div className="flex items-center justify-between mb-3">
+                          <h4 className="font-semibold text-lg">📄 Documentos Válidos em Cadastro</h4>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => loadAllFornecedores()}
+                            title="Atualizar documentos do cadastro"
+                          >
+                            <RefreshCw className="h-3.5 w-3.5 mr-1" />
+                            Atualizar
+                          </Button>
+                        </div>
                         <Table>
                           <TableHeader>
                             <TableRow>

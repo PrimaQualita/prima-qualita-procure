@@ -3593,10 +3593,21 @@ export function DialogAnaliseDocumentalSelecao({
         <CardContent className="space-y-4">
           {/* Documentos do Cadastro */}
           <div>
-            <h4 className="font-medium mb-2 flex items-center gap-2">
-              <FileText className="h-4 w-4" />
-              Documentos do Cadastro
-            </h4>
+            <div className="flex items-center justify-between">
+              <h4 className="font-medium mb-2 flex items-center gap-2">
+                <FileText className="h-4 w-4" />
+                Documentos do Cadastro
+              </h4>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => loadFornecedoresVencedores()}
+                title="Atualizar documentos do cadastro"
+              >
+                <RefreshCw className="h-3.5 w-3.5 mr-1" />
+                Atualizar
+              </Button>
+            </div>
             {data.documentosExistentes.every((doc: any) => doc._ausente === true) ? (
               <p className="text-sm text-muted-foreground">Nenhum documento cadastrado</p>
             ) : (
