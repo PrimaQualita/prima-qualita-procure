@@ -573,62 +573,34 @@ export function DialogFinalizarProcesso({
         return;
       }
 
-      // CRÍTICO: Buscar itens de TODAS as respostas em chunks para evitar limite de 1000
-      console.log(`📤 Buscando itens para ${respostas.length} respostas`);
+      // CRÍTICO: Buscar itens de TODAS as respostas em PARALELO para performance
+      console.log(`📤 Buscando itens para ${respostas.length} respostas em paralelo`);
       
-      // Buscar itens em lotes por fornecedor para garantir que pega todos
-      const todosItensArray = [];
-      for (const resposta of respostas) {
-        let offset = 0;
-        let hasMore = true;
-        
-        while (hasMore) {
-          const { data: itensFornecedor, error: itensError } = await supabase
-            .from("respostas_itens_fornecedor")
-            .select(`
-              id,
-              cotacao_resposta_fornecedor_id,
-              item_cotacao_id,
-              valor_unitario_ofertado,
-              percentual_desconto,
-              itens_cotacao!inner(numero_item, descricao, lote_id, quantidade, unidade, lotes_cotacao(numero_lote))
-            `)
-            .eq("cotacao_resposta_fornecedor_id", resposta.id)
-            .range(offset, offset + 999);
+      const itensPromises = respostas.map(async (resposta) => {
+        const { data: itensFornecedor, error: itensError } = await supabase
+          .from("respostas_itens_fornecedor")
+          .select(`
+            id,
+            cotacao_resposta_fornecedor_id,
+            item_cotacao_id,
+            valor_unitario_ofertado,
+            percentual_desconto,
+            itens_cotacao!inner(numero_item, descricao, lote_id, quantidade, unidade, lotes_cotacao(numero_lote))
+          `)
+          .eq("cotacao_resposta_fornecedor_id", resposta.id)
+          .range(0, 999);
 
-          if (itensError) {
-            console.error(`❌ Erro ao buscar itens do fornecedor ${resposta.fornecedores.razao_social}:`, itensError);
-            throw itensError;
-          }
-
-          if (itensFornecedor && itensFornecedor.length > 0) {
-            todosItensArray.push(...itensFornecedor);
-            console.log(`  ✅ ${resposta.fornecedores.razao_social}: ${itensFornecedor.length} itens (offset ${offset})`);
-          }
-
-          // Se retornou menos que 1000, não tem mais
-          hasMore = itensFornecedor && itensFornecedor.length === 1000;
-          offset += 1000;
+        if (itensError) {
+          console.error(`❌ Erro ao buscar itens do fornecedor ${resposta.fornecedores.razao_social}:`, itensError);
+          throw itensError;
         }
-      }
 
-      const itens = todosItensArray;
+        return itensFornecedor || [];
+      });
+
+      const itensArrays = await Promise.all(itensPromises);
+      const itens = itensArrays.flat();
       console.log(`📦 TOTAL de itens carregados: ${itens.length}`);
-      
-      // DIAGNÓSTICO CRÍTICO: Verificar se itens foram carregados
-      if (itens.length === 0) {
-        console.error(`⚠️ PROBLEMA CRÍTICO: Nenhum item foi carregado!`);
-        console.log(`  → respostas.length: ${respostas?.length}`);
-        if (respostas && respostas.length > 0) {
-          console.log(`  → IDs das respostas:`);
-          respostas.forEach(r => console.log(`    - ${r.fornecedores.razao_social}: ${r.id}`));
-        }
-      } else {
-        console.log(`  → Exemplos de itens carregados:`);
-        itens.slice(0, 3).forEach(i => {
-          console.log(`    - Item ${i.itens_cotacao?.numero_item}: resposta_id=${i.cotacao_resposta_fornecedor_id}`);
-        });
-      }
 
       const criterio = cotacao?.criterio_julgamento || "global";
       
@@ -640,23 +612,23 @@ export function DialogFinalizarProcesso({
         console.log(`  - ${f.razao_social}`);
       });
 
-      // Buscar rejeições revertidas
-      const { data: rejeicoesRevertidas } = await supabase
-        .from('fornecedores_rejeitados_cotacao')
-        .select('fornecedor_id')
-        .eq('cotacao_id', cotacaoId)
-        .eq('revertido', true);
-
-      // Buscar rejeições ativas com itens afetados E dados do fornecedor
-      const { data: rejeicoesAtivas } = await supabase
-        .from('fornecedores_rejeitados_cotacao')
-        .select(`
-          fornecedor_id, 
-          itens_afetados,
-          fornecedores!inner(id, razao_social, email, cnpj)
-        `)
-        .eq('cotacao_id', cotacaoId)
-        .eq('revertido', false);
+      // Buscar rejeições revertidas e ativas em paralelo
+      const [{ data: rejeicoesRevertidas }, { data: rejeicoesAtivas }] = await Promise.all([
+        supabase
+          .from('fornecedores_rejeitados_cotacao')
+          .select('fornecedor_id')
+          .eq('cotacao_id', cotacaoId)
+          .eq('revertido', true),
+        supabase
+          .from('fornecedores_rejeitados_cotacao')
+          .select(`
+            fornecedor_id, 
+            itens_afetados,
+            fornecedores!inner(id, razao_social, email, cnpj)
+          `)
+          .eq('cotacao_id', cotacaoId)
+          .eq('revertido', false)
+      ]);
 
       const fornecedoresRevertidos = new Set(rejeicoesRevertidas?.map(r => r.fornecedor_id) || []);
       
