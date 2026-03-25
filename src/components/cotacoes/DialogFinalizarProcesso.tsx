@@ -612,23 +612,23 @@ export function DialogFinalizarProcesso({
         console.log(`  - ${f.razao_social}`);
       });
 
-      // Buscar rejeições revertidas
-      const { data: rejeicoesRevertidas } = await supabase
-        .from('fornecedores_rejeitados_cotacao')
-        .select('fornecedor_id')
-        .eq('cotacao_id', cotacaoId)
-        .eq('revertido', true);
-
-      // Buscar rejeições ativas com itens afetados E dados do fornecedor
-      const { data: rejeicoesAtivas } = await supabase
-        .from('fornecedores_rejeitados_cotacao')
-        .select(`
-          fornecedor_id, 
-          itens_afetados,
-          fornecedores!inner(id, razao_social, email, cnpj)
-        `)
-        .eq('cotacao_id', cotacaoId)
-        .eq('revertido', false);
+      // Buscar rejeições revertidas e ativas em paralelo
+      const [{ data: rejeicoesRevertidas }, { data: rejeicoesAtivas }] = await Promise.all([
+        supabase
+          .from('fornecedores_rejeitados_cotacao')
+          .select('fornecedor_id')
+          .eq('cotacao_id', cotacaoId)
+          .eq('revertido', true),
+        supabase
+          .from('fornecedores_rejeitados_cotacao')
+          .select(`
+            fornecedor_id, 
+            itens_afetados,
+            fornecedores!inner(id, razao_social, email, cnpj)
+          `)
+          .eq('cotacao_id', cotacaoId)
+          .eq('revertido', false)
+      ]);
 
       const fornecedoresRevertidos = new Set(rejeicoesRevertidas?.map(r => r.fornecedor_id) || []);
       
