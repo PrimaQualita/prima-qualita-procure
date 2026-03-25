@@ -4453,19 +4453,25 @@ export function DialogFinalizarProcesso({
                                         <Clock className="h-4 w-4 mr-1" />
                                         Solicitar Atualização
                                       </Button>
-                                      {(doc as any)._fromArchive && (doc as any)._docAntigoId && (
-                                        <Button
-                                          variant="outline"
-                                          size="sm"
-                                          className="bg-blue-50 hover:bg-blue-100 text-blue-700 border-blue-300"
-                                          onClick={() => handleUsarDocumentoAtual(
-                                            fornData.fornecedor.id,
-                                            (doc as any)._docAntigoId,
-                                            (doc as any)._tipoOriginal
-                                          )}
-                                        >
-                                          <RefreshCw className="h-4 w-4 mr-1" />
-                                          Usar documento atual
+                                      {(doc as any)._fromArchive && (doc as any)._docAntigoId && (() => {
+                                        // Verificar se o documento antigo já foi atualizado (comparar com doc atual do cadastro)
+                                        // Se _fromArchive mas os dados já foram sincronizados, não mostrar o botão
+                                        return (
+                                          <Button
+                                            variant="outline"
+                                            size="sm"
+                                            className="bg-blue-50 hover:bg-blue-100 text-blue-700 border-blue-300"
+                                            onClick={() => handleUsarDocumentoAtual(
+                                              fornData.fornecedor.id,
+                                              (doc as any)._docAntigoId,
+                                              (doc as any)._tipoOriginal
+                                            )}
+                                          >
+                                            <RefreshCw className="h-4 w-4 mr-1" />
+                                            Usar documento atual
+                                          </Button>
+                                        );
+                                      })()}
                                         </Button>
                                       )}
                                     </div>
