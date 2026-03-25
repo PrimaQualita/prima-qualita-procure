@@ -517,7 +517,7 @@ export function DialogFinalizarProcesso({
       // Também buscar requer_selecao do processo vinculado para definir o título corretamente
       const { data: cotacao, error: cotacaoError } = await supabase
         .from("cotacoes_precos")
-        .select("criterio_julgamento, documentos_aprovados, enviado_para_selecao, processos_compras!inner(requer_selecao)")
+        .select("criterio_julgamento, documentos_aprovados, enviado_para_selecao, processo_finalizado, processos_compras!inner(requer_selecao)")
         .eq("id", cotacaoId)
         .single();
 
