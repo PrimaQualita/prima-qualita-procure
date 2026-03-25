@@ -4439,22 +4439,20 @@ export function DialogFinalizarProcesso({
                                         <ExternalLink className="h-4 w-4 mr-1" />
                                         Visualizar
                                       </Button>
-                                      {doc.data_validade !== null && !isValido && (
-                                        <Button
-                                          variant="outline"
-                                          size="sm"
-                                          className="bg-orange-50 hover:bg-orange-100 text-orange-700 border-orange-300"
-                                          onClick={() => {
-                                            setDocumentoParaAtualizar(doc);
-                                            setFornecedorIdParaAtualizar(fornData.fornecedor.id);
-                                            setMotivoAtualizacao("");
-                                            setDialogSolicitarAtualizacao(true);
-                                          }}
-                                        >
-                                          <Clock className="h-4 w-4 mr-1" />
-                                          Solicitar Atualização
-                                        </Button>
-                                      )}
+                                      <Button
+                                        variant="outline"
+                                        size="sm"
+                                        className="bg-orange-50 hover:bg-orange-100 text-orange-700 border-orange-300"
+                                        onClick={() => {
+                                          setDocumentoParaAtualizar(doc);
+                                          setFornecedorIdParaAtualizar(fornData.fornecedor.id);
+                                          setMotivoAtualizacao("");
+                                          setDialogSolicitarAtualizacao(true);
+                                        }}
+                                      >
+                                        <Clock className="h-4 w-4 mr-1" />
+                                        Solicitar Atualização
+                                      </Button>
                                       {(doc as any)._fromArchive && (doc as any)._docAntigoId && (
                                         <Button
                                           variant="outline"
