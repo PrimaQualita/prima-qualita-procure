@@ -422,14 +422,40 @@ export async function carregarItensVencedoresPorFornecedor(
 ): Promise<ItemResposta[]> {
   console.log(`🔍 [carregarItensVencedores] RECÁLCULO DINÂMICO para fornecedor ${fornecedorId}`);
   
-  // Buscar a última planilha consolidada
-  const { data: planilha, error } = await supabase
-    .from('planilhas_consolidadas')
-    .select('fornecedores_incluidos')
-    .eq('cotacao_id', cotacaoId)
-    .order('data_geracao', { ascending: false })
-    .limit(1)
-    .single();
+  // Buscar planilha, compliance, lotes e rejeições em PARALELO para performance
+  const [
+    { data: planilha, error },
+    { data: analisesCompliance },
+    { data: lotesCotacao },
+    { data: rejeicoesAtivas },
+    { data: rejeicoesRevertidas }
+  ] = await Promise.all([
+    supabase
+      .from('planilhas_consolidadas')
+      .select('fornecedores_incluidos')
+      .eq('cotacao_id', cotacaoId)
+      .order('data_geracao', { ascending: false })
+      .limit(1)
+      .single(),
+    supabase
+      .from('analises_compliance')
+      .select('empresas_reprovadas')
+      .eq('cotacao_id', cotacaoId),
+    supabase
+      .from('lotes_cotacao')
+      .select('id, numero_lote')
+      .eq('cotacao_id', cotacaoId),
+    supabase
+      .from('fornecedores_rejeitados_cotacao')
+      .select('fornecedor_id, itens_afetados')
+      .eq('cotacao_id', cotacaoId)
+      .eq('revertido', false),
+    supabase
+      .from('fornecedores_rejeitados_cotacao')
+      .select('fornecedor_id')
+      .eq('cotacao_id', cotacaoId)
+      .eq('revertido', true)
+  ]);
 
   if (error || !planilha) {
     console.log(`  ❌ Nenhuma planilha consolidada encontrada`);
@@ -438,12 +464,7 @@ export async function carregarItensVencedoresPorFornecedor(
 
   const fornecedoresPlanilha = planilha.fornecedores_incluidos as unknown as FornecedorPlanilha[];
 
-  // CRÍTICO: Buscar empresas reprovadas pelo compliance
-  const { data: analisesCompliance } = await supabase
-    .from('analises_compliance')
-    .select('empresas_reprovadas')
-    .eq('cotacao_id', cotacaoId);
-  
+  // Processar compliance
   const cnpjsReprovadosCompliance = new Set<string>();
   for (const analise of analisesCompliance || []) {
     const reprovadas = analise.empresas_reprovadas as string[] || [];
@@ -451,25 +472,6 @@ export async function carregarItensVencedoresPorFornecedor(
       if (cnpj) cnpjsReprovadosCompliance.add(cnpj);
     }
   }
-
-  // Buscar lotes para mapear numero_lote -> lote_id (necessário para por_lote)
-  const { data: lotesCotacao } = await supabase
-    .from('lotes_cotacao')
-    .select('id, numero_lote')
-    .eq('cotacao_id', cotacaoId);
-
-  // Buscar rejeições ativas E revertidas
-  const { data: rejeicoesAtivas } = await supabase
-    .from('fornecedores_rejeitados_cotacao')
-    .select('fornecedor_id, itens_afetados')
-    .eq('cotacao_id', cotacaoId)
-    .eq('revertido', false);
-
-  const { data: rejeicoesRevertidas } = await supabase
-    .from('fornecedores_rejeitados_cotacao')
-    .select('fornecedor_id')
-    .eq('cotacao_id', cotacaoId)
-    .eq('revertido', true);
 
   // Mapear fornecedores rejeitados globalmente (sem itens específicos)
   const fornecedoresRejeitadosGlobal = new Set<string>();
