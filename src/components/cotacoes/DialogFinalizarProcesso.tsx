@@ -2371,7 +2371,49 @@ export function DialogFinalizarProcesso({
     }
   };
 
-  const handleSolicitarAtualizacaoDocumento = async () => {
+  // Handler para substituir documento arquivado pelo documento atual do cadastro
+  const handleUsarDocumentoAtual = async (fornecedorId: string, docAntigoId: string, tipoDocumento: string) => {
+    try {
+      // 1. Buscar o documento atual do cadastro
+      const { data: docAtual } = await supabase
+        .from("documentos_fornecedor")
+        .select("*")
+        .eq("fornecedor_id", fornecedorId)
+        .eq("tipo_documento", tipoDocumento)
+        .eq("em_vigor", true)
+        .order("data_upload", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (!docAtual) {
+        toast.error("Não há documento atual no cadastro para substituir");
+        return;
+      }
+
+      // 2. Atualizar o registro em documentos_antigos com os dados do documento atual
+      const { error: updateError } = await supabase
+        .from("documentos_antigos")
+        .update({
+          nome_arquivo: docAtual.nome_arquivo,
+          url_arquivo: docAtual.url_arquivo,
+          data_emissao: docAtual.data_emissao,
+          data_validade: docAtual.data_validade,
+          data_upload_original: docAtual.data_upload
+        })
+        .eq("id", docAntigoId);
+
+      if (updateError) throw updateError;
+
+      toast.success("Documento atualizado com sucesso! Usando versão atual do cadastro.");
+      
+      // 3. Recarregar dados
+      await loadAllFornecedores();
+    } catch (error: any) {
+      console.error("Erro ao atualizar documento arquivado:", error);
+      toast.error("Erro ao atualizar documento");
+    }
+  };
+
     if (!documentoParaAtualizar) return;
     
     if (!motivoAtualizacao || motivoAtualizacao.trim() === "") {
