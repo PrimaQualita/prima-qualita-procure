@@ -3705,12 +3705,13 @@ export function DialogAnaliseDocumentalSelecao({
                             >
                               <Eye className="h-4 w-4" />
                             </Button>
-                            {statusDoc.status === "vencido" && !doc.atualizacao_solicitada && (
+                            {!doc.atualizacao_solicitada && (
                               <Button
                                 size="sm"
                                 variant="outline"
                                 onClick={() => {
                                   setDocumentoParaAtualizar({ doc, fornecedorId: data.fornecedor.id });
+                                  setMotivoAtualizacao("");
                                   setDialogSolicitarAtualizacao(true);
                                 }}
                               >
