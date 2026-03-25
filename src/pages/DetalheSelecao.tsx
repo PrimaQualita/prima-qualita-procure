@@ -1067,8 +1067,9 @@ const [itens, setItens] = useState<Item[]>([]);
         if (fornecedoresIgnoradosPorContrato > 0) {
           console.log(`⚠️ ${fornecedoresIgnoradosPorContrato} fornecedor(es) ignorado(s) (já possuem contrato formalizado)`);
         }
-      } catch (ppcError) {
-        console.warn("Erro ao criar registro em processos_para_contratar (seleção):", ppcError);
+      } catch (ppcError: any) {
+        console.error("❌ ERRO ao criar registro em processos_para_contratar (seleção):", ppcError);
+        console.error("❌ Detalhes do erro:", JSON.stringify(ppcError));
       }
 
       // Recarregar dados

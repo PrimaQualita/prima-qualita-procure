@@ -88,6 +88,9 @@ export async function sincronizarProcessosParaContratarAposFinalizacao({
       }));
 
     if (registrosParaSincronizar.length > 0) {
+      console.log(`📋 Tentando upsert de ${registrosParaSincronizar.length} registro(s) em processos_para_contratar:`, 
+        registrosParaSincronizar.map(r => ({ processo: r.numero_processo, fornecedor: r.fornecedor_vencedor_nome, valor: r.valor_aprovado })));
+      
       const { error: upsertError } = await supabase
         .from("processos_para_contratar")
         .upsert(registrosParaSincronizar, {
@@ -95,7 +98,11 @@ export async function sincronizarProcessosParaContratarAposFinalizacao({
           ignoreDuplicates: false,
         });
 
-      if (upsertError) throw upsertError;
+      if (upsertError) {
+        console.error("❌ Erro no upsert de processos_para_contratar:", JSON.stringify(upsertError));
+        throw upsertError;
+      }
+      console.log(`✅ Upsert de processos_para_contratar concluído com sucesso`);
     }
 
     return {

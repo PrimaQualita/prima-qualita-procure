@@ -1941,10 +1941,11 @@ export function DialogAnaliseDocumentalSelecao({
 
     try {
       const isAusente = (documentoParaAtualizar.doc as any)._ausente === true;
+      const isFromArchive = (documentoParaAtualizar.doc as any)._fromArchive === true;
+      const tipoOriginal = (documentoParaAtualizar.doc as any)._tipoOriginal || documentoParaAtualizar.doc.tipo_documento;
 
       if (isAusente) {
         // Documento não existe ainda - criar registro placeholder com solicitação
-        const tipoOriginal = (documentoParaAtualizar.doc as any)._tipoOriginal || documentoParaAtualizar.doc.tipo_documento;
         const { error } = await supabase
           .from("documentos_fornecedor")
           .insert({
@@ -1959,8 +1960,42 @@ export function DialogAnaliseDocumentalSelecao({
           });
 
         if (error) throw error;
+      } else if (isFromArchive) {
+        // Documento é arquivado - o ID pertence a documentos_antigos, não documentos_fornecedor
+        const { data: docAtual } = await supabase
+          .from("documentos_fornecedor")
+          .select("id")
+          .eq("fornecedor_id", documentoParaAtualizar.fornecedorId)
+          .eq("tipo_documento", tipoOriginal)
+          .maybeSingle();
+
+        if (docAtual) {
+          const { error } = await supabase
+            .from("documentos_fornecedor")
+            .update({
+              atualizacao_solicitada: true,
+              motivo_solicitacao_atualizacao: motivoAtualizacao,
+              data_solicitacao_atualizacao: new Date().toISOString(),
+            })
+            .eq("id", docAtual.id);
+          if (error) throw error;
+        } else {
+          const { error } = await supabase
+            .from("documentos_fornecedor")
+            .insert({
+              fornecedor_id: documentoParaAtualizar.fornecedorId,
+              tipo_documento: tipoOriginal,
+              nome_arquivo: "",
+              url_arquivo: "",
+              em_vigor: false,
+              atualizacao_solicitada: true,
+              motivo_solicitacao_atualizacao: motivoAtualizacao,
+              data_solicitacao_atualizacao: new Date().toISOString(),
+            });
+          if (error) throw error;
+        }
       } else {
-        // Documento existe - fazer update normalmente
+        // Documento existe normalmente - fazer update pelo ID
         const { error } = await supabase
           .from("documentos_fornecedor")
           .update({

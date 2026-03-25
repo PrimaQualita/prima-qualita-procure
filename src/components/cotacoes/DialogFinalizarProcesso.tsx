@@ -2429,10 +2429,11 @@ export function DialogFinalizarProcesso({
 
     try {
       const isAusente = (documentoParaAtualizar as any)._ausente === true;
+      const isFromArchive = (documentoParaAtualizar as any)._fromArchive === true;
+      const tipoOriginal = (documentoParaAtualizar as any)._tipoOriginal || documentoParaAtualizar.tipo_documento;
 
       if (isAusente && fornecedorIdParaAtualizar) {
         // Documento não existe ainda - criar registro placeholder com solicitação
-        const tipoOriginal = (documentoParaAtualizar as any)._tipoOriginal || documentoParaAtualizar.tipo_documento;
         const { error } = await supabase
           .from("documentos_fornecedor")
           .insert({
@@ -2447,8 +2448,44 @@ export function DialogFinalizarProcesso({
           });
 
         if (error) throw error;
+      } else if (isFromArchive && fornecedorIdParaAtualizar) {
+        // Documento é arquivado - o ID pertence a documentos_antigos, não documentos_fornecedor
+        // Buscar o documento atual pelo tipo e fornecedor
+        const { data: docAtual } = await supabase
+          .from("documentos_fornecedor")
+          .select("id")
+          .eq("fornecedor_id", fornecedorIdParaAtualizar)
+          .eq("tipo_documento", tipoOriginal)
+          .maybeSingle();
+
+        if (docAtual) {
+          const { error } = await supabase
+            .from("documentos_fornecedor")
+            .update({
+              atualizacao_solicitada: true,
+              data_solicitacao_atualizacao: new Date().toISOString(),
+              motivo_solicitacao_atualizacao: motivoAtualizacao.trim()
+            })
+            .eq("id", docAtual.id);
+          if (error) throw error;
+        } else {
+          // Documento atual não existe - criar placeholder
+          const { error } = await supabase
+            .from("documentos_fornecedor")
+            .insert({
+              fornecedor_id: fornecedorIdParaAtualizar,
+              tipo_documento: tipoOriginal,
+              nome_arquivo: "",
+              url_arquivo: "",
+              em_vigor: false,
+              atualizacao_solicitada: true,
+              data_solicitacao_atualizacao: new Date().toISOString(),
+              motivo_solicitacao_atualizacao: motivoAtualizacao.trim()
+            });
+          if (error) throw error;
+        }
       } else {
-        // Documento existe - fazer update normalmente
+        // Documento existe normalmente - fazer update pelo ID
         const { error } = await supabase
           .from("documentos_fornecedor")
           .update({
@@ -4073,8 +4110,9 @@ export function DialogFinalizarProcesso({
             console.log(`⚠️ ${fornecedoresIgnoradosPorContrato} fornecedor(es) ignorado(s) (já possuem contrato formalizado)`);
           }
         }
-      } catch (ppcError) {
-        console.warn("Erro ao criar registro em processos_para_contratar:", ppcError);
+      } catch (ppcError: any) {
+        console.error("❌ ERRO ao criar registro em processos_para_contratar:", ppcError);
+        console.error("❌ Detalhes do erro:", JSON.stringify(ppcError));
       }
 
       const { error } = await supabase
