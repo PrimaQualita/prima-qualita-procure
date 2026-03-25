@@ -1287,7 +1287,8 @@ export function DialogFinalizarProcesso({
             data_emissao: null,
             data_validade: null,
             em_vigor: false,
-            _ausente: true
+            _ausente: true,
+            _tipoOriginal: tipo
           };
         });
 
