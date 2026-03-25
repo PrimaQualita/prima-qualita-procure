@@ -282,6 +282,33 @@ export function DialogAnaliseDocumentalSelecao({
     };
   }, [open, selecaoId]);
 
+  // Listener realtime para mudanças em documentos de fornecedor - auto-refresh ao atualizar cadastro
+  useEffect(() => {
+    if (!open || !selecaoId) return;
+
+    console.log("🎧 [REALTIME] Configurando listener para documentos_fornecedor");
+    
+    const docChannel = supabase
+      .channel(`analise_doc_documentos_${selecaoId}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "documentos_fornecedor",
+        },
+        (payload) => {
+          console.log("🔔 [REALTIME] Mudança detectada em documentos_fornecedor:", payload.eventType);
+          loadFornecedoresVencedores();
+        }
+      )
+      .subscribe();
+    
+    return () => {
+      supabase.removeChannel(docChannel);
+    };
+  }, [open, selecaoId]);
+
   // Buscar segundos colocados quando itens selecionados mudarem na inabilitação parcial
   useEffect(() => {
     const fetchSegundos = async () => {
