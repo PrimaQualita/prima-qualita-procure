@@ -2373,20 +2373,43 @@ export function DialogFinalizarProcesso({
     }
 
     try {
-      const { error } = await supabase
-        .from("documentos_fornecedor")
-        .update({
-          atualizacao_solicitada: true,
-          data_solicitacao_atualizacao: new Date().toISOString(),
-          motivo_solicitacao_atualizacao: motivoAtualizacao.trim()
-        })
-        .eq("id", documentoParaAtualizar.id);
+      const isAusente = (documentoParaAtualizar as any)._ausente === true;
 
-      if (error) throw error;
+      if (isAusente && fornecedorIdParaAtualizar) {
+        // Documento não existe ainda - criar registro placeholder com solicitação
+        const tipoOriginal = (documentoParaAtualizar as any)._tipoOriginal || documentoParaAtualizar.tipo_documento;
+        const { error } = await supabase
+          .from("documentos_fornecedor")
+          .insert({
+            fornecedor_id: fornecedorIdParaAtualizar,
+            tipo_documento: tipoOriginal,
+            nome_arquivo: "",
+            url_arquivo: "",
+            em_vigor: false,
+            atualizacao_solicitada: true,
+            data_solicitacao_atualizacao: new Date().toISOString(),
+            motivo_solicitacao_atualizacao: motivoAtualizacao.trim()
+          });
+
+        if (error) throw error;
+      } else {
+        // Documento existe - fazer update normalmente
+        const { error } = await supabase
+          .from("documentos_fornecedor")
+          .update({
+            atualizacao_solicitada: true,
+            data_solicitacao_atualizacao: new Date().toISOString(),
+            motivo_solicitacao_atualizacao: motivoAtualizacao.trim()
+          })
+          .eq("id", documentoParaAtualizar.id);
+
+        if (error) throw error;
+      }
 
       toast.success("Solicitação de atualização enviada para o fornecedor");
       setDialogSolicitarAtualizacao(false);
       setDocumentoParaAtualizar(null);
+      setFornecedorIdParaAtualizar(null);
       setMotivoAtualizacao("");
       await loadAllFornecedores();
     } catch (error: any) {
