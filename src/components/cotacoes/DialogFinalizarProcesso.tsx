@@ -1284,6 +1284,16 @@ export function DialogFinalizarProcesso({
           // Senão, usar documento atual
           const doc = data?.find(d => d.tipo_documento === tipo);
           if (doc) {
+            // Se é um placeholder (sem arquivo) com solicitação pendente, marcar como ausente + solicitado
+            if (!doc.url_arquivo && doc.atualizacao_solicitada) {
+              return {
+                ...doc,
+                tipo_documento: nomesMapeados[tipo] || doc.tipo_documento,
+                _ausente: true,
+                _solicitacaoEnviada: true,
+                _tipoOriginal: tipo
+              };
+            }
             return {
               ...doc,
               tipo_documento: nomesMapeados[tipo] || doc.tipo_documento
