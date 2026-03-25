@@ -4110,8 +4110,9 @@ export function DialogFinalizarProcesso({
             console.log(`⚠️ ${fornecedoresIgnoradosPorContrato} fornecedor(es) ignorado(s) (já possuem contrato formalizado)`);
           }
         }
-      } catch (ppcError) {
-        console.warn("Erro ao criar registro em processos_para_contratar:", ppcError);
+      } catch (ppcError: any) {
+        console.error("❌ ERRO ao criar registro em processos_para_contratar:", ppcError);
+        console.error("❌ Detalhes do erro:", JSON.stringify(ppcError));
       }
 
       const { error } = await supabase
