@@ -529,7 +529,7 @@ export function DashboardBIOperacional({
     const buildProcessoDetail = (proc: any) => ({
       contrato: proc.contratos_gestao?.nome_contrato || 'Sem Contrato',
       numero: proc.numero_processo_interno || 'N/A',
-      objeto: proc.objeto || 'N/A',
+      objeto: proc.objeto_resumido || 'N/A',
       status: proc.status_processo || 'N/A',
     });
 
@@ -817,8 +817,8 @@ export function DashboardBIOperacional({
                       <TableHeader>
                         <TableRow>
                           <TableHead className="text-xs">#</TableHead>
-                          <TableHead className="text-xs">Contrato de Gestão</TableHead>
-                          <TableHead className="text-xs">Processo</TableHead>
+                          <TableHead className="text-xs w-[200px]">Contrato de Gestão</TableHead>
+                          <TableHead className="text-xs w-[100px]">Processo</TableHead>
                           <TableHead className="text-xs">Objeto</TableHead>
                           <TableHead className="text-xs">Status</TableHead>
                         </TableRow>
