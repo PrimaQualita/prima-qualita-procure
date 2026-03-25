@@ -1913,16 +1913,38 @@ export function DialogAnaliseDocumentalSelecao({
     }
 
     try {
-      const { error } = await supabase
-        .from("documentos_fornecedor")
-        .update({
-          atualizacao_solicitada: true,
-          motivo_solicitacao_atualizacao: motivoAtualizacao,
-          data_solicitacao_atualizacao: new Date().toISOString(),
-        })
-        .eq("id", documentoParaAtualizar.doc.id);
+      const isAusente = (documentoParaAtualizar.doc as any)._ausente === true;
 
-      if (error) throw error;
+      if (isAusente) {
+        // Documento não existe ainda - criar registro placeholder com solicitação
+        const tipoOriginal = (documentoParaAtualizar.doc as any)._tipoOriginal || documentoParaAtualizar.doc.tipo_documento;
+        const { error } = await supabase
+          .from("documentos_fornecedor")
+          .insert({
+            fornecedor_id: documentoParaAtualizar.fornecedorId,
+            tipo_documento: tipoOriginal,
+            nome_arquivo: "",
+            url_arquivo: "",
+            em_vigor: false,
+            atualizacao_solicitada: true,
+            motivo_solicitacao_atualizacao: motivoAtualizacao,
+            data_solicitacao_atualizacao: new Date().toISOString(),
+          });
+
+        if (error) throw error;
+      } else {
+        // Documento existe - fazer update normalmente
+        const { error } = await supabase
+          .from("documentos_fornecedor")
+          .update({
+            atualizacao_solicitada: true,
+            motivo_solicitacao_atualizacao: motivoAtualizacao,
+            data_solicitacao_atualizacao: new Date().toISOString(),
+          })
+          .eq("id", documentoParaAtualizar.doc.id);
+
+        if (error) throw error;
+      }
 
       toast.success("Solicitação de atualização enviada ao fornecedor");
       setDialogSolicitarAtualizacao(false);
