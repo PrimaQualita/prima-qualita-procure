@@ -1260,8 +1260,13 @@ export function DialogFinalizarProcesso({
         .map(tipo => {
           // PRIORIZAR documento antigo se existir para este tipo
           const docAntigo = docsAntigosParaUsar.get(tipo);
+          const docAtual = data?.find(d => d.tipo_documento === tipo);
+          
           if (docAntigo) {
-            console.log(`  📜 Usando documento ANTIGO para ${tipo}`);
+            // Verificar se o documento antigo já foi sincronizado com o atual
+            const jaSincronizado = docAtual && docAntigo.url_arquivo === docAtual.url_arquivo;
+            
+            console.log(`  📜 Usando documento ANTIGO para ${tipo}${jaSincronizado ? ' (já sincronizado)' : ''}`);
             return {
               id: docAntigo.id,
               tipo_documento: nomesMapeados[tipo] || tipo,
@@ -1270,9 +1275,9 @@ export function DialogFinalizarProcesso({
               data_emissao: docAntigo.data_emissao,
               data_validade: docAntigo.data_validade,
               em_vigor: true,
-              _fromArchive: true,
+              _fromArchive: !jaSincronizado, // Só marcar como arquivado se NÃO foi sincronizado
               _tipoOriginal: tipo,
-              _docAntigoId: docAntigo.id
+              _docAntigoId: jaSincronizado ? null : docAntigo.id // Esconder botão se já sincronizado
             };
           }
           
@@ -4453,21 +4458,25 @@ export function DialogFinalizarProcesso({
                                         <Clock className="h-4 w-4 mr-1" />
                                         Solicitar Atualização
                                       </Button>
-                                      {(doc as any)._fromArchive && (doc as any)._docAntigoId && (
-                                        <Button
-                                          variant="outline"
-                                          size="sm"
-                                          className="bg-blue-50 hover:bg-blue-100 text-blue-700 border-blue-300"
-                                          onClick={() => handleUsarDocumentoAtual(
-                                            fornData.fornecedor.id,
-                                            (doc as any)._docAntigoId,
-                                            (doc as any)._tipoOriginal
-                                          )}
-                                        >
-                                          <RefreshCw className="h-4 w-4 mr-1" />
-                                          Usar documento atual
-                                        </Button>
-                                      )}
+                                      {(doc as any)._fromArchive && (doc as any)._docAntigoId && (() => {
+                                        // Verificar se o documento antigo já foi atualizado (comparar com doc atual do cadastro)
+                                        // Se _fromArchive mas os dados já foram sincronizados, não mostrar o botão
+                                        return (
+                                          <Button
+                                            variant="outline"
+                                            size="sm"
+                                            className="bg-blue-50 hover:bg-blue-100 text-blue-700 border-blue-300"
+                                            onClick={() => handleUsarDocumentoAtual(
+                                              fornData.fornecedor.id,
+                                              (doc as any)._docAntigoId,
+                                              (doc as any)._tipoOriginal
+                                            )}
+                                          >
+                                            <RefreshCw className="h-4 w-4 mr-1" />
+                                            Usar documento atual
+                                          </Button>
+                                        );
+                                      })()}
                                     </div>
                                   </TableCell>
                                 </TableRow>

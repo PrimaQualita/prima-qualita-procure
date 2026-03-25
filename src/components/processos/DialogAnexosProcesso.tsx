@@ -373,6 +373,31 @@ export function DialogAnexosProcesso({
           console.error("Erro ao atualizar status do processo:", statusError);
         }
 
+        // REVERTER processo_finalizado na cotação vinculada
+        try {
+          const { data: cotacoesVinculadas } = await supabase
+            .from("cotacoes_precos")
+            .select("id")
+            .eq("processo_compra_id", processoId)
+            .eq("processo_finalizado", true);
+
+          if (cotacoesVinculadas && cotacoesVinculadas.length > 0) {
+            const cotacaoIds = cotacoesVinculadas.map(c => c.id);
+            const { error: cotacaoError } = await supabase
+              .from("cotacoes_precos")
+              .update({ processo_finalizado: false })
+              .in("id", cotacaoIds);
+
+            if (cotacaoError) {
+              console.error("Erro ao reverter processo_finalizado:", cotacaoError);
+            } else {
+              console.log(`🔄 processo_finalizado revertido para ${cotacaoIds.length} cotação(ões)`);
+            }
+          }
+        } catch (cotErr) {
+          console.warn("Erro ao reverter processo_finalizado:", cotErr);
+        }
+
         // Limpar processos_para_contratar pendentes (que ainda não foram formalizados como contrato)
         try {
           // Buscar todos os processos_para_contratar deste processo
