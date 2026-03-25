@@ -16,7 +16,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { ArrowLeft, FileText, Upload, Send, Gavel, Link, ClipboardCheck, FileCheck, Eye, Trash2, SendHorizontal, RefreshCw, Download, AlertCircle } from "lucide-react";
+import { ArrowLeft, FileText, Upload, Send, Gavel, Link, ClipboardCheck, FileCheck, Eye, Trash2, SendHorizontal, RefreshCw, Download, AlertCircle, CheckCircle } from "lucide-react";
 import { toast } from "sonner";
 import DOMPurify from "dompurify";
 import { DialogEnviarSelecao } from "@/components/selecoes/DialogEnviarSelecao";
@@ -104,6 +104,7 @@ const [itens, setItens] = useState<Item[]>([]);
   const [responsaveisLegais, setResponsaveisLegais] = useState<any[]>([]);
   const [responsavelSelecionado, setResponsavelSelecionado] = useState<string>("");
   const [enviandoSolicitacao, setEnviandoSolicitacao] = useState(false);
+  const [solicitacaoHomologacaoEnviada, setSolicitacaoHomologacaoEnviada] = useState(false);
   const [isResponsavelLegal, setIsResponsavelLegal] = useState(false);
   
   // RL pode APENAS visualizar + gerar/excluir homologação
@@ -826,6 +827,7 @@ const [itens, setItens] = useState<Item[]>([]);
       if (error) throw error;
 
       toast.success("Solicitação enviada ao Responsável Legal com sucesso!");
+      setSolicitacaoHomologacaoEnviada(true);
       setDialogResponsavelLegal(false);
       setResponsavelSelecionado("");
     } catch (error) {
@@ -1483,15 +1485,24 @@ const [itens, setItens] = useState<Item[]>([]);
                           </Button>
                         )}
                         {canEditSelecao && ata.enviada_fornecedores && (
-                          <Button
-                            size="sm"
-                            variant="secondary"
-                            onClick={solicitarHomologacao}
-                            title="Solicitar Homologação"
-                          >
-                            <Send className="h-4 w-4 mr-1" />
-                            Enviar ao Responsável Legal
-                          </Button>
+                          <div className="flex flex-col gap-1">
+                            <Button
+                              size="sm"
+                              variant="secondary"
+                              onClick={solicitarHomologacao}
+                              disabled={solicitacaoHomologacaoEnviada}
+                              title="Solicitar Homologação"
+                            >
+                              <Send className="h-4 w-4 mr-1" />
+                              Enviar ao Responsável Legal
+                            </Button>
+                            {solicitacaoHomologacaoEnviada && (
+                              <p className="text-xs text-green-600 dark:text-green-400 font-medium flex items-center gap-1 mt-1">
+                                <CheckCircle className="h-3.5 w-3.5" />
+                                Solicitação Enviada
+                              </p>
+                            )}
+                          </div>
                         )}
                       </div>
                     </div>
