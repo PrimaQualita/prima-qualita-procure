@@ -4385,8 +4385,17 @@ export function DialogFinalizarProcesso({
                               const isValido = diasRestantes !== null && diasRestantes >= 0;
 
                               return (
-                                <TableRow key={doc.id}>
-                                  <TableCell className="font-medium">{doc.tipo_documento}</TableCell>
+                                <TableRow key={doc.id} className={(doc as any)._fromArchive ? "bg-amber-50/50" : ""}>
+                                  <TableCell className="font-medium">
+                                    <div className="flex items-center gap-1">
+                                      {doc.tipo_documento}
+                                      {(doc as any)._fromArchive && (
+                                        <Badge variant="outline" className="text-[10px] px-1 py-0 bg-amber-100 text-amber-700 border-amber-300 ml-1">
+                                          Arquivado
+                                        </Badge>
+                                      )}
+                                    </div>
+                                  </TableCell>
                                   <TableCell>
                                     <a 
                                       href={doc.url_arquivo} 
