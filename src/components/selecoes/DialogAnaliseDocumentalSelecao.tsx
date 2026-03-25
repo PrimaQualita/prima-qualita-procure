@@ -1958,21 +1958,39 @@ export function DialogAnaliseDocumentalSelecao({
       const tipoOriginal = (documentoParaAtualizar.doc as any)._tipoOriginal || documentoParaAtualizar.doc.tipo_documento;
 
       if (isAusente) {
-        // Documento não existe ainda - criar registro placeholder com solicitação
-        const { error } = await supabase
+        // Verificar se já existe registro para evitar duplicatas
+        const { data: existente } = await supabase
           .from("documentos_fornecedor")
-          .insert({
-            fornecedor_id: documentoParaAtualizar.fornecedorId,
-            tipo_documento: tipoOriginal,
-            nome_arquivo: "",
-            url_arquivo: "",
-            em_vigor: false,
-            atualizacao_solicitada: true,
-            motivo_solicitacao_atualizacao: motivoAtualizacao,
-            data_solicitacao_atualizacao: new Date().toISOString(),
-          });
+          .select("id")
+          .eq("fornecedor_id", documentoParaAtualizar.fornecedorId)
+          .eq("tipo_documento", tipoOriginal)
+          .maybeSingle();
 
-        if (error) throw error;
+        if (existente) {
+          const { error } = await supabase
+            .from("documentos_fornecedor")
+            .update({
+              atualizacao_solicitada: true,
+              motivo_solicitacao_atualizacao: motivoAtualizacao,
+              data_solicitacao_atualizacao: new Date().toISOString(),
+            })
+            .eq("id", existente.id);
+          if (error) throw error;
+        } else {
+          const { error } = await supabase
+            .from("documentos_fornecedor")
+            .insert({
+              fornecedor_id: documentoParaAtualizar.fornecedorId,
+              tipo_documento: tipoOriginal,
+              nome_arquivo: "",
+              url_arquivo: "",
+              em_vigor: false,
+              atualizacao_solicitada: true,
+              motivo_solicitacao_atualizacao: motivoAtualizacao,
+              data_solicitacao_atualizacao: new Date().toISOString(),
+            });
+          if (error) throw error;
+        }
       } else if (isFromArchive) {
         // Documento é arquivado - o ID pertence a documentos_antigos, não documentos_fornecedor
         const { data: docAtual } = await supabase
