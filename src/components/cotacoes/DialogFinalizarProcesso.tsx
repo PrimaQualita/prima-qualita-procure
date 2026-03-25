@@ -2443,21 +2443,41 @@ export function DialogFinalizarProcesso({
       const tipoOriginal = (documentoParaAtualizar as any)._tipoOriginal || documentoParaAtualizar.tipo_documento;
 
       if (isAusente && fornecedorIdParaAtualizar) {
-        // Documento não existe ainda - criar registro placeholder com solicitação
-        const { error } = await supabase
+        // Verificar se já existe registro (placeholder ou real) para evitar duplicatas
+        const { data: existente } = await supabase
           .from("documentos_fornecedor")
-          .insert({
-            fornecedor_id: fornecedorIdParaAtualizar,
-            tipo_documento: tipoOriginal,
-            nome_arquivo: "",
-            url_arquivo: "",
-            em_vigor: false,
-            atualizacao_solicitada: true,
-            data_solicitacao_atualizacao: new Date().toISOString(),
-            motivo_solicitacao_atualizacao: motivoAtualizacao.trim()
-          });
+          .select("id")
+          .eq("fornecedor_id", fornecedorIdParaAtualizar)
+          .eq("tipo_documento", tipoOriginal)
+          .maybeSingle();
 
-        if (error) throw error;
+        if (existente) {
+          // Já existe - apenas atualizar a flag
+          const { error } = await supabase
+            .from("documentos_fornecedor")
+            .update({
+              atualizacao_solicitada: true,
+              data_solicitacao_atualizacao: new Date().toISOString(),
+              motivo_solicitacao_atualizacao: motivoAtualizacao.trim()
+            })
+            .eq("id", existente.id);
+          if (error) throw error;
+        } else {
+          // Criar registro placeholder com solicitação
+          const { error } = await supabase
+            .from("documentos_fornecedor")
+            .insert({
+              fornecedor_id: fornecedorIdParaAtualizar,
+              tipo_documento: tipoOriginal,
+              nome_arquivo: "",
+              url_arquivo: "",
+              em_vigor: false,
+              atualizacao_solicitada: true,
+              data_solicitacao_atualizacao: new Date().toISOString(),
+              motivo_solicitacao_atualizacao: motivoAtualizacao.trim()
+            });
+          if (error) throw error;
+        }
       } else if (isFromArchive && fornecedorIdParaAtualizar) {
         // Documento é arquivado - o ID pertence a documentos_antigos, não documentos_fornecedor
         // Buscar o documento atual pelo tipo e fornecedor
