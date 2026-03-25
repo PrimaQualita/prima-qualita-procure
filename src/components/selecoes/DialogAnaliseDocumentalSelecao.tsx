@@ -1834,17 +1834,30 @@ export function DialogAnaliseDocumentalSelecao({
       const todosOsTipos = Object.keys(ordemDocumentos);
       for (const tipo of todosOsTipos) {
         if (!documentosPorTipo.has(tipo)) {
-          documentosPorTipo.set(tipo, {
-            id: `missing_${tipo}`,
-            tipo_documento: tipo,
-            nome_arquivo: '',
-            url_arquivo: '',
-            data_emissao: null,
-            data_validade: null,
-            em_vigor: false,
-            _ausente: true,
-            _tipoOriginal: tipo,
-          } as any);
+          // Verificar se existe placeholder com solicitação pendente nos dados carregados
+          const docSolicitado = (data || []).find(
+            (d: any) => d.tipo_documento === tipo && !d.url_arquivo && d.atualizacao_solicitada
+          );
+          if (docSolicitado) {
+            documentosPorTipo.set(tipo, {
+              ...docSolicitado,
+              _ausente: true,
+              _solicitacaoEnviada: true,
+              _tipoOriginal: tipo,
+            } as any);
+          } else {
+            documentosPorTipo.set(tipo, {
+              id: `missing_${tipo}`,
+              tipo_documento: tipo,
+              nome_arquivo: '',
+              url_arquivo: '',
+              data_emissao: null,
+              data_validade: null,
+              em_vigor: false,
+              _ausente: true,
+              _tipoOriginal: tipo,
+            } as any);
+          }
         }
       }
 
