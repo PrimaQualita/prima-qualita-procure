@@ -5364,15 +5364,23 @@ export function DialogFinalizarProcesso({
 
             {/* Solicitação de Autorização - Qualquer usuário interno pode solicitar */}
             {relatoriosFinais.length > 0 && (
-              <Button
-                onClick={enviarSolicitacaoAutorizacao}
-                disabled={loading}
-                className="w-full"
-                variant="outline"
-              >
-                <Send className="h-4 w-4 mr-2" />
-                Enviar ao Responsável Legal
-              </Button>
+              <div className="flex flex-col gap-1">
+                <Button
+                  onClick={enviarSolicitacaoAutorizacao}
+                  disabled={loading || solicitacaoAutorizacaoEnviada}
+                  className="w-full"
+                  variant="outline"
+                >
+                  <Send className="h-4 w-4 mr-2" />
+                  Enviar ao Responsável Legal
+                </Button>
+                {solicitacaoAutorizacaoEnviada && (
+                  <p className="text-xs text-green-600 dark:text-green-400 font-medium flex items-center gap-1 mt-1">
+                    <CheckCircle className="h-3.5 w-3.5" />
+                    Solicitação Enviada
+                  </p>
+                )}
+              </div>
             )}
             
             {/* Autorizações - APENAS Responsável Legal pode gerar */}
