@@ -410,7 +410,7 @@ export function AppSidebar({
   }
 
   // Cadastro de Fornecedores
-  if (!apenasGerenteContratos && !apenasContabilidade && !apenasCompliance) {
+  if (!apenasGerenteContratos && !apenasContabilidade) {
     menuItems.push({
       title: "Cadastro de Fornecedores",
       icon: Building2,
