@@ -753,7 +753,9 @@ export const gerarPropostaRealinhadaPDF = async (
   doc.setFontSize(10);
   doc.setFont('helvetica', 'normal');
   doc.text(`Responsável: ${responsavelLegal || fornecedor.razao_social}`, margin + 5, finalY + 16);
-  doc.text(`Protocolo: ${protocolo}`, margin + 5, finalY + 22);
+  const dataHoraEmissaoReal = new Date().toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' });
+  doc.text(`Data/Hora de Emissão: ${dataHoraEmissaoReal}`, margin + 5, finalY + 22);
+  doc.text(`Protocolo: ${protocolo}`, margin + 5, finalY + 28);
   
   doc.setFont('helvetica', 'bold');
   doc.text('Verificar autenticidade em:', margin + 5, finalY + 28);
