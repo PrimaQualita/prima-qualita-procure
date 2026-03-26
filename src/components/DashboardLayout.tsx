@@ -70,6 +70,7 @@ export function DashboardLayout() {
   const [isColaborador, setIsColaborador] = useState(cachedIsColaborador);
   const [isContabilidade, setIsContabilidade] = useState(cachedIsContabilidade);
   const [isContrato, setIsContrato] = useState(cachedIsContrato);
+  const [isControleCompras, setIsControleCompras] = useState(cachedIsControleCompras);
   const [loading, setLoading] = useState(!profileLoaded);
 
   useEffect(() => {
