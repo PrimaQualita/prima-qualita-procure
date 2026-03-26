@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
+import { limitarDuasCasasDecimais, truncarDuasCasas } from "@/lib/validators";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
