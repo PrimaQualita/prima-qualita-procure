@@ -24,11 +24,16 @@ export function SolicitacoesDocumentosProcesso() {
   const navigate = useNavigate();
   const { toast } = useToast();
 
+  // Cache de permissões para evitar re-fetch a cada polling
+  const permissoesRef = useRef<{ isSuperintendente: boolean; isGerenteContratos: boolean; contratosVinculados: string[] } | null>(null);
+
   useEffect(() => {
     const init = async () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (user) {
         setUserId(user.id);
+        // Carregar permissões uma vez
+        await carregarPermissoes(user.id);
         loadNotificacoes(user.id);
       }
     };
@@ -41,27 +46,33 @@ export function SolicitacoesDocumentosProcesso() {
     return () => clearInterval(interval);
   }, [userId]);
 
+  const carregarPermissoes = async (uid: string) => {
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("superintendente_executivo, gerente_contratos")
+      .eq("id", uid)
+      .single();
+
+    const isSuperintendente = profile?.superintendente_executivo || false;
+    const isGerenteContratos = profile?.gerente_contratos || false;
+
+    let contratosVinculados: string[] = [];
+    if (isGerenteContratos) {
+      const { data: vinculos } = await supabase
+        .from("gerentes_contratos_gestao")
+        .select("contrato_gestao_id")
+        .eq("usuario_id", uid);
+      contratosVinculados = (vinculos || []).map(v => v.contrato_gestao_id);
+    }
+
+    permissoesRef.current = { isSuperintendente, isGerenteContratos, contratosVinculados };
+  };
+
   const loadNotificacoes = async (uid: string) => {
     try {
-      // Buscar perfil do usuário para verificar permissões atuais
-      const { data: profile } = await supabase
-        .from("profiles")
-        .select("superintendente_executivo, gerente_contratos")
-        .eq("id", uid)
-        .single();
-
-      const isSuperintendente = profile?.superintendente_executivo || false;
-      const isGerenteContratos = profile?.gerente_contratos || false;
-
-      // Buscar contratos vinculados (se gerente de contratos)
-      let contratosVinculados: string[] = [];
-      if (isGerenteContratos) {
-        const { data: vinculos } = await supabase
-          .from("gerentes_contratos_gestao")
-          .select("contrato_gestao_id")
-          .eq("usuario_id", uid);
-        contratosVinculados = (vinculos || []).map(v => v.contrato_gestao_id);
-      }
+      // Usar permissões cacheadas
+      if (!permissoesRef.current) return;
+      const { isSuperintendente, isGerenteContratos, contratosVinculados } = permissoesRef.current;
 
       // Buscar TODAS as notificações pendentes (não filtrar por destinatario_id)
       // para que usuários que ganharam o perfil depois também vejam
