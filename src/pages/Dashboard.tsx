@@ -107,26 +107,21 @@ const Dashboard = () => {
 
   useEffect(() => {
     loadData();
-    checkComplianceRole();
     loadAtasPendentesAssinatura();
   }, []);
 
-  const checkComplianceRole = async () => {
-    try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
-      const { data: profileData } = await supabase.from("profiles").select("compliance, responsavel_legal, superintendente_executivo").eq("id", user.id).single();
-      if (profileData) {
-        setIsCompliance(profileData.compliance || false);
-        setIsResponsavelLegal(profileData.responsavel_legal || false);
-        setIsSuperintendenteExecutivo(profileData.superintendente_executivo || false);
-        if (profileData.compliance || profileData.responsavel_legal || profileData.superintendente_executivo) {
-          loadProcessosPendentesCompliance();
-          loadAvaliacoesCadastroPendentes();
-        }
-      }
-    } catch (error) { console.error("Erro ao verificar perfil:", error); }
-  };
+  // Usar userContext em vez de buscar profiles novamente
+  useEffect(() => {
+    if (!userContext) return;
+    const uc = userContext;
+    setIsCompliance(uc.isCompliance || false);
+    setIsResponsavelLegal(uc.isResponsavelLegal || false);
+    setIsSuperintendenteExecutivo(uc.isSuperintendenteExecutivo || false);
+    if (uc.isCompliance || uc.isResponsavelLegal || uc.isSuperintendenteExecutivo) {
+      loadProcessosPendentesCompliance();
+      loadAvaliacoesCadastroPendentes();
+    }
+  }, [userContext]);
 
   const loadProcessosPendentesCompliance = async () => {
     try {
