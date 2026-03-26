@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
+import { limitarDuasCasasDecimais, truncarDuasCasas } from "@/lib/validators";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -1028,7 +1029,8 @@ const PropostaRealinhada = () => {
 
   const handleValorChange = (item: ItemVencedor, valor: string) => {
     const key = getRespostaKey(item);
-    const valorNumerico = parseFloat(valor.replace(",", ".")) || 0;
+    const valorLimpo = limitarDuasCasasDecimais(valor);
+    const valorNumerico = truncarDuasCasas(parseFloat(valorLimpo.replace(",", ".")) || 0);
 
     // Validar se o valor não excede o valor da proposta original
     if (
@@ -1046,7 +1048,7 @@ const PropostaRealinhada = () => {
       [key]: {
         ...prev[key],
         valor_unitario: valorNumerico,
-        valor_display: valor,
+        valor_display: valorLimpo,
       },
     }));
   };

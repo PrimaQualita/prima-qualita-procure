@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo, useRef } from "react";
+import { limitarDuasCasasDecimais, truncarDuasCasas } from "@/lib/validators";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -2497,7 +2498,11 @@ const SistemaLancesFornecedor = () => {
     console.log(`Atualizando item ${itemId}, campo ${field}, valor:`, value);
     setItens(prev => prev.map(item => {
       if (item.id === itemId) {
-        const updated = { ...item, [field]: value };
+        let finalValue = value;
+        if (field === "valor_unitario_ofertado" && typeof value === "number") {
+          finalValue = truncarDuasCasas(value);
+        }
+        const updated = { ...item, [field]: finalValue };
         console.log('Item atualizado:', updated);
         return updated;
       }
@@ -3793,13 +3798,13 @@ const SistemaLancesFornecedor = () => {
                                     onChange={(e) => {
                                       setValoresDescontoTemp((prev) => {
                                         const novo = new Map(prev);
-                                        novo.set(item.id, e.target.value);
+                                        novo.set(item.id, limitarDuasCasasDecimais(e.target.value));
                                         return novo;
                                       });
                                     }}
                                     onBlur={(e) => {
                                       const valor = e.target.value.replace(',', '.');
-                                      const numero = parseFloat(valor);
+                                      const numero = truncarDuasCasas(parseFloat(valor));
                                       if (!isNaN(numero) && numero >= 0) {
                                         handleUpdateItem(item.id, "valor_unitario_ofertado", numero);
                                       } else if (e.target.value === '' || e.target.value === '0') {

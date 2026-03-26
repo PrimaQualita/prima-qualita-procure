@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from "react";
+import { limitarDuasCasasDecimais, truncarDuasCasas } from "@/lib/validators";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -722,7 +723,7 @@ const ParticiparSelecao = () => {
       
       // Substituir vírgula por ponto para parseFloat
       const valorComPonto = valorLimpo.replace(',', '.');
-      const valorNumerico = parseFloat(valorComPonto);
+      const valorNumerico = truncarDuasCasas(parseFloat(valorComPonto));
       
       if (isNaN(valorNumerico)) {
         setRespostas(prev => ({
@@ -775,7 +776,7 @@ const ParticiparSelecao = () => {
       }
     }
     
-    const valorNumerico = parseFloat(valorLimpo);
+    const valorNumerico = truncarDuasCasas(parseFloat(valorLimpo));
     
     if (!valorNumerico || isNaN(valorNumerico) || valorNumerico === 0) {
       setRespostas(prev => ({
@@ -839,7 +840,7 @@ const ParticiparSelecao = () => {
             : `R$ ${dado.valor_unitario.toFixed(2).replace(".", ",")}`;
 
         novasRespostas[item.id] = {
-          valor_unitario_ofertado: dado.valor_unitario,
+          valor_unitario_ofertado: truncarDuasCasas(dado.valor_unitario),
           valor_display: valorFormatado,
           marca_ofertada: dado.marca,
         };
@@ -1827,7 +1828,7 @@ const ParticiparSelecao = () => {
                                               placeholder="0,00"
                                               value={respostas[item.id]?.valor_display || ""}
                                               onChange={(e) => {
-                                                const valor = e.target.value;
+                                                const valor = limitarDuasCasasDecimais(e.target.value);
                                                 setRespostas(prev => ({
                                                   ...prev,
                                                   [item.id]: { ...prev[item.id], valor_display: valor }
@@ -1923,7 +1924,7 @@ const ParticiparSelecao = () => {
                                         placeholder="0,00"
                                         value={respostas[item.id]?.valor_display || ""}
                                         onChange={(e) => {
-                                          const valor = e.target.value;
+                                          const valor = limitarDuasCasasDecimais(e.target.value);
                                           setRespostas(prev => ({
                                             ...prev,
                                             [item.id]: { ...prev[item.id], valor_display: valor }
