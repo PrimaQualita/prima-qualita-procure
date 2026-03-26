@@ -210,6 +210,7 @@ export function DialogUsuario({ open, onOpenChange, onSuccess, usuarioEdit }: Di
     setGerenteContratos(false);
     setContabilidade(false);
     setContrato(false);
+    setControleCompras(false);
     setSuperintendenteExecutivo(false);
     setContratosSelecionados([]);
   };
