@@ -391,10 +391,10 @@ export function DashboardLayout() {
 
   // Proteção também para estado não cacheado
   const apenasGerenteContratosAtual = isGerenteContratos && 
-    !isGestor && !isColaborador && !isCompliance && !isResponsavelLegal && !isSuperintendenteExecutivo && !isContabilidade;
+    !isGestor && !isColaborador && !isCompliance && !isResponsavelLegal && !isSuperintendenteExecutivo && !isContabilidade && !isControleCompras;
   
   const apenasContabilidadeAtual = isContabilidade && 
-    !isGestor && !isColaborador && !isCompliance && !isResponsavelLegal && !isSuperintendenteExecutivo && !isGerenteContratos;
+    !isGestor && !isColaborador && !isCompliance && !isResponsavelLegal && !isSuperintendenteExecutivo && !isGerenteContratos && !isControleCompras;
 
   if ((apenasGerenteContratosAtual && !rotasGerenteContratos.includes(location.pathname)) ||
       (apenasContabilidadeAtual && !rotasContabilidade.includes(location.pathname))) {
