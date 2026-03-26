@@ -178,8 +178,16 @@ export function DashboardLayout() {
   }, [user, loading]);
 
   const loadUserProfile = async () => {
-    // Proteção dupla: se já carregou, não faz nada
-    if (!user || profileLoaded) return;
+    if (!user) return;
+    
+    // Se cache é de outro usuário, invalidar
+    if (profileLoaded && cachedProfile && cachedUser?.id !== user.id) {
+      profileLoaded = false;
+      cachedProfile = null;
+    }
+    
+    // Se já carregou para ESTE usuário, não faz nada
+    if (profileLoaded) return;
 
     try {
       const { data: fornecedorData } = await supabase
