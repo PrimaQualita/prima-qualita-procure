@@ -1521,7 +1521,7 @@ const RespostaCotacao = () => {
               <TableHeader>
                 <TableRow>
                   <TableHead className="w-14">Item</TableHead>
-                  <TableHead className="w-[30%]">Descrição</TableHead>
+                  <TableHead className={processoCompra?.tipo === "material" ? "w-[30%]" : "w-[45%]"}>Descrição</TableHead>
                   <TableHead className="text-center w-16">Qtd</TableHead>
                   <TableHead className="text-center w-14">Unid.</TableHead>
                   {processoCompra?.tipo === "material" && <TableHead className="text-center w-[150px]">Marca *</TableHead>}
