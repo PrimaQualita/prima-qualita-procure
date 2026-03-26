@@ -215,6 +215,7 @@ serve(async (req) => {
           compliance: compliance || false,
           contabilidade: contabilidade || false,
           contrato: contrato || false,
+          controle_compras: controleCompras || false,
           cargo: cargo || null,
           genero: genero || 'feminino',
           gerente_contratos: gerenteContratos || false,
