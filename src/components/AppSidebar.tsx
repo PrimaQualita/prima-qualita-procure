@@ -425,9 +425,10 @@ export function AppSidebar({
     });
   }
 
-  // Cadastro de Usuários - NÃO mostrar para Responsável Legal (quando é APENAS RL)
-  const apenasResponsavelLegal = isResponsavelLegal && !isGestor && !isColaborador && !isCompliance && !isSuperintendenteExecutivo && !isGerenteContratos && !isContabilidade;
-  if (!apenasGerenteContratos && !apenasContabilidade && !apenasCompliance && !apenasResponsavelLegal) {
+  // Cadastro de Usuários - NÃO mostrar para Responsável Legal ou Controle de Compras (quando é APENAS RL ou CC)
+  const apenasResponsavelLegal = isResponsavelLegal && !isGestor && !isColaborador && !isCompliance && !isSuperintendenteExecutivo && !isGerenteContratos && !isContabilidade && !isControleCompras;
+  const apenasControleCompras = isControleCompras && !isGestor && !isColaborador && !isCompliance && !isSuperintendenteExecutivo && !isGerenteContratos && !isContabilidade && !isResponsavelLegal;
+  if (!apenasGerenteContratos && !apenasContabilidade && !apenasCompliance && !apenasResponsavelLegal && !apenasControleCompras) {
     menuItems.push({
       title: "Cadastro de Usuários",
       icon: UserCog,
