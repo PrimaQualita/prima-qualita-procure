@@ -689,7 +689,7 @@ const RespostaCotacao = () => {
           }
           
           if (item) {
-            const valorNumerico = parseFloat(String(valorUnitario).replace(/,/g, '.'));
+            const valorNumerico = truncarDuasCasas(parseFloat(String(valorUnitario).replace(/,/g, '.')));
             const valorFormatado = valorNumerico.toFixed(2).replace('.', ',');
             
             if (isDesconto) {
