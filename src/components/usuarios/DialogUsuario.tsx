@@ -304,6 +304,7 @@ export function DialogUsuario({ open, onOpenChange, onSuccess, usuarioEdit }: Di
             gerente_contratos: gerenteContratos,
             contabilidade: contabilidade,
             contrato: contrato,
+            controle_compras: controleCompras,
             superintendente_executivo: superintendenteExecutivo,
           })
           .eq("id", usuarioEdit.id);
