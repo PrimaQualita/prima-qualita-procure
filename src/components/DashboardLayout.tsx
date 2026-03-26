@@ -186,6 +186,7 @@ export function DashboardLayout() {
       cachedIsSuperintendenteExecutivo = profileData?.superintendente_executivo || profileData?.gerente_financeiro || false;
       cachedIsContabilidade = profileData?.contabilidade || false;
       cachedIsContrato = profileData?.contrato || false;
+      cachedIsControleCompras = profileData?.controle_compras || false;
       
       setProfile(profileData);
       setIsCompliance(cachedIsCompliance);
@@ -193,6 +194,7 @@ export function DashboardLayout() {
       setIsSuperintendenteExecutivo(cachedIsSuperintendenteExecutivo);
       setIsContabilidade(cachedIsContabilidade);
       setIsContrato(cachedIsContrato);
+      setIsControleCompras(cachedIsControleCompras);
 
       if (profileData?.primeiro_acesso || profileData?.senha_temporaria) {
         navigate("/troca-senha");
