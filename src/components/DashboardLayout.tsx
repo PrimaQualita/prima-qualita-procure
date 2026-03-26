@@ -78,6 +78,23 @@ export function DashboardLayout() {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((event, session) => {
       const newUser = session?.user ?? null;
+      
+      // Se o usuário mudou (login com outro usuário), invalidar cache
+      if (newUser && cachedUser && newUser.id !== cachedUser.id) {
+        profileLoaded = false;
+        cachedProfile = null;
+        cachedIsGestor = false;
+        cachedIsCompliance = false;
+        cachedIsResponsavelLegal = false;
+        cachedIsGerenteContratos = false;
+        cachedIsSuperintendenteExecutivo = false;
+        cachedContratosVinculados = [];
+        cachedIsColaborador = false;
+        cachedIsContabilidade = false;
+        cachedIsContrato = false;
+        cachedIsControleCompras = false;
+      }
+      
       setUser(newUser);
       cachedUser = newUser;
       
