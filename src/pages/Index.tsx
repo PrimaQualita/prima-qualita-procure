@@ -10,14 +10,19 @@ const Index = () => {
   const navigate = useNavigate();
 
   useEffect(() => {
-    // Check if user is already logged in and redirect appropriately
     const checkSession = async () => {
       try {
+        // Se não tem flag de manter conectado, não verificar sessão
+        if (!sessionStorage.getItem('manterConectado') && !localStorage.getItem('manterConectado')) {
+          // Limpar sessão residual silenciosamente
+          await supabase.auth.signOut().catch(() => {});
+          return;
+        }
+
         const {
           data: { session },
         } = await supabase.auth.getSession();
 
-        // Se não há sessão, não faz nada - apenas exibe a landing page
         if (!session) {
           return;
         }
