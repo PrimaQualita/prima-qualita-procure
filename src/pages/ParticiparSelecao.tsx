@@ -840,7 +840,7 @@ const ParticiparSelecao = () => {
             : `R$ ${dado.valor_unitario.toFixed(2).replace(".", ",")}`;
 
         novasRespostas[item.id] = {
-          valor_unitario_ofertado: dado.valor_unitario,
+          valor_unitario_ofertado: truncarDuasCasas(dado.valor_unitario),
           valor_display: valorFormatado,
           marca_ofertada: dado.marca,
         };
