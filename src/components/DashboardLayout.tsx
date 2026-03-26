@@ -352,6 +352,7 @@ export function DashboardLayout() {
             isSuperintendenteExecutivo={isSuperintendenteExecutivo || cachedIsSuperintendenteExecutivo}
             isColaborador={isColaborador || cachedIsColaborador}
             isContabilidade={isContabilidade || cachedIsContabilidade}
+            isControleCompras={isControleCompras || cachedIsControleCompras}
           />
           <div className="flex-1 flex flex-col">
             <header className="h-16 border-b bg-background flex items-center px-6 gap-4">
