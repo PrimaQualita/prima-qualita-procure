@@ -134,6 +134,26 @@ export function mascaraCNPJ(value: string): string {
   return value.slice(0, 18);
 }
 
+// Limitar valor a 2 casas decimais (trunca, não arredonda)
+export function limitarDuasCasasDecimais(valor: string): string {
+  // Remove tudo exceto dígitos e vírgula
+  let limpo = valor.replace(/[^\d,]/g, '');
+  
+  // Se tem vírgula, limitar a 2 dígitos após ela
+  const partes = limpo.split(',');
+  if (partes.length > 1) {
+    // Mantém apenas a primeira vírgula e limita decimais a 2
+    limpo = partes[0] + ',' + partes[1].slice(0, 2);
+  }
+  
+  return limpo;
+}
+
+// Truncar número para 2 casas decimais
+export function truncarDuasCasas(valor: number): number {
+  return Math.floor(valor * 100) / 100;
+}
+
 // Validação de Telefone
 export function validarTelefone(telefone: string): boolean {
   const telefoneLimpo = telefone.replace(/\D/g, '');
