@@ -776,7 +776,7 @@ const ParticiparSelecao = () => {
       }
     }
     
-    const valorNumerico = parseFloat(valorLimpo);
+    const valorNumerico = truncarDuasCasas(parseFloat(valorLimpo));
     
     if (!valorNumerico || isNaN(valorNumerico) || valorNumerico === 0) {
       setRespostas(prev => ({
