@@ -420,6 +420,7 @@ export function DialogUsuario({ open, onOpenChange, onSuccess, usuarioEdit }: Di
               gerenteContratos,
               contabilidade,
               contrato,
+              controleCompras,
               superintendenteExecutivo,
               contratosVinculados: gerenteContratos ? contratosSelecionados : [],
             },
