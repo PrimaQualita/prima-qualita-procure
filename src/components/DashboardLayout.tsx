@@ -368,6 +368,7 @@ export function DashboardLayout() {
                 isGerenteContratos: isGerenteContratos || cachedIsGerenteContratos,
                 isContabilidade: isContabilidade || cachedIsContabilidade,
                 isContrato: isContrato || cachedIsContrato,
+                isControleCompras: isControleCompras || cachedIsControleCompras,
                 profile: profile || cachedProfile,
                 userId: user?.id || cachedUser?.id,
                 contratosVinculados: contratosVinculados.length > 0 ? contratosVinculados : cachedContratosVinculados
