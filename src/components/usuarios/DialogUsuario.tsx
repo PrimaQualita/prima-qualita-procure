@@ -735,6 +735,24 @@ export function DialogUsuario({ open, onOpenChange, onSuccess, usuarioEdit }: Di
                 </Label>
               </div>
 
+              {/* Controle de Compras */}
+              <div className="flex items-center space-x-2">
+                <input
+                  type="checkbox"
+                  id="controle-compras"
+                  checked={controleCompras}
+                  onChange={(e) => setControleCompras(e.target.checked)}
+                  disabled={!isUserResponsavelLegal && !isUserGestor}
+                  className="h-4 w-4 rounded-full border-gray-300 disabled:opacity-50 disabled:cursor-not-allowed accent-primary"
+                />
+                <Label 
+                  htmlFor="controle-compras" 
+                  className={`font-normal ${(isUserResponsavelLegal || isUserGestor) ? 'cursor-pointer' : 'cursor-not-allowed opacity-50'}`}
+                >
+                  Controle de Compras
+                </Label>
+              </div>
+
               {/* Superintendente Executivo */}
               <div className="flex items-center space-x-2">
                 <input
