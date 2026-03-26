@@ -1243,29 +1243,43 @@ export function DialogAnexosProcesso({
                     </div>
                     {/* Botão Solicitar - Requisição (gestor/colaborador envia para gerente) */}
                     {isRequisicao && isGestorOuColaborador && !isGerenteContratos && (
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => handleEnviarNotificacao('requisicao')}
-                        disabled={enviandoNotificacao === 'requisicao'}
-                        className="w-full border-primary/40 text-primary hover:bg-primary/10"
-                      >
-                        <Send className="h-4 w-4 mr-2" />
-                        {enviandoNotificacao === 'requisicao' ? "Enviando..." : "Solicitar ao Gerente de Contratos"}
-                      </Button>
+                      notificacoesPendentes.has('requisicao') ? (
+                        <div className="flex items-center gap-2 text-sm text-emerald-600 dark:text-emerald-400 font-medium w-full justify-center py-1">
+                          <CheckCircle className="h-4 w-4" />
+                          Solicitação Enviada
+                        </div>
+                      ) : (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => handleEnviarNotificacao('requisicao')}
+                          disabled={enviandoNotificacao === 'requisicao'}
+                          className="w-full border-primary/40 text-primary hover:bg-primary/10"
+                        >
+                          <Send className="h-4 w-4 mr-2" />
+                          {enviandoNotificacao === 'requisicao' ? "Enviando..." : "Solicitar ao Gerente de Contratos"}
+                        </Button>
+                      )
                     )}
                     {/* Botão Solicitar - Autorização (gestor/colaborador envia para superintendente) */}
                     {isAutorizacaoDespesa && isGestorOuColaborador && !isSuperintendenteExecutivo && !bloqueadoAutorizacao && (
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => handleEnviarNotificacao('autorizacao_despesa')}
-                        disabled={enviandoNotificacao === 'autorizacao_despesa'}
-                        className="w-full border-primary/40 text-primary hover:bg-primary/10"
-                      >
-                        <Send className="h-4 w-4 mr-2" />
-                        {enviandoNotificacao === 'autorizacao_despesa' ? "Enviando..." : "Solicitar ao Superintendente Executivo"}
-                      </Button>
+                      notificacoesPendentes.has('autorizacao_despesa') ? (
+                        <div className="flex items-center gap-2 text-sm text-emerald-600 dark:text-emerald-400 font-medium w-full justify-center py-1">
+                          <CheckCircle className="h-4 w-4" />
+                          Solicitação Enviada
+                        </div>
+                      ) : (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => handleEnviarNotificacao('autorizacao_despesa')}
+                          disabled={enviandoNotificacao === 'autorizacao_despesa'}
+                          className="w-full border-primary/40 text-primary hover:bg-primary/10"
+                        >
+                          <Send className="h-4 w-4 mr-2" />
+                          {enviandoNotificacao === 'autorizacao_despesa' ? "Enviando..." : "Solicitar ao Superintendente Executivo"}
+                        </Button>
+                      )
                     )}
                   </div>
                 )}
