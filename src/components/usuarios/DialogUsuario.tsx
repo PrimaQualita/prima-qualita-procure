@@ -69,6 +69,7 @@ export function DialogUsuario({ open, onOpenChange, onSuccess, usuarioEdit }: Di
   const [superintendenteExecutivo, setSuperintendenteExecutivo] = useState(false);
   const [contabilidade, setContabilidade] = useState(false);
   const [contrato, setContrato] = useState(false);
+  const [controleCompras, setControleCompras] = useState(false);
   const [contratosDisponiveis, setContratosDisponiveis] = useState<ContratoGestao[]>([]);
   const [contratosSelecionados, setContratosSelecionados] = useState<string[]>([]);
 
@@ -159,6 +160,7 @@ export function DialogUsuario({ open, onOpenChange, onSuccess, usuarioEdit }: Di
         setGerenteContratos((usuarioEdit as any).gerente_contratos || false);
         setContabilidade((usuarioEdit as any).contabilidade || false);
         setContrato((usuarioEdit as any).contrato || false);
+        setControleCompras((usuarioEdit as any).controle_compras || false);
         setSuperintendenteExecutivo(
           (usuarioEdit as any).superintendente_executivo || (usuarioEdit as any).gerente_financeiro || false
         );
@@ -208,6 +210,7 @@ export function DialogUsuario({ open, onOpenChange, onSuccess, usuarioEdit }: Di
     setGerenteContratos(false);
     setContabilidade(false);
     setContrato(false);
+    setControleCompras(false);
     setSuperintendenteExecutivo(false);
     setContratosSelecionados([]);
   };
@@ -301,6 +304,7 @@ export function DialogUsuario({ open, onOpenChange, onSuccess, usuarioEdit }: Di
             gerente_contratos: gerenteContratos,
             contabilidade: contabilidade,
             contrato: contrato,
+            controle_compras: controleCompras,
             superintendente_executivo: superintendenteExecutivo,
           })
           .eq("id", usuarioEdit.id);
@@ -416,6 +420,7 @@ export function DialogUsuario({ open, onOpenChange, onSuccess, usuarioEdit }: Di
               gerenteContratos,
               contabilidade,
               contrato,
+              controleCompras,
               superintendenteExecutivo,
               contratosVinculados: gerenteContratos ? contratosSelecionados : [],
             },
@@ -444,6 +449,7 @@ export function DialogUsuario({ open, onOpenChange, onSuccess, usuarioEdit }: Di
         if (compliance) perfis.push("Compliance");
         if (contabilidade) perfis.push("Contabilidade");
         if (contrato) perfis.push("Contrato");
+        if (controleCompras) perfis.push("Controle de Compras");
         if (gerenteContratos) perfis.push("Gerente de Contratos");
         if (superintendenteExecutivo) perfis.push("Superintendente Executivo");
         
@@ -726,6 +732,24 @@ export function DialogUsuario({ open, onOpenChange, onSuccess, usuarioEdit }: Di
                   className={`font-normal ${(isUserResponsavelLegal || isUserGestor) ? 'cursor-pointer' : 'cursor-not-allowed opacity-50'}`}
                 >
                   Contrato
+                </Label>
+              </div>
+
+              {/* Controle de Compras */}
+              <div className="flex items-center space-x-2">
+                <input
+                  type="checkbox"
+                  id="controle-compras"
+                  checked={controleCompras}
+                  onChange={(e) => setControleCompras(e.target.checked)}
+                  disabled={!isUserResponsavelLegal && !isUserGestor}
+                  className="h-4 w-4 rounded-full border-gray-300 disabled:opacity-50 disabled:cursor-not-allowed accent-primary"
+                />
+                <Label 
+                  htmlFor="controle-compras" 
+                  className={`font-normal ${(isUserResponsavelLegal || isUserGestor) ? 'cursor-pointer' : 'cursor-not-allowed opacity-50'}`}
+                >
+                  Controle de Compras
                 </Label>
               </div>
 

@@ -50,6 +50,7 @@ let cachedContratosVinculados: string[] = [];
 let cachedIsColaborador: boolean = false;
 let cachedIsContabilidade: boolean = false;
 let cachedIsContrato: boolean = false;
+let cachedIsControleCompras: boolean = false;
 let profileLoaded: boolean = false;
 
 export function DashboardLayout() {
@@ -69,6 +70,7 @@ export function DashboardLayout() {
   const [isColaborador, setIsColaborador] = useState(cachedIsColaborador);
   const [isContabilidade, setIsContabilidade] = useState(cachedIsContabilidade);
   const [isContrato, setIsContrato] = useState(cachedIsContrato);
+  const [isControleCompras, setIsControleCompras] = useState(cachedIsControleCompras);
   const [loading, setLoading] = useState(!profileLoaded);
 
   useEffect(() => {
@@ -92,6 +94,7 @@ export function DashboardLayout() {
         cachedIsColaborador = false;
         cachedIsContabilidade = false;
         cachedIsContrato = false;
+        cachedIsControleCompras = false;
         profileLoaded = false;
         setProfile(null);
         setIsGestor(false);
@@ -103,6 +106,7 @@ export function DashboardLayout() {
         setIsColaborador(false);
         setIsContabilidade(false);
         setIsContrato(false);
+        setIsControleCompras(false);
         
         // Limpa cache de outras páginas
         clearCotacoesCache();
@@ -182,6 +186,7 @@ export function DashboardLayout() {
       cachedIsSuperintendenteExecutivo = profileData?.superintendente_executivo || profileData?.gerente_financeiro || false;
       cachedIsContabilidade = profileData?.contabilidade || false;
       cachedIsContrato = profileData?.contrato || false;
+      cachedIsControleCompras = profileData?.controle_compras || false;
       
       setProfile(profileData);
       setIsCompliance(cachedIsCompliance);
@@ -189,6 +194,7 @@ export function DashboardLayout() {
       setIsSuperintendenteExecutivo(cachedIsSuperintendenteExecutivo);
       setIsContabilidade(cachedIsContabilidade);
       setIsContrato(cachedIsContrato);
+      setIsControleCompras(cachedIsControleCompras);
 
       if (profileData?.primeiro_acesso || profileData?.senha_temporaria) {
         navigate("/troca-senha");
@@ -281,7 +287,8 @@ export function DashboardLayout() {
                           (isCompliance || cachedIsCompliance) || 
                           (isResponsavelLegal || cachedIsResponsavelLegal) || 
                           (isSuperintendenteExecutivo || cachedIsSuperintendenteExecutivo) ||
-                          (isContabilidade || cachedIsContabilidade);
+                          (isContabilidade || cachedIsContabilidade) ||
+                          (isControleCompras || cachedIsControleCompras);
   
   const apenasGerenteContratos = (isGerenteContratos || cachedIsGerenteContratos) && !temOutrosPapeis;
 
@@ -291,7 +298,8 @@ export function DashboardLayout() {
                           (isCompliance || cachedIsCompliance) || 
                           (isResponsavelLegal || cachedIsResponsavelLegal) || 
                           (isSuperintendenteExecutivo || cachedIsSuperintendenteExecutivo) ||
-                          (isGerenteContratos || cachedIsGerenteContratos);
+                          (isGerenteContratos || cachedIsGerenteContratos) ||
+                          (isControleCompras || cachedIsControleCompras);
   
   const apenasContabilidade = (isContabilidade || cachedIsContabilidade) && !temOutrosPapeisAlemContabilidade;
 
@@ -344,6 +352,7 @@ export function DashboardLayout() {
             isSuperintendenteExecutivo={isSuperintendenteExecutivo || cachedIsSuperintendenteExecutivo}
             isColaborador={isColaborador || cachedIsColaborador}
             isContabilidade={isContabilidade || cachedIsContabilidade}
+            isControleCompras={isControleCompras || cachedIsControleCompras}
           />
           <div className="flex-1 flex flex-col">
             <header className="h-16 border-b bg-background flex items-center px-6 gap-4">
@@ -360,6 +369,7 @@ export function DashboardLayout() {
                 isGerenteContratos: isGerenteContratos || cachedIsGerenteContratos,
                 isContabilidade: isContabilidade || cachedIsContabilidade,
                 isContrato: isContrato || cachedIsContrato,
+                isControleCompras: isControleCompras || cachedIsControleCompras,
                 profile: profile || cachedProfile,
                 userId: user?.id || cachedUser?.id,
                 contratosVinculados: contratosVinculados.length > 0 ? contratosVinculados : cachedContratosVinculados
@@ -382,10 +392,10 @@ export function DashboardLayout() {
 
   // Proteção também para estado não cacheado
   const apenasGerenteContratosAtual = isGerenteContratos && 
-    !isGestor && !isColaborador && !isCompliance && !isResponsavelLegal && !isSuperintendenteExecutivo && !isContabilidade;
+    !isGestor && !isColaborador && !isCompliance && !isResponsavelLegal && !isSuperintendenteExecutivo && !isContabilidade && !isControleCompras;
   
   const apenasContabilidadeAtual = isContabilidade && 
-    !isGestor && !isColaborador && !isCompliance && !isResponsavelLegal && !isSuperintendenteExecutivo && !isGerenteContratos;
+    !isGestor && !isColaborador && !isCompliance && !isResponsavelLegal && !isSuperintendenteExecutivo && !isGerenteContratos && !isControleCompras;
 
   if ((apenasGerenteContratosAtual && !rotasGerenteContratos.includes(location.pathname)) ||
       (apenasContabilidadeAtual && !rotasContabilidade.includes(location.pathname))) {
@@ -408,6 +418,7 @@ export function DashboardLayout() {
           isSuperintendenteExecutivo={isSuperintendenteExecutivo}
           isColaborador={isColaborador}
           isContabilidade={isContabilidade}
+          isControleCompras={isControleCompras}
         />
         <div className="flex-1 flex flex-col">
           <header className="h-16 border-b bg-background flex items-center px-6 gap-4">
@@ -424,6 +435,7 @@ export function DashboardLayout() {
               isGerenteContratos,
               isContabilidade,
               isContrato,
+              isControleCompras,
               profile,
               userId: user?.id,
               contratosVinculados

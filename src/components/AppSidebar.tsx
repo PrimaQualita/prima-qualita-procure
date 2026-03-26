@@ -58,6 +58,7 @@ interface AppSidebarProps {
   isColaborador?: boolean;
   isGerenteFinanceiro?: boolean;
   isContabilidade?: boolean;
+  isControleCompras?: boolean;
 }
 
 export function AppSidebar({ 
@@ -69,7 +70,8 @@ export function AppSidebar({
   isSuperintendenteExecutivo = false,
   isColaborador = false,
   isGerenteFinanceiro = false,
-  isContabilidade = false
+  isContabilidade = false,
+  isControleCompras = false
 }: AppSidebarProps) {
   const { open } = useSidebar();
   const navigate = useNavigate();
@@ -376,15 +378,15 @@ export function AppSidebar({
   ];
 
   // Verifica se o usuário é APENAS gerente de contratos (sem outros papéis)
-  const temOutrosPapeis = isGestor || isColaborador || isCompliance || isResponsavelLegal || isSuperintendenteExecutivo || isContabilidade;
+  const temOutrosPapeis = isGestor || isColaborador || isCompliance || isResponsavelLegal || isSuperintendenteExecutivo || isContabilidade || isControleCompras;
   const apenasGerenteContratos = isGerenteContratos && !temOutrosPapeis;
   
   // Verifica se o usuário é APENAS contabilidade (sem outros papéis)
-  const temOutrosPapeisAlemContabilidade = isGestor || isColaborador || isCompliance || isResponsavelLegal || isSuperintendenteExecutivo || isGerenteContratos;
+  const temOutrosPapeisAlemContabilidade = isGestor || isColaborador || isCompliance || isResponsavelLegal || isSuperintendenteExecutivo || isGerenteContratos || isControleCompras;
   const apenasContabilidade = isContabilidade && !temOutrosPapeisAlemContabilidade;
   
   // Verifica se o usuário é APENAS compliance (sem outros papéis)
-  const temOutrosPapeisAlemCompliance = isGestor || isColaborador || isResponsavelLegal || isSuperintendenteExecutivo || isGerenteContratos || isContabilidade;
+  const temOutrosPapeisAlemCompliance = isGestor || isColaborador || isResponsavelLegal || isSuperintendenteExecutivo || isGerenteContratos || isContabilidade || isControleCompras;
   const apenasCompliance = isCompliance && !temOutrosPapeisAlemCompliance;
 
   // Seleciona o menu correto baseado no tipo de usuário
@@ -423,9 +425,10 @@ export function AppSidebar({
     });
   }
 
-  // Cadastro de Usuários - NÃO mostrar para Responsável Legal (quando é APENAS RL)
-  const apenasResponsavelLegal = isResponsavelLegal && !isGestor && !isColaborador && !isCompliance && !isSuperintendenteExecutivo && !isGerenteContratos && !isContabilidade;
-  if (!apenasGerenteContratos && !apenasContabilidade && !apenasCompliance && !apenasResponsavelLegal) {
+  // Cadastro de Usuários - NÃO mostrar para Responsável Legal ou Controle de Compras (quando é APENAS RL ou CC)
+  const apenasResponsavelLegal = isResponsavelLegal && !isGestor && !isColaborador && !isCompliance && !isSuperintendenteExecutivo && !isGerenteContratos && !isContabilidade && !isControleCompras;
+  const apenasControleCompras = isControleCompras && !isGestor && !isColaborador && !isCompliance && !isSuperintendenteExecutivo && !isGerenteContratos && !isContabilidade && !isResponsavelLegal;
+  if (!apenasGerenteContratos && !apenasContabilidade && !apenasCompliance && !apenasResponsavelLegal && !apenasControleCompras) {
     menuItems.push({
       title: "Cadastro de Usuários",
       icon: UserCog,

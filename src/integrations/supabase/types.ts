@@ -2731,6 +2731,7 @@ export type Database = {
           compliance: boolean | null
           contabilidade: boolean | null
           contrato: boolean | null
+          controle_compras: boolean | null
           cpf: string
           created_at: string | null
           data_criacao: string | null
@@ -2757,6 +2758,7 @@ export type Database = {
           compliance?: boolean | null
           contabilidade?: boolean | null
           contrato?: boolean | null
+          controle_compras?: boolean | null
           cpf: string
           created_at?: string | null
           data_criacao?: string | null
@@ -2783,6 +2785,7 @@ export type Database = {
           compliance?: boolean | null
           contabilidade?: boolean | null
           contrato?: boolean | null
+          controle_compras?: boolean | null
           cpf?: string
           created_at?: string | null
           data_criacao?: string | null

@@ -46,7 +46,7 @@ const Dashboard = () => {
   const userContext = useUserContext();
   const isGerenteContratosOnly = userContext?.isGerenteContratos && 
     !userContext?.isGestor && !userContext?.isColaborador && !userContext?.isCompliance && 
-    !userContext?.isResponsavelLegal && !userContext?.isSuperintendenteExecutivo && !userContext?.isContabilidade;
+    !userContext?.isResponsavelLegal && !userContext?.isSuperintendenteExecutivo && !userContext?.isContabilidade && !userContext?.isControleCompras;
   const contratosVinculadosGerente = userContext?.contratosVinculados || [];
   const [loading, setLoading] = useState(true);
   const [contratos, setContratos] = useState<any[]>([]);
