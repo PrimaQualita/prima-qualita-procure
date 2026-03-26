@@ -1517,20 +1517,20 @@ const RespostaCotacao = () => {
             </div>
           </CardHeader>
           <CardContent>
-            <Table className="w-full table-fixed">
+            <Table>
               <TableHeader>
                 <TableRow>
                   <TableHead className="w-[60px]">Item</TableHead>
                   <TableHead>Descrição</TableHead>
-                  <TableHead className="text-center w-[70px]">Qtd</TableHead>
-                  <TableHead className="text-center w-[70px]">Unid.</TableHead>
+                  <TableHead className="text-center w-[80px]">Qtd</TableHead>
+                  <TableHead className="text-center w-[90px]">Unid.</TableHead>
                   {processoCompra?.tipo === "material" && <TableHead className="text-center w-[150px]">Marca *</TableHead>}
                   {processoCompra?.criterio_julgamento === "desconto" ? (
-                    <TableHead className="text-center w-[160px]">Percentual de Desconto Ofertado (%) *</TableHead>
+                    <TableHead className="text-center w-[180px]">Percentual de Desconto Ofertado (%) *</TableHead>
                   ) : (
                     <>
-                      <TableHead className="text-center w-[140px]">Valor Unitário (R$) *</TableHead>
-                      <TableHead className="text-right w-[120px]">Valor Total</TableHead>
+                      <TableHead className="text-center w-[150px]">Valor Unitário (R$) *</TableHead>
+                      <TableHead className="text-right w-[130px]">Valor Total</TableHead>
                     </>
                   )}
                 </TableRow>
