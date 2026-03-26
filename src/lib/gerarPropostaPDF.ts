@@ -34,7 +34,8 @@ export async function gerarPropostaPDF(
   observacoes: string | null,
   usuarioNome: string,
   usuarioCpf: string,
-  protocoloResposta?: string
+  protocoloResposta?: string,
+  tipoProcesso?: string
 ): Promise<Blob> {
   const doc = new jsPDF();
   const dataEnvio = new Date().toLocaleString('pt-BR');
