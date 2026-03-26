@@ -138,7 +138,8 @@ export async function gerarPropostaFornecedorPDF(
   usuarioCpf?: string,
   criterioJulgamento?: string,
   supabaseClient?: SupabaseClient<any, any, any>,
-  responsavelLegal?: string
+  responsavelLegal?: string,
+  tipoProcesso?: string
 ): Promise<{ url: string; path: string; nome: string; hash: string; protocolo: string }> {
   // Usar cliente passado por parâmetro ou o default
   const sb = supabaseClient || supabase;
@@ -153,6 +154,19 @@ export async function gerarPropostaFornecedorPDF(
     comprovantes.forEach((arquivo, index) => {
       console.log(`  ${index + 1}. ${arquivo.name} (${arquivo.type}, ${arquivo.size} bytes)`);
     });
+    // Auto-detectar tipo do processo se não fornecido
+    let tipoProcessoResolvido = tipoProcesso;
+    if (!tipoProcessoResolvido) {
+      const { data: respostaData } = await sb
+        .from('cotacao_respostas_fornecedor')
+        .select('cotacao_id, cotacoes_precos!inner(processo_compra_id, processos_compras!inner(tipo))')
+        .eq('id', respostaId)
+        .single();
+      if (respostaData) {
+        tipoProcessoResolvido = (respostaData as any)?.cotacoes_precos?.processos_compras?.tipo;
+      }
+    }
+
     // Buscar itens da resposta
     console.log('🔍 Buscando itens para resposta ID:', respostaId);
     console.log('📋 Critério de julgamento:', criterioJulgamento);
@@ -285,7 +299,7 @@ export async function gerarPropostaFornecedorPDF(
     
     const isPrecosPublicos = ehPrecoPublico((fornecedor as any).email);
     // Preços públicos NUNCA mostram marca
-    const ocultarMarca = isPrecosPublicos;
+    const ocultarMarca = isPrecosPublicos || (tipoProcessoResolvido && tipoProcessoResolvido !== 'material');
     const tituloDocumento = isPrecosPublicos ? 'PROPOSTA DE PREÇOS PÚBLICOS' : 'PROPOSTA DE PREÇOS';
     doc.text(tituloDocumento, 105, 25, { align: 'center' });
     
