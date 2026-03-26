@@ -30,7 +30,7 @@ const Auth = () => {
 
   // Limpar sessão anterior ao entrar na página de login
   useEffect(() => {
-    supabase.auth.signOut().catch(() => {});
+    supabase.auth.signOut({ scope: 'local' }).catch(() => {});
     sessionStorage.removeItem('manterConectado');
     // Não remove localStorage aqui - pode ser redirecionamento automático
   }, []);
@@ -41,7 +41,7 @@ const Auth = () => {
 
     try {
       // IMPORTANTE: Fazer logout silencioso antes de novo login para limpar sessão anterior
-      await supabase.auth.signOut().catch(() => {});
+      await supabase.auth.signOut({ scope: 'local' }).catch(() => {});
       
       // Limpar flags de sessão anteriores
       sessionStorage.removeItem('manterConectado');
