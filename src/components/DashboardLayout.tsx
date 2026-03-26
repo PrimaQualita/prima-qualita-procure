@@ -78,6 +78,23 @@ export function DashboardLayout() {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((event, session) => {
       const newUser = session?.user ?? null;
+      
+      // Se o usuário mudou (login com outro usuário), invalidar cache
+      if (newUser && cachedUser && newUser.id !== cachedUser.id) {
+        profileLoaded = false;
+        cachedProfile = null;
+        cachedIsGestor = false;
+        cachedIsCompliance = false;
+        cachedIsResponsavelLegal = false;
+        cachedIsGerenteContratos = false;
+        cachedIsSuperintendenteExecutivo = false;
+        cachedContratosVinculados = [];
+        cachedIsColaborador = false;
+        cachedIsContabilidade = false;
+        cachedIsContrato = false;
+        cachedIsControleCompras = false;
+      }
+      
       setUser(newUser);
       cachedUser = newUser;
       
@@ -113,7 +130,7 @@ export function DashboardLayout() {
       }
     });
 
-    // Se já tem cache, não precisa buscar sessão de novo
+    // Se já tem cache E é o mesmo usuário, não precisa buscar sessão de novo
     if (profileLoaded && cachedUser) {
       setLoading(false);
       return () => subscription.unsubscribe();
@@ -121,6 +138,20 @@ export function DashboardLayout() {
 
     supabase.auth.getSession().then(({ data: { session } }) => {
       const sessionUser = session?.user ?? null;
+      
+      // Verificar se deve manter sessão (sessionStorage flag)
+      if (sessionUser && !sessionStorage.getItem('manterConectado') && !localStorage.getItem('manterConectado')) {
+        // Não tem flag de manter conectado - significa que é uma nova aba/sessão
+        // Fazer logout silencioso
+        supabase.auth.signOut().then(() => {
+          setUser(null);
+          cachedUser = null;
+          profileLoaded = false;
+          setLoading(false);
+        });
+        return;
+      }
+      
       setUser(sessionUser);
       cachedUser = sessionUser;
       
@@ -147,8 +178,16 @@ export function DashboardLayout() {
   }, [user, loading]);
 
   const loadUserProfile = async () => {
-    // Proteção dupla: se já carregou, não faz nada
-    if (!user || profileLoaded) return;
+    if (!user) return;
+    
+    // Se cache é de outro usuário, invalidar
+    if (profileLoaded && cachedProfile && cachedUser?.id !== user.id) {
+      profileLoaded = false;
+      cachedProfile = null;
+    }
+    
+    // Se já carregou para ESTE usuário, não faz nada
+    if (profileLoaded) return;
 
     try {
       const { data: fornecedorData } = await supabase
@@ -248,6 +287,10 @@ export function DashboardLayout() {
 
   const handleLogout = async () => {
     try {
+      // Limpar flags de sessão
+      sessionStorage.removeItem('manterConectado');
+      localStorage.removeItem('manterConectado');
+      
       await supabase.auth.signOut();
       toast({
         title: "Logout realizado",

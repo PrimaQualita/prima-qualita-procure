@@ -26,24 +26,34 @@ const Auth = () => {
   const [cpf, setCpf] = useState("");
   const [loginIdentifier, setLoginIdentifier] = useState(""); // Email ou CPF
   const [validacaoSenha, setValidacaoSenha] = useState(validarSenhaForte(""));
+  const [manterConectado, setManterConectado] = useState(false);
 
-  // Removed auto-redirect to prevent login screen issues
-  // User must explicitly login
+  // Limpar sessão anterior ao entrar na página de login
+  useEffect(() => {
+    supabase.auth.signOut().catch(() => {});
+    sessionStorage.removeItem('manterConectado');
+    // Não remove localStorage aqui - pode ser redirecionamento automático
+  }, []);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
 
     try {
+      // IMPORTANTE: Fazer logout silencioso antes de novo login para limpar sessão anterior
+      await supabase.auth.signOut().catch(() => {});
+      
+      // Limpar flags de sessão anteriores
+      sessionStorage.removeItem('manterConectado');
+      localStorage.removeItem('manterConectado');
+
       // Verificar se é CPF ou email
       const isCPF = /^\d{3}\.\d{3}\.\d{3}-\d{2}$/.test(loginIdentifier);
       let emailToLogin = loginIdentifier;
 
       if (isCPF) {
-        // Remover formatação do CPF (pontos e traço) antes de buscar
         const cpfSemFormatacao = loginIdentifier.replace(/\D/g, '');
         
-        // Buscar email pelo CPF
         const { data: profile, error: profileError } = await supabase
           .from("profiles")
           .select("email")
@@ -69,6 +79,13 @@ const Auth = () => {
       if (error) throw error;
 
       if (data.session) {
+        // Salvar flag de sessão conforme preferência do usuário
+        if (manterConectado) {
+          localStorage.setItem('manterConectado', 'true');
+        }
+        // Sempre salva no sessionStorage para a aba atual
+        sessionStorage.setItem('manterConectado', 'true');
+        
         // Verificar se é fornecedor - com timeout de segurança
         const fornecedorPromise = supabase
           .from("fornecedores")
@@ -364,7 +381,19 @@ const Auth = () => {
                     </Button>
                   </div>
                 </div>
-                <div className="flex justify-end">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="checkbox"
+                      id="manter-conectado"
+                      checked={manterConectado}
+                      onChange={(e) => setManterConectado(e.target.checked)}
+                      className="h-4 w-4 rounded border-border text-primary focus:ring-primary"
+                    />
+                    <Label htmlFor="manter-conectado" className="text-sm font-normal cursor-pointer">
+                      Manter conectado
+                    </Label>
+                  </div>
                   <Button
                     type="button"
                     variant="link"
