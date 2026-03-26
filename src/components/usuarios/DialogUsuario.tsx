@@ -160,6 +160,7 @@ export function DialogUsuario({ open, onOpenChange, onSuccess, usuarioEdit }: Di
         setGerenteContratos((usuarioEdit as any).gerente_contratos || false);
         setContabilidade((usuarioEdit as any).contabilidade || false);
         setContrato((usuarioEdit as any).contrato || false);
+        setControleCompras((usuarioEdit as any).controle_compras || false);
         setSuperintendenteExecutivo(
           (usuarioEdit as any).superintendente_executivo || (usuarioEdit as any).gerente_financeiro || false
         );
