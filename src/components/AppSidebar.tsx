@@ -58,6 +58,7 @@ interface AppSidebarProps {
   isColaborador?: boolean;
   isGerenteFinanceiro?: boolean;
   isContabilidade?: boolean;
+  isControleCompras?: boolean;
 }
 
 export function AppSidebar({ 
@@ -69,7 +70,8 @@ export function AppSidebar({
   isSuperintendenteExecutivo = false,
   isColaborador = false,
   isGerenteFinanceiro = false,
-  isContabilidade = false
+  isContabilidade = false,
+  isControleCompras = false
 }: AppSidebarProps) {
   const { open } = useSidebar();
   const navigate = useNavigate();
