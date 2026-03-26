@@ -94,6 +94,7 @@ export function DashboardLayout() {
         cachedIsColaborador = false;
         cachedIsContabilidade = false;
         cachedIsContrato = false;
+        cachedIsControleCompras = false;
         profileLoaded = false;
         setProfile(null);
         setIsGestor(false);
