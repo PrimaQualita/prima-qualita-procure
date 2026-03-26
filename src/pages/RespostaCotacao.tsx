@@ -1738,14 +1738,14 @@ const RespostaCotacao = () => {
                                 }
                                 onChange={(e) => {
                                   const input = e.target.value;
-                                  const valorLimpo = input.replace(/[^\d,]/g, '');
+                                  const valorLimpo = limitarDuasCasasDecimais(input);
                                   
                                   setRespostas({
                                     ...respostas,
                                     [item.id]: {
                                       ...respostas[item.id],
                                       valor_display: valorLimpo,
-                                      valor_unitario_ofertado: parseFloat(valorLimpo.replace(',', '.')) || 0,
+                                      valor_unitario_ofertado: truncarDuasCasas(parseFloat(valorLimpo.replace(',', '.')) || 0),
                                     },
                                   });
                                 }}
