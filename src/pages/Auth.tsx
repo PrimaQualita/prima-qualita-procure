@@ -75,6 +75,13 @@ const Auth = () => {
       if (error) throw error;
 
       if (data.session) {
+        // Salvar flag de sessão conforme preferência do usuário
+        if (manterConectado) {
+          localStorage.setItem('manterConectado', 'true');
+        }
+        // Sempre salva no sessionStorage para a aba atual
+        sessionStorage.setItem('manterConectado', 'true');
+        
         // Verificar se é fornecedor - com timeout de segurança
         const fornecedorPromise = supabase
           .from("fornecedores")
