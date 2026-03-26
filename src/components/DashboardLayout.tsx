@@ -190,22 +190,32 @@ export function DashboardLayout() {
     if (profileLoaded) return;
 
     try {
-      const { data: fornecedorData } = await supabase
-        .from("fornecedores")
-        .select("id")
-        .eq("user_id", user.id)
-        .maybeSingle();
+      // Buscar fornecedor, perfil e roles em PARALELO
+      const [fornecedorResult, profileResult, rolesResult] = await Promise.all([
+        supabase
+          .from("fornecedores")
+          .select("id")
+          .eq("user_id", user.id)
+          .maybeSingle(),
+        supabase
+          .from("profiles")
+          .select("*")
+          .eq("id", user.id)
+          .single(),
+        supabase
+          .from("user_roles")
+          .select("role")
+          .eq("user_id", user.id)
+          .in("role", ["gestor", "colaborador"]),
+      ]);
 
-      if (fornecedorData) {
+      if (fornecedorResult.data) {
         navigate("/portal-fornecedor");
         return;
       }
 
-      const { data: profileData, error: profileError } = await supabase
-        .from("profiles")
-        .select("*")
-        .eq("id", user.id)
-        .single();
+      const profileData = profileResult.data;
+      const profileError = profileResult.error;
 
       if (profileError) {
         toast({
@@ -213,7 +223,7 @@ export function DashboardLayout() {
           description: "Usuário não autorizado a acessar o sistema.",
           variant: "destructive",
         });
-        await supabase.auth.signOut();
+        await supabase.auth.signOut({ scope: 'local' });
         navigate("/auth");
         return;
       }
@@ -240,14 +250,7 @@ export function DashboardLayout() {
         return;
       }
 
-      // Buscar TODOS os roles do usuário em uma única query
-      const { data: allRoles } = await supabase
-        .from("user_roles")
-        .select("role")
-        .eq("user_id", user.id)
-        .in("role", ["gestor", "colaborador"]);
-
-      const rolesSet = new Set((allRoles || []).map(r => r.role));
+      const rolesSet = new Set((rolesResult.data || []).map(r => r.role));
       
       cachedIsGestor = rolesSet.has("gestor") || profileData?.gestor === true;
       setIsGestor(cachedIsGestor);
