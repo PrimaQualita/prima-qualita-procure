@@ -36,15 +36,20 @@ const Auth = () => {
     setLoading(true);
 
     try {
+      // IMPORTANTE: Fazer logout silencioso antes de novo login para limpar sessão anterior
+      await supabase.auth.signOut().catch(() => {});
+      
+      // Limpar flags de sessão anteriores
+      sessionStorage.removeItem('manterConectado');
+      localStorage.removeItem('manterConectado');
+
       // Verificar se é CPF ou email
       const isCPF = /^\d{3}\.\d{3}\.\d{3}-\d{2}$/.test(loginIdentifier);
       let emailToLogin = loginIdentifier;
 
       if (isCPF) {
-        // Remover formatação do CPF (pontos e traço) antes de buscar
         const cpfSemFormatacao = loginIdentifier.replace(/\D/g, '');
         
-        // Buscar email pelo CPF
         const { data: profile, error: profileError } = await supabase
           .from("profiles")
           .select("email")
