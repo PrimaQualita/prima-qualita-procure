@@ -26,6 +26,7 @@ const Auth = () => {
   const [cpf, setCpf] = useState("");
   const [loginIdentifier, setLoginIdentifier] = useState(""); // Email ou CPF
   const [validacaoSenha, setValidacaoSenha] = useState(validarSenhaForte(""));
+  const [manterConectado, setManterConectado] = useState(false);
 
   // Removed auto-redirect to prevent login screen issues
   // User must explicitly login

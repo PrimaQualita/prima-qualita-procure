@@ -287,6 +287,10 @@ export function DashboardLayout() {
 
   const handleLogout = async () => {
     try {
+      // Limpar flags de sessão
+      sessionStorage.removeItem('manterConectado');
+      localStorage.removeItem('manterConectado');
+      
       await supabase.auth.signOut();
       toast({
         title: "Logout realizado",
