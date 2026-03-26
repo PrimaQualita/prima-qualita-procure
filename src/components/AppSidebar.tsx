@@ -378,15 +378,15 @@ export function AppSidebar({
   ];
 
   // Verifica se o usuário é APENAS gerente de contratos (sem outros papéis)
-  const temOutrosPapeis = isGestor || isColaborador || isCompliance || isResponsavelLegal || isSuperintendenteExecutivo || isContabilidade;
+  const temOutrosPapeis = isGestor || isColaborador || isCompliance || isResponsavelLegal || isSuperintendenteExecutivo || isContabilidade || isControleCompras;
   const apenasGerenteContratos = isGerenteContratos && !temOutrosPapeis;
   
   // Verifica se o usuário é APENAS contabilidade (sem outros papéis)
-  const temOutrosPapeisAlemContabilidade = isGestor || isColaborador || isCompliance || isResponsavelLegal || isSuperintendenteExecutivo || isGerenteContratos;
+  const temOutrosPapeisAlemContabilidade = isGestor || isColaborador || isCompliance || isResponsavelLegal || isSuperintendenteExecutivo || isGerenteContratos || isControleCompras;
   const apenasContabilidade = isContabilidade && !temOutrosPapeisAlemContabilidade;
   
   // Verifica se o usuário é APENAS compliance (sem outros papéis)
-  const temOutrosPapeisAlemCompliance = isGestor || isColaborador || isResponsavelLegal || isSuperintendenteExecutivo || isGerenteContratos || isContabilidade;
+  const temOutrosPapeisAlemCompliance = isGestor || isColaborador || isResponsavelLegal || isSuperintendenteExecutivo || isGerenteContratos || isContabilidade || isControleCompras;
   const apenasCompliance = isCompliance && !temOutrosPapeisAlemCompliance;
 
   // Seleciona o menu correto baseado no tipo de usuário
