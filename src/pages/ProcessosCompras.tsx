@@ -201,7 +201,7 @@ const ProcessosCompras = () => {
     // Verificar se é responsável legal, compliance ou superintendente executivo
     const { data: profileData } = await supabase
       .from("profiles")
-      .select("responsavel_legal, gerente_contratos, compliance, superintendente_executivo")
+      .select("responsavel_legal, gerente_contratos, compliance, superintendente_executivo, controle_compras")
       .eq("id", session.user.id)
       .maybeSingle();
 
@@ -214,7 +214,7 @@ const ProcessosCompras = () => {
 
     // Se é gerente de contratos e NÃO tem outros perfis com acesso total
     // (gestor/colaborador/compliance/superintendente), restringe aos contratos vinculados
-    const temAcessoTotal = isUsuarioInternoCheck || !!profileData?.compliance || !!profileData?.superintendente_executivo;
+    const temAcessoTotal = isUsuarioInternoCheck || !!profileData?.compliance || !!profileData?.superintendente_executivo || !!profileData?.controle_compras;
     if (profileData?.gerente_contratos && !temAcessoTotal) {
       const { data: vinculos } = await supabase
         .from("gerentes_contratos_gestao")
