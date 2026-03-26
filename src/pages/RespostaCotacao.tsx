@@ -1180,7 +1180,8 @@ const RespostaCotacao = () => {
         undefined,
         processoCompra?.criterio_julgamento,
         supabaseAnon, // Passar o cliente público para funcionar sem autenticação
-        responsavelLegalRef.current
+        responsavelLegalRef.current,
+        processoCompra?.tipo
       );
 
       // Finalizar resposta via função no backend (bypass das regras de atualização para usuário público)

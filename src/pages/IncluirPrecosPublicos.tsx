@@ -779,7 +779,10 @@ const IncluirPrecosPublicos = () => {
         arquivosComprovantes,
         profile.nome_completo,
         profile.cpf,
-        processoCompra?.criterio_julgamento
+        processoCompra?.criterio_julgamento,
+        undefined,
+        undefined,
+        processoCompra?.tipo
       );
 
       // Atualizar com protocolo, hash, URL do PDF E URLs dos comprovantes
