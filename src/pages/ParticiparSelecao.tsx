@@ -1828,7 +1828,7 @@ const ParticiparSelecao = () => {
                                               placeholder="0,00"
                                               value={respostas[item.id]?.valor_display || ""}
                                               onChange={(e) => {
-                                                const valor = e.target.value;
+                                                const valor = limitarDuasCasasDecimais(e.target.value);
                                                 setRespostas(prev => ({
                                                   ...prev,
                                                   [item.id]: { ...prev[item.id], valor_display: valor }
