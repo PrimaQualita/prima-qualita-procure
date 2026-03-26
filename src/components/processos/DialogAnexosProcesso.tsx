@@ -962,6 +962,7 @@ export function DialogAnexosProcesso({
 
       if (novosDestinatarios.length === 0) {
         toast({ title: "Solicitação já enviada", description: "Já existe uma solicitação pendente para este processo." });
+        setNotificacoesPendentes(prev => new Set([...prev, tipoNotificacao]));
         return;
       }
 
@@ -982,6 +983,8 @@ export function DialogAnexosProcesso({
         .insert(notificacoes);
 
       if (insertError) throw insertError;
+
+      setNotificacoesPendentes(prev => new Set([...prev, tipoNotificacao]));
 
       const labelTipo = tipoNotificacao === 'requisicao' 
         ? 'Gerente(s) de Contratos' 
