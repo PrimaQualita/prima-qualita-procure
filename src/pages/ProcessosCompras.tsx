@@ -201,7 +201,7 @@ const ProcessosCompras = () => {
     // Verificar se é responsável legal, compliance ou superintendente executivo
     const { data: profileData } = await supabase
       .from("profiles")
-      .select("responsavel_legal, gerente_contratos, compliance, superintendente_executivo")
+      .select("responsavel_legal, gerente_contratos, compliance, superintendente_executivo, controle_compras")
       .eq("id", session.user.id)
       .maybeSingle();
 
