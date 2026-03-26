@@ -425,10 +425,9 @@ export function AppSidebar({
     });
   }
 
-  // Cadastro de Usuários - NÃO mostrar para Responsável Legal ou Controle de Compras (quando é APENAS RL ou CC)
-  const apenasResponsavelLegal = isResponsavelLegal && !isGestor && !isColaborador && !isCompliance && !isSuperintendenteExecutivo && !isGerenteContratos && !isContabilidade && !isControleCompras;
-  const apenasControleCompras = isControleCompras && !isGestor && !isColaborador && !isCompliance && !isSuperintendenteExecutivo && !isGerenteContratos && !isContabilidade && !isResponsavelLegal;
-  if (!apenasGerenteContratos && !apenasContabilidade && !apenasCompliance && !apenasResponsavelLegal && !apenasControleCompras) {
+  // Cadastro de Usuários - Mostrar APENAS se tiver perfil administrativo (Gestor, Colaborador ou Superintendente)
+  const temPerfilAdminParaUsuarios = isGestor || isColaborador || isSuperintendenteExecutivo;
+  if (temPerfilAdminParaUsuarios) {
     menuItems.push({
       title: "Cadastro de Usuários",
       icon: UserCog,
