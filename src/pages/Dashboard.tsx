@@ -141,9 +141,16 @@ const Dashboard = () => {
 
   const loadAtasPendentesAssinatura = async () => {
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
-      const { data, error } = await supabase.from("atas_assinaturas_usuario").select(`id, ata_id, data_notificacao, atas_selecao (nome_arquivo, url_arquivo, protocolo, selecoes_fornecedores (numero_selecao, titulo_selecao))`).eq("usuario_id", user.id).eq("status_assinatura", "pendente").order("data_notificacao", { ascending: false });
+      const userId = userContext?.userId;
+      if (!userId) {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) return;
+        const { data, error } = await supabase.from("atas_assinaturas_usuario").select(`id, ata_id, data_notificacao, atas_selecao (nome_arquivo, url_arquivo, protocolo, selecoes_fornecedores (numero_selecao, titulo_selecao))`).eq("usuario_id", user.id).eq("status_assinatura", "pendente").order("data_notificacao", { ascending: false });
+        if (error) throw error;
+        setAtasPendentesAssinatura(data || []);
+        return;
+      }
+      const { data, error } = await supabase.from("atas_assinaturas_usuario").select(`id, ata_id, data_notificacao, atas_selecao (nome_arquivo, url_arquivo, protocolo, selecoes_fornecedores (numero_selecao, titulo_selecao))`).eq("usuario_id", userId).eq("status_assinatura", "pendente").order("data_notificacao", { ascending: false });
       if (error) throw error;
       setAtasPendentesAssinatura(data || []);
     } catch (error) { console.error("Erro ao carregar atas pendentes:", error); }
