@@ -3798,13 +3798,13 @@ const SistemaLancesFornecedor = () => {
                                     onChange={(e) => {
                                       setValoresDescontoTemp((prev) => {
                                         const novo = new Map(prev);
-                                        novo.set(item.id, e.target.value);
+                                        novo.set(item.id, limitarDuasCasasDecimais(e.target.value));
                                         return novo;
                                       });
                                     }}
                                     onBlur={(e) => {
                                       const valor = e.target.value.replace(',', '.');
-                                      const numero = parseFloat(valor);
+                                      const numero = truncarDuasCasas(parseFloat(valor));
                                       if (!isNaN(numero) && numero >= 0) {
                                         handleUpdateItem(item.id, "valor_unitario_ofertado", numero);
                                       } else if (e.target.value === '' || e.target.value === '0') {
