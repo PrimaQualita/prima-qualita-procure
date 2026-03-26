@@ -143,7 +143,7 @@ export function DashboardLayout() {
       if (sessionUser && !sessionStorage.getItem('manterConectado') && !localStorage.getItem('manterConectado')) {
         // Não tem flag de manter conectado - significa que é uma nova aba/sessão
         // Fazer logout silencioso
-        supabase.auth.signOut().then(() => {
+        supabase.auth.signOut({ scope: 'local' }).then(() => {
           setUser(null);
           cachedUser = null;
           profileLoaded = false;
