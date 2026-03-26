@@ -2633,7 +2633,9 @@ const SistemaLancesFornecedor = () => {
             selecao?.titulo_selecao || '',
             novaDataEnvio, // Usar a nova data de envio
             itensParaPDF, // Passar itens atualizados diretamente
-            selecao?.processos_compras?.criterio_julgamento
+            selecao?.processos_compras?.criterio_julgamento,
+            [],
+            selecao?.processos_compras?.tipo
           );
 
           console.log("Resultado da geração do PDF:", resultado);
