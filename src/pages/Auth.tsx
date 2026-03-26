@@ -377,7 +377,19 @@ const Auth = () => {
                     </Button>
                   </div>
                 </div>
-                <div className="flex justify-end">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="checkbox"
+                      id="manter-conectado"
+                      checked={manterConectado}
+                      onChange={(e) => setManterConectado(e.target.checked)}
+                      className="h-4 w-4 rounded border-border text-primary focus:ring-primary"
+                    />
+                    <Label htmlFor="manter-conectado" className="text-sm font-normal cursor-pointer">
+                      Manter conectado
+                    </Label>
+                  </div>
                   <Button
                     type="button"
                     variant="link"
