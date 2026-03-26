@@ -299,7 +299,7 @@ export async function gerarPropostaFornecedorPDF(
     
     const isPrecosPublicos = ehPrecoPublico((fornecedor as any).email);
     // Preços públicos NUNCA mostram marca
-    const ocultarMarca = isPrecosPublicos;
+    const ocultarMarca = isPrecosPublicos || (tipoProcessoResolvido && tipoProcessoResolvido !== 'material');
     const tituloDocumento = isPrecosPublicos ? 'PROPOSTA DE PREÇOS PÚBLICOS' : 'PROPOSTA DE PREÇOS';
     doc.text(tituloDocumento, 105, 25, { align: 'center' });
     
