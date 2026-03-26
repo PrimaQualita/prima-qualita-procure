@@ -314,7 +314,7 @@ export const gerarRelatorioFinal = async (dados: DadosRelatorioFinal): Promise<R
   // Parágrafo 3
   doc.setFontSize(11);
   doc.setFont('helvetica', 'normal');
-  const texto3 = 'A(s) empresa(s) encaminhou(aram) os documentos de habilitação que foram analisados, concluindo-se que ambas estavam habilitadas. Todos os documentos foram devidamente conferidos, autenticados e encontram-se corretamente organizados em seus devidos lugares no processo.';
+  const texto3 = 'A(s) empresa(s) encaminhou(aram) os documentos de habilitação que foram analisados, concluindo-se que estava(m) habilitada(s). Todos os documentos anexados ao presente processo foram devidamente autenticados e verificados nos respectivos órgãos e/ou locais competentes de autenticação, garantindo sua veracidade e conformidade com as exigências legais aplicáveis.';
   const linhas3 = doc.splitTextToSize(texto3, 170);
   
   // Verificar espaço antes de adicionar
