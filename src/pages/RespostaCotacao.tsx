@@ -1685,14 +1685,14 @@ const RespostaCotacao = () => {
                                   }
                                   onChange={(e) => {
                                     const input = e.target.value;
-                                    const valorLimpo = input.replace(/[^\d,]/g, '');
+                                    const valorLimpo = limitarDuasCasasDecimais(input);
                                     
                                     setRespostas({
                                       ...respostas,
                                       [item.id]: {
                                         ...respostas[item.id],
                                         percentual_desconto_display: valorLimpo,
-                                        percentual_desconto: parseFloat(valorLimpo.replace(',', '.')) || 0,
+                                        percentual_desconto: truncarDuasCasas(parseFloat(valorLimpo.replace(',', '.')) || 0),
                                       },
                                     });
                                   }}
