@@ -71,6 +71,7 @@ export function DialogAnexosProcesso({
   const [gerandoRequisicao, setGerandoRequisicao] = useState(false);
   const [gerandoAutorizacao, setGerandoAutorizacao] = useState(false);
   const [enviandoNotificacao, setEnviandoNotificacao] = useState<string | null>(null);
+  const [notificacoesPendentes, setNotificacoesPendentes] = useState<Set<string>>(new Set());
 
   // Ref para garantir que operações assíncronas sempre usem o processoId mais recente
   const processoIdRef = useRef(processoId);
@@ -91,8 +92,24 @@ export function DialogAnexosProcesso({
     if (open && processoId) {
       loadAnexos();
       checkUserPermissions();
+      checkNotificacoesPendentes();
     }
   }, [open, processoId]);
+
+  const checkNotificacoesPendentes = async () => {
+    try {
+      const { data } = await supabase
+        .from("notificacoes_documentos_processo")
+        .select("tipo_notificacao")
+        .eq("processo_compra_id", processoId)
+        .eq("status_notificacao", "pendente");
+      
+      const tipos = new Set((data || []).map((n: any) => n.tipo_notificacao));
+      setNotificacoesPendentes(tipos);
+    } catch (e) {
+      console.error("Erro ao verificar notificações pendentes:", e);
+    }
+  };
 
   const checkUserPermissions = async () => {
     try {
@@ -945,6 +962,7 @@ export function DialogAnexosProcesso({
 
       if (novosDestinatarios.length === 0) {
         toast({ title: "Solicitação já enviada", description: "Já existe uma solicitação pendente para este processo." });
+        setNotificacoesPendentes(prev => new Set([...prev, tipoNotificacao]));
         return;
       }
 
@@ -965,6 +983,8 @@ export function DialogAnexosProcesso({
         .insert(notificacoes);
 
       if (insertError) throw insertError;
+
+      setNotificacoesPendentes(prev => new Set([...prev, tipoNotificacao]));
 
       const labelTipo = tipoNotificacao === 'requisicao' 
         ? 'Gerente(s) de Contratos' 
@@ -1223,29 +1243,43 @@ export function DialogAnexosProcesso({
                     </div>
                     {/* Botão Solicitar - Requisição (gestor/colaborador envia para gerente) */}
                     {isRequisicao && isGestorOuColaborador && !isGerenteContratos && (
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => handleEnviarNotificacao('requisicao')}
-                        disabled={enviandoNotificacao === 'requisicao'}
-                        className="w-full border-primary/40 text-primary hover:bg-primary/10"
-                      >
-                        <Send className="h-4 w-4 mr-2" />
-                        {enviandoNotificacao === 'requisicao' ? "Enviando..." : "Solicitar ao Gerente de Contratos"}
-                      </Button>
+                      notificacoesPendentes.has('requisicao') ? (
+                        <div className="flex items-center gap-2 text-sm text-emerald-600 dark:text-emerald-400 font-medium w-full justify-center py-1">
+                          <CheckCircle className="h-4 w-4" />
+                          Solicitação Enviada
+                        </div>
+                      ) : (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => handleEnviarNotificacao('requisicao')}
+                          disabled={enviandoNotificacao === 'requisicao'}
+                          className="w-full border-primary/40 text-primary hover:bg-primary/10"
+                        >
+                          <Send className="h-4 w-4 mr-2" />
+                          {enviandoNotificacao === 'requisicao' ? "Enviando..." : "Solicitar ao Gerente de Contratos"}
+                        </Button>
+                      )
                     )}
                     {/* Botão Solicitar - Autorização (gestor/colaborador envia para superintendente) */}
                     {isAutorizacaoDespesa && isGestorOuColaborador && !isSuperintendenteExecutivo && !bloqueadoAutorizacao && (
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => handleEnviarNotificacao('autorizacao_despesa')}
-                        disabled={enviandoNotificacao === 'autorizacao_despesa'}
-                        className="w-full border-primary/40 text-primary hover:bg-primary/10"
-                      >
-                        <Send className="h-4 w-4 mr-2" />
-                        {enviandoNotificacao === 'autorizacao_despesa' ? "Enviando..." : "Solicitar ao Superintendente Executivo"}
-                      </Button>
+                      notificacoesPendentes.has('autorizacao_despesa') ? (
+                        <div className="flex items-center gap-2 text-sm text-emerald-600 dark:text-emerald-400 font-medium w-full justify-center py-1">
+                          <CheckCircle className="h-4 w-4" />
+                          Solicitação Enviada
+                        </div>
+                      ) : (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => handleEnviarNotificacao('autorizacao_despesa')}
+                          disabled={enviandoNotificacao === 'autorizacao_despesa'}
+                          className="w-full border-primary/40 text-primary hover:bg-primary/10"
+                        >
+                          <Send className="h-4 w-4 mr-2" />
+                          {enviandoNotificacao === 'autorizacao_despesa' ? "Enviando..." : "Solicitar ao Superintendente Executivo"}
+                        </Button>
+                      )
                     )}
                   </div>
                 )}
