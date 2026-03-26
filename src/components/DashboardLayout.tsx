@@ -281,7 +281,7 @@ export function DashboardLayout() {
         description: error.message,
         variant: "destructive",
       });
-      await supabase.auth.signOut();
+      await supabase.auth.signOut({ scope: 'local' });
       navigate("/auth");
     } finally {
       setLoading(false);
