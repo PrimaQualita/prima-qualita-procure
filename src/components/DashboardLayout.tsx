@@ -433,6 +433,7 @@ export function DashboardLayout() {
               isGerenteContratos,
               isContabilidade,
               isContrato,
+              isControleCompras,
               profile,
               userId: user?.id,
               contratosVinculados
