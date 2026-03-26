@@ -69,6 +69,7 @@ export function DialogUsuario({ open, onOpenChange, onSuccess, usuarioEdit }: Di
   const [superintendenteExecutivo, setSuperintendenteExecutivo] = useState(false);
   const [contabilidade, setContabilidade] = useState(false);
   const [contrato, setContrato] = useState(false);
+  const [controleCompras, setControleCompras] = useState(false);
   const [contratosDisponiveis, setContratosDisponiveis] = useState<ContratoGestao[]>([]);
   const [contratosSelecionados, setContratosSelecionados] = useState<string[]>([]);
 
