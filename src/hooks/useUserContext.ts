@@ -26,15 +26,15 @@ export function useCanEdit() {
   // Se não tem contexto, assume que pode editar (fallback)
   if (!context) return true;
   
-  const { isResponsavelLegal, isGestor, isCompliance, isColaborador, isSuperintendenteExecutivo, isGerenteContratos, isContabilidade } = context;
+  const { isResponsavelLegal, isGestor, isCompliance, isColaborador, isSuperintendenteExecutivo, isGerenteContratos, isContabilidade, isControleCompras } = context;
   
   // Gestor, Compliance, Colaborador e Superintendente Executivo podem editar tudo
   if (isGestor || isCompliance || isColaborador || isSuperintendenteExecutivo) {
     return true;
   }
   
-  // Responsável Legal, Gerente de Contratos e Contabilidade não podem editar (apenas visualizar)
-  if (isResponsavelLegal || isGerenteContratos || isContabilidade) {
+  // Responsável Legal, Gerente de Contratos, Contabilidade e Controle de Compras não podem editar (apenas visualizar)
+  if (isResponsavelLegal || isGerenteContratos || isContabilidade || isControleCompras) {
     return false;
   }
   
