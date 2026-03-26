@@ -28,8 +28,12 @@ const Auth = () => {
   const [validacaoSenha, setValidacaoSenha] = useState(validarSenhaForte(""));
   const [manterConectado, setManterConectado] = useState(false);
 
-  // Removed auto-redirect to prevent login screen issues
-  // User must explicitly login
+  // Limpar sessão anterior ao entrar na página de login
+  useEffect(() => {
+    supabase.auth.signOut().catch(() => {});
+    sessionStorage.removeItem('manterConectado');
+    // Não remove localStorage aqui - pode ser redirecionamento automático
+  }, []);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
