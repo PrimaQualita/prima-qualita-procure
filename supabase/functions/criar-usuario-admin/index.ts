@@ -42,6 +42,7 @@ const createUserSchema = z.object({
   genero: z.enum(['masculino', 'feminino']).optional(),
   gerenteContratos: z.boolean().optional(),
   contrato: z.boolean().optional(),
+  controleCompras: z.boolean().optional(),
   // legado (não usar mais)
   gerenteFinanceiro: z.boolean().optional(),
   superintendenteExecutivo: z.boolean().optional(),
