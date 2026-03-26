@@ -92,8 +92,24 @@ export function DialogAnexosProcesso({
     if (open && processoId) {
       loadAnexos();
       checkUserPermissions();
+      checkNotificacoesPendentes();
     }
   }, [open, processoId]);
+
+  const checkNotificacoesPendentes = async () => {
+    try {
+      const { data } = await supabase
+        .from("notificacoes_documentos_processo")
+        .select("tipo_notificacao")
+        .eq("processo_compra_id", processoId)
+        .eq("status_notificacao", "pendente");
+      
+      const tipos = new Set((data || []).map((n: any) => n.tipo_notificacao));
+      setNotificacoesPendentes(tipos);
+    } catch (e) {
+      console.error("Erro ao verificar notificações pendentes:", e);
+    }
+  };
 
   const checkUserPermissions = async () => {
     try {
