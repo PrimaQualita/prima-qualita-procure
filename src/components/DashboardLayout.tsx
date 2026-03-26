@@ -287,7 +287,8 @@ export function DashboardLayout() {
                           (isCompliance || cachedIsCompliance) || 
                           (isResponsavelLegal || cachedIsResponsavelLegal) || 
                           (isSuperintendenteExecutivo || cachedIsSuperintendenteExecutivo) ||
-                          (isContabilidade || cachedIsContabilidade);
+                          (isContabilidade || cachedIsContabilidade) ||
+                          (isControleCompras || cachedIsControleCompras);
   
   const apenasGerenteContratos = (isGerenteContratos || cachedIsGerenteContratos) && !temOutrosPapeis;
 
@@ -297,7 +298,8 @@ export function DashboardLayout() {
                           (isCompliance || cachedIsCompliance) || 
                           (isResponsavelLegal || cachedIsResponsavelLegal) || 
                           (isSuperintendenteExecutivo || cachedIsSuperintendenteExecutivo) ||
-                          (isGerenteContratos || cachedIsGerenteContratos);
+                          (isGerenteContratos || cachedIsGerenteContratos) ||
+                          (isControleCompras || cachedIsControleCompras);
   
   const apenasContabilidade = (isContabilidade || cachedIsContabilidade) && !temOutrosPapeisAlemContabilidade;
 
