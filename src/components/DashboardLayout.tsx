@@ -50,6 +50,7 @@ let cachedContratosVinculados: string[] = [];
 let cachedIsColaborador: boolean = false;
 let cachedIsContabilidade: boolean = false;
 let cachedIsContrato: boolean = false;
+let cachedIsControleCompras: boolean = false;
 let profileLoaded: boolean = false;
 
 export function DashboardLayout() {
