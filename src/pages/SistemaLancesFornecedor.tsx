@@ -2498,7 +2498,11 @@ const SistemaLancesFornecedor = () => {
     console.log(`Atualizando item ${itemId}, campo ${field}, valor:`, value);
     setItens(prev => prev.map(item => {
       if (item.id === itemId) {
-        const updated = { ...item, [field]: value };
+        let finalValue = value;
+        if (field === "valor_unitario_ofertado" && typeof value === "number") {
+          finalValue = truncarDuasCasas(value);
+        }
+        const updated = { ...item, [field]: finalValue };
         console.log('Item atualizado:', updated);
         return updated;
       }
