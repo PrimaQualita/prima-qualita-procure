@@ -201,37 +201,19 @@ export function DashboardLayout() {
         return;
       }
 
-      const { data: roleData, error: roleError } = await supabase
+      // Buscar TODOS os roles do usuário em uma única query
+      const { data: allRoles } = await supabase
         .from("user_roles")
         .select("role")
         .eq("user_id", user.id)
-        .eq("role", "gestor")
-        .maybeSingle();
+        .in("role", ["gestor", "colaborador"]);
 
-      if (roleError && roleError.code !== "PGRST116") throw roleError;
+      const rolesSet = new Set((allRoles || []).map(r => r.role));
       
-      cachedIsGestor = !!roleData || profileData?.gestor === true;
+      cachedIsGestor = rolesSet.has("gestor") || profileData?.gestor === true;
       setIsGestor(cachedIsGestor);
 
-      // Verificar se é gestor ou colaborador (usuário interno com permissões completas)
-      const { data: colaboradorData } = await supabase
-        .from("user_roles")
-        .select("role")
-        .eq("user_id", user.id)
-        .in("role", ["gestor", "colaborador"])
-        .maybeSingle();
-
-      const isUsuarioInterno = !!colaboradorData;
-      
-      // Verificar se é colaborador
-      const { data: colaboradorRole } = await supabase
-        .from("user_roles")
-        .select("role")
-        .eq("user_id", user.id)
-        .eq("role", "colaborador")
-        .maybeSingle();
-      
-      cachedIsColaborador = !!colaboradorRole;
+      cachedIsColaborador = rolesSet.has("colaborador");
       setIsColaborador(cachedIsColaborador);
 
       // Verificar se é gerente de contratos (sempre verifica, independente de outros papéis)
