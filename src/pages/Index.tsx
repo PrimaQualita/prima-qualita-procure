@@ -15,7 +15,7 @@ const Index = () => {
         // Se não tem flag de manter conectado, não verificar sessão
         if (!sessionStorage.getItem('manterConectado') && !localStorage.getItem('manterConectado')) {
           // Limpar sessão residual silenciosamente
-          await supabase.auth.signOut().catch(() => {});
+          await supabase.auth.signOut({ scope: 'local' }).catch(() => {});
           return;
         }
 

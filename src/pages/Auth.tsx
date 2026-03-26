@@ -41,7 +41,7 @@ const Auth = () => {
 
     try {
       // IMPORTANTE: Fazer logout silencioso antes de novo login para limpar sessão anterior
-      await supabase.auth.signOut().catch(() => {});
+      await supabase.auth.signOut({ scope: 'local' }).catch(() => {});
       
       // Limpar flags de sessão anteriores
       sessionStorage.removeItem('manterConectado');
