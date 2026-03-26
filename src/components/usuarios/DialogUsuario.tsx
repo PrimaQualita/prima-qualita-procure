@@ -449,6 +449,7 @@ export function DialogUsuario({ open, onOpenChange, onSuccess, usuarioEdit }: Di
         if (compliance) perfis.push("Compliance");
         if (contabilidade) perfis.push("Contabilidade");
         if (contrato) perfis.push("Contrato");
+        if (controleCompras) perfis.push("Controle de Compras");
         if (gerenteContratos) perfis.push("Gerente de Contratos");
         if (superintendenteExecutivo) perfis.push("Superintendente Executivo");
         
