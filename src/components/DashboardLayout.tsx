@@ -130,7 +130,7 @@ export function DashboardLayout() {
       }
     });
 
-    // Se já tem cache, não precisa buscar sessão de novo
+    // Se já tem cache E é o mesmo usuário, não precisa buscar sessão de novo
     if (profileLoaded && cachedUser) {
       setLoading(false);
       return () => subscription.unsubscribe();
@@ -138,6 +138,20 @@ export function DashboardLayout() {
 
     supabase.auth.getSession().then(({ data: { session } }) => {
       const sessionUser = session?.user ?? null;
+      
+      // Verificar se deve manter sessão (sessionStorage flag)
+      if (sessionUser && !sessionStorage.getItem('manterConectado') && !localStorage.getItem('manterConectado')) {
+        // Não tem flag de manter conectado - significa que é uma nova aba/sessão
+        // Fazer logout silencioso
+        supabase.auth.signOut().then(() => {
+          setUser(null);
+          cachedUser = null;
+          profileLoaded = false;
+          setLoading(false);
+        });
+        return;
+      }
+      
       setUser(sessionUser);
       cachedUser = sessionUser;
       
