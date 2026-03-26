@@ -9,6 +9,7 @@ export interface UserContextType {
   isGerenteContratos: boolean;
   isContabilidade: boolean;
   isContrato: boolean;
+  isControleCompras: boolean;
   profile: any;
   userId?: string;
   contratosVinculados?: string[];
