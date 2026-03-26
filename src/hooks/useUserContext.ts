@@ -48,10 +48,10 @@ export function useIsOnlyContabilidade() {
   
   if (!context) return false;
   
-  const { isGestor, isCompliance, isColaborador, isSuperintendenteExecutivo, isGerenteContratos, isResponsavelLegal, isContabilidade } = context;
+  const { isGestor, isCompliance, isColaborador, isSuperintendenteExecutivo, isGerenteContratos, isResponsavelLegal, isContabilidade, isControleCompras } = context;
   
   // Verifica se tem outros papéis além de contabilidade
-  const temOutrosPapeis = isGestor || isCompliance || isColaborador || isSuperintendenteExecutivo || isGerenteContratos || isResponsavelLegal;
+  const temOutrosPapeis = isGestor || isCompliance || isColaborador || isSuperintendenteExecutivo || isGerenteContratos || isResponsavelLegal || isControleCompras;
   
   return isContabilidade && !temOutrosPapeis;
 }
