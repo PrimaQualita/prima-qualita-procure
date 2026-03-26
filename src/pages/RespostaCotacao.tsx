@@ -739,7 +739,7 @@ const RespostaCotacao = () => {
           const item = itensCotacao.find(it => it.numero_item === parseInt(numeroItem));
           
           if (item && valorUnitario) {
-            const valorNumerico = parseFloat(valorUnitario.replace(/,/g, '.'));
+            const valorNumerico = truncarDuasCasas(parseFloat(valorUnitario.replace(/,/g, '.')));
             const valorFormatado = valorNumerico.toFixed(2).replace('.', ',');
             
             novasRespostas[item.id] = {
