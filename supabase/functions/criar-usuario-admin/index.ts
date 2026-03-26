@@ -146,6 +146,7 @@ serve(async (req) => {
       genero,
       gerenteContratos,
       contrato,
+      controleCompras,
       gerenteFinanceiro,
       superintendenteExecutivo,
       contratosVinculados
