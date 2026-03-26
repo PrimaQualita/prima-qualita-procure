@@ -723,7 +723,7 @@ const ParticiparSelecao = () => {
       
       // Substituir vírgula por ponto para parseFloat
       const valorComPonto = valorLimpo.replace(',', '.');
-      const valorNumerico = parseFloat(valorComPonto);
+      const valorNumerico = truncarDuasCasas(parseFloat(valorComPonto));
       
       if (isNaN(valorNumerico)) {
         setRespostas(prev => ({
