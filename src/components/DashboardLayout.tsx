@@ -106,6 +106,7 @@ export function DashboardLayout() {
         setIsColaborador(false);
         setIsContabilidade(false);
         setIsContrato(false);
+        setIsControleCompras(false);
         
         // Limpa cache de outras páginas
         clearCotacoesCache();
