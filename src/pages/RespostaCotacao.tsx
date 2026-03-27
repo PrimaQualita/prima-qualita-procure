@@ -1199,6 +1199,27 @@ const RespostaCotacao = () => {
         console.error("Erro ao registrar auditoria (não bloqueia):", auditError);
       }
 
+      // AGORA que a nova proposta foi salva com sucesso, limpar a resposta anterior
+      if (respostaAnteriorId) {
+        try {
+          console.log(`🗑️ Limpando resposta anterior ${respostaAnteriorId} após sucesso da nova`);
+          
+          // Deletar arquivos antigos do storage
+          if (arquivosAntigosParaDeletar.length > 0) {
+            await supabaseAnon.storage.from('processo-anexos').remove(arquivosAntigosParaDeletar);
+          }
+          
+          // Limpar registros antigos do banco (itens, anexos e resposta)
+          await supabaseAnon.rpc('limpar_resposta_existente_fornecedor', {
+            p_cotacao_id: cotacao.id,
+            p_fornecedor_id: fornecedorId,
+          });
+        } catch (errLimpeza) {
+          // Não bloquear o sucesso por falha de limpeza
+          console.warn('⚠️ Erro ao limpar resposta anterior (não bloqueia):', errLimpeza);
+        }
+      }
+
       toast.success("Resposta enviada com sucesso!");
       
       setTimeout(() => {
