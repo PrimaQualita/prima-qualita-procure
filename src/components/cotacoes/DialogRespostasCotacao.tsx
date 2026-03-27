@@ -855,7 +855,9 @@ export function DialogRespostasCotacao({
         comprovantes,
         usuarioNome,
         usuarioCpf,
-        cotacaoData?.criterio_julgamento
+        cotacaoData?.criterio_julgamento,
+        undefined,
+        resposta.nome_responsavel_legal || undefined
       );
 
       console.log('✅ PDF GERADO - Resultado completo:', { 

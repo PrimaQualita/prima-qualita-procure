@@ -718,7 +718,9 @@ export default function RespostasCotacao() {
         [],
         usuarioNome,
         usuarioCpf,
-        cotacao?.criterio_julgamento
+        cotacao?.criterio_julgamento,
+        undefined,
+        resposta.nome_responsavel_legal || undefined
       );
 
       // Atualizar protocolo e hash de certificação
