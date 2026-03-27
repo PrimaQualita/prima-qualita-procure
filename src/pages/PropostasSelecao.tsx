@@ -728,7 +728,8 @@ export default function PropostasSelecao() {
           criterio_julgamento: processo.criterio_julgamento,
         },
         proposta.observacoes || undefined,
-        processo?.tipo
+        processo?.tipo,
+        proposta.nome_responsavel_legal || undefined
       );
 
       const { error: updateError } = await supabase
