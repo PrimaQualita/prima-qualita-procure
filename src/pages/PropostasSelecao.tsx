@@ -42,6 +42,7 @@ interface PropostaFornecedor {
   email: string | null;
   url_pdf_proposta: string | null;
   protocolo?: string | null;
+  nome_responsavel_legal?: string | null;
   fornecedor: {
     razao_social: string;
     cnpj: string;
