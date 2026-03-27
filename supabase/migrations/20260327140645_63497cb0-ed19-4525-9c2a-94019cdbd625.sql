@@ -1,0 +1,1 @@
+ALTER TABLE public.propostas_realinhadas ADD COLUMN IF NOT EXISTS nome_responsavel_legal text;
