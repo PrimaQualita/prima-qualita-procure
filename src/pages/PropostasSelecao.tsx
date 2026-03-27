@@ -377,7 +377,8 @@ export default function PropostasSelecao() {
           undefined,
           processo?.criterio_julgamento,
           [],
-          processo?.tipo
+          processo?.tipo,
+          proposta.nome_responsavel_legal || undefined
         );
 
         // Salvar URL no banco de dados
