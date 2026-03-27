@@ -692,6 +692,7 @@ export function DialogRespostasCotacao({
           usuario_gerador_id,
           comprovantes_urls,
           fornecedor_id,
+          nome_responsavel_legal,
           fornecedores:fornecedor_id (
             razao_social,
             cnpj,
