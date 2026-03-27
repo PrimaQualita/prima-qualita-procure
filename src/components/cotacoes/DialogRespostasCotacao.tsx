@@ -57,6 +57,7 @@ interface RespostaFornecedor {
   data_envio_resposta: string;
   usuario_gerador_id?: string | null;
   comprovantes_urls?: string[] | null;
+  nome_responsavel_legal?: string | null;
   fornecedor: {
     razao_social: string;
     cnpj: string;
