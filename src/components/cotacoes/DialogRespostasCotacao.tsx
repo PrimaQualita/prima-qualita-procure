@@ -742,6 +742,7 @@ export function DialogRespostasCotacao({
           data_envio_resposta: r.data_envio_resposta,
           usuario_gerador_id: r.usuario_gerador_id,
           comprovantes_urls: r.comprovantes_urls || [],
+          nome_responsavel_legal: r.nome_responsavel_legal || null,
           fornecedor: {
             razao_social: fornecedorData?.razao_social || "N/A",
             cnpj: fornecedorData?.cnpj || "N/A",
