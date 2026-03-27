@@ -1209,10 +1209,9 @@ const RespostaCotacao = () => {
             await supabaseAnon.storage.from('processo-anexos').remove(arquivosAntigosParaDeletar);
           }
           
-          // Limpar registros antigos do banco (itens, anexos e resposta)
-          await supabaseAnon.rpc('limpar_resposta_existente_fornecedor', {
-            p_cotacao_id: cotacao.id,
-            p_fornecedor_id: fornecedorId,
+          // Limpar registros antigos do banco (itens, anexos e resposta) pelo ID específico
+          await supabaseAnon.rpc('limpar_resposta_por_id', {
+            p_resposta_id: respostaAnteriorId,
           });
         } catch (errLimpeza) {
           // Não bloquear o sucesso por falha de limpeza
