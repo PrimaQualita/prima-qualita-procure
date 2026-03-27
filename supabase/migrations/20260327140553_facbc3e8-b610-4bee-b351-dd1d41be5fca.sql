@@ -1,0 +1,2 @@
+ALTER TABLE public.cotacao_respostas_fornecedor ADD COLUMN IF NOT EXISTS nome_responsavel_legal text;
+ALTER TABLE public.selecao_propostas_fornecedor ADD COLUMN IF NOT EXISTS nome_responsavel_legal text;
