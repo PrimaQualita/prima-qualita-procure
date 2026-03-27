@@ -4002,6 +4002,10 @@ export type Database = {
         Args: { p_cotacao_id: string; p_fornecedor_id: string }
         Returns: undefined
       }
+      limpar_resposta_por_id: {
+        Args: { p_resposta_id: string }
+        Returns: undefined
+      }
       pode_inserir_resposta_item: {
         Args: { p_resposta_id: string }
         Returns: boolean
