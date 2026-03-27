@@ -1083,6 +1083,7 @@ const RespostaCotacao = () => {
           observacoes_fornecedor: observacoes || null,
           valor_total_anual_ofertado: valorTotal,
           data_envio_resposta: new Date().toISOString(),
+          nome_responsavel_legal: responsavelLegalRef.current || null,
         })
         .select("id")
         .single();

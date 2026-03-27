@@ -857,6 +857,7 @@ export type Database = {
           hash_certificacao: string | null
           id: string
           motivo_rejeicao: string | null
+          nome_responsavel_legal: string | null
           observacoes_fornecedor: string | null
           protocolo: string | null
           rejeitado: boolean | null
@@ -874,6 +875,7 @@ export type Database = {
           hash_certificacao?: string | null
           id?: string
           motivo_rejeicao?: string | null
+          nome_responsavel_legal?: string | null
           observacoes_fornecedor?: string | null
           protocolo?: string | null
           rejeitado?: boolean | null
@@ -891,6 +893,7 @@ export type Database = {
           hash_certificacao?: string | null
           id?: string
           motivo_rejeicao?: string | null
+          nome_responsavel_legal?: string | null
           observacoes_fornecedor?: string | null
           protocolo?: string | null
           rejeitado?: boolean | null
@@ -2852,6 +2855,7 @@ export type Database = {
           fornecedor_id: string
           id: string
           motivo_correcao: string | null
+          nome_responsavel_legal: string | null
           observacoes: string | null
           protocolo: string | null
           selecao_id: string
@@ -2866,6 +2870,7 @@ export type Database = {
           fornecedor_id: string
           id?: string
           motivo_correcao?: string | null
+          nome_responsavel_legal?: string | null
           observacoes?: string | null
           protocolo?: string | null
           selecao_id: string
@@ -2880,6 +2885,7 @@ export type Database = {
           fornecedor_id?: string
           id?: string
           motivo_correcao?: string | null
+          nome_responsavel_legal?: string | null
           observacoes?: string | null
           protocolo?: string | null
           selecao_id?: string
@@ -3414,6 +3420,7 @@ export type Database = {
           hash_certificacao: string | null
           id: string
           motivo_desclassificacao: string | null
+          nome_responsavel_legal: string | null
           observacoes_fornecedor: string | null
           protocolo: string | null
           selecao_id: string
@@ -3432,6 +3439,7 @@ export type Database = {
           hash_certificacao?: string | null
           id?: string
           motivo_desclassificacao?: string | null
+          nome_responsavel_legal?: string | null
           observacoes_fornecedor?: string | null
           protocolo?: string | null
           selecao_id: string
@@ -3450,6 +3458,7 @@ export type Database = {
           hash_certificacao?: string | null
           id?: string
           motivo_desclassificacao?: string | null
+          nome_responsavel_legal?: string | null
           observacoes_fornecedor?: string | null
           protocolo?: string | null
           selecao_id?: string

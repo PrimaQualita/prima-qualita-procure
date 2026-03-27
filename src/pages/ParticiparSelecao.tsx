@@ -1202,7 +1202,7 @@ const ParticiparSelecao = () => {
 
         const { data: propostaCriada, error: erroProposta } = await supabase
           .from("selecao_propostas_fornecedor")
-          .insert({
+           .insert({
             selecao_id: selecaoId,
             fornecedor_id: fornecedorId,
             observacoes_fornecedor: observacoes || null,
@@ -1210,6 +1210,7 @@ const ParticiparSelecao = () => {
             data_envio_proposta: new Date().toISOString(),
             codigo_acesso: codigoAcesso,
             email: fornecedor?.email || dadosEmpresa.email,
+            nome_responsavel_legal: responsavelLegalRef.current || null,
           })
           .select("id")
           .single();

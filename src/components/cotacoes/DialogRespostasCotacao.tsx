@@ -57,6 +57,7 @@ interface RespostaFornecedor {
   data_envio_resposta: string;
   usuario_gerador_id?: string | null;
   comprovantes_urls?: string[] | null;
+  nome_responsavel_legal?: string | null;
   fornecedor: {
     razao_social: string;
     cnpj: string;
@@ -692,6 +693,7 @@ export function DialogRespostasCotacao({
           usuario_gerador_id,
           comprovantes_urls,
           fornecedor_id,
+          nome_responsavel_legal,
           fornecedores:fornecedor_id (
             razao_social,
             cnpj,
@@ -740,6 +742,7 @@ export function DialogRespostasCotacao({
           data_envio_resposta: r.data_envio_resposta,
           usuario_gerador_id: r.usuario_gerador_id,
           comprovantes_urls: r.comprovantes_urls || [],
+          nome_responsavel_legal: r.nome_responsavel_legal || null,
           fornecedor: {
             razao_social: fornecedorData?.razao_social || "N/A",
             cnpj: fornecedorData?.cnpj || "N/A",
@@ -852,7 +855,9 @@ export function DialogRespostasCotacao({
         comprovantes,
         usuarioNome,
         usuarioCpf,
-        cotacaoData?.criterio_julgamento
+        cotacaoData?.criterio_julgamento,
+        undefined,
+        resposta.nome_responsavel_legal || undefined
       );
 
       console.log('✅ PDF GERADO - Resultado completo:', { 

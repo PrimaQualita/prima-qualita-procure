@@ -1240,6 +1240,7 @@ const PropostaRealinhada = () => {
             observacoes,
             protocolo,
             url_pdf_proposta: pdfUrl,
+            nome_responsavel_legal: responsavelLegalRef.current || null,
           },
           { onConflict: "selecao_id,fornecedor_id" }
         )

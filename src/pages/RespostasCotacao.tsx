@@ -619,7 +619,9 @@ export default function RespostasCotacao() {
         [],
         usuarioNome,
         usuarioCpf,
-        cotacao?.criterio_julgamento
+        cotacao?.criterio_julgamento,
+        undefined,
+        resposta.nome_responsavel_legal || undefined
       );
 
       // Atualizar protocolo e hash de certificação
@@ -716,7 +718,9 @@ export default function RespostasCotacao() {
         [],
         usuarioNome,
         usuarioCpf,
-        cotacao?.criterio_julgamento
+        cotacao?.criterio_julgamento,
+        undefined,
+        resposta.nome_responsavel_legal || undefined
       );
 
       // Atualizar protocolo e hash de certificação
@@ -1127,6 +1131,7 @@ export default function RespostasCotacao() {
           data_envio_resposta: r.data_envio_resposta,
           usuario_gerador_id: r.usuario_gerador_id,
           comprovantes_urls: r.comprovantes_urls || [],
+          nome_responsavel_legal: r.nome_responsavel_legal || null,
           fornecedor: {
             razao_social: fornecedorData?.razao_social || "N/A",
             cnpj: fornecedorData?.cnpj || "N/A",
