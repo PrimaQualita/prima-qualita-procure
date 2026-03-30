@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { FileText, ExternalLink, AlertCircle } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { withRetry } from "@/lib/supabaseRetry";
 import { useNavigate } from "react-router-dom";
 
 interface Solicitacao {
