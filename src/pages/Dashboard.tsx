@@ -134,7 +134,7 @@ const Dashboard = () => {
 
   const loadAvaliacoesCadastroPendentes = async () => {
     try {
-      const { count, error } = await supabase.from("avaliacoes_cadastro_fornecedor").select("*", { count: "exact", head: true }).eq("status_avaliacao", "pendente");
+      const { count, error } = await withRetry(() => supabase.from("avaliacoes_cadastro_fornecedor").select("*", { count: "exact", head: true }).eq("status_avaliacao", "pendente"));
       if (error) throw error;
       setAvaliacoesCadastroPendentes(count || 0);
     } catch (error) { console.error("Erro ao carregar avaliações pendentes:", error); }
