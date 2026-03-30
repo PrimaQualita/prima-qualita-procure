@@ -126,7 +126,7 @@ const Dashboard = () => {
 
   const loadProcessosPendentesCompliance = async () => {
     try {
-      const { count, error } = await supabase.from("cotacoes_precos").select("*", { count: "exact", head: true }).eq("enviado_compliance", true).eq("respondido_compliance", false);
+      const { count, error } = await withRetry(() => supabase.from("cotacoes_precos").select("*", { count: "exact", head: true }).eq("enviado_compliance", true).eq("respondido_compliance", false));
       if (error) throw error;
       setProcessosPendentesCompliance(count || 0);
     } catch (error) { console.error("Erro ao carregar processos pendentes:", error); }
