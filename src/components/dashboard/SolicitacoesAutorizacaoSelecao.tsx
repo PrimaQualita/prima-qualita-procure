@@ -65,7 +65,7 @@ export function SolicitacoesAutorizacaoSelecao() {
       if (!profile?.responsavel_legal) return;
 
       // Buscar todas as solicitações pendentes (sem filtrar por responsável legal específico)
-      const { data, error } = await supabase
+      const { data, error } = await withRetry(() => supabase
         .from("solicitacoes_autorizacao_selecao")
         .select(`
           id,
@@ -76,7 +76,7 @@ export function SolicitacoesAutorizacaoSelecao() {
           solicitante_id
         `)
         .eq("status", "pendente")
-        .order("data_solicitacao", { ascending: false });
+        .order("data_solicitacao", { ascending: false }));
 
       if (error) throw error;
 
