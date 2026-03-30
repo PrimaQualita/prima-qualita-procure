@@ -171,16 +171,16 @@ const Dashboard = () => {
 
   const loadData = async () => {
     try {
-      const [contratosRes, processosRes, selecoesRes, fornecedoresRes, complianceRes, contratosTerc, pcRes, cotRes] = await Promise.all([
-        supabase.from("contratos_gestao").select("*").order("nome_contrato"),
-        supabase.from("processos_compras").select("*, contratos_gestao(nome_contrato), cotacoes_precos(enviado_para_selecao)").limit(5000),
-        supabase.from("selecoes_fornecedores").select("*, processos_compras(ano_referencia, contrato_gestao_id, contratos_gestao(nome_contrato), data_abertura, requer_selecao)").limit(5000),
-        supabase.from("fornecedores").select("id, created_at, data_cadastro, data_validade_certificado, status_aprovacao, razao_social, nome_fantasia, email, user_id").limit(5000),
-        supabase.from("analises_compliance").select("id, created_at, cotacao_id, cotacoes_precos(processo_compra_id, processos_compras(ano_referencia, contrato_gestao_id, contratos_gestao(nome_contrato), data_abertura))").limit(5000),
-        supabase.from("contratos_terceiros").select("id, created_at, contrato_gestao_id, contratos_gestao(nome_contrato), inicio_vigencia, status, fim_vigencia_atual, ciente_nao_renovar, processo_para_contratar_id").limit(5000),
-        supabase.from("processos_para_contratar").select("id, contrato_gestao_id, processo_compra_id, status").limit(5000),
-        supabase.from("cotacoes_precos").select("id, enviado_compliance, respondido_compliance, data_limite_resposta, titulo_cotacao, status_cotacao, enviado_para_selecao, processo_compra_id, processos_compras(contrato_gestao_id, numero_processo_interno, contratos_gestao(nome_contrato))").limit(5000),
-      ]);
+      const [contratosRes, processosRes, selecoesRes, fornecedoresRes, complianceRes, contratosTerc, pcRes, cotRes] = await batchQueries([
+        () => supabase.from("contratos_gestao").select("*").order("nome_contrato"),
+        () => supabase.from("processos_compras").select("*, contratos_gestao(nome_contrato), cotacoes_precos(enviado_para_selecao)").limit(5000),
+        () => supabase.from("selecoes_fornecedores").select("*, processos_compras(ano_referencia, contrato_gestao_id, contratos_gestao(nome_contrato), data_abertura, requer_selecao)").limit(5000),
+        () => supabase.from("fornecedores").select("id, created_at, data_cadastro, data_validade_certificado, status_aprovacao, razao_social, nome_fantasia, email, user_id").limit(5000),
+        () => supabase.from("analises_compliance").select("id, created_at, cotacao_id, cotacoes_precos(processo_compra_id, processos_compras(ano_referencia, contrato_gestao_id, contratos_gestao(nome_contrato), data_abertura))").limit(5000),
+        () => supabase.from("contratos_terceiros").select("id, created_at, contrato_gestao_id, contratos_gestao(nome_contrato), inicio_vigencia, status, fim_vigencia_atual, ciente_nao_renovar, processo_para_contratar_id").limit(5000),
+        () => supabase.from("processos_para_contratar").select("id, contrato_gestao_id, processo_compra_id, status").limit(5000),
+        () => supabase.from("cotacoes_precos").select("id, enviado_compliance, respondido_compliance, data_limite_resposta, titulo_cotacao, status_cotacao, enviado_para_selecao, processo_compra_id, processos_compras(contrato_gestao_id, numero_processo_interno, contratos_gestao(nome_contrato))").limit(5000),
+      ], 4) as any;
 
       setContratos(contratosRes.data || []);
       setProcessos(processosRes.data || []);
