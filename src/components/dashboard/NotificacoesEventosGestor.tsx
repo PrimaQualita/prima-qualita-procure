@@ -1,6 +1,7 @@
 // @ts-nocheck
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { batchQueries } from "@/lib/supabaseRetry";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Button } from "@/components/ui/button";
@@ -58,9 +59,9 @@ export function NotificacoesEventosGestor() {
       if (!user) return;
 
       // Fetch all data in parallel
-      const [autorizacoesRes, homologacoesRes, complianceRes, contabilidadeRes, requisicoesRes, autDespesaRes, cientesRes] = await Promise.all([
+      const [autorizacoesRes, homologacoesRes, complianceRes, contabilidadeRes, requisicoesRes, autDespesaRes, cientesRes] = await batchQueries([
         // Autorizações (compra direta + seleção)
-        supabase
+        () => supabase
           .from("autorizacoes_processo")
           .select(`
             id, tipo_autorizacao, data_geracao, cotacao_id,
@@ -79,7 +80,7 @@ export function NotificacoesEventosGestor() {
           .limit(500),
 
         // Homologações
-        supabase
+        () => supabase
           .from("homologacoes_selecao")
           .select(`
             id, data_geracao, selecao_id,
@@ -97,7 +98,7 @@ export function NotificacoesEventosGestor() {
           .limit(500),
 
         // Compliance responses
-        supabase
+        () => supabase
           .from("analises_compliance")
           .select(`
             id, data_analise, conclusao, cotacao_id,
@@ -116,7 +117,7 @@ export function NotificacoesEventosGestor() {
           .limit(500),
 
         // Contabilidade responses
-        supabase
+        () => supabase
           .from("encaminhamentos_contabilidade")
           .select(`
             id, data_resposta_contabilidade, processo_numero, objeto_processo,
@@ -141,7 +142,7 @@ export function NotificacoesEventosGestor() {
           .limit(500),
 
         // Requisições emitidas (anexos_processo_compra tipo_anexo = 'requisicao')
-        supabase
+        () => supabase
           .from("anexos_processo_compra")
           .select(`
             id, data_upload, tipo_anexo, nome_arquivo,
@@ -156,7 +157,7 @@ export function NotificacoesEventosGestor() {
           .limit(500),
 
         // Autorizações de Despesa emitidas (anexos_processo_compra tipo_anexo = 'autorizacao_despesa')
-        supabase
+        () => supabase
           .from("anexos_processo_compra")
           .select(`
             id, data_upload, tipo_anexo, nome_arquivo,
@@ -171,10 +172,10 @@ export function NotificacoesEventosGestor() {
           .limit(500),
 
         // Already acknowledged events - global (any gestor marking ciente removes for all)
-        supabase
+        () => supabase
           .from("eventos_processo_cientes")
           .select("tipo_evento, referencia_id"),
-      ]);
+      ], 4) as any;
 
       // Log query results for debugging
       console.log("[NotificacoesEventos] Resultados:", {

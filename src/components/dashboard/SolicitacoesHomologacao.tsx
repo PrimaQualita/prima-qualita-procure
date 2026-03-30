@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { FileText, ExternalLink, AlertCircle } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { withRetry } from "@/lib/supabaseRetry";
 import { useNavigate } from "react-router-dom";
 
 interface Solicitacao {
@@ -71,7 +72,7 @@ export function SolicitacoesHomologacao() {
       if (!profile?.responsavel_legal) return;
 
       // Buscar todas as solicitações não atendidas (sem filtrar por responsável legal específico)
-      const { data, error } = await supabase
+      const { data, error } = await withRetry(() => supabase
         .from("solicitacoes_homologacao_selecao")
         .select(`
           id,
@@ -88,7 +89,7 @@ export function SolicitacoesHomologacao() {
           )
         `)
         .eq("atendida", false)
-        .order("data_solicitacao", { ascending: false });
+        .order("data_solicitacao", { ascending: false }));
 
       if (error) throw error;
 

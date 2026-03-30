@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { CheckCircle, XCircle, ExternalLink, AlertCircle, FileText, Loader2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { withRetry } from "@/lib/supabaseRetry";
 import { toast } from "sonner";
 import { useNavigate } from "react-router-dom";
 import { gerarProcessoCompletoPDF } from "@/lib/gerarProcessoCompletoPDF";
@@ -66,7 +67,7 @@ export function SolicitacoesAutorizacao() {
       if (!profile?.responsavel_legal) return;
 
       // Buscar todas as solicitações pendentes (sem filtrar por responsável legal específico)
-      const { data, error } = await supabase
+      const { data, error } = await withRetry(() => supabase
         .from("solicitacoes_autorizacao")
         .select(`
           id,
@@ -77,7 +78,7 @@ export function SolicitacoesAutorizacao() {
           solicitante:profiles!solicitacoes_autorizacao_solicitante_id_fkey(nome_completo)
         `)
         .eq("status", "pendente")
-        .order("data_solicitacao", { ascending: false });
+        .order("data_solicitacao", { ascending: false }));
 
       if (error) throw error;
 
