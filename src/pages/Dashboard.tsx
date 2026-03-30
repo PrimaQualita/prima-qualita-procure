@@ -16,6 +16,7 @@ import { SolicitacoesDocumentosProcesso } from "@/components/dashboard/Solicitac
 import { SolicitacoesPropostasCotacao } from "@/components/dashboard/SolicitacoesPropostasCotacao";
 import { NotificacoesEventosGestor } from "@/components/dashboard/NotificacoesEventosGestor";
 import { atualizarAtaComAssinaturas } from "@/lib/gerarAtaSelecaoPDF";
+import { batchQueries, withRetry } from "@/lib/supabaseRetry";
 import { DashboardBIFilters } from "@/components/dashboard/DashboardBIFilters";
 import { DashboardBIKPIs } from "@/components/dashboard/DashboardBIKPIs";
 import { DashboardBIChart, type ChartType } from "@/components/dashboard/DashboardBIChart";
