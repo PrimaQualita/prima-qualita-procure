@@ -340,7 +340,7 @@ export default function GestaoDocumentosFornecedor({ fornecedorId }: Props) {
         } else {
           // Fornecedor NÃO está vinculado a processo - pode deletar do storage
           if (pathMatch) {
-            const filePath = pathMatch[1];
+            const filePath = decodeURIComponent(pathMatch[1]);
             const { error: deleteError } = await supabase.storage
               .from('processo-anexos')
               .remove([filePath]);
