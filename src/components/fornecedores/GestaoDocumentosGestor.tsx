@@ -446,7 +446,7 @@ export default function GestaoDocumentosGestor({ fornecedorId, canEdit = true }:
         }
       } else {
         // Se não foi usado em nenhum processo, deletar o arquivo antigo do storage
-        const pathMatch = documentoParaAtualizar.url_arquivo.match(/processo-anexos\/(.+)$/);
+        const pathMatch = documentoParaAtualizar.url_arquivo.split('?')[0].match(/processo-anexos\/(.+)$/);
         if (pathMatch) {
           const filePath = decodeURIComponent(pathMatch[1]);
           await supabase.storage.from('processo-anexos').remove([filePath]);

@@ -236,7 +236,7 @@ export default function GestaoDocumentosFornecedor({ fornecedorId }: Props) {
       // 3. Verificar se documento antigo deve ser movido para "documentos_antigos"
       // Isso ocorre APENAS quando o fornecedor está vinculado a algum processo finalizado
       if (docAntigoData?.url_arquivo) {
-        const pathMatch = docAntigoData.url_arquivo.match(/processo-anexos\/(.+)$/);
+        const pathMatch = docAntigoData.url_arquivo.split('?')[0].match(/processo-anexos\/(.+)$/);
         const nomeArquivoAntigo = docAntigoData.url_arquivo.split('/').pop() || '';
         
         // Verificar se fornecedor é vencedor em alguma cotação finalizada (compra direta)
@@ -340,7 +340,7 @@ export default function GestaoDocumentosFornecedor({ fornecedorId }: Props) {
         } else {
           // Fornecedor NÃO está vinculado a processo - pode deletar do storage
           if (pathMatch) {
-            const filePath = pathMatch[1];
+            const filePath = decodeURIComponent(pathMatch[1]);
             const { error: deleteError } = await supabase.storage
               .from('processo-anexos')
               .remove([filePath]);
