@@ -151,7 +151,18 @@ export function limitarDuasCasasDecimais(valor: string): string {
 
 // Truncar número para 2 casas decimais
 export function truncarDuasCasas(valor: number): number {
-  return Math.floor(valor * 100) / 100;
+  if (!Number.isFinite(valor)) return 0;
+
+  const fator = 100;
+  const tolerancia = 1e-6;
+
+  // Evita perda de centavos por imprecisão de ponto flutuante
+  // (ex.: 19.74 pode virar 19.739999999 internamente)
+  if (valor >= 0) {
+    return Math.trunc(valor * fator + tolerancia) / fator;
+  }
+
+  return Math.trunc(valor * fator - tolerancia) / fator;
 }
 
 // Validação de Telefone
