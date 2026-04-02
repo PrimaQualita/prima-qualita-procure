@@ -73,6 +73,7 @@ const Selecoes = () => {
   const [filtro, setFiltro] = useState("");
   const [anoSelecionado, setAnoSelecionado] = useState("todos");
   const [selecaoParaEditar, setSelecaoParaEditar] = useState<Selecao | null>(null);
+  const [selecoesCountPorContrato, setSelecoesCountPorContrato] = useState<Record<string, { abertas: number; fechadas: number }>>({});
 
   useEffect(() => {
     checkAuth();
