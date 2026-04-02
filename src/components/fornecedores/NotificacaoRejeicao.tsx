@@ -782,12 +782,8 @@ export function NotificacaoRejeicao({ fornecedorId, onRecursoEnviado }: Notifica
                           filePath = urlParts[1] || filePath;
                         }
                         
-                        const { data, error } = await supabase.storage
-                          .from('processo-anexos')
-                          .createSignedUrl(filePath, 3600);
-                        
-                        if (error) throw error;
-                        if (data?.signedUrl) window.open(data.signedUrl, '_blank');
+                        const { abrirDocumentoStorage } = await import('@/lib/abrirDocumentoStorage');
+                        await abrirDocumentoStorage(filePath, 'Resposta_Recurso.pdf');
                       } catch (error) {
                         console.error('Erro ao visualizar:', error);
                         toast.error('Erro ao visualizar documento');

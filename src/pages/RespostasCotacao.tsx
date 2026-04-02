@@ -1683,14 +1683,9 @@ export default function RespostasCotacao() {
                           variant="outline"
                           size="sm"
                           onClick={async () => {
-                            // Extrair o path correto (remover prefixo "documents/" se existir)
                             const path = analise.url_documento.replace('documents/', '');
-                            const { data } = await supabase.storage
-                              .from('documents')
-                              .createSignedUrl(path, 3600);
-                            if (data?.signedUrl) {
-                              window.open(data.signedUrl, '_blank');
-                            }
+                            const { abrirDocumentoStorage } = await import('@/lib/abrirDocumentoStorage');
+                            await abrirDocumentoStorage(path, analise.nome_arquivo || `Analise_Compliance_${analise.protocolo}.pdf`, 'documents');
                           }}
                           className="flex-1"
                         >
