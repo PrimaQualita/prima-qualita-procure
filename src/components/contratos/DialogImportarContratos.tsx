@@ -415,7 +415,7 @@ export function DialogImportarContratos({ open, onOpenChange, contratoGestaoId, 
       "Valor Atual", "Nome do Arquivo"
     ];
     const exemplo = [
-      "001-2026", "Empresa Exemplo LTDA", "Prestação de serviços de limpeza",
+      "001-26", "Empresa Exemplo LTDA", "Prestação de serviços de limpeza",
       "01/01/2026", "Vigente", "01/01/2026", "31/12/2026",
       "120000", "150000", "001-26"
     ];
