@@ -587,7 +587,19 @@ export function DialogImportarContratos({ open, onOpenChange, contratoGestaoId, 
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {linhas.map((linha, idx) => (
+                  {linhas
+                    .map((linha, idx) => ({ linha, idx }))
+                    .filter(({ linha }) => {
+                      switch (filtroPreview) {
+                        case "novos": return !linha.erro && !linha.contrato_existente_id;
+                        case "atualizados": return !linha.erro && !!linha.contrato_existente_id;
+                        case "erro": return !!linha.erro;
+                        case "fornecedor": return !!linha.fornecedor_id;
+                        case "arquivo": return !!linha.arquivo_match;
+                        default: return true;
+                      }
+                    })
+                    .map(({ linha, idx }) => (
                     <TableRow key={idx} className={linha.erro ? "bg-red-50" : linha.contrato_existente_id ? "bg-amber-50/50" : ""}>
                       <TableCell className="text-xs font-medium">
                         {linha.codigo_interno}
