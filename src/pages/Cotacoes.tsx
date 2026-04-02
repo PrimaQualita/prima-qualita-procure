@@ -1915,7 +1915,7 @@ const Cotacoes = () => {
                   <TableBody>
                     {contratosFiltrados.length === 0 ? (
                       <TableRow>
-                        <TableCell colSpan={4} className="text-center text-muted-foreground text-xs sm:text-sm">
+                        <TableCell colSpan={5} className="text-center text-muted-foreground text-xs sm:text-sm">
                           Nenhum contrato encontrado
                         </TableCell>
                       </TableRow>
