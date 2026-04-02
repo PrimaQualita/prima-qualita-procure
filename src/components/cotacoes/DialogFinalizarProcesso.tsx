@@ -5315,7 +5315,10 @@ export function DialogFinalizarProcesso({
                         </div>
                       </div>
                       <Button
-                        onClick={() => window.open(relatorio.url_arquivo, '_blank')}
+                        onClick={async () => {
+                          const { abrirDocumentoStorage } = await import('@/lib/abrirDocumentoStorage');
+                          await abrirDocumentoStorage(relatorio.url_arquivo, relatorio.nome_arquivo);
+                        }}
                         variant="outline"
                         size="icon"
                         title="Ver Relatório"
