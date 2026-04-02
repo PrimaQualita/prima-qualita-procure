@@ -78,6 +78,7 @@ export function AppSidebar({
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
   const [unreadCount, setUnreadCount] = useState(0);
   const [contractAlertCount, setContractAlertCount] = useState(0);
+  const [contractPendingCount, setContractPendingCount] = useState(0);
   const [compliancePendingCount, setCompliancePendingCount] = useState(0);
   const [fornecedoresPendingCount, setFornecedoresPendingCount] = useState(0);
   const [contabilidadePendingCount, setContabilidadePendingCount] = useState(0);
@@ -134,6 +135,7 @@ export function AppSidebar({
   }, [profile?.id]);
 
   // Carregar contagem de alertas de contratos (apenas vigentes: a vencer ≤45 dias OU já vencidos)
+  // + contagem de processos para contratar (pendentes)
   useEffect(() => {
     if (!profile?.id) return;
 
@@ -165,6 +167,13 @@ export function AppSidebar({
         });
 
         setContractAlertCount(aVencer.length + vencidos.length);
+
+        // Contagem de processos para contratar (pendentes)
+        const { count: pendCount } = await supabase
+          .from("processos_para_contratar")
+          .select("*", { count: "exact", head: true })
+          .eq("status_contratacao", "pendente");
+        setContractPendingCount(pendCount || 0);
       } catch {
         // silent
       }
@@ -523,12 +532,12 @@ export function AppSidebar({
                             {unreadCount > 99 ? "99+" : unreadCount}
                           </Badge>
                         )}
-                        {item.href === "/contratos" && contractAlertCount > 0 && !open && (
+                        {item.href === "/contratos" && (contractAlertCount + contractPendingCount) > 0 && !open && (
                           <Badge 
                             variant="destructive" 
                             className="absolute -top-2 -right-2 h-4 min-w-4 px-1 text-[10px] flex items-center justify-center"
                           >
-                            {contractAlertCount > 99 ? "99+" : contractAlertCount}
+                            {(contractAlertCount + contractPendingCount) > 99 ? "99+" : (contractAlertCount + contractPendingCount)}
                           </Badge>
                         )}
                         {item.href === "/compliance" && compliancePendingCount > 0 && !open && (
@@ -564,9 +573,9 @@ export function AppSidebar({
                               {unreadCount > 99 ? "99+" : unreadCount}
                             </Badge>
                           )}
-                          {item.href === "/contratos" && contractAlertCount > 0 && (
+                          {item.href === "/contratos" && (contractAlertCount + contractPendingCount) > 0 && (
                             <Badge variant="destructive" className="h-5 px-1.5 text-xs">
-                              {contractAlertCount > 99 ? "99+" : contractAlertCount}
+                              {(contractAlertCount + contractPendingCount) > 99 ? "99+" : (contractAlertCount + contractPendingCount)}
                             </Badge>
                           )}
                           {item.href === "/compliance" && compliancePendingCount > 0 && (
