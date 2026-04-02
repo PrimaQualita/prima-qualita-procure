@@ -624,19 +624,8 @@ export function NotificacaoRejeicao({ fornecedorId, onRecursoEnviado }: Notifica
                         }
                         
                         if (recurso) {
-                          const { data, error } = await supabase.storage
-                            .from('processo-anexos')
-                            .createSignedUrl(recurso.url_arquivo, 3600);
-                          
-                          if (error) {
-                            console.error('Erro ao gerar URL:', error);
-                            toast.error('Erro ao visualizar recurso');
-                            return;
-                          }
-                          
-                          if (data?.signedUrl) {
-                            window.open(data.signedUrl, '_blank');
-                          }
+                          const { abrirDocumentoStorage } = await import('@/lib/abrirDocumentoStorage');
+                          await abrirDocumentoStorage(recurso.url_arquivo, recurso.nome_arquivo || 'recurso.pdf');
                         }
                       } catch (error) {
                         console.error('Erro ao visualizar recurso:', error);
