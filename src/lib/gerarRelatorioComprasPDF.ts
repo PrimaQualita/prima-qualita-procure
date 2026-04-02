@@ -212,7 +212,7 @@ export const gerarRelatorioComprasPDF = async (dados: DadosRelatorioCompras): Pr
     // Contratos vigentes
     const { data: contratosVigentes } = await supabase
       .from('contratos_terceiros')
-      .select('id, codigo_interno, objeto, valor_atual, inicio_vigencia, fim_vigencia_atual, status, fornecedor_id')
+      .select('id, codigo_interno, objeto, valor_atual, inicio_vigencia, fim_vigencia_atual, status, fornecedor_id, fornecedor_nome_manual')
       .eq('contrato_gestao_id', cg.id)
       .eq('status', 'vigente');
 
@@ -230,7 +230,9 @@ export const gerarRelatorioComprasPDF = async (dados: DadosRelatorioCompras): Pr
 
     const contratosComFornecedor = (contratosVigentes || []).map(c => ({
       ...c,
-      fornecedor_razao_social: c.fornecedor_id ? (fornecedoresMap[c.fornecedor_id] || 'N/A') : 'N/A'
+      fornecedor_razao_social: c.fornecedor_id
+        ? (fornecedoresMap[c.fornecedor_id] || c.fornecedor_nome_manual || 'N/A')
+        : (c.fornecedor_nome_manual || 'N/A')
     }));
 
     // Enrich processes with contract codes and dates
