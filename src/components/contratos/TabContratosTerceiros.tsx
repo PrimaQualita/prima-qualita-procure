@@ -580,8 +580,8 @@ export function TabContratosTerceiros({ contratoGestaoId, contratoGestaoNome, pr
           </DialogHeader>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label>Nº do Contrato/Ano *</Label>
-              <Input value={formData.codigo_interno} onChange={(e) => setFormData({...formData, codigo_interno: e.target.value})} placeholder="Ex: 001/2026" />
+              <Label>Nº do Contrato-Ano *</Label>
+              <Input value={formData.codigo_interno} onChange={(e) => setFormData({...formData, codigo_interno: e.target.value})} placeholder="Ex: 001-2026" />
             </div>
             <div className="space-y-2">
               <Label>Fornecedor</Label>
