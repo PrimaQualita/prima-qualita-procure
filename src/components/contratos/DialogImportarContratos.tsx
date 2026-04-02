@@ -34,6 +34,7 @@ interface LinhaContrato {
   fornecedor_id: string | null;
   arquivo_match: File | null;
   erro: string | null;
+  contrato_existente_id: string | null;
 }
 
 const statusMap: Record<string, string> = {
