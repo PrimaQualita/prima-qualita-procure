@@ -2043,6 +2043,30 @@ export type Database = {
           },
         ]
       }
+      links_curtos: {
+        Row: {
+          codigo: string
+          created_at: string
+          id: string
+          nome_documento: string | null
+          url_original: string
+        }
+        Insert: {
+          codigo: string
+          created_at?: string
+          id?: string
+          nome_documento?: string | null
+          url_original: string
+        }
+        Update: {
+          codigo?: string
+          created_at?: string
+          id?: string
+          nome_documento?: string | null
+          url_original?: string
+        }
+        Relationships: []
+      }
       lotes_cotacao: {
         Row: {
           cotacao_id: string
