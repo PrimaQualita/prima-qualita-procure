@@ -35,13 +35,14 @@ import { AnoReferenciaFilter, extrairAnos, filtrarPorAno } from "@/components/An
 // Cache global para evitar recarregamentos desnecessários
 let cachedContratos: Contrato[] | null = null;
 let cachedUserData: { isResponsavelLegal: boolean; hasResponsavelLegal: boolean; nome: string; cpf: string; userId: string } | null = null;
+let cachedCotacoesCount: Record<string, { abertas: number; finalizadas: number; pendentes: number }> | null = null;
 let contratosLoaded = false;
 let userDataLoaded = false;
 
-// Função exportada para limpar o cache no logout
 export const clearCotacoesCache = () => {
   cachedContratos = null;
   cachedUserData = null;
+  cachedCotacoesCount = null;
   contratosLoaded = false;
   userDataLoaded = false;
 };
@@ -191,7 +192,6 @@ const Cotacoes = () => {
 
   useEffect(() => {
     const init = async () => {
-      // Usar cache se disponível
       if (userDataLoaded && cachedUserData) {
         setIsResponsavelLegal(cachedUserData.isResponsavelLegal);
         setHasResponsavelLegal(cachedUserData.hasResponsavelLegal);
@@ -201,10 +201,14 @@ const Cotacoes = () => {
         await checkAuth();
       }
       
-      // Usar cache APENAS se existe E tem dados
       if (contratosLoaded && cachedContratos && cachedContratos.length > 0) {
         setContratos(cachedContratos);
-        await loadCotacoesCountPorContrato(cachedContratos);
+        // Usar cache de contagens se disponível
+        if (cachedCotacoesCount) {
+          setCotacoesCountPorContrato(cachedCotacoesCount);
+        } else {
+          await loadCotacoesCountPorContrato(cachedContratos);
+        }
       } else {
         await loadContratos();
       }
@@ -499,7 +503,7 @@ const Cotacoes = () => {
     
     const { data, error } = await supabase
       .from("contratos_gestao")
-      .select("*")
+      .select("id, nome_contrato, ente_federativo, status, cor_fundo")
       .order("nome_contrato", { ascending: true });
 
     if (error) {
@@ -563,6 +567,7 @@ const Cotacoes = () => {
         }
       });
       
+      cachedCotacoesCount = counts;
       setCotacoesCountPorContrato(counts);
     } catch (err) {
       console.error("Erro ao carregar contagem de cotações:", err);

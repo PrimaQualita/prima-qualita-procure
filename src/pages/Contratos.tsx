@@ -149,19 +149,15 @@ export default function Contratos() {
 
   const loadCountsPorCG = useCallback(async () => {
     try {
-      // Contratos terceiros: vigentes vs vencidos/encerrados
-      const { data: ctData } = await supabase
-        .from("contratos_terceiros")
-        .select("contrato_gestao_id, status");
-
-      // Processos para contratar: pendentes
-      const { data: pcData } = await supabase
-        .from("processos_para_contratar")
-        .select("contrato_gestao_id, status");
+      // Buscar contratos terceiros e processos para contratar em PARALELO
+      const [ctRes, pcRes] = await Promise.all([
+        supabase.from("contratos_terceiros").select("contrato_gestao_id, status"),
+        supabase.from("processos_para_contratar").select("contrato_gestao_id, status"),
+      ]);
 
       const counts: Record<string, { vigentes: number; vencidos: number; pendentes: number }> = {};
 
-      (ctData || []).forEach(c => {
+      (ctRes.data || []).forEach(c => {
         if (!counts[c.contrato_gestao_id]) counts[c.contrato_gestao_id] = { vigentes: 0, vencidos: 0, pendentes: 0 };
         if (c.status === "vigente") {
           counts[c.contrato_gestao_id].vigentes++;
@@ -170,7 +166,7 @@ export default function Contratos() {
         }
       });
 
-      (pcData || []).forEach(p => {
+      (pcRes.data || []).forEach(p => {
         if (!counts[p.contrato_gestao_id]) counts[p.contrato_gestao_id] = { vigentes: 0, vencidos: 0, pendentes: 0 };
         if (p.status === "pronto_para_contratar") {
           counts[p.contrato_gestao_id].pendentes++;
