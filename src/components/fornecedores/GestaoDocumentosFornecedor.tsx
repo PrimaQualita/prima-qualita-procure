@@ -339,17 +339,36 @@ export default function GestaoDocumentosFornecedor({ fornecedorId }: Props) {
           // Arquivo antigo NÃO é deletado - permanece referenciado em documentos_antigos
           console.log(`📁 Arquivo antigo mantido no storage (referenciado em documentos_antigos)`);
         } else {
-          // Fornecedor NÃO está vinculado a processo - pode deletar do storage
+          // Fornecedor NÃO está vinculado a processo - DELETAR arquivo antigo completamente do storage
+          console.log(`🗑️ Fornecedor não vinculado a processo finalizado - deletando arquivo antigo do storage`);
           if (pathMatch) {
             const filePath = decodeURIComponent(pathMatch[1]);
+            console.log(`🗑️ Deletando path: "${filePath}"`);
             const { error: deleteError } = await supabase.storage
               .from('processo-anexos')
               .remove([filePath]);
             
             if (deleteError) {
-              console.warn(`⚠️ Erro ao deletar arquivo antigo: ${deleteError.message}`);
+              console.error(`❌ Erro ao deletar arquivo antigo do storage: ${deleteError.message}`);
             } else {
-              console.log(`🗑️ Arquivo antigo "${nomeArquivoAntigo}" deletado do storage (não vinculado a processo)`);
+              console.log(`✅ Arquivo antigo "${nomeArquivoAntigo}" deletado do storage com sucesso`);
+            }
+          } else {
+            // Tentar extrair path de outra forma para URLs com formato diferente
+            const urlClean = docAntigoData.url_arquivo.split('?')[0];
+            const altPath = urlClean.includes('/processo-anexos/') 
+              ? decodeURIComponent(urlClean.split('/processo-anexos/').pop() || '')
+              : '';
+            if (altPath) {
+              console.log(`🗑️ Tentando path alternativo: "${altPath}"`);
+              const { error: deleteError } = await supabase.storage
+                .from('processo-anexos')
+                .remove([altPath]);
+              if (deleteError) {
+                console.error(`❌ Erro ao deletar com path alternativo: ${deleteError.message}`);
+              } else {
+                console.log(`✅ Arquivo antigo deletado via path alternativo`);
+              }
             }
           }
         }
