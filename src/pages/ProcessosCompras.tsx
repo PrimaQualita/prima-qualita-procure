@@ -99,6 +99,7 @@ const ProcessosCompras = () => {
   const [dialogAnexosOpen, setDialogAnexosOpen] = useState(false);
   const [dialogRelatorioOpen, setDialogRelatorioOpen] = useState(false);
   const [processoParaAnexos, setProcessoParaAnexos] = useState<Processo | null>(null);
+  const [processosCountPorContrato, setProcessosCountPorContrato] = useState<Record<string, { abertos: number; fechados: number }>>({});
 
   // Verifica se é usuário interno com permissões completas
   // Se tem perfis como compliance, superintendente, gestor ou colaborador, tem acesso total
