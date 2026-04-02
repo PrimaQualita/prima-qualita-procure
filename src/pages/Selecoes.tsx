@@ -80,6 +80,127 @@ const Selecoes = () => {
     loadContratos();
   }, []);
 
+  useEffect(() => {
+    if (contratos.length > 0) {
+      loadSelecoesCountPorContrato();
+    }
+  }, [contratos]);
+
+  const loadSelecoesCountPorContrato = async () => {
+    try {
+      const contratosIds = contratos.map(c => c.id);
+
+      // Buscar processos que requerem seleção
+      const { data: processos } = await supabase
+        .from("processos_compras")
+        .select("id, contrato_gestao_id")
+        .eq("requer_selecao", true)
+        .in("contrato_gestao_id", contratosIds);
+
+      if (!processos || processos.length === 0) {
+        setSelecoesCountPorContrato({});
+        return;
+      }
+
+      const processosIds = processos.map(p => p.id);
+      const processoToContrato: Record<string, string> = {};
+      processos.forEach(p => { processoToContrato[p.id] = p.contrato_gestao_id; });
+
+      // Buscar todas as seleções
+      const { data: selecoes } = await supabase
+        .from("selecoes_fornecedores")
+        .select("id, processo_compra_id")
+        .in("processo_compra_id", processosIds);
+
+      if (!selecoes || selecoes.length === 0) {
+        setSelecoesCountPorContrato({});
+        return;
+      }
+
+      const selecoesIds = selecoes.map(s => s.id);
+
+      // Buscar homologações emitidas
+      const { data: homologacoes } = await supabase
+        .from("homologacoes_selecao")
+        .select("selecao_id")
+        .in("selecao_id", selecoesIds);
+
+      const selecoesHomologadas = new Set((homologacoes || []).map(h => h.selecao_id));
+
+      // Buscar atas emitidas
+      const { data: atas } = await supabase
+        .from("atas_selecao")
+        .select("selecao_id")
+        .in("selecao_id", selecoesIds);
+
+      const selecoesComAta = new Set((atas || []).map(a => a.selecao_id));
+
+      // Buscar propostas para saber se há vencedores
+      const { data: propostas } = await supabase
+        .from("propostas_selecao")
+        .select("selecao_id, itens")
+        .in("selecao_id", selecoesIds);
+
+      // Buscar inabilitações ativas
+      const { data: inabilitacoes } = await supabase
+        .from("fornecedores_inabilitados_selecao")
+        .select("selecao_id, fornecedor_id, itens_afetados")
+        .in("selecao_id", selecoesIds)
+        .eq("revertido", false);
+
+      // Verificar se seleção tem pelo menos um vencedor possível
+      const selecoesComVencedor = new Set<string>();
+      if (propostas && propostas.length > 0) {
+        const propostasPorSelecao: Record<string, any[]> = {};
+        propostas.forEach(p => {
+          if (!propostasPorSelecao[p.selecao_id]) propostasPorSelecao[p.selecao_id] = [];
+          propostasPorSelecao[p.selecao_id].push(p);
+        });
+
+        const inabPorSelecao: Record<string, any[]> = {};
+        (inabilitacoes || []).forEach(i => {
+          if (!inabPorSelecao[i.selecao_id]) inabPorSelecao[i.selecao_id] = [];
+          inabPorSelecao[i.selecao_id].push(i);
+        });
+
+        for (const [selecaoId, props] of Object.entries(propostasPorSelecao)) {
+          // Se tem propostas com itens cotados, pode ter vencedor
+          const temItens = props.some(p => {
+            if (!p.itens || !Array.isArray(p.itens)) return false;
+            return (p.itens as any[]).some((item: any) => item.valor_unitario > 0);
+          });
+          if (temItens) {
+            selecoesComVencedor.add(selecaoId);
+          }
+        }
+      }
+
+      // Calcular contagens
+      const counts: Record<string, { abertas: number; fechadas: number }> = {};
+      contratosIds.forEach(id => { counts[id] = { abertas: 0, fechadas: 0 }; });
+
+      selecoes.forEach(sel => {
+        const contratoId = processoToContrato[sel.processo_compra_id];
+        if (!contratoId || !counts[contratoId]) return;
+
+        const temHomologacao = selecoesHomologadas.has(sel.id);
+        const temAta = selecoesComAta.has(sel.id);
+        const temVencedor = selecoesComVencedor.has(sel.id);
+
+        // Fechada: tem homologação OU (não tem vencedor E tem ata)
+        if (temHomologacao || (!temVencedor && temAta)) {
+          counts[contratoId].fechadas++;
+        } else {
+          counts[contratoId].abertas++;
+        }
+      });
+
+      setSelecoesCountPorContrato(counts);
+    } catch (error) {
+      console.error("Erro ao carregar contagem de seleções:", error);
+    }
+  };
+
   // Expandir automaticamente até o processo quando vindo da URL
   useEffect(() => {
     if (processoIdParam && contratos.length > 0 && !processoSelecionado) {
