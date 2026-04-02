@@ -51,6 +51,9 @@ export default function Contratos() {
   const [globalAlerts, setGlobalAlerts] = useState({ aVencer: 0, vencidos: 0, total: 0 });
   const [alertsPorCG, setAlertsPorCG] = useState<Record<string, number>>({});
 
+  // Contagens por contrato de gestão para colunas
+  const [countsPorCG, setCountsPorCG] = useState<Record<string, { vigentes: number; vencidos: number; pendentes: number }>>({});
+
   const canEdit = context?.isContrato === true;
 
   const loadNotificationCounts = useCallback(async (contratoGestaoId: string, pcIds: string[]) => {
@@ -143,16 +146,52 @@ export default function Contratos() {
     }
   }, []);
 
+  const loadCountsPorCG = useCallback(async () => {
+    try {
+      // Contratos terceiros: vigentes vs vencidos/encerrados
+      const { data: ctData } = await supabase
+        .from("contratos_terceiros")
+        .select("contrato_gestao_id, status");
+
+      // Processos para contratar: pendentes
+      const { data: pcData } = await supabase
+        .from("processos_para_contratar")
+        .select("contrato_gestao_id, status");
+
+      const counts: Record<string, { vigentes: number; vencidos: number; pendentes: number }> = {};
+
+      (ctData || []).forEach(c => {
+        if (!counts[c.contrato_gestao_id]) counts[c.contrato_gestao_id] = { vigentes: 0, vencidos: 0, pendentes: 0 };
+        if (c.status === "vigente") {
+          counts[c.contrato_gestao_id].vigentes++;
+        } else if (c.status === "rescindido" || c.status === "encerrado") {
+          counts[c.contrato_gestao_id].vencidos++;
+        }
+      });
+
+      (pcData || []).forEach(p => {
+        if (!counts[p.contrato_gestao_id]) counts[p.contrato_gestao_id] = { vigentes: 0, vencidos: 0, pendentes: 0 };
+        if (p.status === "pendente") {
+          counts[p.contrato_gestao_id].pendentes++;
+        }
+      });
+
+      setCountsPorCG(counts);
+    } catch { /* silent */ }
+  }, []);
+
   useEffect(() => {
     loadContratos();
     loadGlobalNotificationCounts();
+    loadCountsPorCG();
 
     const interval = setInterval(() => {
       loadGlobalNotificationCounts();
+      loadCountsPorCG();
     }, 60000);
 
     return () => clearInterval(interval);
-  }, [loadGlobalNotificationCounts]);
+  }, [loadGlobalNotificationCounts, loadCountsPorCG]);
 
   useEffect(() => {
     if (contratoSelecionado) {
@@ -286,46 +325,72 @@ export default function Contratos() {
                     <TableRow>
                       <TableHead className="min-w-[150px]">Nome do Contrato</TableHead>
                       <TableHead className="min-w-[120px]">Ente Federativo</TableHead>
-                      <TableHead className="text-right min-w-[100px]">Ações</TableHead>
+                      <TableHead className="text-center min-w-[80px]">Vigentes</TableHead>
+                      <TableHead className="text-center min-w-[80px]">Vencidos / Encerrados</TableHead>
+                      <TableHead className="text-center min-w-[80px]">Pendentes</TableHead>
+                      <TableHead className="text-right min-w-[80px]">Ações</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {contratosFiltrados.length === 0 ? (
                       <TableRow>
-                        <TableCell colSpan={3} className="text-center text-muted-foreground text-xs sm:text-sm">
+                        <TableCell colSpan={6} className="text-center text-muted-foreground text-xs sm:text-sm">
                           Nenhum contrato de gestão encontrado
                         </TableCell>
                       </TableRow>
                     ) : (
-                      contratosFiltrados.map((contrato, index) => (
-                        <TableRow 
-                          key={contrato.id}
-                          className={index % 2 === 0 ? "bg-green-100 dark:bg-green-900/40" : "bg-blue-100 dark:bg-blue-900/40"}
-                        >
-                          <TableCell className="font-medium text-xs sm:text-sm">
-                            <span className="flex items-center gap-2">
-                              {contrato.nome_contrato}
-                              {(alertsPorCG[contrato.id] || 0) > 0 && (
-                                <Badge variant="destructive" className="h-5 px-1.5 text-xs">
-                                  {alertsPorCG[contrato.id]}
-                                </Badge>
-                              )}
-                            </span>
-                          </TableCell>
-                          <TableCell className="text-xs sm:text-sm">{contrato.ente_federativo}</TableCell>
-                          <TableCell className="text-right">
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => setContratoSelecionado(contrato)}
-                              className="text-xs"
-                            >
-                              <ChevronRight className="h-3 w-3 sm:h-4 sm:w-4 sm:mr-2" />
-                              <span className="hidden sm:inline">Abrir</span>
-                            </Button>
-                          </TableCell>
-                        </TableRow>
-                      ))
+                      contratosFiltrados.map((contrato, index) => {
+                        const counts = countsPorCG[contrato.id] || { vigentes: 0, vencidos: 0, pendentes: 0 };
+                        return (
+                          <TableRow 
+                            key={contrato.id}
+                            className={index % 2 === 0 ? "bg-green-100 dark:bg-green-900/40" : "bg-blue-100 dark:bg-blue-900/40"}
+                          >
+                            <TableCell className="font-medium text-xs sm:text-sm">
+                              <span className="flex items-center gap-2">
+                                {contrato.nome_contrato}
+                                {(alertsPorCG[contrato.id] || 0) > 0 && (
+                                  <Badge variant="destructive" className="h-5 px-1.5 text-xs">
+                                    {alertsPorCG[contrato.id]}
+                                  </Badge>
+                                )}
+                                {counts.pendentes > 0 && (
+                                  <Badge className="h-5 px-1.5 text-xs bg-amber-500 hover:bg-amber-600 text-white border-0">
+                                    {counts.pendentes} pendente{counts.pendentes > 1 ? "s" : ""}
+                                  </Badge>
+                                )}
+                              </span>
+                            </TableCell>
+                            <TableCell className="text-xs sm:text-sm">{contrato.ente_federativo}</TableCell>
+                            <TableCell className="text-center">
+                              <Badge className="bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-300 border-0 text-xs">
+                                {counts.vigentes}
+                              </Badge>
+                            </TableCell>
+                            <TableCell className="text-center">
+                              <Badge className="bg-red-100 text-red-800 dark:bg-red-900/40 dark:text-red-300 border-0 text-xs">
+                                {counts.vencidos}
+                              </Badge>
+                            </TableCell>
+                            <TableCell className="text-center">
+                              <Badge className="bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300 border-0 text-xs">
+                                {counts.pendentes}
+                              </Badge>
+                            </TableCell>
+                            <TableCell className="text-right">
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => setContratoSelecionado(contrato)}
+                                className="text-xs h-7 px-2"
+                              >
+                                <ChevronRight className="h-3 w-3 sm:h-4 sm:w-4 sm:mr-1" />
+                                <span className="hidden sm:inline">Abrir</span>
+                              </Button>
+                            </TableCell>
+                          </TableRow>
+                        );
+                      })
                     )}
                   </TableBody>
                 </Table>
