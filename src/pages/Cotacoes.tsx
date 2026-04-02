@@ -503,7 +503,7 @@ const Cotacoes = () => {
     
     const { data, error } = await supabase
       .from("contratos_gestao")
-      .select("*")
+      .select("id, nome_contrato, ente_federativo, status, cor_fundo")
       .order("nome_contrato", { ascending: true });
 
     if (error) {
@@ -567,6 +567,7 @@ const Cotacoes = () => {
         }
       });
       
+      cachedCotacoesCount = counts;
       setCotacoesCountPorContrato(counts);
     } catch (err) {
       console.error("Erro ao carregar contagem de cotações:", err);
