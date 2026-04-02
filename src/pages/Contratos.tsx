@@ -51,6 +51,9 @@ export default function Contratos() {
   const [globalAlerts, setGlobalAlerts] = useState({ aVencer: 0, vencidos: 0, total: 0 });
   const [alertsPorCG, setAlertsPorCG] = useState<Record<string, number>>({});
 
+  // Contagens por contrato de gestão para colunas
+  const [countsPorCG, setCountsPorCG] = useState<Record<string, { vigentes: number; vencidos: number; pendentes: number }>>({});
+
   const canEdit = context?.isContrato === true;
 
   const loadNotificationCounts = useCallback(async (contratoGestaoId: string, pcIds: string[]) => {
@@ -143,16 +146,52 @@ export default function Contratos() {
     }
   }, []);
 
+  const loadCountsPorCG = useCallback(async () => {
+    try {
+      // Contratos terceiros: vigentes vs vencidos/encerrados
+      const { data: ctData } = await supabase
+        .from("contratos_terceiros")
+        .select("contrato_gestao_id, status");
+
+      // Processos para contratar: pendentes
+      const { data: pcData } = await supabase
+        .from("processos_para_contratar")
+        .select("contrato_gestao_id, status");
+
+      const counts: Record<string, { vigentes: number; vencidos: number; pendentes: number }> = {};
+
+      (ctData || []).forEach(c => {
+        if (!counts[c.contrato_gestao_id]) counts[c.contrato_gestao_id] = { vigentes: 0, vencidos: 0, pendentes: 0 };
+        if (c.status === "vigente") {
+          counts[c.contrato_gestao_id].vigentes++;
+        } else if (c.status === "rescindido" || c.status === "encerrado") {
+          counts[c.contrato_gestao_id].vencidos++;
+        }
+      });
+
+      (pcData || []).forEach(p => {
+        if (!counts[p.contrato_gestao_id]) counts[p.contrato_gestao_id] = { vigentes: 0, vencidos: 0, pendentes: 0 };
+        if (p.status === "pendente") {
+          counts[p.contrato_gestao_id].pendentes++;
+        }
+      });
+
+      setCountsPorCG(counts);
+    } catch { /* silent */ }
+  }, []);
+
   useEffect(() => {
     loadContratos();
     loadGlobalNotificationCounts();
+    loadCountsPorCG();
 
     const interval = setInterval(() => {
       loadGlobalNotificationCounts();
+      loadCountsPorCG();
     }, 60000);
 
     return () => clearInterval(interval);
-  }, [loadGlobalNotificationCounts]);
+  }, [loadGlobalNotificationCounts, loadCountsPorCG]);
 
   useEffect(() => {
     if (contratoSelecionado) {
