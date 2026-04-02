@@ -410,7 +410,7 @@ export function DialogRecursos({ open, onOpenChange, processos }: DialogRecursos
                   
                   if (cleanPath) {
                     const { abrirDocumentoStorage } = await import('@/lib/abrirDocumentoStorage');
-                    await abrirDocumentoStorage(cleanPath, doc.fileName || 'Documento');
+                    await abrirDocumentoStorage(cleanPath, rec.fileName || 'Documento');
                   }
                 } catch (error) {
                   console.error('Erro ao gerar URL:', error);

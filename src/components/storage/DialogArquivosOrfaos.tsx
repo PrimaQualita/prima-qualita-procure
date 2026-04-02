@@ -183,7 +183,7 @@ export function DialogArquivosOrfaos({ open, onOpenChange, arquivos, onArquivosD
                 
                 if (cleanPath) {
                   const { abrirDocumentoStorage } = await import('@/lib/abrirDocumentoStorage');
-                  await abrirDocumentoStorage(cleanPath, file.name || 'Documento');
+                  await abrirDocumentoStorage(cleanPath, path.split('/').pop() || 'Documento');
                 }
               } catch (error) {
                 console.error('Erro ao gerar URL:', error);
