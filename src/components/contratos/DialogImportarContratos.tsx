@@ -22,6 +22,7 @@ interface Props {
 interface LinhaContrato {
   codigo_interno: string;
   fornecedor_nome: string;
+  fornecedor_nome_vinculado: string | null;
   objeto: string;
   data_assinatura: string;
   status: string;
@@ -30,7 +31,6 @@ interface LinhaContrato {
   valor_inicial: number;
   valor_atual: number;
   nome_arquivo: string;
-  // Match info
   fornecedor_id: string | null;
   arquivo_match: File | null;
   erro: string | null;
@@ -52,15 +52,12 @@ function parseDate(val: any): string {
     return `${y}-${m}-${d}`;
   }
   if (typeof val === "number") {
-    // Excel serial date
     const date = XLSX.SSF.parse_date_code(val);
     if (date) return `${date.y}-${String(date.m).padStart(2, "0")}-${String(date.d).padStart(2, "0")}`;
   }
   const str = String(val).trim();
-  // dd/mm/yyyy
   const parts = str.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
   if (parts) return `${parts[3]}-${parts[2]}-${parts[1]}`;
-  // yyyy-mm-dd
   if (/^\d{4}-\d{2}-\d{2}$/.test(str)) return str;
   return "";
 }
@@ -69,7 +66,6 @@ function parseNumber(val: any): number {
   if (!val) return 0;
   if (typeof val === "number") return val;
   const str = String(val).trim();
-  // R$ 1.234,56 format
   const cleaned = str.replace(/[R$\s]/g, "").replace(/\./g, "").replace(",", ".");
   return parseFloat(cleaned) || 0;
 }
@@ -84,7 +80,98 @@ function normalizeStatus(val: any): string {
 }
 
 function normalizeForMatch(name: string): string {
-  return name.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]/g, "");
+  return name.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9\s]/g, "").trim();
+}
+
+// Palavras comuns que devem ser ignoradas no matching por palavras-chave
+const STOP_WORDS = new Set([
+  "ltda", "eireli", "ltda.", "sa", "s.a", "s.a.", "me", "epp", "ss",
+  "de", "do", "da", "dos", "das", "e", "em", "para", "com", "por",
+  "servicos", "comercio", "industria", "empresa", "grupo", "cia",
+]);
+
+function matchFornecedor(
+  fornecedorNome: string,
+  fornecedoresDB: { id: string; razao_social: string; nome_fantasia: string | null; cnpj: string }[]
+): { id: string; nome: string } | null {
+  if (!fornecedorNome || !fornecedoresDB?.length) return null;
+
+  const normalizedInput = normalizeForMatch(fornecedorNome);
+  if (!normalizedInput) return null;
+
+  // 1. Match exato normalizado por razão social
+  for (const f of fornecedoresDB) {
+    if (normalizeForMatch(f.razao_social) === normalizedInput) {
+      return { id: f.id, nome: f.razao_social };
+    }
+  }
+
+  // 2. Match exato por nome fantasia
+  for (const f of fornecedoresDB) {
+    if (f.nome_fantasia && normalizeForMatch(f.nome_fantasia) === normalizedInput) {
+      return { id: f.id, nome: f.nome_fantasia };
+    }
+  }
+
+  // 3. Match por CNPJ (se o input parecer um CNPJ)
+  const inputDigits = fornecedorNome.replace(/\D/g, "");
+  if (inputDigits.length >= 11) {
+    for (const f of fornecedoresDB) {
+      if (f.cnpj && f.cnpj.replace(/\D/g, "") === inputDigits) {
+        return { id: f.id, nome: f.razao_social };
+      }
+    }
+  }
+
+  // 4. Match por palavras-chave significativas (mais restritivo)
+  // Exige que TODAS as palavras significativas do input (4+ chars, não stop words)
+  // estejam presentes na razão social
+  const inputWords = normalizedInput
+    .split(/\s+/)
+    .filter(w => w.length >= 4 && !STOP_WORDS.has(w));
+
+  if (inputWords.length >= 1) {
+    let bestMatch: { id: string; nome: string; score: number } | null = null;
+
+    for (const f of fornecedoresDB) {
+      const rsNorm = normalizeForMatch(f.razao_social);
+      const rsWords = rsNorm.split(/\s+/);
+
+      // Contar quantas palavras do input estão na razão social
+      const matchedWords = inputWords.filter(iw =>
+        rsWords.some(rw => rw === iw || (rw.length >= 6 && iw.length >= 6 && (rw.startsWith(iw) || iw.startsWith(rw))))
+      );
+
+      // Exigir pelo menos 70% das palavras significativas
+      const matchRatio = matchedWords.length / inputWords.length;
+      if (matchRatio >= 0.7 && matchedWords.length >= 1) {
+        const score = matchedWords.length * 10 + matchRatio * 5;
+        if (!bestMatch || score > bestMatch.score) {
+          bestMatch = { id: f.id, nome: f.razao_social, score };
+        }
+      }
+
+      // Tentar também com nome fantasia
+      if (f.nome_fantasia) {
+        const nfNorm = normalizeForMatch(f.nome_fantasia);
+        const nfWords = nfNorm.split(/\s+/);
+        const matchedNF = inputWords.filter(iw =>
+          nfWords.some(rw => rw === iw || (rw.length >= 6 && iw.length >= 6 && (rw.startsWith(iw) || iw.startsWith(rw))))
+        );
+        const matchRatioNF = matchedNF.length / inputWords.length;
+        if (matchRatioNF >= 0.7 && matchedNF.length >= 1) {
+          const score = matchedNF.length * 10 + matchRatioNF * 5;
+          if (!bestMatch || score > bestMatch.score) {
+            bestMatch = { id: f.id, nome: f.nome_fantasia!, score };
+          }
+        }
+      }
+    }
+
+    if (bestMatch) return { id: bestMatch.id, nome: bestMatch.nome };
+  }
+
+  return null;
 }
 
 export function DialogImportarContratos({ open, onOpenChange, contratoGestaoId, contratoGestaoNome, onImportado }: Props) {
@@ -112,67 +199,38 @@ export function DialogImportarContratos({ open, onOpenChange, contratoGestaoId, 
       const buffer = await file.arrayBuffer();
       const wb = XLSX.read(buffer, { cellDates: true });
       const ws = wb.Sheets[wb.SheetNames[0]];
-      const rows = XLSX.utils.sheet_to_json(ws, { header: 1 }) as any[][];
+      const rows = XLSX.utils.sheet_to_json(ws, { header: 1, raw: false, defval: "" }) as any[][];
 
       if (rows.length < 2) {
         toast.error("Planilha vazia ou sem dados");
         return;
       }
 
-      // Skip header row
       const dataRows = rows.slice(1).filter(r => r.some(c => c != null && c !== ""));
 
-      // Load all fornecedores for matching (incluindo inativos para contratos legados)
+      // Ler também com raw: true para valores numéricos/datas originais
+      const rawRows = (XLSX.utils.sheet_to_json(ws, { header: 1, raw: true, defval: "" }) as any[][]).slice(1);
+
       const { data: fornecedoresDB } = await supabase
         .from("fornecedores")
         .select("id, razao_social, nome_fantasia, cnpj");
 
-      const parsed: LinhaContrato[] = dataRows.map(row => {
+      const parsed: LinhaContrato[] = dataRows.map((row, idx) => {
+        const rawRow = rawRows[idx] || row;
         const codigo = String(row[0] || "").trim();
+        // Usar o valor de texto da planilha diretamente (não raw)
         const fornecedorNome = String(row[1] || "").trim();
         const objeto = String(row[2] || "").trim();
-        const dataAssinatura = parseDate(row[3]);
+        const dataAssinatura = parseDate(rawRow[3]);
         const status = normalizeStatus(row[4]);
-        const inicioVigencia = parseDate(row[5]);
-        const fimVigencia = parseDate(row[6]);
-        const valorInicial = parseNumber(row[7]);
-        const valorAtual = parseNumber(row[8]);
+        const inicioVigencia = parseDate(rawRow[5]);
+        const fimVigencia = parseDate(rawRow[6]);
+        const valorInicial = parseNumber(rawRow[7]);
+        const valorAtual = parseNumber(rawRow[8]);
         const nomeArquivo = String(row[9] || "").trim();
 
-        // Match fornecedor - múltiplas estratégias
-        let fornecedorId: string | null = null;
-        if (fornecedorNome && fornecedoresDB) {
-          const normalizedInput = normalizeForMatch(fornecedorNome);
-          // 1. Match exato normalizado
-          let match = fornecedoresDB.find(f => normalizeForMatch(f.razao_social) === normalizedInput);
-          // 2. Match por nome fantasia exato
-          if (!match) match = fornecedoresDB.find(f => f.nome_fantasia && normalizeForMatch(f.nome_fantasia) === normalizedInput);
-          // 3. Match parcial - razão social contém input ou vice-versa
-          if (!match) match = fornecedoresDB.find(f => {
-            const nRS = normalizeForMatch(f.razao_social);
-            return nRS.includes(normalizedInput) || normalizedInput.includes(nRS);
-          });
-          // 4. Match parcial - nome fantasia
-          if (!match) match = fornecedoresDB.find(f => {
-            if (!f.nome_fantasia) return false;
-            const nNF = normalizeForMatch(f.nome_fantasia);
-            return nNF.includes(normalizedInput) || normalizedInput.includes(nNF);
-          });
-          // 5. Match por CNPJ
-          if (!match) match = fornecedoresDB.find(f => f.cnpj && f.cnpj.replace(/\D/g, "") === fornecedorNome.replace(/\D/g, ""));
-          // 6. Match por palavras-chave (pelo menos 2 palavras em comum com 4+ chars)
-          if (!match) {
-            const inputWords = fornecedorNome.toLowerCase().split(/\s+/).filter(w => w.length >= 4);
-            if (inputWords.length >= 2) {
-              match = fornecedoresDB.find(f => {
-                const rsWords = f.razao_social.toLowerCase().split(/\s+/);
-                const commonWords = inputWords.filter(w => rsWords.some(rw => rw.includes(w) || w.includes(rw)));
-                return commonWords.length >= 2;
-              });
-            }
-          }
-          if (match) fornecedorId = match.id;
-        }
+        // Match fornecedor com lógica mais precisa
+        const matchResult = matchFornecedor(fornecedorNome, fornecedoresDB || []);
 
         let erro: string | null = null;
         if (!codigo) erro = "Código obrigatório";
@@ -181,6 +239,7 @@ export function DialogImportarContratos({ open, onOpenChange, contratoGestaoId, 
         return {
           codigo_interno: codigo,
           fornecedor_nome: fornecedorNome,
+          fornecedor_nome_vinculado: matchResult?.nome || null,
           objeto,
           data_assinatura: dataAssinatura,
           status,
@@ -189,7 +248,7 @@ export function DialogImportarContratos({ open, onOpenChange, contratoGestaoId, 
           valor_inicial: valorInicial,
           valor_atual: valorAtual,
           nome_arquivo: nomeArquivo,
-          fornecedor_id: fornecedorId,
+          fornecedor_id: matchResult?.id || null,
           arquivo_match: null,
           erro,
         };
@@ -206,14 +265,13 @@ export function DialogImportarContratos({ open, onOpenChange, contratoGestaoId, 
     const files = Array.from(e.target.files || []);
     setArquivos(files);
 
-    // Match files to contracts by name
     setLinhas(prev => prev.map(linha => {
       if (!linha.nome_arquivo) return { ...linha, arquivo_match: null };
-      const normalizedLinha = normalizeForMatch(linha.nome_arquivo);
-      const normalizedCodigo = normalizeForMatch(linha.codigo_interno);
+      const normalizedLinha = normalizeForMatch(linha.nome_arquivo).replace(/\s/g, "");
+      const normalizedCodigo = normalizeForMatch(linha.codigo_interno).replace(/\s/g, "");
       const match = files.find(f => {
-        const normalizedFile = normalizeForMatch(f.name.replace(/\.[^.]+$/, ""));
-        return normalizedFile === normalizedLinha || 
+        const normalizedFile = normalizeForMatch(f.name.replace(/\.[^.]+$/, "")).replace(/\s/g, "");
+        return normalizedFile === normalizedLinha ||
                normalizedFile === normalizedCodigo ||
                normalizedFile.includes(normalizedLinha) ||
                normalizedLinha.includes(normalizedFile) ||
@@ -249,7 +307,6 @@ export function DialogImportarContratos({ open, onOpenChange, contratoGestaoId, 
         let urlArquivo: string | null = null;
         let storagePath: string | null = null;
 
-        // Upload arquivo se tiver match
         if (linha.arquivo_match) {
           const safeName = sanitizeFileName(linha.arquivo_match.name);
           const path = `contratos/${contratoGestaoId}/${linha.codigo_interno}/${Date.now()}_${safeName}`;
@@ -346,7 +403,6 @@ export function DialogImportarContratos({ open, onOpenChange, contratoGestaoId, 
 
         {step === "upload" && (
           <div className="space-y-6 py-4">
-            {/* Step 1: Planilha */}
             <div className="space-y-3">
               <div className="flex items-center justify-between">
                 <Label className="text-sm font-semibold">1. Selecione a planilha Excel</Label>
@@ -371,7 +427,6 @@ export function DialogImportarContratos({ open, onOpenChange, contratoGestaoId, 
 
         {step === "preview" && (
           <div className="space-y-4">
-            {/* Resumo */}
             <div className="flex flex-wrap gap-3">
               <Badge variant="outline" className="text-xs">
                 {linhas.length} linhas lidas
@@ -395,7 +450,6 @@ export function DialogImportarContratos({ open, onOpenChange, contratoGestaoId, 
               </Badge>
             </div>
 
-            {/* Upload PDFs */}
             <div className="space-y-2 p-3 border rounded-lg bg-muted/30">
               <Label className="text-sm font-semibold">2. Selecione os arquivos PDF dos contratos (opcional)</Label>
               <p className="text-xs text-muted-foreground">
@@ -414,18 +468,17 @@ export function DialogImportarContratos({ open, onOpenChange, contratoGestaoId, 
               )}
             </div>
 
-            {/* Preview table */}
             <div className="overflow-x-auto max-h-[350px] overflow-y-auto border rounded">
               <Table>
                 <TableHeader>
                   <TableRow>
                     <TableHead className="text-xs">Nº Contrato</TableHead>
-                    <TableHead className="text-xs">Fornecedor</TableHead>
+                    <TableHead className="text-xs">Fornecedor (Planilha)</TableHead>
+                    <TableHead className="text-xs">Fornecedor (Vinculado)</TableHead>
                     <TableHead className="text-xs">Objeto</TableHead>
                     <TableHead className="text-xs">Status</TableHead>
                     <TableHead className="text-xs">Vigência</TableHead>
                     <TableHead className="text-xs">Valor Atual</TableHead>
-                    <TableHead className="text-xs">Vínculo Forn.</TableHead>
                     <TableHead className="text-xs">Arquivo</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -433,8 +486,23 @@ export function DialogImportarContratos({ open, onOpenChange, contratoGestaoId, 
                   {linhas.map((linha, idx) => (
                     <TableRow key={idx} className={linha.erro ? "bg-red-50" : ""}>
                       <TableCell className="text-xs font-medium">{linha.codigo_interno}</TableCell>
-                      <TableCell className="text-xs max-w-[150px] truncate">{linha.fornecedor_nome || "—"}</TableCell>
-                      <TableCell className="text-xs max-w-[180px] truncate">{linha.objeto}</TableCell>
+                      <TableCell className="text-xs max-w-[150px]">
+                        <span className="block truncate" title={linha.fornecedor_nome}>
+                          {linha.fornecedor_nome || "—"}
+                        </span>
+                      </TableCell>
+                      <TableCell className="text-xs max-w-[150px]">
+                        {linha.fornecedor_id ? (
+                          <span className="block truncate text-green-700 font-medium" title={linha.fornecedor_nome_vinculado || ""}>
+                            ✅ {linha.fornecedor_nome_vinculado}
+                          </span>
+                        ) : (
+                          <span className="text-amber-600 text-[10px]">
+                            ⚠ Não encontrado
+                          </span>
+                        )}
+                      </TableCell>
+                      <TableCell className="text-xs max-w-[180px] whitespace-normal text-justify">{linha.objeto}</TableCell>
                       <TableCell className="text-xs">
                         <Badge variant="outline" className="text-[10px]">{linha.status}</Badge>
                       </TableCell>
@@ -445,11 +513,6 @@ export function DialogImportarContratos({ open, onOpenChange, contratoGestaoId, 
                       </TableCell>
                       <TableCell className="text-xs">
                         {linha.valor_atual > 0 ? `R$ ${linha.valor_atual.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}` : "—"}
-                      </TableCell>
-                      <TableCell className="text-xs">
-                        {linha.fornecedor_id
-                          ? <Check className="h-3 w-3 text-green-600" />
-                          : <span className="inline-flex" title="Fornecedor não encontrado no cadastro"><AlertTriangle className="h-3 w-3 text-amber-500" /></span>}
                       </TableCell>
                       <TableCell className="text-xs">
                         {linha.arquivo_match
