@@ -385,15 +385,21 @@ export function DialogImportarContratos({ open, onOpenChange, contratoGestaoId, 
       detalhes: {
         tipo: 'Importação em Lote',
         contrato_gestao: contratoGestaoNome,
-        total_importados: importados,
+        total_novos: importados,
+        total_atualizados: atualizados,
         total_erros: erros,
       },
     });
 
+    const partes: string[] = [];
+    if (importados > 0) partes.push(`${importados} novos`);
+    if (atualizados > 0) partes.push(`${atualizados} atualizados`);
+    if (erros > 0) partes.push(`${erros} com erro`);
+
     if (erros === 0) {
-      toast.success(`${importados} contratos importados com sucesso!`);
+      toast.success(`Contratos processados: ${partes.join(", ")}`);
     } else {
-      toast.warning(`${importados} importados, ${erros} com erro`);
+      toast.warning(`Contratos processados: ${partes.join(", ")}`);
     }
 
     onImportado();
