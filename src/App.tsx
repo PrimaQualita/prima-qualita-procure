@@ -132,6 +132,7 @@ const App = () => {
                 <Route path="/verificar-encaminhamento" element={<VerificarEncaminhamento />} />
                 <Route path="/verificar-analise-compliance" element={<VerificarAnaliseCompliance />} />
                 <Route path="/verificar-ata" element={<VerificarAta />} />
+                <Route path="/d/:codigo" element={<RedirecionarDocumento />} />
 
                 <Route element={<DashboardLayout />}>
                   <Route path="/dashboard" element={<Dashboard />} />
