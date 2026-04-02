@@ -601,7 +601,7 @@ export function DialogImportarContratos({ open, onOpenChange, contratoGestaoId, 
             </Button>
             <Button onClick={handleImportar} disabled={totalValidas === 0}>
               <Upload className="h-4 w-4 mr-1" />
-              Importar {totalValidas} Contratos
+              Processar {totalValidas} Contratos {totalExistentes > 0 ? `(${totalNovos} novos, ${totalExistentes} atualizações)` : ""}
             </Button>
           </DialogFooter>
         )}
