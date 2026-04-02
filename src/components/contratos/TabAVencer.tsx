@@ -110,7 +110,7 @@ export function TabAVencer({ contratoGestaoId, processoCompraIds, canEdit }: Pro
               const dias = getDiasRestantes(c.fim_vigencia_atual);
               return (
                 <li key={c.id} className="text-xs text-red-700">
-                  <strong>{c.codigo_interno}</strong> — {c.fornecedores?.razao_social || "Sem fornecedor"} — vence em <strong>{dias} dia{dias !== 1 ? "s" : ""}</strong> ({format(new Date(c.fim_vigencia_atual + "T12:00:00"), "dd/MM/yyyy")})
+                  <strong>{c.codigo_interno}</strong> — {c.fornecedores?.razao_social || c.fornecedor_nome_manual || "Sem fornecedor"} — vence em <strong>{dias} dia{dias !== 1 ? "s" : ""}</strong> ({format(new Date(c.fim_vigencia_atual + "T12:00:00"), "dd/MM/yyyy")})
                 </li>
               );
             })}
@@ -136,7 +136,7 @@ export function TabAVencer({ contratoGestaoId, processoCompraIds, canEdit }: Pro
               return (
                 <TableRow key={c.id}>
                   <TableCell className="font-medium text-xs sm:text-sm">{c.codigo_interno}</TableCell>
-                  <TableCell className="text-xs sm:text-sm">{c.fornecedores?.razao_social || "—"}</TableCell>
+                  <TableCell className="text-xs sm:text-sm">{c.fornecedores?.razao_social || c.fornecedor_nome_manual || "—"}</TableCell>
                   <TableCell className="text-xs sm:text-sm max-w-[200px] truncate">{c.objeto}</TableCell>
                   <TableCell className="text-xs sm:text-sm">
                     {format(new Date(c.fim_vigencia_atual + "T12:00:00"), "dd/MM/yyyy")}

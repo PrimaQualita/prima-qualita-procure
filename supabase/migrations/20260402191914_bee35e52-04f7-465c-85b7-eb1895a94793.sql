@@ -1,0 +1,1 @@
+ALTER TABLE public.contratos_terceiros ADD COLUMN IF NOT EXISTS fornecedor_nome_manual TEXT;

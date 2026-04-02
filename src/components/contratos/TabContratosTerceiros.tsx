@@ -48,6 +48,7 @@ interface ContratoTerceiro {
   codigo_interno: string;
   objeto: string;
   fornecedor_id: string | null;
+  fornecedor_nome_manual: string | null;
   data_assinatura: string | null;
   inicio_vigencia: string | null;
   fim_vigencia_atual: string | null;
@@ -157,7 +158,7 @@ export function TabContratosTerceiros({ contratoGestaoId, contratoGestaoNome, pr
       let query = supabase
         .from("contratos_terceiros")
         .select("*, fornecedores(razao_social, cnpj)")
-        .eq("contrato_gestao_id", contratoGestaoId);
+        .eq("contrato_gestao_id", contratoGestaoId) as any;
 
       // Filter by processoCompraIds (array) or single processoCompraId
       // Only filter if IDs are provided - otherwise show ALL contracts (including legacy ones without process)
@@ -455,7 +456,7 @@ export function TabContratosTerceiros({ contratoGestaoId, contratoGestaoNome, pr
   const contratosFiltrados = contratosAtivos.filter((c) =>
     c.codigo_interno.toLowerCase().includes(filtro.toLowerCase()) ||
     c.objeto.toLowerCase().includes(filtro.toLowerCase()) ||
-    (c.fornecedores?.razao_social || "").toLowerCase().includes(filtro.toLowerCase())
+    (c.fornecedores?.razao_social || c.fornecedor_nome_manual || "").toLowerCase().includes(filtro.toLowerCase())
   );
 
   if (loading) {
@@ -509,7 +510,7 @@ export function TabContratosTerceiros({ contratoGestaoId, contratoGestaoNome, pr
                   <TableCell className="font-medium text-xs sm:text-sm">{contrato.codigo_interno}</TableCell>
                   <TableCell className="text-xs sm:text-sm max-w-[250px] whitespace-normal text-justify">{contrato.objeto}</TableCell>
                   <TableCell className="text-xs sm:text-sm">
-                    {contrato.fornecedores?.razao_social || "—"}
+                    {contrato.fornecedores?.razao_social || contrato.fornecedor_nome_manual || "—"}
                   </TableCell>
                   <TableCell className="text-xs sm:text-sm">
                     {contrato.inicio_vigencia && contrato.fim_vigencia_atual

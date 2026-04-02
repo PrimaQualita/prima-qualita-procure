@@ -113,7 +113,7 @@ export function TabVencidos({ contratoGestaoId, contratoGestaoNome, processoComp
           tipo: `Marcação: ${labelAcao}`,
           codigo_interno: contratoParaCiente.codigo_interno,
           contrato_gestao: contratoGestaoNome,
-          fornecedor: contratoParaCiente.fornecedores?.razao_social || "N/A",
+          fornecedor: contratoParaCiente.fornecedores?.razao_social || contratoParaCiente.fornecedor_nome_manual || "N/A",
         },
       });
 
@@ -183,7 +183,7 @@ export function TabVencidos({ contratoGestaoId, contratoGestaoNome, processoComp
                   return (
                     <TableRow key={c.id} className="bg-red-50/50">
                       <TableCell className="font-medium text-xs sm:text-sm">{c.codigo_interno}</TableCell>
-                      <TableCell className="text-xs sm:text-sm">{c.fornecedores?.razao_social || "—"}</TableCell>
+                      <TableCell className="text-xs sm:text-sm">{c.fornecedores?.razao_social || c.fornecedor_nome_manual || "—"}</TableCell>
                       <TableCell className="text-xs sm:text-sm max-w-[200px] truncate">{c.objeto}</TableCell>
                       <TableCell className="text-xs sm:text-sm">
                         {format(new Date(c.fim_vigencia_atual + "T12:00:00"), "dd/MM/yyyy")}
@@ -281,7 +281,7 @@ export function TabVencidos({ contratoGestaoId, contratoGestaoNome, processoComp
                   return (
                     <TableRow key={c.id} className="opacity-60">
                       <TableCell className="font-medium text-xs sm:text-sm">{c.codigo_interno}</TableCell>
-                      <TableCell className="text-xs sm:text-sm">{c.fornecedores?.razao_social || "—"}</TableCell>
+                      <TableCell className="text-xs sm:text-sm">{c.fornecedores?.razao_social || c.fornecedor_nome_manual || "—"}</TableCell>
                       <TableCell className="text-xs sm:text-sm max-w-[200px] truncate">{c.objeto}</TableCell>
                       <TableCell className="text-xs sm:text-sm">
                         {format(new Date(c.fim_vigencia_atual + "T12:00:00"), "dd/MM/yyyy")}
@@ -312,10 +312,10 @@ export function TabVencidos({ contratoGestaoId, contratoGestaoNome, processoComp
         }
         description={
           acaoCiente === "encerrado"
-            ? `Tem certeza que deseja marcar o contrato "${contratoParaCiente?.codigo_interno}" (${contratoParaCiente?.fornecedores?.razao_social || "sem fornecedor"}) como encerrado? O status será alterado e a notificação será removida.`
+            ? `Tem certeza que deseja marcar o contrato "${contratoParaCiente?.codigo_interno}" (${contratoParaCiente?.fornecedores?.razao_social || contratoParaCiente?.fornecedor_nome_manual || "sem fornecedor"}) como encerrado? O status será alterado e a notificação será removida.`
             : acaoCiente === "rescindido"
-            ? `Tem certeza que deseja rescindir o contrato "${contratoParaCiente?.codigo_interno}" (${contratoParaCiente?.fornecedores?.razao_social || "sem fornecedor"})? O status será alterado para rescindido e a notificação será removida.`
-            : `Tem certeza que deseja marcar o contrato "${contratoParaCiente?.codigo_interno}" (${contratoParaCiente?.fornecedores?.razao_social || "sem fornecedor"}) como ciente e que não será renovado? A notificação será desconsiderada.`
+            ? `Tem certeza que deseja rescindir o contrato "${contratoParaCiente?.codigo_interno}" (${contratoParaCiente?.fornecedores?.razao_social || contratoParaCiente?.fornecedor_nome_manual || "sem fornecedor"})? O status será alterado para rescindido e a notificação será removida.`
+            : `Tem certeza que deseja marcar o contrato "${contratoParaCiente?.codigo_interno}" (${contratoParaCiente?.fornecedores?.razao_social || contratoParaCiente?.fornecedor_nome_manual || "sem fornecedor"}) como ciente e que não será renovado? A notificação será desconsiderada.`
         }
         confirmText="Confirmar"
         cancelText="Cancelar"

@@ -713,6 +713,7 @@ export type Database = {
           data_ciente: string | null
           fim_vigencia_atual: string | null
           fornecedor_id: string | null
+          fornecedor_nome_manual: string | null
           id: string
           inicio_vigencia: string | null
           motivo_ciente: string | null
@@ -737,6 +738,7 @@ export type Database = {
           data_ciente?: string | null
           fim_vigencia_atual?: string | null
           fornecedor_id?: string | null
+          fornecedor_nome_manual?: string | null
           id?: string
           inicio_vigencia?: string | null
           motivo_ciente?: string | null
@@ -761,6 +763,7 @@ export type Database = {
           data_ciente?: string | null
           fim_vigencia_atual?: string | null
           fornecedor_id?: string | null
+          fornecedor_nome_manual?: string | null
           id?: string
           inicio_vigencia?: string | null
           motivo_ciente?: string | null
