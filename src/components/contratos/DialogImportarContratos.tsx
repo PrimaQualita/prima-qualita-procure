@@ -34,6 +34,7 @@ interface LinhaContrato {
   fornecedor_id: string | null;
   arquivo_match: File | null;
   erro: string | null;
+  contrato_existente_id: string | null;
 }
 
 const statusMap: Record<string, string> = {
@@ -215,10 +216,22 @@ export function DialogImportarContratos({ open, onOpenChange, contratoGestaoId, 
         .from("fornecedores")
         .select("id, razao_social, nome_fantasia, cnpj");
 
+      // Buscar contratos já existentes neste contrato de gestão
+      const { data: contratosExistentes } = await supabase
+        .from("contratos_terceiros")
+        .select("id, codigo_interno")
+        .eq("contrato_gestao_id", contratoGestaoId);
+
+      const existentesMap = new Map<string, string>();
+      (contratosExistentes || []).forEach(c => {
+        existentesMap.set(c.codigo_interno.trim().toLowerCase(), c.id);
+      });
+
+      const codigoFormatoRegex = /^\d{3}-\d{2}$/;
+
       const parsed: LinhaContrato[] = dataRows.map((row, idx) => {
         const rawRow = rawRows[idx] || row;
         const codigo = String(row[0] || "").trim();
-        // Usar o valor de texto da planilha diretamente (não raw)
         const fornecedorNome = String(row[1] || "").trim();
         const objeto = String(row[2] || "").trim();
         const dataAssinatura = parseDate(rawRow[3]);
@@ -229,12 +242,14 @@ export function DialogImportarContratos({ open, onOpenChange, contratoGestaoId, 
         const valorAtual = parseNumber(rawRow[8]);
         const nomeArquivo = String(row[9] || "").trim();
 
-        // Match fornecedor com lógica mais precisa
         const matchResult = matchFornecedor(fornecedorNome, fornecedoresDB || []);
 
         let erro: string | null = null;
         if (!codigo) erro = "Código obrigatório";
+        else if (!codigoFormatoRegex.test(codigo)) erro = "Formato inválido (use XXX-XX, ex: 001-26)";
         else if (!objeto) erro = "Objeto obrigatório";
+
+        const existeId = existentesMap.get(codigo.toLowerCase()) || null;
 
         return {
           codigo_interno: codigo,
@@ -251,6 +266,7 @@ export function DialogImportarContratos({ open, onOpenChange, contratoGestaoId, 
           fornecedor_id: matchResult?.id || null,
           arquivo_match: null,
           erro,
+          contrato_existente_id: existeId,
         };
       });
 
@@ -296,6 +312,7 @@ export function DialogImportarContratos({ open, onOpenChange, contratoGestaoId, 
     setImportando(true);
     setStep("importing");
     let importados = 0;
+    let atualizados = 0;
     let erros = 0;
     const { data: { user } } = await supabase.auth.getUser();
 
@@ -320,7 +337,7 @@ export function DialogImportarContratos({ open, onOpenChange, contratoGestaoId, 
           }
         }
 
-        const { error } = await supabase.from("contratos_terceiros").insert({
+        const dadosContrato: any = {
           contrato_gestao_id: contratoGestaoId,
           codigo_interno: linha.codigo_interno,
           objeto: linha.objeto,
@@ -331,13 +348,31 @@ export function DialogImportarContratos({ open, onOpenChange, contratoGestaoId, 
           status: linha.status,
           valor_inicial: linha.valor_inicial,
           valor_atual: linha.valor_atual,
-          url_arquivo_principal: urlArquivo,
-          storage_path_arquivo: storagePath,
-          usuario_criador_id: user?.id,
-        });
+        };
 
-        if (error) throw error;
-        importados++;
+        if (urlArquivo) {
+          dadosContrato.url_arquivo_principal = urlArquivo;
+          dadosContrato.storage_path_arquivo = storagePath;
+        }
+
+        if (linha.contrato_existente_id) {
+          // Atualizar contrato existente (nunca altera codigo_interno)
+          const { codigo_interno, contrato_gestao_id: _, ...dadosUpdate } = dadosContrato;
+          const { error } = await supabase
+            .from("contratos_terceiros")
+            .update(dadosUpdate)
+            .eq("id", linha.contrato_existente_id);
+          if (error) throw error;
+          atualizados++;
+        } else {
+          // Inserir novo contrato
+          dadosContrato.usuario_criador_id = user?.id;
+          const { error } = await supabase
+            .from("contratos_terceiros")
+            .insert(dadosContrato);
+          if (error) throw error;
+          importados++;
+        }
       } catch (err: any) {
         console.error(`Erro ao importar ${linha.codigo_interno}:`, err);
         erros++;
@@ -350,15 +385,21 @@ export function DialogImportarContratos({ open, onOpenChange, contratoGestaoId, 
       detalhes: {
         tipo: 'Importação em Lote',
         contrato_gestao: contratoGestaoNome,
-        total_importados: importados,
+        total_novos: importados,
+        total_atualizados: atualizados,
         total_erros: erros,
       },
     });
 
+    const partes: string[] = [];
+    if (importados > 0) partes.push(`${importados} novos`);
+    if (atualizados > 0) partes.push(`${atualizados} atualizados`);
+    if (erros > 0) partes.push(`${erros} com erro`);
+
     if (erros === 0) {
-      toast.success(`${importados} contratos importados com sucesso!`);
+      toast.success(`Contratos processados: ${partes.join(", ")}`);
     } else {
-      toast.warning(`${importados} importados, ${erros} com erro`);
+      toast.warning(`Contratos processados: ${partes.join(", ")}`);
     }
 
     onImportado();
@@ -374,9 +415,9 @@ export function DialogImportarContratos({ open, onOpenChange, contratoGestaoId, 
       "Valor Atual", "Nome do Arquivo"
     ];
     const exemplo = [
-      "001-2026", "Empresa Exemplo LTDA", "Prestação de serviços de limpeza",
+      "001-26", "Empresa Exemplo LTDA", "Prestação de serviços de limpeza",
       "01/01/2026", "Vigente", "01/01/2026", "31/12/2026",
-      "120000", "150000", "001-2026"
+      "120000", "150000", "001-26"
     ];
     const ws = XLSX.utils.aoa_to_sheet([header, exemplo]);
     ws["!cols"] = header.map(() => ({ wch: 22 }));
@@ -387,6 +428,8 @@ export function DialogImportarContratos({ open, onOpenChange, contratoGestaoId, 
   const totalValidas = linhas.filter(l => !l.erro).length;
   const totalComArquivo = linhas.filter(l => l.arquivo_match).length;
   const totalComFornecedor = linhas.filter(l => l.fornecedor_id).length;
+  const totalExistentes = linhas.filter(l => !l.erro && l.contrato_existente_id).length;
+  const totalNovos = totalValidas - totalExistentes;
 
   return (
     <Dialog open={open} onOpenChange={(v) => { if (!importando) { onOpenChange(v); if (!v) resetState(); } }}>
@@ -433,8 +476,14 @@ export function DialogImportarContratos({ open, onOpenChange, contratoGestaoId, 
               </Badge>
               <Badge className="bg-green-100 text-green-800 text-xs">
                 <Check className="h-3 w-3 mr-1" />
-                {totalValidas} válidas
+                {totalNovos} novos
               </Badge>
+              {totalExistentes > 0 && (
+                <Badge className="bg-amber-100 text-amber-800 text-xs">
+                  <AlertTriangle className="h-3 w-3 mr-1" />
+                  {totalExistentes} serão atualizados
+                </Badge>
+              )}
               {linhas.length - totalValidas > 0 && (
                 <Badge className="bg-red-100 text-red-800 text-xs">
                   <X className="h-3 w-3 mr-1" />
@@ -484,8 +533,16 @@ export function DialogImportarContratos({ open, onOpenChange, contratoGestaoId, 
                 </TableHeader>
                 <TableBody>
                   {linhas.map((linha, idx) => (
-                    <TableRow key={idx} className={linha.erro ? "bg-red-50" : ""}>
-                      <TableCell className="text-xs font-medium">{linha.codigo_interno}</TableCell>
+                    <TableRow key={idx} className={linha.erro ? "bg-red-50" : linha.contrato_existente_id ? "bg-amber-50/50" : ""}>
+                      <TableCell className="text-xs font-medium">
+                        {linha.codigo_interno}
+                        {!linha.erro && linha.contrato_existente_id && (
+                          <span className="ml-1 text-[9px] text-amber-600 font-normal">(atualizar)</span>
+                        )}
+                        {!linha.erro && !linha.contrato_existente_id && (
+                          <span className="ml-1 text-[9px] text-green-600 font-normal">(novo)</span>
+                        )}
+                      </TableCell>
                       <TableCell className="text-xs max-w-[150px]">
                         <span className="block truncate" title={linha.fornecedor_nome}>
                           {linha.fornecedor_nome || "—"}
@@ -544,7 +601,7 @@ export function DialogImportarContratos({ open, onOpenChange, contratoGestaoId, 
             </Button>
             <Button onClick={handleImportar} disabled={totalValidas === 0}>
               <Upload className="h-4 w-4 mr-1" />
-              Importar {totalValidas} Contratos
+              Processar {totalValidas} Contratos {totalExistentes > 0 ? `(${totalNovos} novos, ${totalExistentes} atualizações)` : ""}
             </Button>
           </DialogFooter>
         )}
