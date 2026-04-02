@@ -510,6 +510,60 @@ const Cotacoes = () => {
         contratosLoaded = true;
       }
       setContratos(data || []);
+      if (data && data.length > 0) {
+        loadCotacoesCountPorContrato(data);
+      }
+    }
+  };
+
+  const loadCotacoesCountPorContrato = async (contratosData: Contrato[]) => {
+    try {
+      // Buscar todos os processos que requerem cotação com seus contratos
+      const { data: processos, error: procError } = await supabase
+        .from("processos_compras")
+        .select("id, contrato_gestao_id")
+        .eq("requer_cotacao", true)
+        .in("contrato_gestao_id", contratosData.map(c => c.id));
+      
+      if (procError || !processos || processos.length === 0) {
+        return;
+      }
+
+      const processosIds = processos.map(p => p.id);
+      
+      // Buscar todas as cotações desses processos
+      const { data: cotacoes, error: cotError } = await supabase
+        .from("cotacoes_precos")
+        .select("id, processo_compra_id, data_limite_resposta")
+        .in("processo_compra_id", processosIds);
+      
+      if (cotError || !cotacoes) return;
+
+      const agora = new Date();
+      
+      // Mapear processo -> contrato
+      const processoToContrato: Record<string, string> = {};
+      processos.forEach(p => { processoToContrato[p.id] = p.contrato_gestao_id; });
+      
+      // Contar por contrato
+      const counts: Record<string, { abertas: number; finalizadas: number }> = {};
+      contratosData.forEach(c => { counts[c.id] = { abertas: 0, finalizadas: 0 }; });
+      
+      cotacoes.forEach(cot => {
+        const contratoId = processoToContrato[cot.processo_compra_id];
+        if (!contratoId || !counts[contratoId]) return;
+        
+        const dataLimite = new Date(cot.data_limite_resposta);
+        if (dataLimite >= agora) {
+          counts[contratoId].abertas++;
+        } else {
+          counts[contratoId].finalizadas++;
+        }
+      });
+      
+      setCotacoesCountPorContrato(counts);
+    } catch (err) {
+      console.error("Erro ao carregar contagem de cotações:", err);
     }
   };
 
