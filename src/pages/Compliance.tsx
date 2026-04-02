@@ -1,7 +1,8 @@
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
-import { FileText, Eye, Download, ChevronRight, ArrowLeft, FileCheck, Edit, Trash2, Users, FolderOpen } from "lucide-react";
+import { FileText, Eye, Download, ChevronRight, ArrowLeft, FileCheck, Edit, Trash2, Users, FolderOpen, Info } from "lucide-react";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { toast } from "sonner";
 import { stripHtml } from "@/lib/htmlUtils";
 import { DialogAnaliseCompliance } from "@/components/compliance/DialogAnaliseCompliance";
@@ -486,8 +487,18 @@ export default function Compliance() {
                   <TableRow>
                     <TableHead>Nome do Contrato</TableHead>
                     <TableHead>Ente Federativo</TableHead>
-                    <TableHead>Processos Pendentes</TableHead>
-                    <TableHead>Processos Respondidos</TableHead>
+                    <TableHead>
+                      <div className="flex items-center gap-1">
+                        Processos Pendentes
+                        <TooltipProvider><Tooltip><TooltipTrigger asChild><Info className="h-3.5 w-3.5 text-muted-foreground cursor-help" /></TooltipTrigger><TooltipContent className="max-w-[220px] text-xs"><p>Processos enviados ao Compliance que ainda aguardam análise e resposta.</p></TooltipContent></Tooltip></TooltipProvider>
+                      </div>
+                    </TableHead>
+                    <TableHead>
+                      <div className="flex items-center gap-1">
+                        Processos Respondidos
+                        <TooltipProvider><Tooltip><TooltipTrigger asChild><Info className="h-3.5 w-3.5 text-muted-foreground cursor-help" /></TooltipTrigger><TooltipContent className="max-w-[220px] text-xs"><p>Processos que já foram analisados e respondidos pelo Compliance.</p></TooltipContent></Tooltip></TooltipProvider>
+                      </div>
+                    </TableHead>
                     <TableHead>Ações</TableHead>
                   </TableRow>
                 </TableHeader>

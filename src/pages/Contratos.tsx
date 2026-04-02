@@ -6,7 +6,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ArrowLeft, ChevronRight } from "lucide-react";
+import { ArrowLeft, ChevronRight, Info } from "lucide-react";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { toZonedTime } from "date-fns-tz";
 import { differenceInDays } from "date-fns";
 import { toast } from "sonner";
@@ -325,9 +326,24 @@ export default function Contratos() {
                     <TableRow>
                       <TableHead className="min-w-[150px]">Nome do Contrato</TableHead>
                       <TableHead className="min-w-[120px]">Ente Federativo</TableHead>
-                      <TableHead className="text-center min-w-[80px]">Vigentes</TableHead>
-                      <TableHead className="text-center min-w-[80px]">Vencidos / Encerrados</TableHead>
-                      <TableHead className="text-center min-w-[80px]">Pendentes</TableHead>
+                      <TableHead className="text-center min-w-[80px]">
+                        <div className="flex items-center justify-center gap-1">
+                          Vigentes
+                          <TooltipProvider><Tooltip><TooltipTrigger asChild><Info className="h-3.5 w-3.5 text-muted-foreground cursor-help" /></TooltipTrigger><TooltipContent className="max-w-[220px] text-xs"><p>Contratos de terceiros com status "Vigente".</p></TooltipContent></Tooltip></TooltipProvider>
+                        </div>
+                      </TableHead>
+                      <TableHead className="text-center min-w-[80px]">
+                        <div className="flex items-center justify-center gap-1">
+                          Vencidos
+                          <TooltipProvider><Tooltip><TooltipTrigger asChild><Info className="h-3.5 w-3.5 text-muted-foreground cursor-help" /></TooltipTrigger><TooltipContent className="max-w-[220px] text-xs"><p>Contratos com status "Rescindido" ou "Encerrado".</p></TooltipContent></Tooltip></TooltipProvider>
+                        </div>
+                      </TableHead>
+                      <TableHead className="text-center min-w-[80px]">
+                        <div className="flex items-center justify-center gap-1">
+                          Pendentes
+                          <TooltipProvider><Tooltip><TooltipTrigger asChild><Info className="h-3.5 w-3.5 text-muted-foreground cursor-help" /></TooltipTrigger><TooltipContent className="max-w-[220px] text-xs"><p>Processos na fila de contratação com status "Pronto para Contratar".</p></TooltipContent></Tooltip></TooltipProvider>
+                        </div>
+                      </TableHead>
                       <TableHead className="text-right min-w-[80px]">Ações</TableHead>
                     </TableRow>
                   </TableHeader>

@@ -24,7 +24,8 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import primaLogo from "@/assets/prima-qualita-logo.png";
-import { ArrowLeft, Plus, Edit, Trash2, FileText, Paperclip, ChevronRight, AlertTriangle, Download } from "lucide-react";
+import { ArrowLeft, Plus, Edit, Trash2, FileText, Paperclip, ChevronRight, AlertTriangle, Download, Info } from "lucide-react";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { useToast } from "@/hooks/use-toast";
 import { DialogContrato } from "@/components/contratos/DialogContrato";
 import { DialogProcesso } from "@/components/processos/DialogProcesso";
@@ -659,8 +660,18 @@ const ProcessosCompras = () => {
                       <TableHead>Nome do Contrato</TableHead>
                       <TableHead>Ente Federativo</TableHead>
                       <TableHead>Período</TableHead>
-                      <TableHead className="text-center">Processos Abertos</TableHead>
-                      <TableHead className="text-center">Processos Fechados</TableHead>
+                      <TableHead className="text-center">
+                        <div className="flex items-center justify-center gap-1">
+                          Abertos
+                          <TooltipProvider><Tooltip><TooltipTrigger asChild><Info className="h-3.5 w-3.5 text-muted-foreground cursor-help" /></TooltipTrigger><TooltipContent className="max-w-[220px] text-xs"><p>Processos que ainda não foram concluídos (status diferente de "Finalizado").</p></TooltipContent></Tooltip></TooltipProvider>
+                        </div>
+                      </TableHead>
+                      <TableHead className="text-center">
+                        <div className="flex items-center justify-center gap-1">
+                          Fechados
+                          <TooltipProvider><Tooltip><TooltipTrigger asChild><Info className="h-3.5 w-3.5 text-muted-foreground cursor-help" /></TooltipTrigger><TooltipContent className="max-w-[220px] text-xs"><p>Processos com status "Finalizado".</p></TooltipContent></Tooltip></TooltipProvider>
+                        </div>
+                      </TableHead>
                       <TableHead className="text-right">Ações</TableHead>
                     </TableRow>
                   </TableHeader>

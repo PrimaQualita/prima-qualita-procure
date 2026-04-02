@@ -2,7 +2,8 @@ import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { useUserContext } from "@/hooks/useUserContext";
-import { FileText, Eye, ChevronRight, ArrowLeft, CheckCircle, Clock, MessageSquare, Send, FolderOpen, FileDown, Trash2 } from "lucide-react";
+import { FileText, Eye, ChevronRight, ArrowLeft, CheckCircle, Clock, MessageSquare, Send, FolderOpen, FileDown, Trash2, Info } from "lucide-react";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { toast } from "sonner";
 import { stripHtml } from "@/lib/htmlUtils";
 import { gerarRespostaContabilidadePDF, gerarProtocoloRespostaContabilidade } from "@/lib/gerarRespostaContabilidadePDF";
@@ -532,8 +533,18 @@ export default function Contabilidade() {
                   <TableRow>
                     <TableHead>Nome do Contrato</TableHead>
                     <TableHead>Ente Federativo</TableHead>
-                    <TableHead className="text-center">Processos Pendentes</TableHead>
-                    <TableHead className="text-center">Processos Respondidos</TableHead>
+                    <TableHead className="text-center">
+                      <div className="flex items-center justify-center gap-1">
+                        Pendentes
+                        <TooltipProvider><Tooltip><TooltipTrigger asChild><Info className="h-3.5 w-3.5 text-muted-foreground cursor-help" /></TooltipTrigger><TooltipContent className="max-w-[220px] text-xs"><p>Encaminhamentos enviados à Contabilidade que ainda aguardam resposta.</p></TooltipContent></Tooltip></TooltipProvider>
+                      </div>
+                    </TableHead>
+                    <TableHead className="text-center">
+                      <div className="flex items-center justify-center gap-1">
+                        Respondidos
+                        <TooltipProvider><Tooltip><TooltipTrigger asChild><Info className="h-3.5 w-3.5 text-muted-foreground cursor-help" /></TooltipTrigger><TooltipContent className="max-w-[220px] text-xs"><p>Encaminhamentos que já foram respondidos pela Contabilidade.</p></TooltipContent></Tooltip></TooltipProvider>
+                      </div>
+                    </TableHead>
                     <TableHead>Ações</TableHead>
                   </TableRow>
                 </TableHeader>
