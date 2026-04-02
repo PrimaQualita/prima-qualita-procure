@@ -73,11 +73,95 @@ const Selecoes = () => {
   const [filtro, setFiltro] = useState("");
   const [anoSelecionado, setAnoSelecionado] = useState("todos");
   const [selecaoParaEditar, setSelecaoParaEditar] = useState<Selecao | null>(null);
+  const [selecoesCountPorContrato, setSelecoesCountPorContrato] = useState<Record<string, { abertas: number; fechadas: number }>>({});
 
   useEffect(() => {
     checkAuth();
     loadContratos();
   }, []);
+
+  useEffect(() => {
+    if (contratos.length > 0) {
+      loadSelecoesCountPorContrato();
+    }
+  }, [contratos]);
+
+  const loadSelecoesCountPorContrato = async () => {
+    try {
+      const contratosIds = contratos.map(c => c.id);
+
+      // Buscar processos que requerem seleção
+      const { data: processos } = await supabase
+        .from("processos_compras")
+        .select("id, contrato_gestao_id")
+        .eq("requer_selecao", true)
+        .in("contrato_gestao_id", contratosIds);
+
+      if (!processos || processos.length === 0) {
+        setSelecoesCountPorContrato({});
+        return;
+      }
+
+      const processosIds = processos.map(p => p.id);
+      const processoToContrato: Record<string, string> = {};
+      processos.forEach(p => { processoToContrato[p.id] = p.contrato_gestao_id; });
+
+      // Buscar todas as seleções
+      const { data: selecoes } = await supabase
+        .from("selecoes_fornecedores")
+        .select("id, processo_compra_id")
+        .in("processo_compra_id", processosIds);
+
+      if (!selecoes || selecoes.length === 0) {
+        setSelecoesCountPorContrato({});
+        return;
+      }
+
+      const selecoesIds = selecoes.map(s => s.id);
+
+      // Buscar homologações emitidas
+      const { data: homologacoes } = await supabase
+        .from("homologacoes_selecao")
+        .select("selecao_id")
+        .in("selecao_id", selecoesIds);
+
+      const selecoesHomologadas = new Set((homologacoes || []).map(h => h.selecao_id));
+
+      // Buscar atas emitidas
+      const { data: atas } = await supabase
+        .from("atas_selecao")
+        .select("selecao_id")
+        .in("selecao_id", selecoesIds);
+
+      const selecoesComAta = new Set((atas || []).map(a => a.selecao_id));
+
+      // Calcular contagens
+      // Fechada = tem homologação OU (tem ata sem homologação, ou seja, deserto/fracassado)
+      // Simplificação: fechada = tem homologação OU tem ata
+      // Aberta = não tem homologação E não tem ata
+      const counts: Record<string, { abertas: number; fechadas: number }> = {};
+      contratosIds.forEach(id => { counts[id] = { abertas: 0, fechadas: 0 }; });
+
+      selecoes.forEach(sel => {
+        const contratoId = processoToContrato[sel.processo_compra_id];
+        if (!contratoId || !counts[contratoId]) return;
+
+        const temHomologacao = selecoesHomologadas.has(sel.id);
+        const temAta = selecoesComAta.has(sel.id);
+
+        // Fechada: tem homologação (com vencedor) OU tem ata (sem vencedor = deserto/fracassado)
+        if (temHomologacao || temAta) {
+          counts[contratoId].fechadas++;
+        } else {
+          counts[contratoId].abertas++;
+        }
+      });
+
+      setSelecoesCountPorContrato(counts);
+    } catch (error) {
+      console.error("Erro ao carregar contagem de seleções:", error);
+    }
+  };
 
   // Expandir automaticamente até o processo quando vindo da URL
   useEffect(() => {
@@ -328,14 +412,15 @@ const Selecoes = () => {
                   <TableRow>
                     <TableHead>Nome do Contrato</TableHead>
                     <TableHead>Ente Federativo</TableHead>
-                    <TableHead>Status</TableHead>
+                    <TableHead className="text-center">Seleções Abertas</TableHead>
+                    <TableHead className="text-center">Seleções Fechadas</TableHead>
                     <TableHead className="text-right">Ações</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {contratosFiltrados.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={4} className="text-center text-muted-foreground">
+                      <TableCell colSpan={5} className="text-center text-muted-foreground">
                         Nenhum contrato encontrado
                       </TableCell>
                     </TableRow>
@@ -344,9 +429,14 @@ const Selecoes = () => {
                       <TableRow key={contrato.id} className={index % 2 === 0 ? "bg-green-100 dark:bg-green-900/40" : "bg-blue-100 dark:bg-blue-900/40"}>
                         <TableCell className="font-medium">{contrato.nome_contrato}</TableCell>
                         <TableCell>{contrato.ente_federativo}</TableCell>
-                        <TableCell>
-                          <Badge variant={contrato.status === "ativo" ? "default" : "secondary"}>
-                            {contrato.status}
+                        <TableCell className="text-center">
+                          <Badge className="bg-amber-100 text-amber-800 hover:bg-amber-200 dark:bg-amber-900/40 dark:text-amber-300">
+                            {selecoesCountPorContrato[contrato.id]?.abertas || 0}
+                          </Badge>
+                        </TableCell>
+                        <TableCell className="text-center">
+                          <Badge className="bg-emerald-100 text-emerald-800 hover:bg-emerald-200 dark:bg-emerald-900/40 dark:text-emerald-300">
+                            {selecoesCountPorContrato[contrato.id]?.fechadas || 0}
                           </Badge>
                         </TableCell>
                         <TableCell className="text-right">
