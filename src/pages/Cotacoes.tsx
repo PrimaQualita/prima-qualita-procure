@@ -204,6 +204,7 @@ const Cotacoes = () => {
       // Usar cache APENAS se existe E tem dados
       if (contratosLoaded && cachedContratos && cachedContratos.length > 0) {
         setContratos(cachedContratos);
+        await loadCotacoesCountPorContrato(cachedContratos);
       } else {
         await loadContratos();
       }
