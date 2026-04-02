@@ -17,7 +17,8 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import primaLogo from "@/assets/prima-qualita-logo.png";
-import { ArrowLeft, ChevronRight, Trash2, Pencil } from "lucide-react";
+import { ArrowLeft, ChevronRight, Trash2, Pencil, Info } from "lucide-react";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { toast } from "sonner";
 import DOMPurify from "dompurify";
 import { DialogEditarSelecao } from "@/components/selecoes/DialogEditarSelecao";
@@ -412,8 +413,18 @@ const Selecoes = () => {
                   <TableRow>
                     <TableHead>Nome do Contrato</TableHead>
                     <TableHead>Ente Federativo</TableHead>
-                    <TableHead className="text-center">Seleções Abertas</TableHead>
-                    <TableHead className="text-center">Seleções Fechadas</TableHead>
+                    <TableHead className="text-center">
+                      <div className="flex items-center justify-center gap-1">
+                        Abertas
+                        <TooltipProvider><Tooltip><TooltipTrigger asChild><Info className="h-3.5 w-3.5 text-muted-foreground cursor-help" /></TooltipTrigger><TooltipContent className="max-w-[250px] text-xs"><p>Seleções que ainda não possuem Homologação emitida, ou que não possuem Ata emitida quando todos os itens são desertos/fracassados.</p></TooltipContent></Tooltip></TooltipProvider>
+                      </div>
+                    </TableHead>
+                    <TableHead className="text-center">
+                      <div className="flex items-center justify-center gap-1">
+                        Fechadas
+                        <TooltipProvider><Tooltip><TooltipTrigger asChild><Info className="h-3.5 w-3.5 text-muted-foreground cursor-help" /></TooltipTrigger><TooltipContent className="max-w-[250px] text-xs"><p>Seleções com Homologação emitida pelo Responsável Legal, ou com Ata emitida quando não houve vencedor em nenhum item.</p></TooltipContent></Tooltip></TooltipProvider>
+                      </div>
+                    </TableHead>
                     <TableHead className="text-right">Ações</TableHead>
                   </TableRow>
                 </TableHeader>
