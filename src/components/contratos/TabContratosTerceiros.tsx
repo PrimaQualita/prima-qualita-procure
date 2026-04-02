@@ -158,7 +158,7 @@ export function TabContratosTerceiros({ contratoGestaoId, contratoGestaoNome, pr
       let query = supabase
         .from("contratos_terceiros")
         .select("*, fornecedores(razao_social, cnpj)")
-        .eq("contrato_gestao_id", contratoGestaoId);
+        .eq("contrato_gestao_id", contratoGestaoId) as any;
 
       // Filter by processoCompraIds (array) or single processoCompraId
       // Only filter if IDs are provided - otherwise show ALL contracts (including legacy ones without process)
