@@ -70,6 +70,7 @@ export function DialogUsuario({ open, onOpenChange, onSuccess, usuarioEdit }: Di
   const [contabilidade, setContabilidade] = useState(false);
   const [contrato, setContrato] = useState(false);
   const [controleCompras, setControleCompras] = useState(false);
+  const [jovemAprendiz, setJovemAprendiz] = useState(false);
   const [contratosDisponiveis, setContratosDisponiveis] = useState<ContratoGestao[]>([]);
   const [contratosSelecionados, setContratosSelecionados] = useState<string[]>([]);
 
@@ -161,6 +162,7 @@ export function DialogUsuario({ open, onOpenChange, onSuccess, usuarioEdit }: Di
         setContabilidade((usuarioEdit as any).contabilidade || false);
         setContrato((usuarioEdit as any).contrato || false);
         setControleCompras((usuarioEdit as any).controle_compras || false);
+        setJovemAprendiz((usuarioEdit as any).jovem_aprendiz || false);
         setSuperintendenteExecutivo(
           (usuarioEdit as any).superintendente_executivo || (usuarioEdit as any).gerente_financeiro || false
         );
@@ -211,6 +213,7 @@ export function DialogUsuario({ open, onOpenChange, onSuccess, usuarioEdit }: Di
     setContabilidade(false);
     setContrato(false);
     setControleCompras(false);
+    setJovemAprendiz(false);
     setSuperintendenteExecutivo(false);
     setContratosSelecionados([]);
   };
@@ -305,6 +308,7 @@ export function DialogUsuario({ open, onOpenChange, onSuccess, usuarioEdit }: Di
             contabilidade: contabilidade,
             contrato: contrato,
             controle_compras: controleCompras,
+            jovem_aprendiz: jovemAprendiz,
             superintendente_executivo: superintendenteExecutivo,
           })
           .eq("id", usuarioEdit.id);
@@ -421,6 +425,7 @@ export function DialogUsuario({ open, onOpenChange, onSuccess, usuarioEdit }: Di
               contabilidade,
               contrato,
               controleCompras,
+              jovemAprendiz,
               superintendenteExecutivo,
               contratosVinculados: gerenteContratos ? contratosSelecionados : [],
             },
@@ -450,6 +455,7 @@ export function DialogUsuario({ open, onOpenChange, onSuccess, usuarioEdit }: Di
         if (contabilidade) perfis.push("Contabilidade");
         if (contrato) perfis.push("Contrato");
         if (controleCompras) perfis.push("Controle de Compras");
+        if (jovemAprendiz) perfis.push("Jovem Aprendiz");
         if (gerenteContratos) perfis.push("Gerente de Contratos");
         if (superintendenteExecutivo) perfis.push("Superintendente Executivo");
         
