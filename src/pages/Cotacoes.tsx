@@ -104,6 +104,7 @@ const Cotacoes = () => {
   const [loadingCotacoes, setLoadingCotacoes] = useState(false);
   const [loadingItens, setLoadingItens] = useState(false);
   const [contratos, setContratos] = useState<Contrato[]>(cachedContratos || []);
+  const [cotacoesCountPorContrato, setCotacoesCountPorContrato] = useState<Record<string, { abertas: number; finalizadas: number }>>({});
   const [contratoSelecionado, setContratoSelecionado] = useState<Contrato | null>(null);
   const [processos, setProcessos] = useState<Processo[]>([]);
   const [processoSelecionado, setProcessoSelecionado] = useState<Processo | null>(null);
@@ -509,6 +510,60 @@ const Cotacoes = () => {
         contratosLoaded = true;
       }
       setContratos(data || []);
+      if (data && data.length > 0) {
+        loadCotacoesCountPorContrato(data);
+      }
+    }
+  };
+
+  const loadCotacoesCountPorContrato = async (contratosData: Contrato[]) => {
+    try {
+      // Buscar todos os processos que requerem cotação com seus contratos
+      const { data: processos, error: procError } = await supabase
+        .from("processos_compras")
+        .select("id, contrato_gestao_id")
+        .eq("requer_cotacao", true)
+        .in("contrato_gestao_id", contratosData.map(c => c.id));
+      
+      if (procError || !processos || processos.length === 0) {
+        return;
+      }
+
+      const processosIds = processos.map(p => p.id);
+      
+      // Buscar todas as cotações desses processos
+      const { data: cotacoes, error: cotError } = await supabase
+        .from("cotacoes_precos")
+        .select("id, processo_compra_id, data_limite_resposta")
+        .in("processo_compra_id", processosIds);
+      
+      if (cotError || !cotacoes) return;
+
+      const agora = new Date();
+      
+      // Mapear processo -> contrato
+      const processoToContrato: Record<string, string> = {};
+      processos.forEach(p => { processoToContrato[p.id] = p.contrato_gestao_id; });
+      
+      // Contar por contrato
+      const counts: Record<string, { abertas: number; finalizadas: number }> = {};
+      contratosData.forEach(c => { counts[c.id] = { abertas: 0, finalizadas: 0 }; });
+      
+      cotacoes.forEach(cot => {
+        const contratoId = processoToContrato[cot.processo_compra_id];
+        if (!contratoId || !counts[contratoId]) return;
+        
+        const dataLimite = new Date(cot.data_limite_resposta);
+        if (dataLimite >= agora) {
+          counts[contratoId].abertas++;
+        } else {
+          counts[contratoId].finalizadas++;
+        }
+      });
+      
+      setCotacoesCountPorContrato(counts);
+    } catch (err) {
+      console.error("Erro ao carregar contagem de cotações:", err);
     }
   };
 
@@ -1852,26 +1907,38 @@ const Cotacoes = () => {
                     <TableRow>
                       <TableHead className="min-w-[150px]">Nome do Contrato</TableHead>
                       <TableHead className="min-w-[120px]">Ente Federativo</TableHead>
-                      <TableHead className="min-w-[80px]">Status</TableHead>
+                      <TableHead className="min-w-[100px] text-center">Cotações Abertas</TableHead>
+                      <TableHead className="min-w-[100px] text-center">Cotações Finalizadas</TableHead>
                       <TableHead className="text-right min-w-[100px]">Ações</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {contratosFiltrados.length === 0 ? (
                       <TableRow>
-                        <TableCell colSpan={4} className="text-center text-muted-foreground text-xs sm:text-sm">
+                        <TableCell colSpan={5} className="text-center text-muted-foreground text-xs sm:text-sm">
                           Nenhum contrato encontrado
                         </TableCell>
                       </TableRow>
                     ) : (
-                      contratosFiltrados.map((contrato, index) => (
+                      contratosFiltrados.map((contrato, index) => {
+                        const counts = cotacoesCountPorContrato[contrato.id] || { abertas: 0, finalizadas: 0 };
+                        return (
                         <TableRow key={contrato.id} className={index % 2 === 0 ? "bg-green-100 dark:bg-green-900/40" : "bg-blue-100 dark:bg-blue-900/40"}>
                           <TableCell className="font-medium text-xs sm:text-sm">{contrato.nome_contrato}</TableCell>
                           <TableCell className="text-xs sm:text-sm">{contrato.ente_federativo}</TableCell>
-                          <TableCell>
-                            <Badge variant={contrato.status === "ativo" ? "default" : "secondary"} className="text-xs">
-                              {contrato.status}
-                            </Badge>
+                          <TableCell className="text-center">
+                            {counts.abertas > 0 ? (
+                              <Badge className="bg-amber-500 hover:bg-amber-600 text-white text-xs">{counts.abertas}</Badge>
+                            ) : (
+                              <span className="text-muted-foreground text-xs">0</span>
+                            )}
+                          </TableCell>
+                          <TableCell className="text-center">
+                            {counts.finalizadas > 0 ? (
+                              <Badge className="bg-emerald-600 hover:bg-emerald-700 text-white text-xs">{counts.finalizadas}</Badge>
+                            ) : (
+                              <span className="text-muted-foreground text-xs">0</span>
+                            )}
                           </TableCell>
                           <TableCell className="text-right">
                             <Button
@@ -1885,7 +1952,8 @@ const Cotacoes = () => {
                             </Button>
                           </TableCell>
                         </TableRow>
-                      ))
+                        );
+                      })
                     )}
                   </TableBody>
                 </Table>
