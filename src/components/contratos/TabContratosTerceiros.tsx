@@ -471,10 +471,16 @@ export function TabContratosTerceiros({ contratoGestaoId, contratoGestaoNome, pr
           className="flex-1 text-sm"
         />
         {canEdit && (
-          <Button onClick={abrirDialogCriar} size="sm">
-            <Plus className="h-4 w-4 mr-1" />
-            Novo Contrato
-          </Button>
+          <div className="flex gap-2">
+            <Button variant="outline" size="sm" onClick={() => setDialogImportarOpen(true)}>
+              <FileSpreadsheet className="h-4 w-4 mr-1" />
+              Importar Planilha
+            </Button>
+            <Button onClick={abrirDialogCriar} size="sm">
+              <Plus className="h-4 w-4 mr-1" />
+              Novo Contrato
+            </Button>
+          </div>
         )}
       </div>
 
