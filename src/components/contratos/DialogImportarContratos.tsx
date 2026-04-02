@@ -191,6 +191,7 @@ export function DialogImportarContratos({ open, onOpenChange, contratoGestaoId, 
     setArquivos([]);
     setImportando(false);
     setProgresso(0);
+    setFiltroPreview("todos");
   };
 
   const handlePlanilhaUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
