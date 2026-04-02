@@ -312,6 +312,7 @@ export function DialogImportarContratos({ open, onOpenChange, contratoGestaoId, 
     setImportando(true);
     setStep("importing");
     let importados = 0;
+    let atualizados = 0;
     let erros = 0;
     const { data: { user } } = await supabase.auth.getUser();
 
