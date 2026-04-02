@@ -23,6 +23,7 @@ import {
 } from "@/components/ui/dialog";
 import { FileText, Upload, ExternalLink, AlertCircle } from "lucide-react";
 import { toast } from "sonner";
+import { abrirDocumentoStorage } from "@/lib/abrirDocumentoStorage";
 import { differenceInDays, startOfDay, parseISO, format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 
