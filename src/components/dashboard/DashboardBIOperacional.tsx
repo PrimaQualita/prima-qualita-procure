@@ -542,65 +542,65 @@ export function DashboardBIOperacional({
 
     return {
       processos_bi: [
-        { name: "Total de Processos", value: procBIFiltrados.length, color: "muted", icon: ClipboardList, detailItems: procBIFiltrados.map(buildProcessoDetail), _baseTotal: procBIFiltrados.length },
-        { name: "Processos em Andamento", value: procAbertos.length, color: "info", icon: Clock, detailItems: procAbertosDetail, _baseTotal: procBIFiltrados.length },
-        { name: "Processos Finalizados", value: procFinalizados.length, color: "success", icon: CheckCircle2, detailItems: procFinalizadosDetail, _baseTotal: procBIFiltrados.length },
+        { name: "Total de Processos", value: procBIFiltrados.length, color: "muted", icon: ClipboardList, detailItems: procBIFiltrados.map(buildProcessoDetail), _baseTotal: procBIFiltrados.length, tooltip: "Quantidade total de processos de compras cadastrados no período e contrato selecionados." },
+        { name: "Processos em Andamento", value: procAbertos.length, color: "info", icon: Clock, detailItems: procAbertosDetail, _baseTotal: procBIFiltrados.length, tooltip: "Processos que ainda não foram finalizados ou concluídos. Inclui todos os status exceto 'finalizado' e 'concluído'." },
+        { name: "Processos Finalizados", value: procFinalizados.length, color: "success", icon: CheckCircle2, detailItems: procFinalizadosDetail, _baseTotal: procBIFiltrados.length, tooltip: "Processos com status 'finalizado' ou 'concluído', indicando que todo o trâmite foi encerrado." },
       ],
       documentos_processo: [
-        { name: "Requisição - Solicitadas", value: reqSolicitadas, color: "info", icon: FileClock, detailItems: reqSolDetail },
-        { name: "Requisição - Geradas", value: reqGeradasCount, color: "success", icon: FileCheck, detailItems: reqGerDetail },
-        { name: "Requisição - Pendentes", value: reqPendentes, color: reqPendentes > 0 ? "danger" : "success", icon: Clock, detailItems: reqPendDetail },
-        { name: "Aut. Despesa - Solicitadas", value: adSolicitadas, color: "info", icon: FileClock, detailItems: adSolDetail },
-        { name: "Aut. Despesa - Geradas", value: adGeradasCount, color: "success", icon: FileCheck, detailItems: adGerDetail },
-        { name: "Aut. Despesa - Pendentes", value: adPendentes, color: adPendentes > 0 ? "danger" : "success", icon: Clock, detailItems: adPendDetail },
-        { name: "Aut. Seleção - Solicitadas", value: asSolicitadas, color: "info", icon: FileClock, detailItems: asSolDetail },
-        { name: "Aut. Seleção - Geradas", value: asGeradas, color: "success", icon: FileCheck, detailItems: asGerDetail },
-        { name: "Aut. Seleção - Pendentes", value: asPendentes, color: asPendentes > 0 ? "danger" : "success", icon: Clock, detailItems: asPendDetail },
-        { name: "Aut. Compra Direta - Solicit.", value: acdSolicitadas, color: "info", icon: FileClock, detailItems: acdSolDetail },
-        { name: "Aut. Compra Direta - Geradas", value: acdGeradas, color: "success", icon: FileCheck, detailItems: acdGerDetail },
-        { name: "Aut. Compra Direta - Pend.", value: acdPendentes, color: acdPendentes > 0 ? "danger" : "success", icon: Clock, detailItems: acdPendDetail },
-        { name: "Homologação - Solicitadas", value: homSolicitadas, color: "info", icon: FileClock, detailItems: homSolDetail },
-        { name: "Homologação - Geradas", value: homGeradasCount, color: "success", icon: FileCheck, detailItems: homGerDetail },
-        { name: "Homologação - Pendentes", value: homPendentes, color: homPendentes > 0 ? "danger" : "success", icon: Clock, detailItems: homPendDetail },
-        { name: "Atas - Geradas", value: atasTotal, color: "info", icon: FileText, detailItems: atasTotalDetail },
-        { name: "Atas - Assinadas", value: atasAssinadas, color: "success", icon: PenTool, detailItems: atasAssinadasDetail },
-        { name: "Atas - Pend. Assinatura", value: atasPendentes, color: atasPendentes > 0 ? "warning" : "success", icon: AlertTriangle, detailItems: atasPendDetail },
+        { name: "Requisição - Solicitadas", value: reqSolicitadas, color: "info", icon: FileClock, detailItems: reqSolDetail, tooltip: "Processos que tiveram notificação de requisição ou solicitação de autorização de despesa." },
+        { name: "Requisição - Geradas", value: reqGeradasCount, color: "success", icon: FileCheck, detailItems: reqGerDetail, tooltip: "Processos que já possuem o documento de requisição gerado e anexado." },
+        { name: "Requisição - Pendentes", value: reqPendentes, color: reqPendentes > 0 ? "danger" : "success", icon: Clock, detailItems: reqPendDetail, tooltip: "Processos que foram solicitados mas ainda não tiveram o documento de requisição gerado." },
+        { name: "Aut. Despesa - Solicitadas", value: adSolicitadas, color: "info", icon: FileClock, detailItems: adSolDetail, tooltip: "Processos com notificação de autorização de despesa solicitada." },
+        { name: "Aut. Despesa - Geradas", value: adGeradasCount, color: "success", icon: FileCheck, detailItems: adGerDetail, tooltip: "Processos que já possuem o documento de autorização de despesa gerado e anexado." },
+        { name: "Aut. Despesa - Pendentes", value: adPendentes, color: adPendentes > 0 ? "danger" : "success", icon: Clock, detailItems: adPendDetail, tooltip: "Processos com solicitação de autorização de despesa pendente de geração do documento." },
+        { name: "Aut. Seleção - Solicitadas", value: asSolicitadas, color: "info", icon: FileClock, detailItems: asSolDetail, tooltip: "Cotações com solicitação de autorização de seleção de fornecedores enviada ao responsável legal." },
+        { name: "Aut. Seleção - Geradas", value: asGeradas, color: "success", icon: FileCheck, detailItems: asGerDetail, tooltip: "Cotações que já possuem a autorização de seleção de fornecedores emitida." },
+        { name: "Aut. Seleção - Pendentes", value: asPendentes, color: asPendentes > 0 ? "danger" : "success", icon: Clock, detailItems: asPendDetail, tooltip: "Cotações com solicitação de autorização de seleção pendente de aprovação." },
+        { name: "Aut. Compra Direta - Solicit.", value: acdSolicitadas, color: "info", icon: FileClock, detailItems: acdSolDetail, tooltip: "Cotações com solicitação de autorização de compra direta enviada ao responsável legal." },
+        { name: "Aut. Compra Direta - Geradas", value: acdGeradas, color: "success", icon: FileCheck, detailItems: acdGerDetail, tooltip: "Cotações que já possuem a autorização de compra direta emitida." },
+        { name: "Aut. Compra Direta - Pend.", value: acdPendentes, color: acdPendentes > 0 ? "danger" : "success", icon: Clock, detailItems: acdPendDetail, tooltip: "Cotações com solicitação de autorização de compra direta pendente de aprovação." },
+        { name: "Homologação - Solicitadas", value: homSolicitadas, color: "info", icon: FileClock, detailItems: homSolDetail, tooltip: "Seleções com solicitação de homologação enviada ao responsável legal." },
+        { name: "Homologação - Geradas", value: homGeradasCount, color: "success", icon: FileCheck, detailItems: homGerDetail, tooltip: "Seleções que já possuem a homologação emitida pelo responsável legal." },
+        { name: "Homologação - Pendentes", value: homPendentes, color: homPendentes > 0 ? "danger" : "success", icon: Clock, detailItems: homPendDetail, tooltip: "Seleções com solicitação de homologação pendente de atendimento pelo responsável legal." },
+        { name: "Atas - Geradas", value: atasTotal, color: "info", icon: FileText, detailItems: atasTotalDetail, tooltip: "Total de atas de seleção geradas, independente do status de assinatura." },
+        { name: "Atas - Assinadas", value: atasAssinadas, color: "success", icon: PenTool, detailItems: atasAssinadasDetail, tooltip: "Atas em que todos os participantes (usuários e fornecedores) já assinaram." },
+        { name: "Atas - Pend. Assinatura", value: atasPendentes, color: atasPendentes > 0 ? "warning" : "success", icon: AlertTriangle, detailItems: atasPendDetail, tooltip: "Atas que ainda possuem assinaturas pendentes de usuários ou fornecedores." },
       ],
       contratos: [
-        { name: "A Vencer (45d)", value: ctAVencer.length, color: "warning", icon: CalendarClock },
-        { name: "Vencidos", value: ctVencidos.length, color: "danger", icon: AlertTriangle },
-        { name: "Em Aberto", value: ctEmAberto.length, color: "info", icon: Clock },
-        { name: "Rescindidos", value: ctRescindidos.length, color: "muted", icon: Ban },
-        { name: "Encerrados", value: ctEncerrados.length, color: "muted", icon: XCircle },
+        { name: "A Vencer (45d)", value: ctAVencer.length, color: "warning", icon: CalendarClock, tooltip: "Contratos vigentes com término previsto nos próximos 45 dias." },
+        { name: "Vencidos", value: ctVencidos.length, color: "danger", icon: AlertTriangle, tooltip: "Contratos vigentes cuja data de término já expirou e não foram marcados como 'ciente de não renovar'." },
+        { name: "Em Aberto", value: ctEmAberto.length, color: "info", icon: Clock, tooltip: "Processos para contratar que ainda não possuem contrato de terceiro vinculado e não foram cancelados." },
+        { name: "Rescindidos", value: ctRescindidos.length, color: "muted", icon: Ban, tooltip: "Contratos que foram rescindidos antes do término da vigência." },
+        { name: "Encerrados", value: ctEncerrados.length, color: "muted", icon: XCircle, tooltip: "Contratos que foram encerrados ao final da vigência." },
       ],
       cotacoes_bi: [
-        { name: "Abertas", value: cotAbertas.length, color: "info", icon: Clock, detailItems: cotAbertasDetail, _baseTotal: cotFiltradas.length },
-        { name: "A Vencer (2d)", value: cotAVencer.length, color: "warning", icon: CalendarClock, detailItems: cotAVencerDetail, _baseTotal: cotFiltradas.length },
-        { name: "Vencidas", value: cotVencidas.length, color: "danger", icon: AlertTriangle, detailItems: cotVencidasDetail, _baseTotal: cotFiltradas.length },
-        { name: "Fechadas", value: cotFechadas.length, color: "success", icon: CheckCircle2, detailItems: cotFechadasDetail, _baseTotal: cotFiltradas.length },
+        { name: "Abertas", value: cotAbertas.length, color: "info", icon: Clock, detailItems: cotAbertasDetail, _baseTotal: cotFiltradas.length, tooltip: "Cotações que ainda não receberam parecer do compliance, independente do prazo." },
+        { name: "A Vencer (2d)", value: cotAVencer.length, color: "warning", icon: CalendarClock, detailItems: cotAVencerDetail, _baseTotal: cotFiltradas.length, tooltip: "Cotações abertas cujo prazo para recebimento de propostas vence nos próximos 2 dias." },
+        { name: "Vencidas", value: cotVencidas.length, color: "danger", icon: AlertTriangle, detailItems: cotVencidasDetail, _baseTotal: cotFiltradas.length, tooltip: "Cotações cujo prazo para recebimento de propostas já expirou e ainda não possuem parecer do compliance." },
+        { name: "Fechadas", value: cotFechadas.length, color: "success", icon: CheckCircle2, detailItems: cotFechadasDetail, _baseTotal: cotFiltradas.length, tooltip: "Cotações que já receberam parecer/aprovação do compliance." },
       ],
       compliance: [
-        { name: "Pendentes", value: compliancePendentes.length, color: "warning", icon: Clock },
-        { name: "Respondidas", value: cotFiltradas.filter(c => c.respondido_compliance === true).length, color: "success", icon: CheckCircle2 },
+        { name: "Pendentes", value: compliancePendentes.length, color: "warning", icon: Clock, tooltip: "Cotações enviadas ao compliance que ainda aguardam análise e parecer." },
+        { name: "Respondidas", value: cotFiltradas.filter(c => c.respondido_compliance === true).length, color: "success", icon: CheckCircle2, tooltip: "Cotações que já receberam resposta/parecer do compliance." },
       ],
       selecoes: [
-        { name: "Em Aberto", value: selAbertas.length, color: "info", icon: Clock },
-        { name: "Finalizadas", value: selFinalizadas.length, color: "success", icon: CheckCircle2 },
-        { name: "Fracassadas", value: selFracassadas.length, color: "danger", icon: XCircle },
+        { name: "Em Aberto", value: selAbertas.length, color: "info", icon: Clock, tooltip: "Processos de seleção que ainda não foram concluídos, fracassados ou cancelados." },
+        { name: "Finalizadas", value: selFinalizadas.length, color: "success", icon: CheckCircle2, tooltip: "Processos de seleção concluídos com vencedor definido e homologação emitida." },
+        { name: "Fracassadas", value: selFracassadas.length, color: "danger", icon: XCircle, tooltip: "Processos de seleção que não tiveram vencedor e foram declarados fracassados." },
       ],
       credenciamentos: [
-        { name: "Em Aberto", value: credAbertas.length, color: "info", icon: Clock },
-        { name: "Finalizadas", value: credFinalizadas.length, color: "success", icon: CheckCircle2 },
+        { name: "Em Aberto", value: credAbertas.length, color: "info", icon: Clock, tooltip: "Processos de credenciamento que ainda estão em andamento." },
+        { name: "Finalizadas", value: credFinalizadas.length, color: "success", icon: CheckCircle2, tooltip: "Processos de credenciamento que foram concluídos." },
       ],
       contratacoes: [
-        { name: "Em Aberto", value: ceAbertas.length, color: "info", icon: Clock },
-        { name: "Finalizadas", value: ceFinalizadas.length, color: "success", icon: CheckCircle2 },
+        { name: "Em Aberto", value: ceAbertas.length, color: "info", icon: Clock, tooltip: "Contratações específicas que ainda estão em andamento." },
+        { name: "Finalizadas", value: ceFinalizadas.length, color: "success", icon: CheckCircle2, tooltip: "Contratações específicas que foram concluídas." },
       ],
       fornecedores: [
-        { name: "Em Dia", value: fornAprovados.length, color: "success", icon: CheckCircle2, detailItems: fornEmDiaDetails },
-        { name: "A Vencer (5d)", value: fornIdsAVencer.size, color: "warning", icon: CalendarClock, detailItems: fornAVencerDetails },
-        { name: "Vencidos", value: fornIdsVencidos.size, color: "danger", icon: AlertTriangle, detailItems: fornVencidosDetails },
-        { name: "Em Aberto", value: fornEmAberto.length, color: "info", icon: Clock, detailItems: fornEmAbertoDetails },
+        { name: "Em Dia", value: fornAprovados.length, color: "success", icon: CheckCircle2, detailItems: fornEmDiaDetails, tooltip: "Fornecedores com cadastro aprovado no sistema." },
+        { name: "A Vencer (5d)", value: fornIdsAVencer.size, color: "warning", icon: CalendarClock, detailItems: fornAVencerDetails, tooltip: "Fornecedores aprovados com pelo menos um documento (CND, CRF, CNDT, Certificado) vencendo nos próximos 5 dias." },
+        { name: "Vencidos", value: fornIdsVencidos.size, color: "danger", icon: AlertTriangle, detailItems: fornVencidosDetails, tooltip: "Fornecedores aprovados com pelo menos um documento com validade expirada." },
+        { name: "Em Aberto", value: fornEmAberto.length, color: "info", icon: Clock, detailItems: fornEmAbertoDetails, tooltip: "Fornecedores que realizaram cadastro mas ainda aguardam aprovação pelo gestor." },
       ],
     };
   }, [contratosTerceiros, processosParaContratar, cotacoesPrecos, processos, selecoes, fornecedores, contratoSelecionado, hoje, docData, processoContratoMap, docsFornecedor, respostasCotacao]);
@@ -755,9 +755,10 @@ export function DashboardBIOperacional({
                                 <p className="text-[10px] mt-0.5 opacity-70">{percentage}%</p>
                               </div>
                             </TooltipTrigger>
-                            <TooltipContent side="bottom" className="text-xs max-w-[220px]">
-                              {item.value} {item.name.toLowerCase()} — {percentage}% de {grupoBase} {grupo.title.toLowerCase()}
-                              <br />Clique para ver detalhes
+                            <TooltipContent side="bottom" className="text-xs max-w-[260px]">
+                              <p className="font-semibold mb-1">{item.name}</p>
+                              <p>{item.tooltip || `${item.value} ${item.name.toLowerCase()} — ${percentage}% de ${grupoBase} ${grupo.title.toLowerCase()}`}</p>
+                              <p className="mt-1 text-muted-foreground italic">Clique para ver detalhes</p>
                             </TooltipContent>
                           </Tooltip>
                         );
@@ -788,9 +789,10 @@ export function DashboardBIOperacional({
                             <p className="text-[10px] mt-1 opacity-70">{percentage}% do total</p>
                           </div>
                         </TooltipTrigger>
-                        <TooltipContent side="bottom" className="text-xs max-w-[220px]">
-                          {item.value} {item.name.toLowerCase()} — {percentage}% do total de {MODULO_CONFIG[selectedKey]?.label.toLowerCase()}
-                          {isClickable && <><br />Clique para ver detalhes</>}
+                        <TooltipContent side="bottom" className="text-xs max-w-[260px]">
+                          <p className="font-semibold mb-1">{item.name}</p>
+                          <p>{item.tooltip || `${item.value} ${item.name.toLowerCase()} — ${percentage}% do total de ${MODULO_CONFIG[selectedKey]?.label.toLowerCase()}`}</p>
+                          {isClickable && <p className="mt-1 text-muted-foreground italic">Clique para ver detalhes</p>}
                         </TooltipContent>
                       </Tooltip>
                     );
