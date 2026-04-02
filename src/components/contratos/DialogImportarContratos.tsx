@@ -336,7 +336,7 @@ export function DialogImportarContratos({ open, onOpenChange, contratoGestaoId, 
           }
         }
 
-        const { error } = await supabase.from("contratos_terceiros").insert({
+        const dadosContrato: any = {
           contrato_gestao_id: contratoGestaoId,
           codigo_interno: linha.codigo_interno,
           objeto: linha.objeto,
@@ -347,13 +347,31 @@ export function DialogImportarContratos({ open, onOpenChange, contratoGestaoId, 
           status: linha.status,
           valor_inicial: linha.valor_inicial,
           valor_atual: linha.valor_atual,
-          url_arquivo_principal: urlArquivo,
-          storage_path_arquivo: storagePath,
-          usuario_criador_id: user?.id,
-        });
+        };
 
-        if (error) throw error;
-        importados++;
+        if (urlArquivo) {
+          dadosContrato.url_arquivo_principal = urlArquivo;
+          dadosContrato.storage_path_arquivo = storagePath;
+        }
+
+        if (linha.contrato_existente_id) {
+          // Atualizar contrato existente (nunca altera codigo_interno)
+          const { codigo_interno, contrato_gestao_id: _, ...dadosUpdate } = dadosContrato;
+          const { error } = await supabase
+            .from("contratos_terceiros")
+            .update(dadosUpdate)
+            .eq("id", linha.contrato_existente_id);
+          if (error) throw error;
+          atualizados++;
+        } else {
+          // Inserir novo contrato
+          dadosContrato.usuario_criador_id = user?.id;
+          const { error } = await supabase
+            .from("contratos_terceiros")
+            .insert(dadosContrato);
+          if (error) throw error;
+          importados++;
+        }
       } catch (err: any) {
         console.error(`Erro ao importar ${linha.codigo_interno}:`, err);
         erros++;
