@@ -2045,24 +2045,30 @@ export type Database = {
       }
       links_curtos: {
         Row: {
+          bucket_name: string | null
           codigo: string
           created_at: string
           id: string
           nome_documento: string | null
+          storage_path: string | null
           url_original: string
         }
         Insert: {
+          bucket_name?: string | null
           codigo: string
           created_at?: string
           id?: string
           nome_documento?: string | null
+          storage_path?: string | null
           url_original: string
         }
         Update: {
+          bucket_name?: string | null
           codigo?: string
           created_at?: string
           id?: string
           nome_documento?: string | null
+          storage_path?: string | null
           url_original?: string
         }
         Relationships: []

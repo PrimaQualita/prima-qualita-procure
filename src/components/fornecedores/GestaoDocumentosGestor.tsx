@@ -42,6 +42,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { FileText, ExternalLink, AlertCircle, Edit, Trash2, RefreshCw, MoreHorizontal, Upload
 } from "lucide-react";
 import { toast } from "sonner";
+import { abrirDocumentoStorage } from "@/lib/abrirDocumentoStorage";
 import { differenceInDays, startOfDay, parseISO, format } from "date-fns";
 
 interface Documento {
@@ -685,18 +686,7 @@ export default function GestaoDocumentosGestor({ fornecedorId, canEdit = true }:
                                   return;
                                 }
                                 const filePath = pathMatch[1];
-                                const { data, error } = await supabase.storage
-                                  .from('processo-anexos')
-                                  .createSignedUrl(filePath, 60);
-                                if (error) throw error;
-                                if (!data?.signedUrl) throw new Error("Não foi possível gerar URL de acesso");
-                                
-                                const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-                                const fullUrl = data.signedUrl.startsWith('http') 
-                                  ? data.signedUrl 
-                                  : `${supabaseUrl}/storage/v1${data.signedUrl}`;
-                                
-                                window.open(fullUrl, '_blank');
+                                await abrirDocumentoStorage(filePath, doc.nome_arquivo);
                               } catch (error) {
                                 console.error("Erro ao abrir documento:", error);
                                 toast.error("Erro ao visualizar documento");

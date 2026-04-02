@@ -230,7 +230,20 @@ export default function Contabilidade() {
     }
   };
 
-  const visualizarDocumento = (url: string) => {
+  const visualizarDocumento = async (url: string) => {
+    // Se for URL de storage, tentar gerar link curto
+    if (url.includes('supabase.co/storage/')) {
+      try {
+        const { gerarLinkCurto } = await import('@/lib/gerarLinkCurto');
+        const linkCurto = await gerarLinkCurto(url, 'Documento Contabilidade');
+        if (linkCurto) {
+          window.open(linkCurto, '_blank');
+          return;
+        }
+      } catch (e) {
+        // fallback para URL original
+      }
+    }
     window.open(url, '_blank');
   };
 

@@ -182,12 +182,8 @@ export function DialogArquivosOrfaos({ open, onOpenChange, arquivos, onArquivosD
                 }
                 
                 if (cleanPath) {
-                  const { data } = await supabase.storage
-                    .from('processo-anexos')
-                    .createSignedUrl(cleanPath, 3600);
-                  if (data?.signedUrl) {
-                    window.open(data.signedUrl, '_blank');
-                  }
+                  const { abrirDocumentoStorage } = await import('@/lib/abrirDocumentoStorage');
+                  await abrirDocumentoStorage(cleanPath, path.split('/').pop() || 'Documento');
                 }
               } catch (error) {
                 console.error('Erro ao gerar URL:', error);
