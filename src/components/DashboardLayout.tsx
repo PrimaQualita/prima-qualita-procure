@@ -241,6 +241,7 @@ export function DashboardLayout() {
       cachedIsContabilidade = profileData?.contabilidade || false;
       cachedIsContrato = profileData?.contrato || false;
       cachedIsControleCompras = profileData?.controle_compras || false;
+      cachedIsJovemAprendiz = profileData?.jovem_aprendiz || false;
       
       setProfile(profileData);
       setIsCompliance(cachedIsCompliance);
@@ -249,6 +250,7 @@ export function DashboardLayout() {
       setIsContabilidade(cachedIsContabilidade);
       setIsContrato(cachedIsContrato);
       setIsControleCompras(cachedIsControleCompras);
+      setIsJovemAprendiz(cachedIsJovemAprendiz);
 
       if (profileData?.primeiro_acesso || profileData?.senha_temporaria) {
         navigate("/troca-senha");
