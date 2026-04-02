@@ -687,14 +687,15 @@ const ProcessosCompras = () => {
                           </Badge>
                         </TableCell>
                         <TableCell className="text-right">
-                          <div className="flex justify-end gap-2">
+                          <div className="flex justify-end gap-1">
                             <Button
                               variant="outline"
                               size="sm"
+                              className="text-xs px-2 py-1 h-7"
                               onClick={() => setContratoSelecionado(contrato)}
                             >
-                              <ChevronRight className="h-4 w-4 mr-2" />
-                              Ver Processos
+                              <ChevronRight className="h-3 w-3 mr-1" />
+                              Processos
                             </Button>
                             {podeEditarContratoGestao && (
                               <Button
