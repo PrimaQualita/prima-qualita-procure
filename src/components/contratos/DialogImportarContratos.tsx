@@ -231,7 +231,23 @@ export function DialogImportarContratos({ open, onOpenChange, contratoGestaoId, 
 
       const parsed: LinhaContrato[] = dataRows.map((row, idx) => {
         const rawRow = rawRows[idx] || row;
-        const codigo = String(row[0] || "").trim();
+        // Ler código raw e text para lidar com interpretações do Excel
+        let codigoRaw = row[0];
+        let codigo = String(codigoRaw || "").trim();
+        
+        // Se o Excel interpretou como número (ex: 3-24 virou algo estranho), tentar raw
+        if (!codigo || codigo === "0" || codigo === "NaN") {
+          codigo = String(rawRow[0] || "").trim();
+        }
+        
+        // Normalizar: se veio "3-24" ou "03-24", padronizar para "003-24"
+        const codigoMatch = codigo.match(/^(\d{1,3})-(\d{1,2})$/);
+        if (codigoMatch) {
+          codigo = codigoMatch[1].padStart(3, "0") + "-" + codigoMatch[2].padStart(2, "0");
+        }
+        
+        console.log(`[Importação] Linha ${idx + 1}: código raw="${codigoRaw}" → parsed="${codigo}"`);
+
         const fornecedorNome = String(row[1] || "").trim();
         const objeto = String(row[2] || "").trim();
         const dataAssinatura = parseDate(rawRow[3]);
@@ -246,7 +262,7 @@ export function DialogImportarContratos({ open, onOpenChange, contratoGestaoId, 
 
         let erro: string | null = null;
         if (!codigo) erro = "Código obrigatório";
-        else if (!codigoFormatoRegex.test(codigo)) erro = "Formato inválido (use XXX-XX, ex: 001-26)";
+        else if (!codigoFormatoRegex.test(codigo)) erro = `Formato inválido: "${codigo}" (use XXX-XX, ex: 001-26)`;
         else if (!objeto) erro = "Objeto obrigatório";
 
         const existeId = existentesMap.get(codigo.toLowerCase()) || null;
