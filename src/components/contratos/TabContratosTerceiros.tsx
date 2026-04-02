@@ -507,7 +507,7 @@ export function TabContratosTerceiros({ contratoGestaoId, contratoGestaoNome, pr
               {contratosFiltrados.map((contrato) => (
                 <TableRow key={contrato.id}>
                   <TableCell className="font-medium text-xs sm:text-sm">{contrato.codigo_interno}</TableCell>
-                  <TableCell className="text-xs sm:text-sm max-w-[200px] truncate">{contrato.objeto}</TableCell>
+                  <TableCell className="text-xs sm:text-sm max-w-[250px] whitespace-normal text-justify">{contrato.objeto}</TableCell>
                   <TableCell className="text-xs sm:text-sm">
                     {contrato.fornecedores?.razao_social || "—"}
                   </TableCell>

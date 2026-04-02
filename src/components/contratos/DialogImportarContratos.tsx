@@ -122,11 +122,10 @@ export function DialogImportarContratos({ open, onOpenChange, contratoGestaoId, 
       // Skip header row
       const dataRows = rows.slice(1).filter(r => r.some(c => c != null && c !== ""));
 
-      // Load all fornecedores for matching
+      // Load all fornecedores for matching (incluindo inativos para contratos legados)
       const { data: fornecedoresDB } = await supabase
         .from("fornecedores")
-        .select("id, razao_social, nome_fantasia, cnpj")
-        .eq("ativo", true);
+        .select("id, razao_social, nome_fantasia, cnpj");
 
       const parsed: LinhaContrato[] = dataRows.map(row => {
         const codigo = String(row[0] || "").trim();
@@ -140,16 +139,38 @@ export function DialogImportarContratos({ open, onOpenChange, contratoGestaoId, 
         const valorAtual = parseNumber(row[8]);
         const nomeArquivo = String(row[9] || "").trim();
 
-        // Match fornecedor
+        // Match fornecedor - múltiplas estratégias
         let fornecedorId: string | null = null;
         if (fornecedorNome && fornecedoresDB) {
-          const normalized = normalizeForMatch(fornecedorNome);
-          const match = fornecedoresDB.find(f => {
-            return normalizeForMatch(f.razao_social).includes(normalized) ||
-                   normalized.includes(normalizeForMatch(f.razao_social)) ||
-                   (f.nome_fantasia && (normalizeForMatch(f.nome_fantasia).includes(normalized) || normalized.includes(normalizeForMatch(f.nome_fantasia)))) ||
-                   (f.cnpj && f.cnpj.replace(/\D/g, "") === fornecedorNome.replace(/\D/g, ""));
+          const normalizedInput = normalizeForMatch(fornecedorNome);
+          // 1. Match exato normalizado
+          let match = fornecedoresDB.find(f => normalizeForMatch(f.razao_social) === normalizedInput);
+          // 2. Match por nome fantasia exato
+          if (!match) match = fornecedoresDB.find(f => f.nome_fantasia && normalizeForMatch(f.nome_fantasia) === normalizedInput);
+          // 3. Match parcial - razão social contém input ou vice-versa
+          if (!match) match = fornecedoresDB.find(f => {
+            const nRS = normalizeForMatch(f.razao_social);
+            return nRS.includes(normalizedInput) || normalizedInput.includes(nRS);
           });
+          // 4. Match parcial - nome fantasia
+          if (!match) match = fornecedoresDB.find(f => {
+            if (!f.nome_fantasia) return false;
+            const nNF = normalizeForMatch(f.nome_fantasia);
+            return nNF.includes(normalizedInput) || normalizedInput.includes(nNF);
+          });
+          // 5. Match por CNPJ
+          if (!match) match = fornecedoresDB.find(f => f.cnpj && f.cnpj.replace(/\D/g, "") === fornecedorNome.replace(/\D/g, ""));
+          // 6. Match por palavras-chave (pelo menos 2 palavras em comum com 4+ chars)
+          if (!match) {
+            const inputWords = fornecedorNome.toLowerCase().split(/\s+/).filter(w => w.length >= 4);
+            if (inputWords.length >= 2) {
+              match = fornecedoresDB.find(f => {
+                const rsWords = f.razao_social.toLowerCase().split(/\s+/);
+                const commonWords = inputWords.filter(w => rsWords.some(rw => rw.includes(w) || w.includes(rw)));
+                return commonWords.length >= 2;
+              });
+            }
+          }
           if (match) fornecedorId = match.id;
         }
 
