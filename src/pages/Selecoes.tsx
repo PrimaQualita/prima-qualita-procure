@@ -135,47 +135,10 @@ const Selecoes = () => {
 
       const selecoesComAta = new Set((atas || []).map(a => a.selecao_id));
 
-      // Buscar propostas para saber se há vencedores
-      const { data: propostas } = await supabase
-        .from("propostas_selecao")
-        .select("selecao_id, itens")
-        .in("selecao_id", selecoesIds);
-
-      // Buscar inabilitações ativas
-      const { data: inabilitacoes } = await supabase
-        .from("fornecedores_inabilitados_selecao")
-        .select("selecao_id, fornecedor_id, itens_afetados")
-        .in("selecao_id", selecoesIds)
-        .eq("revertido", false);
-
-      // Verificar se seleção tem pelo menos um vencedor possível
-      const selecoesComVencedor = new Set<string>();
-      if (propostas && propostas.length > 0) {
-        const propostasPorSelecao: Record<string, any[]> = {};
-        propostas.forEach(p => {
-          if (!propostasPorSelecao[p.selecao_id]) propostasPorSelecao[p.selecao_id] = [];
-          propostasPorSelecao[p.selecao_id].push(p);
-        });
-
-        const inabPorSelecao: Record<string, any[]> = {};
-        (inabilitacoes || []).forEach(i => {
-          if (!inabPorSelecao[i.selecao_id]) inabPorSelecao[i.selecao_id] = [];
-          inabPorSelecao[i.selecao_id].push(i);
-        });
-
-        for (const [selecaoId, props] of Object.entries(propostasPorSelecao)) {
-          // Se tem propostas com itens cotados, pode ter vencedor
-          const temItens = props.some(p => {
-            if (!p.itens || !Array.isArray(p.itens)) return false;
-            return (p.itens as any[]).some((item: any) => item.valor_unitario > 0);
-          });
-          if (temItens) {
-            selecoesComVencedor.add(selecaoId);
-          }
-        }
-      }
-
       // Calcular contagens
+      // Fechada = tem homologação OU (tem ata sem homologação, ou seja, deserto/fracassado)
+      // Simplificação: fechada = tem homologação OU tem ata
+      // Aberta = não tem homologação E não tem ata
       const counts: Record<string, { abertas: number; fechadas: number }> = {};
       contratosIds.forEach(id => { counts[id] = { abertas: 0, fechadas: 0 }; });
 
@@ -185,10 +148,9 @@ const Selecoes = () => {
 
         const temHomologacao = selecoesHomologadas.has(sel.id);
         const temAta = selecoesComAta.has(sel.id);
-        const temVencedor = selecoesComVencedor.has(sel.id);
 
-        // Fechada: tem homologação OU (não tem vencedor E tem ata)
-        if (temHomologacao || (!temVencedor && temAta)) {
+        // Fechada: tem homologação (com vencedor) OU tem ata (sem vencedor = deserto/fracassado)
+        if (temHomologacao || temAta) {
           counts[contratoId].fechadas++;
         } else {
           counts[contratoId].abertas++;
