@@ -48,6 +48,7 @@ const PropostasSelecao = lazy(() => import("./pages/PropostasSelecao"));
 const SistemaLancesFornecedor = lazy(() => import("./pages/SistemaLancesFornecedor"));
 const PropostaRealinhada = lazy(() => import("./pages/PropostaRealinhada"));
 const RecuperarSenha = lazy(() => import("./pages/RecuperarSenha"));
+const RedirecionarDocumento = lazy(() => import("./pages/RedirecionarDocumento"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 
 const queryClient = new QueryClient();
