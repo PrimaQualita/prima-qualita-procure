@@ -13,9 +13,10 @@ const RedirecionarDocumento = () => {
         return;
       }
 
+      // Buscar dados do link curto
       const { data, error } = await (supabase as any)
         .from("links_curtos")
-        .select("url_original")
+        .select("url_original, storage_path, bucket_name")
         .eq("codigo", codigo)
         .maybeSingle();
 
@@ -24,6 +25,15 @@ const RedirecionarDocumento = () => {
         return;
       }
 
+      // Se tem storage_path, usar Edge Function para gerar URL assinada fresca
+      if (data.storage_path) {
+        const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+        const redirectUrl = `${supabaseUrl}/functions/v1/redirecionar-documento?codigo=${codigo}`;
+        window.location.href = redirectUrl;
+        return;
+      }
+
+      // Caso contrário, redirecionar para URL original
       window.location.href = data.url_original;
     };
 

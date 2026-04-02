@@ -19,19 +19,35 @@ function gerarCodigo(): string {
  */
 export async function gerarLinkCurto(
   urlOriginal: string,
-  nomeDocumento?: string
+  nomeDocumento?: string,
+  storagePath?: string,
+  bucketName?: string
 ): Promise<string | null> {
   try {
-    // Verificar se já existe link curto para esta URL
-    const { data: existente } = await (supabase as any)
-      .from('links_curtos')
-      .select('codigo')
-      .eq('url_original', urlOriginal)
-      .maybeSingle();
+    // Se temos storagePath, verificar se já existe link para esse path
+    if (storagePath) {
+      const { data: existente } = await (supabase as any)
+        .from('links_curtos')
+        .select('codigo')
+        .eq('storage_path', storagePath)
+        .maybeSingle();
 
-    if (existente?.codigo) {
-      const baseUrl = window.location.origin;
-      return `${baseUrl}/d/${existente.codigo}`;
+      if (existente?.codigo) {
+        const baseUrl = window.location.origin;
+        return `${baseUrl}/d/${existente.codigo}`;
+      }
+    } else {
+      // Verificar se já existe link curto para esta URL
+      const { data: existente } = await (supabase as any)
+        .from('links_curtos')
+        .select('codigo')
+        .eq('url_original', urlOriginal)
+        .maybeSingle();
+
+      if (existente?.codigo) {
+        const baseUrl = window.location.origin;
+        return `${baseUrl}/d/${existente.codigo}`;
+      }
     }
 
     // Gerar novo código único
@@ -45,6 +61,8 @@ export async function gerarLinkCurto(
           codigo,
           url_original: urlOriginal,
           nome_documento: nomeDocumento || null,
+          storage_path: storagePath || null,
+          bucket_name: bucketName || null,
         });
 
       if (!error) {
