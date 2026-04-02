@@ -1,0 +1,11 @@
+# Memory: storage/politica-integridade-e-limpeza-dados-v2
+Updated: now
+
+Política de Integridade do Storage e Limpeza de Dados:
+1. Coordenação de Deleção: A exclusão de processos, seleções, propostas e fornecedores remove obrigatoriamente todos os arquivos físicos associados no storage (pastas e arquivos isolados) antes de limpar os registros do banco.
+2. Prevenção de Órfãos: O sistema utiliza decodificação recursiva de caminhos (decodePathFully) e varredura por prefixos para capturar sobras. Arquivos de 'PROCESSO_COMPLETO' são identificados corretamente no bucket 'documents' mesmo com prefixo 'processos/'.
+3. Proteção de Documentos: Documentos vinculados a protocolos (protocolos_documentos_processo) são protegidos via função `get_all_file_references`, impedindo sua deleção acidental.
+4. Manutenção de Contratos: A limpeza varre tabelas de contratos para eliminar referências órfãs. Novos uploads em registros existentes removem o arquivo antigo apenas após o sucesso do novo envio. A deleção de um processo limpa integralmente o dossiê digital, incluindo anexos e documentos de contrato vinculados.
+5. Remoção Robusta: A limpeza de arquivos via `storage.remove()` utiliza decodificação de URL (`decodeURIComponent`) e limpeza de query strings (`split('?')[0]`) nos caminhos extraídos. Isso garante que arquivos com caracteres especiais ou timestamps de cache sejam corretamente identificados e removidos do storage, prevenindo o acúmulo de arquivos órfãos.
+6. Permissões de Deleção no Storage: Fornecedores autenticados têm política RLS de DELETE para arquivos em pastas `fornecedor_%` do bucket `processo-anexos`. Usuários anônimos (público) têm política de DELETE para pasta `propostas` (para limpeza de re-submissões). Isso garante que ao atualizar documentos no portal ou reenviar propostas, os arquivos antigos sejam removidos corretamente em vez de ficarem como órfãos.
+7. Lógica de Atualização de Documentos: Quando fornecedor atualiza documento no portal: (a) se o fornecedor é vencedor em processo finalizado, o documento antigo é MOVIDO para `documentos_antigos` preservando histórico; (b) se NÃO está vinculado a processo, o arquivo antigo é DELETADO completamente do storage e do banco.

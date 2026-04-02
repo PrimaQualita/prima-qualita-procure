@@ -1207,7 +1207,13 @@ const RespostaCotacao = () => {
           
           // Deletar arquivos antigos do storage
           if (arquivosAntigosParaDeletar.length > 0) {
-            await supabaseAnon.storage.from('processo-anexos').remove(arquivosAntigosParaDeletar);
+            console.log(`🗑️ Deletando ${arquivosAntigosParaDeletar.length} arquivo(s) antigo(s) do storage:`, arquivosAntigosParaDeletar);
+            const { error: storageDeleteError } = await supabaseAnon.storage.from('processo-anexos').remove(arquivosAntigosParaDeletar);
+            if (storageDeleteError) {
+              console.error('❌ Erro ao deletar arquivos antigos do storage:', storageDeleteError);
+            } else {
+              console.log('✅ Arquivos antigos deletados do storage com sucesso');
+            }
           }
           
           // Limpar registros antigos do banco (itens, anexos e resposta) pelo ID específico
