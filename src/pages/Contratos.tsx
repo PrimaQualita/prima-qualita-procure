@@ -171,7 +171,7 @@ export default function Contratos() {
 
       (pcData || []).forEach(p => {
         if (!counts[p.contrato_gestao_id]) counts[p.contrato_gestao_id] = { vigentes: 0, vencidos: 0, pendentes: 0 };
-        if (p.status === "pendente") {
+        if (p.status === "pronto_para_contratar") {
           counts[p.contrato_gestao_id].pendentes++;
         }
       });
