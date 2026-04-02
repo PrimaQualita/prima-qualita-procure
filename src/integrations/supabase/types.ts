@@ -2776,6 +2776,7 @@ export type Database = {
           gerente_financeiro: boolean | null
           gestor: boolean | null
           id: string
+          jovem_aprendiz: boolean | null
           last_seen: string | null
           nome_completo: string
           primeiro_acesso: boolean | null
@@ -2803,6 +2804,7 @@ export type Database = {
           gerente_financeiro?: boolean | null
           gestor?: boolean | null
           id: string
+          jovem_aprendiz?: boolean | null
           last_seen?: string | null
           nome_completo: string
           primeiro_acesso?: boolean | null
@@ -2830,6 +2832,7 @@ export type Database = {
           gerente_financeiro?: boolean | null
           gestor?: boolean | null
           id?: string
+          jovem_aprendiz?: boolean | null
           last_seen?: string | null
           nome_completo?: string
           primeiro_acesso?: boolean | null
