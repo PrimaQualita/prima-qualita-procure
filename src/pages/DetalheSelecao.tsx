@@ -1674,11 +1674,8 @@ const [itens, setItens] = useState<Item[]>([]);
                                       const urlParts = filePath.split("/processo-anexos/");
                                       filePath = urlParts[1] || filePath;
                                     }
-                                    const { data, error } = await supabase.storage
-                                      .from("processo-anexos")
-                                      .createSignedUrl(filePath, 3600);
-                                    if (error) throw error;
-                                    if (data?.signedUrl) window.open(data.signedUrl, "_blank");
+                                    const { abrirDocumentoStorage } = await import("@/lib/abrirDocumentoStorage");
+                                    await abrirDocumentoStorage(filePath, "Resposta_Contabilidade.pdf");
                                   } catch (error) {
                                     console.error("Erro:", error);
                                     toast.error("Erro ao visualizar resposta");

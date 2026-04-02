@@ -399,12 +399,8 @@ export function DialogGrupoDetalhes({ open, onOpenChange, titulo, tipo, grupos, 
                   }
                   
                   if (cleanPath) {
-                    const { data } = await supabase.storage
-                      .from('processo-anexos')
-                      .createSignedUrl(cleanPath, 3600);
-                    if (data?.signedUrl) {
-                      window.open(data.signedUrl, '_blank');
-                    }
+                    const { abrirDocumentoStorage } = await import('@/lib/abrirDocumentoStorage');
+                    await abrirDocumentoStorage(cleanPath, nomeExibicao || cleanPath.split('/').pop() || 'documento');
                   }
                 } catch (error) {
                   console.error('Erro ao gerar URL:', error);

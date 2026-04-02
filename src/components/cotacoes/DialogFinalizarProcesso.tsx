@@ -5003,12 +5003,8 @@ export function DialogFinalizarProcesso({
                                   filePath = urlParts[1] || filePath;
                                 }
                                 
-                                const { data, error } = await supabase.storage
-                                  .from('processo-anexos')
-                                  .createSignedUrl(filePath, 3600);
-                                
-                                if (error) throw error;
-                                if (data?.signedUrl) window.open(data.signedUrl, '_blank');
+                                const { abrirDocumentoStorage } = await import('@/lib/abrirDocumentoStorage');
+                                await abrirDocumentoStorage(filePath, recurso.nome_arquivo || 'recurso.pdf');
                               } catch (error) {
                                 console.error('Erro ao gerar URL:', error);
                                 toast.error('Erro ao visualizar recurso');
@@ -5126,12 +5122,8 @@ export function DialogFinalizarProcesso({
                                         filePath = urlParts[1] || filePath;
                                       }
                                       
-                                      const { data, error } = await supabase.storage
-                                        .from('processo-anexos')
-                                        .createSignedUrl(filePath, 3600);
-                                      
-                                      if (error) throw error;
-                                      if (data?.signedUrl) window.open(data.signedUrl, '_blank');
+                                      const { abrirDocumentoStorage } = await import('@/lib/abrirDocumentoStorage');
+                                      await abrirDocumentoStorage(filePath, (recurso as any).respostas_recursos[0].nome_arquivo || 'resposta_recurso.pdf');
                                     } catch (error) {
                                       console.error('Erro ao visualizar:', error);
                                       toast.error('Erro ao visualizar resposta');
@@ -5256,7 +5248,10 @@ export function DialogFinalizarProcesso({
                         </div>
                       </div>
                       <Button
-                        onClick={() => window.open(planilha.url_arquivo, '_blank')}
+                        onClick={async () => {
+                          const { abrirDocumentoStorage } = await import('@/lib/abrirDocumentoStorage');
+                          await abrirDocumentoStorage(planilha.url_arquivo, planilha.nome_arquivo);
+                        }}
                         variant="outline"
                         size="icon"
                         title="Ver Planilha"
@@ -5320,7 +5315,10 @@ export function DialogFinalizarProcesso({
                         </div>
                       </div>
                       <Button
-                        onClick={() => window.open(relatorio.url_arquivo, '_blank')}
+                        onClick={async () => {
+                          const { abrirDocumentoStorage } = await import('@/lib/abrirDocumentoStorage');
+                          await abrirDocumentoStorage(relatorio.url_arquivo, relatorio.nome_arquivo);
+                        }}
                         variant="outline"
                         size="icon"
                         title="Ver Relatório"
@@ -5401,11 +5399,8 @@ export function DialogFinalizarProcesso({
                                 const urlParts = filePath.split('/processo-anexos/');
                                 filePath = urlParts[1] || filePath;
                               }
-                              const { data, error } = await supabase.storage
-                                .from('processo-anexos')
-                                .createSignedUrl(filePath, 3600);
-                              if (error) throw error;
-                              if (data?.signedUrl) window.open(data.signedUrl, '_blank');
+                              const { abrirDocumentoStorage } = await import('@/lib/abrirDocumentoStorage');
+                              await abrirDocumentoStorage(filePath, enc.nome_arquivo || `Encaminhamento_${enc.protocolo}.pdf`);
                             } catch (error) {
                               console.error('Erro:', error);
                               toast.error('Erro ao visualizar');
@@ -5498,11 +5493,8 @@ export function DialogFinalizarProcesso({
                                   const urlParts = filePath.split('/processo-anexos/');
                                   filePath = urlParts[1] || filePath;
                                 }
-                                const { data, error } = await supabase.storage
-                                  .from('processo-anexos')
-                                  .createSignedUrl(filePath, 3600);
-                                if (error) throw error;
-                                if (data?.signedUrl) window.open(data.signedUrl, '_blank');
+                                const { abrirDocumentoStorage } = await import('@/lib/abrirDocumentoStorage');
+                                await abrirDocumentoStorage(filePath, `Resposta_Contabilidade_${enc.protocolo_resposta}.pdf`);
                               } catch (error) {
                                 console.error('Erro:', error);
                                 toast.error('Erro ao visualizar resposta');

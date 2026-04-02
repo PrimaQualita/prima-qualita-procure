@@ -1443,12 +1443,8 @@ export default function RespostasCotacao() {
                         variant="outline"
                         size="sm"
                         onClick={async () => {
-                          const { data } = await supabase.storage
-                            .from('processo-anexos')
-                            .createSignedUrl(planilha.url_arquivo, 3600);
-                          if (data?.signedUrl) {
-                            window.open(data.signedUrl, '_blank');
-                          }
+                          const { abrirDocumentoStorage } = await import('@/lib/abrirDocumentoStorage');
+                          await abrirDocumentoStorage(planilha.url_arquivo, planilha.nome_arquivo);
                         }}
                         className="flex-1"
                       >
@@ -1534,7 +1530,10 @@ export default function RespostasCotacao() {
                         <Button
                           variant="outline"
                           size="sm"
-                          onClick={() => window.open(enc.url, '_blank')}
+                          onClick={async () => {
+                            const { abrirDocumentoStorage } = await import('@/lib/abrirDocumentoStorage');
+                            await abrirDocumentoStorage(enc.storage_path, enc.nome_arquivo || `Encaminhamento_${enc.protocolo}.pdf`);
+                          }}
                           className="flex-1"
                         >
                           <Eye className="mr-2 h-4 w-4" />
@@ -1684,14 +1683,9 @@ export default function RespostasCotacao() {
                           variant="outline"
                           size="sm"
                           onClick={async () => {
-                            // Extrair o path correto (remover prefixo "documents/" se existir)
                             const path = analise.url_documento.replace('documents/', '');
-                            const { data } = await supabase.storage
-                              .from('documents')
-                              .createSignedUrl(path, 3600);
-                            if (data?.signedUrl) {
-                              window.open(data.signedUrl, '_blank');
-                            }
+                            const { abrirDocumentoStorage } = await import('@/lib/abrirDocumentoStorage');
+                            await abrirDocumentoStorage(path, analise.nome_arquivo || `Analise_Compliance_${analise.protocolo}.pdf`, 'documents');
                           }}
                           className="flex-1"
                         >
