@@ -659,7 +659,8 @@ const ProcessosCompras = () => {
                       <TableHead>Nome do Contrato</TableHead>
                       <TableHead>Ente Federativo</TableHead>
                       <TableHead>Período</TableHead>
-                      <TableHead>Status</TableHead>
+                      <TableHead className="text-center">Processos Abertos</TableHead>
+                      <TableHead className="text-center">Processos Fechados</TableHead>
                       <TableHead className="text-right">Ações</TableHead>
                     </TableRow>
                   </TableHeader>
@@ -675,7 +676,16 @@ const ProcessosCompras = () => {
                           {contrato.data_inicio.split('-').reverse().join('/')} até{" "}
                           {contrato.data_fim.split('-').reverse().join('/')}
                         </TableCell>
-                        <TableCell>{getStatusBadge(contrato.status)}</TableCell>
+                        <TableCell className="text-center">
+                          <Badge className="bg-amber-100 text-amber-800 hover:bg-amber-200 dark:bg-amber-900/40 dark:text-amber-300">
+                            {processosCountPorContrato[contrato.id]?.abertos || 0}
+                          </Badge>
+                        </TableCell>
+                        <TableCell className="text-center">
+                          <Badge className="bg-emerald-100 text-emerald-800 hover:bg-emerald-200 dark:bg-emerald-900/40 dark:text-emerald-300">
+                            {processosCountPorContrato[contrato.id]?.fechados || 0}
+                          </Badge>
+                        </TableCell>
                         <TableCell className="text-right">
                           <div className="flex justify-end gap-2">
                             <Button
