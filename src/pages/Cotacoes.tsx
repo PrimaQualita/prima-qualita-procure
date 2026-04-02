@@ -1920,14 +1920,25 @@ const Cotacoes = () => {
                         </TableCell>
                       </TableRow>
                     ) : (
-                      contratosFiltrados.map((contrato, index) => (
+                      contratosFiltrados.map((contrato, index) => {
+                        const counts = cotacoesCountPorContrato[contrato.id] || { abertas: 0, finalizadas: 0 };
+                        return (
                         <TableRow key={contrato.id} className={index % 2 === 0 ? "bg-green-100 dark:bg-green-900/40" : "bg-blue-100 dark:bg-blue-900/40"}>
                           <TableCell className="font-medium text-xs sm:text-sm">{contrato.nome_contrato}</TableCell>
                           <TableCell className="text-xs sm:text-sm">{contrato.ente_federativo}</TableCell>
-                          <TableCell>
-                            <Badge variant={contrato.status === "ativo" ? "default" : "secondary"} className="text-xs">
-                              {contrato.status}
-                            </Badge>
+                          <TableCell className="text-center">
+                            {counts.abertas > 0 ? (
+                              <Badge className="bg-amber-500 hover:bg-amber-600 text-white text-xs">{counts.abertas}</Badge>
+                            ) : (
+                              <span className="text-muted-foreground text-xs">0</span>
+                            )}
+                          </TableCell>
+                          <TableCell className="text-center">
+                            {counts.finalizadas > 0 ? (
+                              <Badge className="bg-emerald-600 hover:bg-emerald-700 text-white text-xs">{counts.finalizadas}</Badge>
+                            ) : (
+                              <span className="text-muted-foreground text-xs">0</span>
+                            )}
                           </TableCell>
                           <TableCell className="text-right">
                             <Button
@@ -1941,7 +1952,8 @@ const Cotacoes = () => {
                             </Button>
                           </TableCell>
                         </TableRow>
-                      ))
+                        );
+                      })
                     )}
                   </TableBody>
                 </Table>
