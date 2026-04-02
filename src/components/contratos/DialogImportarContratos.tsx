@@ -181,6 +181,7 @@ export function DialogImportarContratos({ open, onOpenChange, contratoGestaoId, 
   const [arquivos, setArquivos] = useState<File[]>([]);
   const [importando, setImportando] = useState(false);
   const [progresso, setProgresso] = useState(0);
+  const [filtroPreview, setFiltroPreview] = useState<"todos" | "novos" | "atualizados" | "erro" | "fornecedor" | "arquivo">("todos");
   const fileInputRef = useRef<HTMLInputElement>(null);
   const pdfInputRef = useRef<HTMLInputElement>(null);
 
@@ -190,6 +191,7 @@ export function DialogImportarContratos({ open, onOpenChange, contratoGestaoId, 
     setArquivos([]);
     setImportando(false);
     setProgresso(0);
+    setFiltroPreview("todos");
   };
 
   const handlePlanilhaUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -504,30 +506,49 @@ export function DialogImportarContratos({ open, onOpenChange, contratoGestaoId, 
 
         {step === "preview" && (
           <div className="space-y-4">
-            <div className="flex flex-wrap gap-3">
-              <Badge variant="outline" className="text-xs">
+            <div className="flex flex-wrap gap-2">
+              <Badge
+                variant="outline"
+                className={`text-xs cursor-pointer transition-all ${filtroPreview === "todos" ? "ring-2 ring-primary" : "opacity-60 hover:opacity-100"}`}
+                onClick={() => setFiltroPreview("todos")}
+              >
                 {linhas.length} linhas lidas
               </Badge>
-              <Badge className="bg-green-100 text-green-800 text-xs">
+              <Badge
+                className={`bg-green-100 text-green-800 text-xs cursor-pointer transition-all ${filtroPreview === "novos" ? "ring-2 ring-green-500" : "opacity-60 hover:opacity-100"}`}
+                onClick={() => setFiltroPreview(filtroPreview === "novos" ? "todos" : "novos")}
+              >
                 <Check className="h-3 w-3 mr-1" />
                 {totalNovos} novos
               </Badge>
               {totalExistentes > 0 && (
-                <Badge className="bg-amber-100 text-amber-800 text-xs">
+                <Badge
+                  className={`bg-amber-100 text-amber-800 text-xs cursor-pointer transition-all ${filtroPreview === "atualizados" ? "ring-2 ring-amber-500" : "opacity-60 hover:opacity-100"}`}
+                  onClick={() => setFiltroPreview(filtroPreview === "atualizados" ? "todos" : "atualizados")}
+                >
                   <AlertTriangle className="h-3 w-3 mr-1" />
                   {totalExistentes} serão atualizados
                 </Badge>
               )}
               {linhas.length - totalValidas > 0 && (
-                <Badge className="bg-red-100 text-red-800 text-xs">
+                <Badge
+                  className={`bg-red-100 text-red-800 text-xs cursor-pointer transition-all ${filtroPreview === "erro" ? "ring-2 ring-red-500" : "opacity-60 hover:opacity-100"}`}
+                  onClick={() => setFiltroPreview(filtroPreview === "erro" ? "todos" : "erro")}
+                >
                   <X className="h-3 w-3 mr-1" />
                   {linhas.length - totalValidas} com erro
                 </Badge>
               )}
-              <Badge className="bg-blue-100 text-blue-800 text-xs">
+              <Badge
+                className={`bg-blue-100 text-blue-800 text-xs cursor-pointer transition-all ${filtroPreview === "fornecedor" ? "ring-2 ring-blue-500" : "opacity-60 hover:opacity-100"}`}
+                onClick={() => setFiltroPreview(filtroPreview === "fornecedor" ? "todos" : "fornecedor")}
+              >
                 {totalComFornecedor} fornecedores vinculados
               </Badge>
-              <Badge className="bg-purple-100 text-purple-800 text-xs">
+              <Badge
+                className={`bg-purple-100 text-purple-800 text-xs cursor-pointer transition-all ${filtroPreview === "arquivo" ? "ring-2 ring-purple-500" : "opacity-60 hover:opacity-100"}`}
+                onClick={() => setFiltroPreview(filtroPreview === "arquivo" ? "todos" : "arquivo")}
+              >
                 <FileText className="h-3 w-3 mr-1" />
                 {totalComArquivo} arquivos vinculados
               </Badge>
@@ -563,10 +584,23 @@ export function DialogImportarContratos({ open, onOpenChange, contratoGestaoId, 
                     <TableHead className="text-xs">Vigência</TableHead>
                     <TableHead className="text-xs">Valor Atual</TableHead>
                     <TableHead className="text-xs">Arquivo</TableHead>
+                    <TableHead className="text-xs">Detalhe</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {linhas.map((linha, idx) => (
+                  {linhas
+                    .map((linha, idx) => ({ linha, idx }))
+                    .filter(({ linha }) => {
+                      switch (filtroPreview) {
+                        case "novos": return !linha.erro && !linha.contrato_existente_id;
+                        case "atualizados": return !linha.erro && !!linha.contrato_existente_id;
+                        case "erro": return !!linha.erro;
+                        case "fornecedor": return !!linha.fornecedor_id;
+                        case "arquivo": return !!linha.arquivo_match;
+                        default: return true;
+                      }
+                    })
+                    .map(({ linha, idx }) => (
                     <TableRow key={idx} className={linha.erro ? "bg-red-50" : linha.contrato_existente_id ? "bg-amber-50/50" : ""}>
                       <TableCell className="text-xs font-medium">
                         {linha.codigo_interno}
@@ -609,6 +643,15 @@ export function DialogImportarContratos({ open, onOpenChange, contratoGestaoId, 
                         {linha.arquivo_match
                           ? <Check className="h-3 w-3 text-green-600" />
                           : linha.nome_arquivo ? <X className="h-3 w-3 text-red-400" /> : <span className="text-muted-foreground">—</span>}
+                      </TableCell>
+                      <TableCell className="text-xs">
+                        {linha.erro ? (
+                          <span className="text-red-600 font-medium">⚠ {linha.erro}</span>
+                        ) : linha.contrato_existente_id ? (
+                          <span className="text-amber-600">Será atualizado</span>
+                        ) : (
+                          <span className="text-green-600">Novo contrato</span>
+                        )}
                       </TableCell>
                     </TableRow>
                   ))}
