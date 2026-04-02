@@ -5122,12 +5122,8 @@ export function DialogFinalizarProcesso({
                                         filePath = urlParts[1] || filePath;
                                       }
                                       
-                                      const { data, error } = await supabase.storage
-                                        .from('processo-anexos')
-                                        .createSignedUrl(filePath, 3600);
-                                      
-                                      if (error) throw error;
-                                      if (data?.signedUrl) window.open(data.signedUrl, '_blank');
+                                      const { abrirDocumentoStorage } = await import('@/lib/abrirDocumentoStorage');
+                                      await abrirDocumentoStorage(filePath, (recurso as any).respostas_recursos[0].nome_arquivo || 'resposta_recurso.pdf');
                                     } catch (error) {
                                       console.error('Erro ao visualizar:', error);
                                       toast.error('Erro ao visualizar resposta');
