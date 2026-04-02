@@ -456,7 +456,7 @@ export function TabContratosTerceiros({ contratoGestaoId, contratoGestaoNome, pr
   const contratosFiltrados = contratosAtivos.filter((c) =>
     c.codigo_interno.toLowerCase().includes(filtro.toLowerCase()) ||
     c.objeto.toLowerCase().includes(filtro.toLowerCase()) ||
-    (c.fornecedores?.razao_social || "").toLowerCase().includes(filtro.toLowerCase())
+    (c.fornecedores?.razao_social || c.fornecedor_nome_manual || "").toLowerCase().includes(filtro.toLowerCase())
   );
 
   if (loading) {
