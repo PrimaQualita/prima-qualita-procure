@@ -107,39 +107,30 @@ const Selecoes = () => {
       const processoToContrato: Record<string, string> = {};
       processos.forEach(p => { processoToContrato[p.id] = p.contrato_gestao_id; });
 
-      // Buscar todas as seleções
-      const { data: selecoes } = await supabase
-        .from("selecoes_fornecedores")
-        .select("id, processo_compra_id")
-        .in("processo_compra_id", processosIds);
+      // Buscar seleções, homologações e atas em PARALELO
+      const [selecoesRes, homologacoesRes, atasRes] = await Promise.all([
+        supabase
+          .from("selecoes_fornecedores")
+          .select("id, processo_compra_id")
+          .in("processo_compra_id", processosIds),
+        supabase
+          .from("homologacoes_selecao")
+          .select("selecao_id"),
+        supabase
+          .from("atas_selecao")
+          .select("selecao_id"),
+      ]);
 
+      const selecoes = selecoesRes.data;
       if (!selecoes || selecoes.length === 0) {
         setSelecoesCountPorContrato({});
         return;
       }
 
-      const selecoesIds = selecoes.map(s => s.id);
+      const selecoesIdsSet = new Set(selecoes.map(s => s.id));
+      const selecoesHomologadas = new Set((homologacoesRes.data || []).filter(h => selecoesIdsSet.has(h.selecao_id)).map(h => h.selecao_id));
+      const selecoesComAta = new Set((atasRes.data || []).filter(a => selecoesIdsSet.has(a.selecao_id)).map(a => a.selecao_id));
 
-      // Buscar homologações emitidas
-      const { data: homologacoes } = await supabase
-        .from("homologacoes_selecao")
-        .select("selecao_id")
-        .in("selecao_id", selecoesIds);
-
-      const selecoesHomologadas = new Set((homologacoes || []).map(h => h.selecao_id));
-
-      // Buscar atas emitidas
-      const { data: atas } = await supabase
-        .from("atas_selecao")
-        .select("selecao_id")
-        .in("selecao_id", selecoesIds);
-
-      const selecoesComAta = new Set((atas || []).map(a => a.selecao_id));
-
-      // Calcular contagens
-      // Fechada = tem homologação OU (tem ata sem homologação, ou seja, deserto/fracassado)
-      // Simplificação: fechada = tem homologação OU tem ata
-      // Aberta = não tem homologação E não tem ata
       const counts: Record<string, { abertas: number; fechadas: number }> = {};
       contratosIds.forEach(id => { counts[id] = { abertas: 0, fechadas: 0 }; });
 
@@ -147,11 +138,7 @@ const Selecoes = () => {
         const contratoId = processoToContrato[sel.processo_compra_id];
         if (!contratoId || !counts[contratoId]) return;
 
-        const temHomologacao = selecoesHomologadas.has(sel.id);
-        const temAta = selecoesComAta.has(sel.id);
-
-        // Fechada: tem homologação (com vencedor) OU tem ata (sem vencedor = deserto/fracassado)
-        if (temHomologacao || temAta) {
+        if (selecoesHomologadas.has(sel.id) || selecoesComAta.has(sel.id)) {
           counts[contratoId].fechadas++;
         } else {
           counts[contratoId].abertas++;
