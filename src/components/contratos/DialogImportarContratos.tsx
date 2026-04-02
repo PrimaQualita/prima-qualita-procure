@@ -181,6 +181,7 @@ export function DialogImportarContratos({ open, onOpenChange, contratoGestaoId, 
   const [arquivos, setArquivos] = useState<File[]>([]);
   const [importando, setImportando] = useState(false);
   const [progresso, setProgresso] = useState(0);
+  const [filtroPreview, setFiltroPreview] = useState<"todos" | "novos" | "atualizados" | "erro" | "fornecedor" | "arquivo">("todos");
   const fileInputRef = useRef<HTMLInputElement>(null);
   const pdfInputRef = useRef<HTMLInputElement>(null);
 
