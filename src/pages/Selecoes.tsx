@@ -412,14 +412,15 @@ const Selecoes = () => {
                   <TableRow>
                     <TableHead>Nome do Contrato</TableHead>
                     <TableHead>Ente Federativo</TableHead>
-                    <TableHead>Status</TableHead>
+                    <TableHead className="text-center">Seleções Abertas</TableHead>
+                    <TableHead className="text-center">Seleções Fechadas</TableHead>
                     <TableHead className="text-right">Ações</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {contratosFiltrados.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={4} className="text-center text-muted-foreground">
+                      <TableCell colSpan={5} className="text-center text-muted-foreground">
                         Nenhum contrato encontrado
                       </TableCell>
                     </TableRow>
@@ -428,9 +429,14 @@ const Selecoes = () => {
                       <TableRow key={contrato.id} className={index % 2 === 0 ? "bg-green-100 dark:bg-green-900/40" : "bg-blue-100 dark:bg-blue-900/40"}>
                         <TableCell className="font-medium">{contrato.nome_contrato}</TableCell>
                         <TableCell>{contrato.ente_federativo}</TableCell>
-                        <TableCell>
-                          <Badge variant={contrato.status === "ativo" ? "default" : "secondary"}>
-                            {contrato.status}
+                        <TableCell className="text-center">
+                          <Badge className="bg-amber-100 text-amber-800 hover:bg-amber-200 dark:bg-amber-900/40 dark:text-amber-300">
+                            {selecoesCountPorContrato[contrato.id]?.abertas || 0}
+                          </Badge>
+                        </TableCell>
+                        <TableCell className="text-center">
+                          <Badge className="bg-emerald-100 text-emerald-800 hover:bg-emerald-200 dark:bg-emerald-900/40 dark:text-emerald-300">
+                            {selecoesCountPorContrato[contrato.id]?.fechadas || 0}
                           </Badge>
                         </TableCell>
                         <TableCell className="text-right">
