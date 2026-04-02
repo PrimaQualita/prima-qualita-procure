@@ -99,6 +99,7 @@ const ProcessosCompras = () => {
   const [dialogAnexosOpen, setDialogAnexosOpen] = useState(false);
   const [dialogRelatorioOpen, setDialogRelatorioOpen] = useState(false);
   const [processoParaAnexos, setProcessoParaAnexos] = useState<Processo | null>(null);
+  const [processosCountPorContrato, setProcessosCountPorContrato] = useState<Record<string, { abertos: number; fechados: number }>>({});
 
   // Verifica se é usuário interno com permissões completas
   // Se tem perfis como compliance, superintendente, gestor ou colaborador, tem acesso total
@@ -118,6 +119,43 @@ const ProcessosCompras = () => {
       loadContratos();
     }
   }, [userId, loading, contratosVinculados]);
+
+  useEffect(() => {
+    if (contratos.length > 0) {
+      loadProcessosCountPorContrato();
+    }
+  }, [contratos]);
+
+  const loadProcessosCountPorContrato = async () => {
+    try {
+      const contratosIds = contratos.map(c => c.id);
+      const { data: processos } = await supabase
+        .from("processos_compras")
+        .select("id, contrato_gestao_id, status_processo")
+        .in("contrato_gestao_id", contratosIds);
+
+      if (!processos || processos.length === 0) {
+        setProcessosCountPorContrato({});
+        return;
+      }
+
+      const counts: Record<string, { abertos: number; fechados: number }> = {};
+      contratosIds.forEach(id => { counts[id] = { abertos: 0, fechados: 0 }; });
+
+      processos.forEach(p => {
+        if (!counts[p.contrato_gestao_id]) return;
+        if (p.status_processo === 'concluido') {
+          counts[p.contrato_gestao_id].fechados++;
+        } else {
+          counts[p.contrato_gestao_id].abertos++;
+        }
+      });
+
+      setProcessosCountPorContrato(counts);
+    } catch (error) {
+      console.error("Erro ao carregar contagem de processos:", error);
+    }
+  };
 
   useEffect(() => {
     if (contratoSelecionado) {
@@ -621,7 +659,8 @@ const ProcessosCompras = () => {
                       <TableHead>Nome do Contrato</TableHead>
                       <TableHead>Ente Federativo</TableHead>
                       <TableHead>Período</TableHead>
-                      <TableHead>Status</TableHead>
+                      <TableHead className="text-center">Processos Abertos</TableHead>
+                      <TableHead className="text-center">Processos Fechados</TableHead>
                       <TableHead className="text-right">Ações</TableHead>
                     </TableRow>
                   </TableHeader>
@@ -637,16 +676,26 @@ const ProcessosCompras = () => {
                           {contrato.data_inicio.split('-').reverse().join('/')} até{" "}
                           {contrato.data_fim.split('-').reverse().join('/')}
                         </TableCell>
-                        <TableCell>{getStatusBadge(contrato.status)}</TableCell>
+                        <TableCell className="text-center">
+                          <Badge className="bg-amber-100 text-amber-800 hover:bg-amber-200 dark:bg-amber-900/40 dark:text-amber-300">
+                            {processosCountPorContrato[contrato.id]?.abertos || 0}
+                          </Badge>
+                        </TableCell>
+                        <TableCell className="text-center">
+                          <Badge className="bg-emerald-100 text-emerald-800 hover:bg-emerald-200 dark:bg-emerald-900/40 dark:text-emerald-300">
+                            {processosCountPorContrato[contrato.id]?.fechados || 0}
+                          </Badge>
+                        </TableCell>
                         <TableCell className="text-right">
-                          <div className="flex justify-end gap-2">
+                          <div className="flex justify-end gap-1">
                             <Button
                               variant="outline"
                               size="sm"
+                              className="text-xs px-2 py-1 h-7"
                               onClick={() => setContratoSelecionado(contrato)}
                             >
-                              <ChevronRight className="h-4 w-4 mr-2" />
-                              Ver Processos
+                              <ChevronRight className="h-3 w-3 mr-1" />
+                              Processos
                             </Button>
                             {podeEditarContratoGestao && (
                               <Button
