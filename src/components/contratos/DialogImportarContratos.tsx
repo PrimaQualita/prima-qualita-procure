@@ -476,8 +476,14 @@ export function DialogImportarContratos({ open, onOpenChange, contratoGestaoId, 
               </Badge>
               <Badge className="bg-green-100 text-green-800 text-xs">
                 <Check className="h-3 w-3 mr-1" />
-                {totalValidas} válidas
+                {totalNovos} novos
               </Badge>
+              {totalExistentes > 0 && (
+                <Badge className="bg-amber-100 text-amber-800 text-xs">
+                  <AlertTriangle className="h-3 w-3 mr-1" />
+                  {totalExistentes} serão atualizados
+                </Badge>
+              )}
               {linhas.length - totalValidas > 0 && (
                 <Badge className="bg-red-100 text-red-800 text-xs">
                   <X className="h-3 w-3 mr-1" />
