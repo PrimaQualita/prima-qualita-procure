@@ -1443,12 +1443,8 @@ export default function RespostasCotacao() {
                         variant="outline"
                         size="sm"
                         onClick={async () => {
-                          const { data } = await supabase.storage
-                            .from('processo-anexos')
-                            .createSignedUrl(planilha.url_arquivo, 3600);
-                          if (data?.signedUrl) {
-                            window.open(data.signedUrl, '_blank');
-                          }
+                          const { abrirDocumentoStorage } = await import('@/lib/abrirDocumentoStorage');
+                          await abrirDocumentoStorage(planilha.url_arquivo, planilha.nome_arquivo);
                         }}
                         className="flex-1"
                       >
