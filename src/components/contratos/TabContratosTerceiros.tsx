@@ -10,7 +10,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Plus, Pencil, Trash2, FileText, Upload, Eye, Download } from "lucide-react";
+import { Plus, Pencil, Trash2, FileText, Upload, Eye, Download, FileSpreadsheet } from "lucide-react";
+import { DialogImportarContratos } from "./DialogImportarContratos";
 import { toast } from "sonner";
 import { format, differenceInDays } from "date-fns";
 import { toZonedTime } from "date-fns-tz";
@@ -119,6 +120,8 @@ export function TabContratosTerceiros({ contratoGestaoId, contratoGestaoNome, pr
   const [dialogDocumentosOpen, setDialogDocumentosOpen] = useState(false);
   const [contratoDocumentos, setContratoDocumentos] = useState<ContratoTerceiro | null>(null);
 
+  // Dialog importar
+  const [dialogImportarOpen, setDialogImportarOpen] = useState(false);
   useEffect(() => {
     loadContratos();
     loadFornecedores();
@@ -468,10 +471,16 @@ export function TabContratosTerceiros({ contratoGestaoId, contratoGestaoNome, pr
           className="flex-1 text-sm"
         />
         {canEdit && (
-          <Button onClick={abrirDialogCriar} size="sm">
-            <Plus className="h-4 w-4 mr-1" />
-            Novo Contrato
-          </Button>
+          <div className="flex gap-2">
+            <Button variant="outline" size="sm" onClick={() => setDialogImportarOpen(true)}>
+              <FileSpreadsheet className="h-4 w-4 mr-1" />
+              Importar Planilha
+            </Button>
+            <Button onClick={abrirDialogCriar} size="sm">
+              <Plus className="h-4 w-4 mr-1" />
+              Novo Contrato
+            </Button>
+          </div>
         )}
       </div>
 
@@ -686,6 +695,14 @@ export function TabContratosTerceiros({ contratoGestaoId, contratoGestaoNome, pr
           onContratoAtualizado={loadContratos}
         />
       )}
+
+      <DialogImportarContratos
+        open={dialogImportarOpen}
+        onOpenChange={setDialogImportarOpen}
+        contratoGestaoId={contratoGestaoId}
+        contratoGestaoNome={contratoGestaoNome}
+        onImportado={loadContratos}
+      />
     </div>
   );
 }
