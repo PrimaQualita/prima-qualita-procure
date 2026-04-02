@@ -231,7 +231,40 @@ export function DialogImportarContratos({ open, onOpenChange, contratoGestaoId, 
 
       const parsed: LinhaContrato[] = dataRows.map((row, idx) => {
         const rawRow = rawRows[idx] || row;
-        const codigo = String(row[0] || "").trim();
+        // Ler código: Excel pode interpretar "003-24" como data (Mar-24) ou número
+        let codigoRaw = rawRow[0];
+        let codigoText = String(row[0] || "").trim();
+        let codigo = codigoText;
+        
+        // Se raw é número serial de data do Excel, o texto pode vir como "Mar-24" etc.
+        // Tentar extrair de volta: se parece com mês abreviado-ano, converter
+        const mesDateMatch = codigoText.match(/^(jan|fev|mar|abr|mai|jun|jul|ago|set|out|nov|dez|jan|feb|apr|may|aug|sep|oct|dec)-(\d{2})$/i);
+        if (mesDateMatch) {
+          const mesesMap: Record<string, string> = {
+            jan: "001", feb: "002", mar: "003", apr: "004", may: "005", jun: "006",
+            jul: "007", aug: "008", sep: "009", oct: "010", nov: "011", dec: "012",
+            fev: "002", abr: "004", mai: "005", ago: "008", set: "009", out: "010", dez: "012",
+          };
+          const mesKey = mesDateMatch[1].toLowerCase();
+          const num = mesesMap[mesKey] || mesDateMatch[1].padStart(3, "0");
+          codigo = `${num}-${mesDateMatch[2]}`;
+        }
+        
+        // Se veio como Date object do cellDates
+        if (codigoRaw instanceof Date) {
+          const m = String(codigoRaw.getMonth() + 1).padStart(3, "0");
+          const y = String(codigoRaw.getFullYear()).slice(-2);
+          codigo = `${m}-${y}`;
+        }
+        
+        // Normalizar: "3-24" ou "03-24" → "003-24"
+        const codigoMatch = codigo.match(/^(\d{1,3})-(\d{1,2})$/);
+        if (codigoMatch) {
+          codigo = codigoMatch[1].padStart(3, "0") + "-" + codigoMatch[2].padStart(2, "0");
+        }
+        
+        console.log(`[Importação] Linha ${idx + 1}: raw=${JSON.stringify(codigoRaw)} text="${codigoText}" → "${codigo}"`);
+
         const fornecedorNome = String(row[1] || "").trim();
         const objeto = String(row[2] || "").trim();
         const dataAssinatura = parseDate(rawRow[3]);
@@ -246,7 +279,7 @@ export function DialogImportarContratos({ open, onOpenChange, contratoGestaoId, 
 
         let erro: string | null = null;
         if (!codigo) erro = "Código obrigatório";
-        else if (!codigoFormatoRegex.test(codigo)) erro = "Formato inválido (use XXX-XX, ex: 001-26)";
+        else if (!codigoFormatoRegex.test(codigo)) erro = `Formato inválido: "${codigo}" (use XXX-XX, ex: 001-26)`;
         else if (!objeto) erro = "Objeto obrigatório";
 
         const existeId = existentesMap.get(codigo.toLowerCase()) || null;
