@@ -51,6 +51,7 @@ let cachedIsColaborador: boolean = false;
 let cachedIsContabilidade: boolean = false;
 let cachedIsContrato: boolean = false;
 let cachedIsControleCompras: boolean = false;
+let cachedIsJovemAprendiz: boolean = false;
 let profileLoaded: boolean = false;
 
 export function DashboardLayout() {
@@ -71,6 +72,7 @@ export function DashboardLayout() {
   const [isContabilidade, setIsContabilidade] = useState(cachedIsContabilidade);
   const [isContrato, setIsContrato] = useState(cachedIsContrato);
   const [isControleCompras, setIsControleCompras] = useState(cachedIsControleCompras);
+  const [isJovemAprendiz, setIsJovemAprendiz] = useState(cachedIsJovemAprendiz);
   const [loading, setLoading] = useState(!profileLoaded);
 
   useEffect(() => {
@@ -93,6 +95,7 @@ export function DashboardLayout() {
         cachedIsContabilidade = false;
         cachedIsContrato = false;
         cachedIsControleCompras = false;
+        cachedIsJovemAprendiz = false;
       }
       
       setUser(newUser);
@@ -112,6 +115,7 @@ export function DashboardLayout() {
         cachedIsContabilidade = false;
         cachedIsContrato = false;
         cachedIsControleCompras = false;
+        cachedIsJovemAprendiz = false;
         profileLoaded = false;
         setProfile(null);
         setIsGestor(false);
@@ -124,6 +128,7 @@ export function DashboardLayout() {
         setIsContabilidade(false);
         setIsContrato(false);
         setIsControleCompras(false);
+        setIsJovemAprendiz(false);
         
         // Limpa cache de outras páginas
         clearCotacoesCache();
