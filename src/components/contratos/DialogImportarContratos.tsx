@@ -506,30 +506,49 @@ export function DialogImportarContratos({ open, onOpenChange, contratoGestaoId, 
 
         {step === "preview" && (
           <div className="space-y-4">
-            <div className="flex flex-wrap gap-3">
-              <Badge variant="outline" className="text-xs">
+            <div className="flex flex-wrap gap-2">
+              <Badge
+                variant="outline"
+                className={`text-xs cursor-pointer transition-all ${filtroPreview === "todos" ? "ring-2 ring-primary" : "opacity-60 hover:opacity-100"}`}
+                onClick={() => setFiltroPreview("todos")}
+              >
                 {linhas.length} linhas lidas
               </Badge>
-              <Badge className="bg-green-100 text-green-800 text-xs">
+              <Badge
+                className={`bg-green-100 text-green-800 text-xs cursor-pointer transition-all ${filtroPreview === "novos" ? "ring-2 ring-green-500" : "opacity-60 hover:opacity-100"}`}
+                onClick={() => setFiltroPreview(filtroPreview === "novos" ? "todos" : "novos")}
+              >
                 <Check className="h-3 w-3 mr-1" />
                 {totalNovos} novos
               </Badge>
               {totalExistentes > 0 && (
-                <Badge className="bg-amber-100 text-amber-800 text-xs">
+                <Badge
+                  className={`bg-amber-100 text-amber-800 text-xs cursor-pointer transition-all ${filtroPreview === "atualizados" ? "ring-2 ring-amber-500" : "opacity-60 hover:opacity-100"}`}
+                  onClick={() => setFiltroPreview(filtroPreview === "atualizados" ? "todos" : "atualizados")}
+                >
                   <AlertTriangle className="h-3 w-3 mr-1" />
                   {totalExistentes} serão atualizados
                 </Badge>
               )}
               {linhas.length - totalValidas > 0 && (
-                <Badge className="bg-red-100 text-red-800 text-xs">
+                <Badge
+                  className={`bg-red-100 text-red-800 text-xs cursor-pointer transition-all ${filtroPreview === "erro" ? "ring-2 ring-red-500" : "opacity-60 hover:opacity-100"}`}
+                  onClick={() => setFiltroPreview(filtroPreview === "erro" ? "todos" : "erro")}
+                >
                   <X className="h-3 w-3 mr-1" />
                   {linhas.length - totalValidas} com erro
                 </Badge>
               )}
-              <Badge className="bg-blue-100 text-blue-800 text-xs">
+              <Badge
+                className={`bg-blue-100 text-blue-800 text-xs cursor-pointer transition-all ${filtroPreview === "fornecedor" ? "ring-2 ring-blue-500" : "opacity-60 hover:opacity-100"}`}
+                onClick={() => setFiltroPreview(filtroPreview === "fornecedor" ? "todos" : "fornecedor")}
+              >
                 {totalComFornecedor} fornecedores vinculados
               </Badge>
-              <Badge className="bg-purple-100 text-purple-800 text-xs">
+              <Badge
+                className={`bg-purple-100 text-purple-800 text-xs cursor-pointer transition-all ${filtroPreview === "arquivo" ? "ring-2 ring-purple-500" : "opacity-60 hover:opacity-100"}`}
+                onClick={() => setFiltroPreview(filtroPreview === "arquivo" ? "todos" : "arquivo")}
+              >
                 <FileText className="h-3 w-3 mr-1" />
                 {totalComArquivo} arquivos vinculados
               </Badge>
