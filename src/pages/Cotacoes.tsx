@@ -492,6 +492,7 @@ const Cotacoes = () => {
     // Usar cache APENAS se os dados existem E têm conteúdo
     if (contratosLoaded && cachedContratos && cachedContratos.length > 0) {
       setContratos(cachedContratos);
+      loadCotacoesCountPorContrato(cachedContratos);
       return;
     }
     
