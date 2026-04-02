@@ -192,7 +192,6 @@ const Cotacoes = () => {
 
   useEffect(() => {
     const init = async () => {
-      // Usar cache se disponível
       if (userDataLoaded && cachedUserData) {
         setIsResponsavelLegal(cachedUserData.isResponsavelLegal);
         setHasResponsavelLegal(cachedUserData.hasResponsavelLegal);
@@ -202,10 +201,14 @@ const Cotacoes = () => {
         await checkAuth();
       }
       
-      // Usar cache APENAS se existe E tem dados
       if (contratosLoaded && cachedContratos && cachedContratos.length > 0) {
         setContratos(cachedContratos);
-        await loadCotacoesCountPorContrato(cachedContratos);
+        // Usar cache de contagens se disponível
+        if (cachedCotacoesCount) {
+          setCotacoesCountPorContrato(cachedCotacoesCount);
+        } else {
+          await loadCotacoesCountPorContrato(cachedContratos);
+        }
       } else {
         await loadContratos();
       }
