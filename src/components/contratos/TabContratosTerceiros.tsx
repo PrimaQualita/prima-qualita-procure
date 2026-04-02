@@ -695,6 +695,14 @@ export function TabContratosTerceiros({ contratoGestaoId, contratoGestaoNome, pr
           onContratoAtualizado={loadContratos}
         />
       )}
+
+      <DialogImportarContratos
+        open={dialogImportarOpen}
+        onOpenChange={setDialogImportarOpen}
+        contratoGestaoId={contratoGestaoId}
+        contratoGestaoNome={contratoGestaoNome}
+        onImportado={loadContratos}
+      />
     </div>
   );
 }
