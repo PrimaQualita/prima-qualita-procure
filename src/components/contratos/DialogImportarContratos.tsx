@@ -428,7 +428,7 @@ export function DialogImportarContratos({ open, onOpenChange, contratoGestaoId, 
                       <TableCell className="text-xs">
                         {linha.fornecedor_id
                           ? <Check className="h-3 w-3 text-green-600" />
-                          : <AlertTriangle className="h-3 w-3 text-amber-500" title="Fornecedor não encontrado no cadastro" />}
+                          : <span className="inline-flex" title="Fornecedor não encontrado no cadastro"><AlertTriangle className="h-3 w-3 text-amber-500" /></span>}
                       </TableCell>
                       <TableCell className="text-xs">
                         {linha.arquivo_match
