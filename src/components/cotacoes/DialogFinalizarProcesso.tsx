@@ -5248,7 +5248,10 @@ export function DialogFinalizarProcesso({
                         </div>
                       </div>
                       <Button
-                        onClick={() => window.open(planilha.url_arquivo, '_blank')}
+                        onClick={async () => {
+                          const { abrirDocumentoStorage } = await import('@/lib/abrirDocumentoStorage');
+                          await abrirDocumentoStorage(planilha.url_arquivo, planilha.nome_arquivo);
+                        }}
                         variant="outline"
                         size="icon"
                         title="Ver Planilha"
