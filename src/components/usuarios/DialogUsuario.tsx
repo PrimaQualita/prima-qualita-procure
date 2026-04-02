@@ -759,6 +759,24 @@ export function DialogUsuario({ open, onOpenChange, onSuccess, usuarioEdit }: Di
                 </Label>
               </div>
 
+              {/* Jovem Aprendiz */}
+              <div className="flex items-center space-x-2">
+                <input
+                  type="checkbox"
+                  id="jovem-aprendiz"
+                  checked={jovemAprendiz}
+                  onChange={(e) => setJovemAprendiz(e.target.checked)}
+                  disabled={!isUserResponsavelLegal && !isUserGestor}
+                  className="h-4 w-4 rounded-full border-gray-300 disabled:opacity-50 disabled:cursor-not-allowed accent-primary"
+                />
+                <Label 
+                  htmlFor="jovem-aprendiz" 
+                  className={`font-normal ${(isUserResponsavelLegal || isUserGestor) ? 'cursor-pointer' : 'cursor-not-allowed opacity-50'}`}
+                >
+                  Jovem Aprendiz
+                </Label>
+              </div>
+
               {/* Superintendente Executivo */}
               <div className="flex items-center space-x-2">
                 <input
