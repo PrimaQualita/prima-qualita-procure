@@ -104,7 +104,7 @@ const Cotacoes = () => {
   const [loadingCotacoes, setLoadingCotacoes] = useState(false);
   const [loadingItens, setLoadingItens] = useState(false);
   const [contratos, setContratos] = useState<Contrato[]>(cachedContratos || []);
-  const [cotacoesCountPorContrato, setCotacoesCountPorContrato] = useState<Record<string, { abertas: number; finalizadas: number }>>({});
+  const [cotacoesCountPorContrato, setCotacoesCountPorContrato] = useState<Record<string, { abertas: number; finalizadas: number; pendentes: number }>>({});
   const [contratoSelecionado, setContratoSelecionado] = useState<Contrato | null>(null);
   const [processos, setProcessos] = useState<Processo[]>([]);
   const [processoSelecionado, setProcessoSelecionado] = useState<Processo | null>(null);
@@ -519,36 +519,31 @@ const Cotacoes = () => {
 
   const loadCotacoesCountPorContrato = async (contratosData: Contrato[]) => {
     try {
-      // Buscar todos os processos que requerem cotação com seus contratos
       const { data: processos, error: procError } = await supabase
         .from("processos_compras")
         .select("id, contrato_gestao_id")
         .eq("requer_cotacao", true)
         .in("contrato_gestao_id", contratosData.map(c => c.id));
       
-      if (procError || !processos || processos.length === 0) {
-        return;
-      }
+      if (procError || !processos || processos.length === 0) return;
 
       const processosIds = processos.map(p => p.id);
       
-      // Buscar todas as cotações desses processos
+      // Buscar cotações com info de compliance
       const { data: cotacoes, error: cotError } = await supabase
         .from("cotacoes_precos")
-        .select("id, processo_compra_id, data_limite_resposta")
+        .select("id, processo_compra_id, data_limite_resposta, respondido_compliance")
         .in("processo_compra_id", processosIds);
       
       if (cotError || !cotacoes) return;
 
       const agora = new Date();
       
-      // Mapear processo -> contrato
       const processoToContrato: Record<string, string> = {};
       processos.forEach(p => { processoToContrato[p.id] = p.contrato_gestao_id; });
       
-      // Contar por contrato
-      const counts: Record<string, { abertas: number; finalizadas: number }> = {};
-      contratosData.forEach(c => { counts[c.id] = { abertas: 0, finalizadas: 0 }; });
+      const counts: Record<string, { abertas: number; finalizadas: number; pendentes: number }> = {};
+      contratosData.forEach(c => { counts[c.id] = { abertas: 0, finalizadas: 0, pendentes: 0 }; });
       
       cotacoes.forEach(cot => {
         const contratoId = processoToContrato[cot.processo_compra_id];
@@ -556,9 +551,14 @@ const Cotacoes = () => {
         
         const dataLimite = new Date(cot.data_limite_resposta);
         if (dataLimite >= agora) {
+          // Período aberto para envio de propostas
           counts[contratoId].abertas++;
-        } else {
+        } else if (cot.respondido_compliance) {
+          // Prazo encerrado E aprovado pelo compliance
           counts[contratoId].finalizadas++;
+        } else {
+          // Prazo encerrado MAS sem aprovação do compliance
+          counts[contratoId].pendentes++;
         }
       });
       
@@ -1908,21 +1908,52 @@ const Cotacoes = () => {
                     <TableRow>
                       <TableHead className="min-w-[150px]">Nome do Contrato</TableHead>
                       <TableHead className="min-w-[120px]">Ente Federativo</TableHead>
-                      <TableHead className="min-w-[100px] text-center">Cotações Abertas</TableHead>
-                      <TableHead className="min-w-[100px] text-center">Cotações Finalizadas</TableHead>
+                      <TableHead className="min-w-[90px] text-center">
+                        <div className="flex items-center justify-center gap-1">
+                          Abertas
+                          <TooltipProvider>
+                            <Tooltip>
+                              <TooltipTrigger asChild><Info className="h-3.5 w-3.5 text-muted-foreground cursor-help" /></TooltipTrigger>
+                              <TooltipContent className="max-w-[220px] text-xs"><p>Cotações com período aberto para envio de propostas pelos fornecedores.</p></TooltipContent>
+                            </Tooltip>
+                          </TooltipProvider>
+                        </div>
+                      </TableHead>
+                      <TableHead className="min-w-[90px] text-center">
+                        <div className="flex items-center justify-center gap-1">
+                          Pendentes
+                          <TooltipProvider>
+                            <Tooltip>
+                              <TooltipTrigger asChild><Info className="h-3.5 w-3.5 text-muted-foreground cursor-help" /></TooltipTrigger>
+                              <TooltipContent className="max-w-[220px] text-xs"><p>Cotações com prazo encerrado que ainda não possuem aprovação do Compliance.</p></TooltipContent>
+                            </Tooltip>
+                          </TooltipProvider>
+                        </div>
+                      </TableHead>
+                      <TableHead className="min-w-[90px] text-center">
+                        <div className="flex items-center justify-center gap-1">
+                          Finalizadas
+                          <TooltipProvider>
+                            <Tooltip>
+                              <TooltipTrigger asChild><Info className="h-3.5 w-3.5 text-muted-foreground cursor-help" /></TooltipTrigger>
+                              <TooltipContent className="max-w-[220px] text-xs"><p>Cotações já aprovadas pelo Compliance.</p></TooltipContent>
+                            </Tooltip>
+                          </TooltipProvider>
+                        </div>
+                      </TableHead>
                       <TableHead className="text-right min-w-[100px]">Ações</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {contratosFiltrados.length === 0 ? (
                       <TableRow>
-                        <TableCell colSpan={5} className="text-center text-muted-foreground text-xs sm:text-sm">
+                        <TableCell colSpan={6} className="text-center text-muted-foreground text-xs sm:text-sm">
                           Nenhum contrato encontrado
                         </TableCell>
                       </TableRow>
                     ) : (
                       contratosFiltrados.map((contrato, index) => {
-                        const counts = cotacoesCountPorContrato[contrato.id] || { abertas: 0, finalizadas: 0 };
+                        const counts = cotacoesCountPorContrato[contrato.id] || { abertas: 0, finalizadas: 0, pendentes: 0 };
                         return (
                         <TableRow key={contrato.id} className={index % 2 === 0 ? "bg-green-100 dark:bg-green-900/40" : "bg-blue-100 dark:bg-blue-900/40"}>
                           <TableCell className="font-medium text-xs sm:text-sm">{contrato.nome_contrato}</TableCell>
@@ -1930,6 +1961,13 @@ const Cotacoes = () => {
                           <TableCell className="text-center">
                             {counts.abertas > 0 ? (
                               <Badge className="bg-amber-500 hover:bg-amber-600 text-white text-xs">{counts.abertas}</Badge>
+                            ) : (
+                              <span className="text-muted-foreground text-xs">0</span>
+                            )}
+                          </TableCell>
+                          <TableCell className="text-center">
+                            {counts.pendentes > 0 ? (
+                              <Badge className="bg-orange-500 hover:bg-orange-600 text-white text-xs">{counts.pendentes}</Badge>
                             ) : (
                               <span className="text-muted-foreground text-xs">0</span>
                             )}
