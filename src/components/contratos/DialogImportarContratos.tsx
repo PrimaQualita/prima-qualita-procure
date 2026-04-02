@@ -215,10 +215,22 @@ export function DialogImportarContratos({ open, onOpenChange, contratoGestaoId, 
         .from("fornecedores")
         .select("id, razao_social, nome_fantasia, cnpj");
 
+      // Buscar contratos já existentes neste contrato de gestão
+      const { data: contratosExistentes } = await supabase
+        .from("contratos_terceiros")
+        .select("id, codigo_interno")
+        .eq("contrato_gestao_id", contratoGestaoId);
+
+      const existentesMap = new Map<string, string>();
+      (contratosExistentes || []).forEach(c => {
+        existentesMap.set(c.codigo_interno.trim().toLowerCase(), c.id);
+      });
+
+      const codigoFormatoRegex = /^\d{3}-\d{2}$/;
+
       const parsed: LinhaContrato[] = dataRows.map((row, idx) => {
         const rawRow = rawRows[idx] || row;
         const codigo = String(row[0] || "").trim();
-        // Usar o valor de texto da planilha diretamente (não raw)
         const fornecedorNome = String(row[1] || "").trim();
         const objeto = String(row[2] || "").trim();
         const dataAssinatura = parseDate(rawRow[3]);
@@ -229,12 +241,14 @@ export function DialogImportarContratos({ open, onOpenChange, contratoGestaoId, 
         const valorAtual = parseNumber(rawRow[8]);
         const nomeArquivo = String(row[9] || "").trim();
 
-        // Match fornecedor com lógica mais precisa
         const matchResult = matchFornecedor(fornecedorNome, fornecedoresDB || []);
 
         let erro: string | null = null;
         if (!codigo) erro = "Código obrigatório";
+        else if (!codigoFormatoRegex.test(codigo)) erro = "Formato inválido (use XXX-XX, ex: 001-26)";
         else if (!objeto) erro = "Objeto obrigatório";
+
+        const existeId = existentesMap.get(codigo.toLowerCase()) || null;
 
         return {
           codigo_interno: codigo,
@@ -251,6 +265,7 @@ export function DialogImportarContratos({ open, onOpenChange, contratoGestaoId, 
           fornecedor_id: matchResult?.id || null,
           arquivo_match: null,
           erro,
+          contrato_existente_id: existeId,
         };
       });
 
