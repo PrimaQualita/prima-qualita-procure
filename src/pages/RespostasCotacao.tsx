@@ -1530,7 +1530,10 @@ export default function RespostasCotacao() {
                         <Button
                           variant="outline"
                           size="sm"
-                          onClick={() => window.open(enc.url, '_blank')}
+                          onClick={async () => {
+                            const { abrirDocumentoStorage } = await import('@/lib/abrirDocumentoStorage');
+                            await abrirDocumentoStorage(enc.storage_path, enc.nome_arquivo || `Encaminhamento_${enc.protocolo}.pdf`);
+                          }}
                           className="flex-1"
                         >
                           <Eye className="mr-2 h-4 w-4" />
