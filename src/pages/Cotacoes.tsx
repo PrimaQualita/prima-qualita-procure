@@ -35,13 +35,14 @@ import { AnoReferenciaFilter, extrairAnos, filtrarPorAno } from "@/components/An
 // Cache global para evitar recarregamentos desnecessários
 let cachedContratos: Contrato[] | null = null;
 let cachedUserData: { isResponsavelLegal: boolean; hasResponsavelLegal: boolean; nome: string; cpf: string; userId: string } | null = null;
+let cachedCotacoesCount: Record<string, { abertas: number; finalizadas: number; pendentes: number }> | null = null;
 let contratosLoaded = false;
 let userDataLoaded = false;
 
-// Função exportada para limpar o cache no logout
 export const clearCotacoesCache = () => {
   cachedContratos = null;
   cachedUserData = null;
+  cachedCotacoesCount = null;
   contratosLoaded = false;
   userDataLoaded = false;
 };
