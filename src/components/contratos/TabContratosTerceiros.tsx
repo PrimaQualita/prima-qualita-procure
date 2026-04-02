@@ -510,7 +510,7 @@ export function TabContratosTerceiros({ contratoGestaoId, contratoGestaoNome, pr
                   <TableCell className="font-medium text-xs sm:text-sm">{contrato.codigo_interno}</TableCell>
                   <TableCell className="text-xs sm:text-sm max-w-[250px] whitespace-normal text-justify">{contrato.objeto}</TableCell>
                   <TableCell className="text-xs sm:text-sm">
-                    {contrato.fornecedores?.razao_social || "—"}
+                    {contrato.fornecedores?.razao_social || contrato.fornecedor_nome_manual || "—"}
                   </TableCell>
                   <TableCell className="text-xs sm:text-sm">
                     {contrato.inicio_vigencia && contrato.fim_vigencia_atual
