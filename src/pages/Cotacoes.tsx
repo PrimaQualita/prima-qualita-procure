@@ -1907,7 +1907,8 @@ const Cotacoes = () => {
                     <TableRow>
                       <TableHead className="min-w-[150px]">Nome do Contrato</TableHead>
                       <TableHead className="min-w-[120px]">Ente Federativo</TableHead>
-                      <TableHead className="min-w-[80px]">Status</TableHead>
+                      <TableHead className="min-w-[100px] text-center">Cotações Abertas</TableHead>
+                      <TableHead className="min-w-[100px] text-center">Cotações Finalizadas</TableHead>
                       <TableHead className="text-right min-w-[100px]">Ações</TableHead>
                     </TableRow>
                   </TableHeader>
