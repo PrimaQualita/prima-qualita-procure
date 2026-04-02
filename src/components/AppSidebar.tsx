@@ -59,6 +59,7 @@ interface AppSidebarProps {
   isGerenteFinanceiro?: boolean;
   isContabilidade?: boolean;
   isControleCompras?: boolean;
+  isJovemAprendiz?: boolean;
 }
 
 export function AppSidebar({ 
@@ -71,7 +72,8 @@ export function AppSidebar({
   isColaborador = false,
   isGerenteFinanceiro = false,
   isContabilidade = false,
-  isControleCompras = false
+  isControleCompras = false,
+  isJovemAprendiz = false
 }: AppSidebarProps) {
   const { open } = useSidebar();
   const navigate = useNavigate();
@@ -387,15 +389,15 @@ export function AppSidebar({
   ];
 
   // Verifica se o usuário é APENAS gerente de contratos (sem outros papéis)
-  const temOutrosPapeis = isGestor || isColaborador || isCompliance || isResponsavelLegal || isSuperintendenteExecutivo || isContabilidade || isControleCompras;
+  const temOutrosPapeis = isGestor || isColaborador || isCompliance || isResponsavelLegal || isSuperintendenteExecutivo || isContabilidade || isControleCompras || isJovemAprendiz;
   const apenasGerenteContratos = isGerenteContratos && !temOutrosPapeis;
   
   // Verifica se o usuário é APENAS contabilidade (sem outros papéis)
-  const temOutrosPapeisAlemContabilidade = isGestor || isColaborador || isCompliance || isResponsavelLegal || isSuperintendenteExecutivo || isGerenteContratos || isControleCompras;
+  const temOutrosPapeisAlemContabilidade = isGestor || isColaborador || isCompliance || isResponsavelLegal || isSuperintendenteExecutivo || isGerenteContratos || isControleCompras || isJovemAprendiz;
   const apenasContabilidade = isContabilidade && !temOutrosPapeisAlemContabilidade;
   
   // Verifica se o usuário é APENAS compliance (sem outros papéis)
-  const temOutrosPapeisAlemCompliance = isGestor || isColaborador || isResponsavelLegal || isSuperintendenteExecutivo || isGerenteContratos || isContabilidade || isControleCompras;
+  const temOutrosPapeisAlemCompliance = isGestor || isColaborador || isResponsavelLegal || isSuperintendenteExecutivo || isGerenteContratos || isContabilidade || isControleCompras || isJovemAprendiz;
   const apenasCompliance = isCompliance && !temOutrosPapeisAlemCompliance;
 
   // Seleciona o menu correto baseado no tipo de usuário
