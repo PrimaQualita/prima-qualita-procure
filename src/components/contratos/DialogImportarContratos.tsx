@@ -231,22 +231,39 @@ export function DialogImportarContratos({ open, onOpenChange, contratoGestaoId, 
 
       const parsed: LinhaContrato[] = dataRows.map((row, idx) => {
         const rawRow = rawRows[idx] || row;
-        // Ler código raw e text para lidar com interpretações do Excel
-        let codigoRaw = row[0];
-        let codigo = String(codigoRaw || "").trim();
+        // Ler código: Excel pode interpretar "003-24" como data (Mar-24) ou número
+        let codigoRaw = rawRow[0];
+        let codigoText = String(row[0] || "").trim();
+        let codigo = codigoText;
         
-        // Se o Excel interpretou como número (ex: 3-24 virou algo estranho), tentar raw
-        if (!codigo || codigo === "0" || codigo === "NaN") {
-          codigo = String(rawRow[0] || "").trim();
+        // Se raw é número serial de data do Excel, o texto pode vir como "Mar-24" etc.
+        // Tentar extrair de volta: se parece com mês abreviado-ano, converter
+        const mesDateMatch = codigoText.match(/^(jan|fev|mar|abr|mai|jun|jul|ago|set|out|nov|dez|jan|feb|apr|may|aug|sep|oct|dec)-(\d{2})$/i);
+        if (mesDateMatch) {
+          const mesesMap: Record<string, string> = {
+            jan: "001", feb: "002", mar: "003", apr: "004", may: "005", jun: "006",
+            jul: "007", aug: "008", sep: "009", oct: "010", nov: "011", dec: "012",
+            fev: "002", abr: "004", mai: "005", ago: "008", set: "009", out: "010", dez: "012",
+          };
+          const mesKey = mesDateMatch[1].toLowerCase();
+          const num = mesesMap[mesKey] || mesDateMatch[1].padStart(3, "0");
+          codigo = `${num}-${mesDateMatch[2]}`;
         }
         
-        // Normalizar: se veio "3-24" ou "03-24", padronizar para "003-24"
+        // Se veio como Date object do cellDates
+        if (codigoRaw instanceof Date) {
+          const m = String(codigoRaw.getMonth() + 1).padStart(3, "0");
+          const y = String(codigoRaw.getFullYear()).slice(-2);
+          codigo = `${m}-${y}`;
+        }
+        
+        // Normalizar: "3-24" ou "03-24" → "003-24"
         const codigoMatch = codigo.match(/^(\d{1,3})-(\d{1,2})$/);
         if (codigoMatch) {
           codigo = codigoMatch[1].padStart(3, "0") + "-" + codigoMatch[2].padStart(2, "0");
         }
         
-        console.log(`[Importação] Linha ${idx + 1}: código raw="${codigoRaw}" → parsed="${codigo}"`);
+        console.log(`[Importação] Linha ${idx + 1}: raw=${JSON.stringify(codigoRaw)} text="${codigoText}" → "${codigo}"`);
 
         const fornecedorNome = String(row[1] || "").trim();
         const objeto = String(row[2] || "").trim();
