@@ -172,7 +172,7 @@ export function AppSidebar({
         const { count: pendCount } = await supabase
           .from("processos_para_contratar")
           .select("*", { count: "exact", head: true })
-          .eq("status_contratacao", "pendente");
+          .eq("status", "pendente" as any);
         setContractPendingCount(pendCount || 0);
       } catch {
         // silent
