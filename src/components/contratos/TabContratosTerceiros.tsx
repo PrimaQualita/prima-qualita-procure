@@ -536,44 +536,39 @@ export function TabContratosTerceiros({ contratoGestaoId, contratoGestaoNome, pr
                       }
                     })()}
                   </TableCell>
-                  <TableCell className="text-right space-x-1">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="text-xs"
-                      onClick={() => {
-                        setContratoDocumentos(contrato);
-                        setDialogDocumentosOpen(true);
-                      }}
-                    >
-                      <FileText className="h-3 w-3 mr-1" />
-                      Docs
-                    </Button>
-                    {contrato.url_arquivo_principal && (
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="text-xs"
-                        onClick={() => window.open(contrato.url_arquivo_principal!, "_blank")}
-                      >
-                        <Eye className="h-3 w-3" />
-                      </Button>
-                    )}
-                    {canEdit && (
-                      <>
-                         <Button variant="outline" size="sm" className="text-xs" onClick={() => abrirDialogEditar(contrato)}>
-                          <Pencil className="h-3 w-3" />
+                  <TableCell className="text-right">
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+                          <MoreVertical className="h-4 w-4" />
                         </Button>
-                        <Button
-                          variant="destructive"
-                          size="sm"
-                          className="text-xs"
-                          onClick={() => { setContratoParaExcluir(contrato); setConfirmDeleteOpen(true); }}
-                        >
-                          <Trash2 className="h-3 w-3" />
-                        </Button>
-                      </>
-                    )}
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        <DropdownMenuItem onClick={() => { setContratoDocumentos(contrato); setDialogDocumentosOpen(true); }}>
+                          <FileText className="h-4 w-4 mr-2" />
+                          Documentos
+                        </DropdownMenuItem>
+                        {contrato.url_arquivo_principal && (
+                          <DropdownMenuItem onClick={() => window.open(contrato.url_arquivo_principal!, "_blank")}>
+                            <Eye className="h-4 w-4 mr-2" />
+                            Visualizar Arquivo
+                          </DropdownMenuItem>
+                        )}
+                        {canEdit && (
+                          <>
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem onClick={() => abrirDialogEditar(contrato)}>
+                              <Pencil className="h-4 w-4 mr-2" />
+                              Editar
+                            </DropdownMenuItem>
+                            <DropdownMenuItem className="text-destructive focus:text-destructive" onClick={() => { setContratoParaExcluir(contrato); setConfirmDeleteOpen(true); }}>
+                              <Trash2 className="h-4 w-4 mr-2" />
+                              Excluir
+                            </DropdownMenuItem>
+                          </>
+                        )}
+                      </DropdownMenuContent>
+                    </DropdownMenu>
                   </TableCell>
                 </TableRow>
               ))}
