@@ -643,6 +643,11 @@ export function DialogImportarContratos({ open, onOpenChange, contratoGestaoId, 
                           ? <Check className="h-3 w-3 text-green-600" />
                           : linha.nome_arquivo ? <X className="h-3 w-3 text-red-400" /> : <span className="text-muted-foreground">—</span>}
                       </TableCell>
+                      {linha.erro && (
+                        <TableCell className="text-xs text-red-600 font-medium" colSpan={1}>
+                          ⚠ {linha.erro}
+                        </TableCell>
+                      )}
                     </TableRow>
                   ))}
                 </TableBody>
