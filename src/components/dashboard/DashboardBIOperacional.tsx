@@ -755,9 +755,10 @@ export function DashboardBIOperacional({
                                 <p className="text-[10px] mt-0.5 opacity-70">{percentage}%</p>
                               </div>
                             </TooltipTrigger>
-                            <TooltipContent side="bottom" className="text-xs max-w-[220px]">
-                              {item.value} {item.name.toLowerCase()} — {percentage}% de {grupoBase} {grupo.title.toLowerCase()}
-                              <br />Clique para ver detalhes
+                            <TooltipContent side="bottom" className="text-xs max-w-[260px]">
+                              <p className="font-semibold mb-1">{item.name}</p>
+                              <p>{item.tooltip || `${item.value} ${item.name.toLowerCase()} — ${percentage}% de ${grupoBase} ${grupo.title.toLowerCase()}`}</p>
+                              <p className="mt-1 text-muted-foreground italic">Clique para ver detalhes</p>
                             </TooltipContent>
                           </Tooltip>
                         );
@@ -788,9 +789,10 @@ export function DashboardBIOperacional({
                             <p className="text-[10px] mt-1 opacity-70">{percentage}% do total</p>
                           </div>
                         </TooltipTrigger>
-                        <TooltipContent side="bottom" className="text-xs max-w-[220px]">
-                          {item.value} {item.name.toLowerCase()} — {percentage}% do total de {MODULO_CONFIG[selectedKey]?.label.toLowerCase()}
-                          {isClickable && <><br />Clique para ver detalhes</>}
+                        <TooltipContent side="bottom" className="text-xs max-w-[260px]">
+                          <p className="font-semibold mb-1">{item.name}</p>
+                          <p>{item.tooltip || `${item.value} ${item.name.toLowerCase()} — ${percentage}% do total de ${MODULO_CONFIG[selectedKey]?.label.toLowerCase()}`}</p>
+                          {isClickable && <p className="mt-1 text-muted-foreground italic">Clique para ver detalhes</p>}
                         </TooltipContent>
                       </Tooltip>
                     );
