@@ -121,6 +121,43 @@ const ProcessosCompras = () => {
   }, [userId, loading, contratosVinculados]);
 
   useEffect(() => {
+    if (contratos.length > 0) {
+      loadProcessosCountPorContrato();
+    }
+  }, [contratos]);
+
+  const loadProcessosCountPorContrato = async () => {
+    try {
+      const contratosIds = contratos.map(c => c.id);
+      const { data: processos } = await supabase
+        .from("processos_compras")
+        .select("id, contrato_gestao_id, status_processo")
+        .in("contrato_gestao_id", contratosIds);
+
+      if (!processos || processos.length === 0) {
+        setProcessosCountPorContrato({});
+        return;
+      }
+
+      const counts: Record<string, { abertos: number; fechados: number }> = {};
+      contratosIds.forEach(id => { counts[id] = { abertos: 0, fechados: 0 }; });
+
+      processos.forEach(p => {
+        if (!counts[p.contrato_gestao_id]) return;
+        if (p.status_processo === 'concluido') {
+          counts[p.contrato_gestao_id].fechados++;
+        } else {
+          counts[p.contrato_gestao_id].abertos++;
+        }
+      });
+
+      setProcessosCountPorContrato(counts);
+    } catch (error) {
+      console.error("Erro ao carregar contagem de processos:", error);
+    }
+  };
+
+  useEffect(() => {
     if (contratoSelecionado) {
       loadProcessos(contratoSelecionado.id);
     }
