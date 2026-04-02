@@ -48,6 +48,7 @@ interface ContratoTerceiro {
   codigo_interno: string;
   objeto: string;
   fornecedor_id: string | null;
+  fornecedor_nome_manual: string | null;
   data_assinatura: string | null;
   inicio_vigencia: string | null;
   fim_vigencia_atual: string | null;
