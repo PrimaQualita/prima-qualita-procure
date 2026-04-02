@@ -428,6 +428,8 @@ export function DialogImportarContratos({ open, onOpenChange, contratoGestaoId, 
   const totalValidas = linhas.filter(l => !l.erro).length;
   const totalComArquivo = linhas.filter(l => l.arquivo_match).length;
   const totalComFornecedor = linhas.filter(l => l.fornecedor_id).length;
+  const totalExistentes = linhas.filter(l => !l.erro && l.contrato_existente_id).length;
+  const totalNovos = totalValidas - totalExistentes;
 
   return (
     <Dialog open={open} onOpenChange={(v) => { if (!importando) { onOpenChange(v); if (!v) resetState(); } }}>
