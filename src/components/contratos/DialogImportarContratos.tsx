@@ -584,6 +584,7 @@ export function DialogImportarContratos({ open, onOpenChange, contratoGestaoId, 
                     <TableHead className="text-xs">Vigência</TableHead>
                     <TableHead className="text-xs">Valor Atual</TableHead>
                     <TableHead className="text-xs">Arquivo</TableHead>
+                    <TableHead className="text-xs">Detalhe</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
