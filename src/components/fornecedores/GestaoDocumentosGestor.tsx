@@ -42,6 +42,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { FileText, ExternalLink, AlertCircle, Edit, Trash2, RefreshCw, MoreHorizontal, Upload
 } from "lucide-react";
 import { toast } from "sonner";
+import { abrirDocumentoStorage } from "@/lib/abrirDocumentoStorage";
 import { differenceInDays, startOfDay, parseISO, format } from "date-fns";
 
 interface Documento {
