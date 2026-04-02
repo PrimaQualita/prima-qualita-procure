@@ -43,6 +43,7 @@ const createUserSchema = z.object({
   gerenteContratos: z.boolean().optional(),
   contrato: z.boolean().optional(),
   controleCompras: z.boolean().optional(),
+  jovemAprendiz: z.boolean().optional(),
   // legado (não usar mais)
   gerenteFinanceiro: z.boolean().optional(),
   superintendenteExecutivo: z.boolean().optional(),
@@ -147,6 +148,7 @@ serve(async (req) => {
       gerenteContratos,
       contrato,
       controleCompras,
+      jovemAprendiz,
       gerenteFinanceiro,
       superintendenteExecutivo,
       contratosVinculados
@@ -216,6 +218,7 @@ serve(async (req) => {
           contabilidade: contabilidade || false,
           contrato: contrato || false,
           controle_compras: controleCompras || false,
+          jovem_aprendiz: jovemAprendiz || false,
           cargo: cargo || null,
           genero: genero || 'feminino',
           gerente_contratos: gerenteContratos || false,
@@ -241,6 +244,7 @@ serve(async (req) => {
           contabilidade: contabilidade || false,
           contrato: contrato || false,
           controle_compras: controleCompras || false,
+          jovem_aprendiz: jovemAprendiz || false,
           cargo: cargo || null,
           genero: genero || 'feminino',
           gerente_contratos: gerenteContratos || false,

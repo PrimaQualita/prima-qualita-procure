@@ -10,6 +10,7 @@ export interface UserContextType {
   isContabilidade: boolean;
   isContrato: boolean;
   isControleCompras: boolean;
+  isJovemAprendiz: boolean;
   profile: any;
   userId?: string;
   contratosVinculados?: string[];
@@ -26,15 +27,15 @@ export function useCanEdit() {
   // Se não tem contexto, assume que pode editar (fallback)
   if (!context) return true;
   
-  const { isResponsavelLegal, isGestor, isCompliance, isColaborador, isSuperintendenteExecutivo, isGerenteContratos, isContabilidade, isControleCompras } = context;
+  const { isResponsavelLegal, isGestor, isCompliance, isColaborador, isSuperintendenteExecutivo, isGerenteContratos, isContabilidade, isControleCompras, isJovemAprendiz } = context;
   
   // Gestor, Compliance, Colaborador e Superintendente Executivo podem editar tudo
   if (isGestor || isCompliance || isColaborador || isSuperintendenteExecutivo) {
     return true;
   }
   
-  // Responsável Legal, Gerente de Contratos, Contabilidade e Controle de Compras não podem editar (apenas visualizar)
-  if (isResponsavelLegal || isGerenteContratos || isContabilidade || isControleCompras) {
+  // Responsável Legal, Gerente de Contratos, Contabilidade, Controle de Compras e Jovem Aprendiz não podem editar (apenas visualizar)
+  if (isResponsavelLegal || isGerenteContratos || isContabilidade || isControleCompras || isJovemAprendiz) {
     return false;
   }
   
@@ -48,10 +49,10 @@ export function useIsOnlyContabilidade() {
   
   if (!context) return false;
   
-  const { isGestor, isCompliance, isColaborador, isSuperintendenteExecutivo, isGerenteContratos, isResponsavelLegal, isContabilidade, isControleCompras } = context;
+  const { isGestor, isCompliance, isColaborador, isSuperintendenteExecutivo, isGerenteContratos, isResponsavelLegal, isContabilidade, isControleCompras, isJovemAprendiz } = context;
   
   // Verifica se tem outros papéis além de contabilidade
-  const temOutrosPapeis = isGestor || isCompliance || isColaborador || isSuperintendenteExecutivo || isGerenteContratos || isResponsavelLegal || isControleCompras;
+  const temOutrosPapeis = isGestor || isCompliance || isColaborador || isSuperintendenteExecutivo || isGerenteContratos || isResponsavelLegal || isControleCompras || isJovemAprendiz;
   
   return isContabilidade && !temOutrosPapeis;
 }

@@ -51,6 +51,7 @@ let cachedIsColaborador: boolean = false;
 let cachedIsContabilidade: boolean = false;
 let cachedIsContrato: boolean = false;
 let cachedIsControleCompras: boolean = false;
+let cachedIsJovemAprendiz: boolean = false;
 let profileLoaded: boolean = false;
 
 export function DashboardLayout() {
@@ -71,6 +72,7 @@ export function DashboardLayout() {
   const [isContabilidade, setIsContabilidade] = useState(cachedIsContabilidade);
   const [isContrato, setIsContrato] = useState(cachedIsContrato);
   const [isControleCompras, setIsControleCompras] = useState(cachedIsControleCompras);
+  const [isJovemAprendiz, setIsJovemAprendiz] = useState(cachedIsJovemAprendiz);
   const [loading, setLoading] = useState(!profileLoaded);
 
   useEffect(() => {
@@ -93,6 +95,7 @@ export function DashboardLayout() {
         cachedIsContabilidade = false;
         cachedIsContrato = false;
         cachedIsControleCompras = false;
+        cachedIsJovemAprendiz = false;
       }
       
       setUser(newUser);
@@ -112,6 +115,7 @@ export function DashboardLayout() {
         cachedIsContabilidade = false;
         cachedIsContrato = false;
         cachedIsControleCompras = false;
+        cachedIsJovemAprendiz = false;
         profileLoaded = false;
         setProfile(null);
         setIsGestor(false);
@@ -124,6 +128,7 @@ export function DashboardLayout() {
         setIsContabilidade(false);
         setIsContrato(false);
         setIsControleCompras(false);
+        setIsJovemAprendiz(false);
         
         // Limpa cache de outras páginas
         clearCotacoesCache();
@@ -236,6 +241,7 @@ export function DashboardLayout() {
       cachedIsContabilidade = profileData?.contabilidade || false;
       cachedIsContrato = profileData?.contrato || false;
       cachedIsControleCompras = profileData?.controle_compras || false;
+      cachedIsJovemAprendiz = profileData?.jovem_aprendiz || false;
       
       setProfile(profileData);
       setIsCompliance(cachedIsCompliance);
@@ -244,6 +250,7 @@ export function DashboardLayout() {
       setIsContabilidade(cachedIsContabilidade);
       setIsContrato(cachedIsContrato);
       setIsControleCompras(cachedIsControleCompras);
+      setIsJovemAprendiz(cachedIsJovemAprendiz);
 
       if (profileData?.primeiro_acesso || profileData?.senha_temporaria) {
         navigate("/troca-senha");
@@ -316,7 +323,8 @@ export function DashboardLayout() {
                           (isResponsavelLegal || cachedIsResponsavelLegal) || 
                           (isSuperintendenteExecutivo || cachedIsSuperintendenteExecutivo) ||
                           (isContabilidade || cachedIsContabilidade) ||
-                          (isControleCompras || cachedIsControleCompras);
+                          (isControleCompras || cachedIsControleCompras) ||
+                          (isJovemAprendiz || cachedIsJovemAprendiz);
   
   const apenasGerenteContratos = (isGerenteContratos || cachedIsGerenteContratos) && !temOutrosPapeis;
 
@@ -327,7 +335,8 @@ export function DashboardLayout() {
                           (isResponsavelLegal || cachedIsResponsavelLegal) || 
                           (isSuperintendenteExecutivo || cachedIsSuperintendenteExecutivo) ||
                           (isGerenteContratos || cachedIsGerenteContratos) ||
-                          (isControleCompras || cachedIsControleCompras);
+                          (isControleCompras || cachedIsControleCompras) ||
+                          (isJovemAprendiz || cachedIsJovemAprendiz);
   
   const apenasContabilidade = (isContabilidade || cachedIsContabilidade) && !temOutrosPapeisAlemContabilidade;
 
@@ -381,6 +390,7 @@ export function DashboardLayout() {
             isColaborador={isColaborador || cachedIsColaborador}
             isContabilidade={isContabilidade || cachedIsContabilidade}
             isControleCompras={isControleCompras || cachedIsControleCompras}
+            isJovemAprendiz={isJovemAprendiz || cachedIsJovemAprendiz}
           />
           <div className="flex-1 flex flex-col">
             <header className="h-16 border-b bg-background flex items-center px-6 gap-4">
@@ -398,6 +408,7 @@ export function DashboardLayout() {
                 isContabilidade: isContabilidade || cachedIsContabilidade,
                 isContrato: isContrato || cachedIsContrato,
                 isControleCompras: isControleCompras || cachedIsControleCompras,
+                isJovemAprendiz: isJovemAprendiz || cachedIsJovemAprendiz,
                 profile: profile || cachedProfile,
                 userId: user?.id || cachedUser?.id,
                 contratosVinculados: contratosVinculados.length > 0 ? contratosVinculados : cachedContratosVinculados
@@ -420,10 +431,10 @@ export function DashboardLayout() {
 
   // Proteção também para estado não cacheado
   const apenasGerenteContratosAtual = isGerenteContratos && 
-    !isGestor && !isColaborador && !isCompliance && !isResponsavelLegal && !isSuperintendenteExecutivo && !isContabilidade && !isControleCompras;
+    !isGestor && !isColaborador && !isCompliance && !isResponsavelLegal && !isSuperintendenteExecutivo && !isContabilidade && !isControleCompras && !isJovemAprendiz;
   
   const apenasContabilidadeAtual = isContabilidade && 
-    !isGestor && !isColaborador && !isCompliance && !isResponsavelLegal && !isSuperintendenteExecutivo && !isGerenteContratos && !isControleCompras;
+    !isGestor && !isColaborador && !isCompliance && !isResponsavelLegal && !isSuperintendenteExecutivo && !isGerenteContratos && !isControleCompras && !isJovemAprendiz;
 
   if ((apenasGerenteContratosAtual && !rotasGerenteContratos.includes(location.pathname)) ||
       (apenasContabilidadeAtual && !rotasContabilidade.includes(location.pathname))) {
@@ -447,6 +458,7 @@ export function DashboardLayout() {
           isColaborador={isColaborador}
           isContabilidade={isContabilidade}
           isControleCompras={isControleCompras}
+          isJovemAprendiz={isJovemAprendiz}
         />
         <div className="flex-1 flex flex-col">
           <header className="h-16 border-b bg-background flex items-center px-6 gap-4">
@@ -464,6 +476,7 @@ export function DashboardLayout() {
               isContabilidade,
               isContrato,
               isControleCompras,
+              isJovemAprendiz,
               profile,
               userId: user?.id,
               contratosVinculados

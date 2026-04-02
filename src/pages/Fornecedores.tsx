@@ -39,7 +39,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { toast } from "sonner";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import GestaoDocumentosGestor from "@/components/fornecedores/GestaoDocumentosGestor";
-import { useCanEdit, useCanResetPassword } from "@/hooks/useUserContext";
+import { useCanEdit, useCanResetPassword, useUserContext } from "@/hooks/useUserContext";
 import DialogRelatorioFornecedores from "@/components/fornecedores/DialogRelatorioFornecedores";
 
 interface Pergunta {
@@ -79,8 +79,11 @@ interface RespostaDueDiligence {
 
 export default function Fornecedores() {
   const navigate = useNavigate();
-  const canEdit = useCanEdit();
+  const baseCanEdit = useCanEdit();
   const canResetPassword = useCanResetPassword();
+  const userContext = useUserContext();
+  // Jovem Aprendiz tem acesso total no Cadastro de Fornecedores
+  const canEdit = baseCanEdit || (userContext?.isJovemAprendiz ?? false);
   const [loading, setLoading] = useState(true);
   const [perguntas, setPerguntas] = useState<Pergunta[]>([]);
   const [fornecedores, setFornecedores] = useState<Fornecedor[]>([]);

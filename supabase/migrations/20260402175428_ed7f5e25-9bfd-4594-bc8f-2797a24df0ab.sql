@@ -1,0 +1,1 @@
+ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS jovem_aprendiz BOOLEAN DEFAULT false;
