@@ -216,6 +216,15 @@ export function TabContratosTerceiros({ contratoGestaoId, contratoGestaoNome, pr
     setFornecedores(data || []);
   };
 
+  const loadContratosGestao = async () => {
+    const { data } = await supabase
+      .from("contratos_gestao")
+      .select("id, nome_contrato")
+      .neq("id", contratoGestaoId)
+      .order("nome_contrato");
+    setContratosGestao(data || []);
+  };
+
   const sanitizeFileName = (name: string) => {
     return name
       .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
