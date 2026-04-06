@@ -93,11 +93,16 @@ export function TabContratosTerceiros({ contratoGestaoId, contratoGestaoNome, pr
   const [loading, setLoading] = useState(true);
   const [filtro, setFiltro] = useState("");
   const [fornecedores, setFornecedores] = useState<any[]>([]);
+  const [contratosGestao, setContratosGestao] = useState<{id: string; nome_contrato: string}[]>([]);
+
+  // Detectar se é "Processos Unificados"
+  const isProcessosUnificados = contratoGestaoNome.toLowerCase().includes("processos unificados");
 
   // Dialog CRUD
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editando, setEditando] = useState<ContratoTerceiro | null>(null);
   const [processoParaContratarId, setProcessoParaContratarId] = useState<string | null>(null);
+  const [contratGestaoDestinoId, setContratGestaoDestinoId] = useState<string>("");
   const [formData, setFormData] = useState({
     codigo_interno: "",
     objeto: "",
@@ -127,6 +132,7 @@ export function TabContratosTerceiros({ contratoGestaoId, contratoGestaoNome, pr
   useEffect(() => {
     loadContratos();
     loadFornecedores();
+    if (isProcessosUnificados) loadContratosGestao();
   }, [contratoGestaoId, processoCompraIds]);
 
   // Auto-abrir dialog de criação quando vier de "Criar Contrato" no ProcessosParaContratar
@@ -210,6 +216,15 @@ export function TabContratosTerceiros({ contratoGestaoId, contratoGestaoNome, pr
     setFornecedores(data || []);
   };
 
+  const loadContratosGestao = async () => {
+    const { data } = await supabase
+      .from("contratos_gestao")
+      .select("id, nome_contrato")
+      .neq("id", contratoGestaoId)
+      .order("nome_contrato");
+    setContratosGestao(data || []);
+  };
+
   const sanitizeFileName = (name: string) => {
     return name
       .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
@@ -220,6 +235,11 @@ export function TabContratosTerceiros({ contratoGestaoId, contratoGestaoNome, pr
   const handleSalvar = async () => {
     if (!formData.codigo_interno.trim() || !formData.objeto.trim()) {
       toast.error("Preencha os campos obrigatórios (Código e Objeto)");
+      return;
+    }
+
+    if (isProcessosUnificados && !contratGestaoDestinoId) {
+      toast.error("Selecione o Contrato de Gestão de destino");
       return;
     }
 
@@ -250,8 +270,13 @@ export function TabContratosTerceiros({ contratoGestaoId, contratoGestaoNome, pr
         }
       }
 
+      const targetContratoGestaoId = isProcessosUnificados && contratGestaoDestinoId ? contratGestaoDestinoId : contratoGestaoId;
+      const targetContratoGestaoNome = isProcessosUnificados && contratGestaoDestinoId
+        ? contratosGestao.find(c => c.id === contratGestaoDestinoId)?.nome_contrato || contratoGestaoNome
+        : contratoGestaoNome;
+
       const payload = {
-        contrato_gestao_id: contratoGestaoId,
+        contrato_gestao_id: targetContratoGestaoId,
         processo_para_contratar_id: editando ? editando.processo_para_contratar_id : processoParaContratarId,
         codigo_interno: formData.codigo_interno.trim(),
         objeto: formData.objeto.trim(),
@@ -292,7 +317,7 @@ export function TabContratosTerceiros({ contratoGestaoId, contratoGestaoNome, pr
           detalhes: {
             tipo: 'Contrato com Terceiro',
             codigo_interno: formData.codigo_interno,
-            contrato_gestao: contratoGestaoNome,
+            contrato_gestao: targetContratoGestaoNome,
             objeto: formData.objeto,
             numero_processo: numProcesso,
             arquivo_substituido: arquivo ? 'Sim' : 'Não',
@@ -322,14 +347,15 @@ export function TabContratosTerceiros({ contratoGestaoId, contratoGestaoNome, pr
           detalhes: {
             tipo: 'Contrato com Terceiro',
             codigo_interno: formData.codigo_interno,
-            contrato_gestao: contratoGestaoNome,
+            contrato_gestao: targetContratoGestaoNome,
             objeto: formData.objeto,
             numero_processo: numProcesso,
           },
         });
-        toast.success("Contrato criado!");
+        toast.success(isProcessosUnificados && contratGestaoDestinoId
+          ? `Contrato criado e salvo em "${targetContratoGestaoNome}"!`
+          : "Contrato criado!");
 
-        // Marcar processo como contratado
         const ppcId = processoParaContratarId;
         if (ppcId) {
           await supabase.from("processos_para_contratar").update({ status: "contratado" }).eq("id", ppcId);
@@ -339,6 +365,7 @@ export function TabContratosTerceiros({ contratoGestaoId, contratoGestaoNome, pr
       setDialogOpen(false);
       setEditando(null);
       setProcessoParaContratarId(null);
+      setContratGestaoDestinoId("");
       setArquivo(null);
       await loadContratos();
     } catch (error: any) {
@@ -414,6 +441,7 @@ export function TabContratosTerceiros({ contratoGestaoId, contratoGestaoNome, pr
   const abrirDialogCriar = () => {
     setEditando(null);
     setProcessoParaContratarId(null);
+    setContratGestaoDestinoId("");
     setFormData({
       codigo_interno: "",
       objeto: "",
@@ -585,6 +613,24 @@ export function TabContratosTerceiros({ contratoGestaoId, contratoGestaoNome, pr
             <DialogTitle>{editando ? "Editar Contrato" : "Novo Contrato com Terceiro"}</DialogTitle>
           </DialogHeader>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            {isProcessosUnificados && (
+              <div className="space-y-2 sm:col-span-2">
+                <Label>Contrato de Gestão de Destino *</Label>
+                <Select value={contratGestaoDestinoId} onValueChange={setContratGestaoDestinoId}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Selecione o Contrato de Gestão onde este contrato será salvo" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {contratosGestao.map(cg => (
+                      <SelectItem key={cg.id} value={cg.id}>{cg.nome_contrato}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <p className="text-xs text-muted-foreground">
+                  Como este processo é unificado, selecione em qual contrato de gestão o contrato com terceiro será registrado.
+                </p>
+              </div>
+            )}
             <div className="space-y-2">
               <Label>Nº do Contrato-Ano *</Label>
               <Input value={formData.codigo_interno} onChange={(e) => setFormData({...formData, codigo_interno: e.target.value})} placeholder="Ex: 001-2026" />
