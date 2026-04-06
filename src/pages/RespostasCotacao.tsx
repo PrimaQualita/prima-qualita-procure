@@ -1387,23 +1387,37 @@ export default function RespostasCotacao() {
                                   </>
                                 )}
                               </Button>
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() => handleBaixarProposta(resposta.id)}
-                                disabled={gerandoPDF === resposta.id}
-                              >
-                                {gerandoPDF === resposta.id ? (
-                                  <span className="flex items-center gap-2">
-                                    <span className="h-4 w-4 animate-spin rounded-full border-2 border-primary border-t-transparent" />
-                                  </span>
-                                ) : (
-                                  <>
-                                    <Download className="h-4 w-4 mr-1" />
-                                    Baixar
-                                  </>
-                                )}
-                              </Button>
+                              <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    disabled={gerandoPDF === resposta.id}
+                                  >
+                                    {gerandoPDF === resposta.id ? (
+                                      <span className="flex items-center gap-2">
+                                        <span className="h-4 w-4 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+                                      </span>
+                                    ) : (
+                                      <>
+                                        <Download className="h-4 w-4 mr-1" />
+                                        Baixar
+                                        <ChevronDown className="h-3 w-3 ml-1" />
+                                      </>
+                                    )}
+                                  </Button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent align="end">
+                                  <DropdownMenuItem onClick={() => handleBaixarProposta(resposta.id)}>
+                                    <FileText className="h-4 w-4 mr-2" />
+                                    Baixar PDF
+                                  </DropdownMenuItem>
+                                  <DropdownMenuItem onClick={() => handleBaixarPropostaExcel(resposta.id)}>
+                                    <FileSpreadsheet className="h-4 w-4 mr-2" />
+                                    Baixar Excel
+                                  </DropdownMenuItem>
+                                </DropdownMenuContent>
+                              </DropdownMenu>
                               {canEdit && (
                                 <Button
                                   variant="ghost"
