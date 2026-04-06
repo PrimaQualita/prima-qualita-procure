@@ -575,7 +575,7 @@ const Selecoes = () => {
                 <TableBody>
                   {selecoes.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={5} className="text-center text-muted-foreground">
+                      <TableCell colSpan={6} className="text-center text-muted-foreground">
                         Nenhuma seleção criada para este processo
                       </TableCell>
                     </TableRow>
@@ -588,6 +588,17 @@ const Selecoes = () => {
                           <Badge variant={selecao.status_selecao === "planejada" ? "default" : "secondary"}>
                             {selecao.status_selecao}
                           </Badge>
+                        </TableCell>
+                        <TableCell>
+                          {selecoesFechadasSet.has(selecao.id) ? (
+                            <Badge className="bg-emerald-100 text-emerald-800 hover:bg-emerald-200 dark:bg-emerald-900/40 dark:text-emerald-300">
+                              Fechada
+                            </Badge>
+                          ) : (
+                            <Badge className="bg-amber-100 text-amber-800 hover:bg-amber-200 dark:bg-amber-900/40 dark:text-amber-300">
+                              Aberta
+                            </Badge>
+                          )}
                         </TableCell>
                         <TableCell>
                           {selecao.data_sessao_disputa.split('T')[0].split('-').reverse().join('/')} às {selecao.hora_sessao_disputa}
