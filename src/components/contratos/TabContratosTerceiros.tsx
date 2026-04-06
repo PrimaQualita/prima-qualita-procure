@@ -132,6 +132,7 @@ export function TabContratosTerceiros({ contratoGestaoId, contratoGestaoNome, pr
   useEffect(() => {
     loadContratos();
     loadFornecedores();
+    if (isProcessosUnificados) loadContratosGestao();
   }, [contratoGestaoId, processoCompraIds]);
 
   // Auto-abrir dialog de criação quando vier de "Criar Contrato" no ProcessosParaContratar
