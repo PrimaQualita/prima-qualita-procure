@@ -775,6 +775,52 @@ export default function RespostasCotacao() {
     }
   };
 
+  const handleBaixarPropostaExcel = async (respostaId: string) => {
+    try {
+      setGerandoPDF(respostaId);
+      const resposta = respostas.find(r => r.id === respostaId);
+      if (!resposta) {
+        toast.error("Resposta não encontrada");
+        return;
+      }
+
+      let usuarioNome: string | undefined;
+      let usuarioCpf: string | undefined;
+      if (resposta.fornecedor.cnpj === '00000000000000') {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user) {
+          const { data: profile } = await supabase
+            .from("profiles")
+            .select("nome_completo, cpf")
+            .eq("id", user.id)
+            .single();
+          if (profile) {
+            usuarioNome = profile.nome_completo;
+            usuarioCpf = profile.cpf;
+          }
+        }
+      }
+
+      await gerarPropostaFornecedorExcel(
+        respostaId,
+        resposta.fornecedor,
+        resposta.valor_total_anual_ofertado,
+        resposta.observacoes_fornecedor,
+        cotacao.titulo_cotacao,
+        usuarioNome,
+        usuarioCpf,
+        cotacao?.criterio_julgamento,
+        resposta.nome_responsavel_legal || undefined
+      );
+      toast.success("Proposta exportada em Excel com sucesso!");
+    } catch (error) {
+      console.error("Erro ao exportar proposta em Excel:", error);
+      toast.error("Erro ao exportar proposta em Excel");
+    } finally {
+      setGerandoPDF(null);
+    }
+  };
+
   const excluirApenasAnexos = async () => {
     if (!respostaParaExcluir) return;
     
