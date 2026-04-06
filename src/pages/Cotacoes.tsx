@@ -2150,14 +2150,15 @@ const Cotacoes = () => {
             </CardHeader>
             <CardContent>
               <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Título</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead>Prazo</TableHead>
-                    <TableHead className="text-right">Ações</TableHead>
-                  </TableRow>
-                </TableHeader>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Título</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead>Situação</TableHead>
+                      <TableHead>Prazo</TableHead>
+                      <TableHead className="text-right">Ações</TableHead>
+                    </TableRow>
+                  </TableHeader>
                 <TableBody>
                   {cotacoes.length === 0 ? (
                     <TableRow>
