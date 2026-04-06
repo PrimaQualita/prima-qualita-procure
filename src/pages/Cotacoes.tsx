@@ -106,6 +106,7 @@ const Cotacoes = () => {
   const [loadingItens, setLoadingItens] = useState(false);
   const [contratos, setContratos] = useState<Contrato[]>(cachedContratos || []);
   const [cotacoesCountPorContrato, setCotacoesCountPorContrato] = useState<Record<string, { abertas: number; finalizadas: number; pendentes: number }>>({});
+  const [cotacoesCountPorProcesso, setCotacoesCountPorProcesso] = useState<Record<string, { abertas: number; finalizadas: number; pendentes: number }>>({});
   const [contratoSelecionado, setContratoSelecionado] = useState<Contrato | null>(null);
   const [processos, setProcessos] = useState<Processo[]>([]);
   const [processoSelecionado, setProcessoSelecionado] = useState<Processo | null>(null);
@@ -588,6 +589,33 @@ const Cotacoes = () => {
       console.error(error);
     } else {
       setProcessos(data || []);
+      // Carregar contagens de cotações por processo
+      if (data && data.length > 0) {
+        const processosIds = data.map(p => p.id);
+        const { data: cotacoes } = await supabase
+          .from("cotacoes_precos")
+          .select("id, processo_compra_id, data_limite_resposta, respondido_compliance")
+          .in("processo_compra_id", processosIds);
+        
+        if (cotacoes) {
+          const agora = new Date();
+          const counts: Record<string, { abertas: number; finalizadas: number; pendentes: number }> = {};
+          processosIds.forEach(id => { counts[id] = { abertas: 0, finalizadas: 0, pendentes: 0 }; });
+          
+          cotacoes.forEach(cot => {
+            if (!counts[cot.processo_compra_id]) return;
+            const dataLimite = new Date(cot.data_limite_resposta);
+            if (dataLimite >= agora) {
+              counts[cot.processo_compra_id].abertas++;
+            } else if (cot.respondido_compliance) {
+              counts[cot.processo_compra_id].finalizadas++;
+            } else {
+              counts[cot.processo_compra_id].pendentes++;
+            }
+          });
+          setCotacoesCountPorProcesso(counts);
+        }
+      }
     }
     setLoadingProcessos(false);
   };
@@ -2050,23 +2078,43 @@ const Cotacoes = () => {
                       <TableHead>Nº Processo</TableHead>
                       <TableHead>Objeto</TableHead>
                       <TableHead className="text-right">Valor Estimado</TableHead>
+                      <TableHead className="text-center">Abertas</TableHead>
+                      <TableHead className="text-center">Pendentes</TableHead>
+                      <TableHead className="text-center">Finalizadas</TableHead>
                       <TableHead className="text-right">Ações</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {filtrarPorAno(processos, anoSelecionado, p => p.ano_referencia).length === 0 ? (
+                     {filtrarPorAno(processos, anoSelecionado, p => p.ano_referencia).length === 0 ? (
                       <TableRow>
-                        <TableCell colSpan={4} className="text-center text-muted-foreground">
+                        <TableCell colSpan={7} className="text-center text-muted-foreground">
                           Nenhum processo que requer cotação encontrado neste contrato
                         </TableCell>
                       </TableRow>
                     ) : (
-                      filtrarPorAno(processos, anoSelecionado, p => p.ano_referencia).map((processo) => (
+                      filtrarPorAno(processos, anoSelecionado, p => p.ano_referencia).map((processo) => {
+                        const counts = cotacoesCountPorProcesso[processo.id] || { abertas: 0, pendentes: 0, finalizadas: 0 };
+                        return (
                         <TableRow key={processo.id}>
                           <TableCell className="font-medium">{processo.numero_processo_interno}</TableCell>
                           <TableCell dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(processo.objeto_resumido) }} />
                           <TableCell className="text-right">
                             R$ {processo.valor_estimado_anual.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
+                          </TableCell>
+                          <TableCell className="text-center">
+                            {counts.abertas > 0 ? (
+                              <Badge className="bg-amber-100 text-amber-800 hover:bg-amber-200 dark:bg-amber-900/40 dark:text-amber-300">{counts.abertas}</Badge>
+                            ) : <span className="text-muted-foreground">0</span>}
+                          </TableCell>
+                          <TableCell className="text-center">
+                            {counts.pendentes > 0 ? (
+                              <Badge className="bg-red-100 text-red-800 hover:bg-red-200 dark:bg-red-900/40 dark:text-red-300">{counts.pendentes}</Badge>
+                            ) : <span className="text-muted-foreground">0</span>}
+                          </TableCell>
+                          <TableCell className="text-center">
+                            {counts.finalizadas > 0 ? (
+                              <Badge className="bg-emerald-100 text-emerald-800 hover:bg-emerald-200 dark:bg-emerald-900/40 dark:text-emerald-300">{counts.finalizadas}</Badge>
+                            ) : <span className="text-muted-foreground">0</span>}
                           </TableCell>
                           <TableCell className="text-right">
                             <Button
@@ -2079,7 +2127,8 @@ const Cotacoes = () => {
                             </Button>
                           </TableCell>
                         </TableRow>
-                      ))
+                        );
+                      })
                     )}
                   </TableBody>
                 </Table>

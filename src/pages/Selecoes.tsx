@@ -76,6 +76,7 @@ const Selecoes = () => {
   const [anoSelecionado, setAnoSelecionado] = useState("todos");
   const [selecaoParaEditar, setSelecaoParaEditar] = useState<Selecao | null>(null);
   const [selecoesCountPorContrato, setSelecoesCountPorContrato] = useState<Record<string, { abertas: number; fechadas: number }>>({});
+  const [selecoesCountPorProcesso, setSelecoesCountPorProcesso] = useState<Record<string, { abertas: number; fechadas: number }>>({});
 
   useEffect(() => {
     checkAuth();
@@ -240,6 +241,35 @@ const Selecoes = () => {
     // Primeiro mostrar os processos sem o valor da planilha para carregar rápido
     setProcessos((data || []).map(p => ({ ...p, valor_planilha: 0 })));
     setLoadingProcessos(false);
+
+    // Carregar contagens de seleções por processo (abertas/fechadas)
+    if (data && data.length > 0) {
+      const processosIds = data.map(p => p.id);
+      const [selecoesRes, homologacoesRes, atasRes] = await Promise.all([
+        supabase.from("selecoes_fornecedores").select("id, processo_compra_id").in("processo_compra_id", processosIds),
+        supabase.from("homologacoes_selecao").select("selecao_id"),
+        supabase.from("atas_selecao").select("selecao_id"),
+      ]);
+      const sels = selecoesRes.data || [];
+      if (sels.length > 0) {
+        const selIds = new Set(sels.map(s => s.id));
+        const homSet = new Set((homologacoesRes.data || []).filter(h => selIds.has(h.selecao_id)).map(h => h.selecao_id));
+        const ataSet = new Set((atasRes.data || []).filter(a => selIds.has(a.selecao_id)).map(a => a.selecao_id));
+        const counts: Record<string, { abertas: number; fechadas: number }> = {};
+        processosIds.forEach(id => { counts[id] = { abertas: 0, fechadas: 0 }; });
+        sels.forEach(s => {
+          if (!counts[s.processo_compra_id]) return;
+          if (homSet.has(s.id) || ataSet.has(s.id)) {
+            counts[s.processo_compra_id].fechadas++;
+          } else {
+            counts[s.processo_compra_id].abertas++;
+          }
+        });
+        setSelecoesCountPorProcesso(counts);
+      } else {
+        setSelecoesCountPorProcesso({});
+      }
+    }
 
     // Depois carregar os valores das planilhas em segundo plano (lazy loading)
     if (data && data.length > 0) {
@@ -500,13 +530,15 @@ const Selecoes = () => {
                   <TableRow>
                     <TableHead>Nº Processo</TableHead>
                     <TableHead>Objeto</TableHead>
+                    <TableHead className="text-center">Abertas</TableHead>
+                    <TableHead className="text-center">Fechadas</TableHead>
                     <TableHead className="text-right">Ações</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {loadingProcessos ? (
                     <TableRow>
-                      <TableCell colSpan={3} className="text-center py-8">
+                      <TableCell colSpan={5} className="text-center py-8">
                         <div className="flex items-center justify-center gap-2">
                           <div className="h-4 w-4 animate-spin rounded-full border-2 border-primary border-t-transparent" />
                           <span className="text-muted-foreground">Carregando processos...</span>
@@ -515,15 +547,27 @@ const Selecoes = () => {
                     </TableRow>
                   ) : filtrarPorAno(processos, anoSelecionado, p => p.ano_referencia).length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={3} className="text-center text-muted-foreground">
+                      <TableCell colSpan={5} className="text-center text-muted-foreground">
                         Nenhum processo que requer seleção de fornecedores encontrado neste contrato
                       </TableCell>
                     </TableRow>
                   ) : (
-                    filtrarPorAno(processos, anoSelecionado, p => p.ano_referencia).map((processo) => (
+                    filtrarPorAno(processos, anoSelecionado, p => p.ano_referencia).map((processo) => {
+                      const counts = selecoesCountPorProcesso[processo.id] || { abertas: 0, fechadas: 0 };
+                      return (
                       <TableRow key={processo.id}>
                         <TableCell className="font-medium">{processo.numero_processo_interno}</TableCell>
                         <TableCell dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(processo.objeto_resumido) }} />
+                        <TableCell className="text-center">
+                          {counts.abertas > 0 ? (
+                            <Badge className="bg-amber-100 text-amber-800 hover:bg-amber-200 dark:bg-amber-900/40 dark:text-amber-300">{counts.abertas}</Badge>
+                          ) : <span className="text-muted-foreground">0</span>}
+                        </TableCell>
+                        <TableCell className="text-center">
+                          {counts.fechadas > 0 ? (
+                            <Badge className="bg-emerald-100 text-emerald-800 hover:bg-emerald-200 dark:bg-emerald-900/40 dark:text-emerald-300">{counts.fechadas}</Badge>
+                          ) : <span className="text-muted-foreground">0</span>}
+                        </TableCell>
                         <TableCell className="text-right">
                           <Button
                             variant="outline"
@@ -535,7 +579,8 @@ const Selecoes = () => {
                           </Button>
                         </TableCell>
                       </TableRow>
-                    ))
+                      );
+                    })
                   )}
                 </TableBody>
               </Table>
