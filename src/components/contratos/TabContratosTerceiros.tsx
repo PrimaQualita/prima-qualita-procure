@@ -360,6 +360,7 @@ export function TabContratosTerceiros({ contratoGestaoId, contratoGestaoNome, pr
       setDialogOpen(false);
       setEditando(null);
       setProcessoParaContratarId(null);
+      setContratGestaoDestinoId("");
       setArquivo(null);
       await loadContratos();
     } catch (error: any) {
