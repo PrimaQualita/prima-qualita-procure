@@ -808,7 +808,7 @@ export default function PropostasSelecao() {
     }
   };
 
-
+  const handleExcluirPdfPropostaRealinhada = (proposta: any) => {
     setPropostaRealinhadaParaExcluirPdf(proposta);
     setConfirmDeletePdfRealinhadaOpen(true);
   };
