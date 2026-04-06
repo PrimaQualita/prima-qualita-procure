@@ -313,6 +313,21 @@ const Selecoes = () => {
       console.error(error);
     } else {
       setSelecoes(data || []);
+      
+      // Carregar status aberta/fechada para cada seleção
+      if (data && data.length > 0) {
+        const selIds = data.map(s => s.id);
+        const [homRes, ataRes] = await Promise.all([
+          supabase.from("homologacoes_selecao").select("selecao_id").in("selecao_id", selIds),
+          supabase.from("atas_selecao").select("selecao_id").in("selecao_id", selIds),
+        ]);
+        const fechadas = new Set<string>();
+        (homRes.data || []).forEach(h => fechadas.add(h.selecao_id));
+        (ataRes.data || []).forEach(a => fechadas.add(a.selecao_id));
+        setSelecoesFechadasSet(fechadas);
+      } else {
+        setSelecoesFechadasSet(new Set());
+      }
     }
   };
 
