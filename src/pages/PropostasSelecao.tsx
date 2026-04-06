@@ -4,12 +4,14 @@ import { supabase } from "@/integrations/supabase/client";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, Eye, Download, Trash2, RefreshCw, MessageSquare } from "lucide-react";
+import { ArrowLeft, Eye, Download, Trash2, RefreshCw, MessageSquare, ChevronDown, FileText, FileSpreadsheet } from "lucide-react";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { toast } from "sonner";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import logoHorizontal from "@/assets/prima-qualita-logo-horizontal.png";
 import { gerarPropostaSelecaoPDF } from "@/lib/gerarPropostaSelecaoPDF";
 import { gerarPropostaRealinhadaPDF } from "@/lib/gerarPropostaRealinhadaPDF";
+import { gerarPropostaRealinhadaExcel } from "@/lib/gerarPropostaRealinhadaExcel";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -750,6 +752,62 @@ export default function PropostasSelecao() {
     }
   };
 
+  const handleBaixarPropostaRealinhadaExcel = async (proposta: any) => {
+    try {
+      setGerandoPDF(proposta.id);
+      if (!processo) throw new Error("Processo não carregado");
+
+      let itens = proposta.propostas_realinhadas_itens || [];
+      if (!itens.length) {
+        const { data, error } = await (supabase as any)
+          .from("propostas_realinhadas_itens")
+          .select("*")
+          .eq("proposta_realinhada_id", proposta.id);
+        if (error) throw error;
+        itens = data || [];
+      }
+
+      if (!itens.length) {
+        toast.error("Não há itens para gerar o Excel");
+        return;
+      }
+
+      await gerarPropostaRealinhadaExcel(
+        itens.map((i: any) => ({
+          numero_item: i.numero_item,
+          numero_lote: i.numero_lote ?? null,
+          descricao: i.descricao,
+          quantidade: i.quantidade,
+          unidade: i.unidade,
+          marca: i.marca ?? null,
+          valor_unitario: i.valor_unitario,
+          valor_total: i.valor_total,
+        })),
+        {
+          razao_social: proposta.fornecedor?.razao_social,
+          cnpj: proposta.fornecedor?.cnpj,
+          email: proposta.fornecedor?.email,
+          telefone: proposta.fornecedor?.telefone,
+          endereco_comercial: proposta.fornecedor?.endereco_comercial,
+        },
+        {
+          numero_processo_interno: processo.numero_processo_interno,
+          objeto_resumido: processo.objeto_resumido,
+          criterio_julgamento: processo.criterio_julgamento,
+        },
+        proposta.observacoes || undefined,
+        processo?.tipo,
+        proposta.nome_responsavel_legal || undefined
+      );
+      toast.success("Proposta realinhada exportada em Excel!");
+    } catch (error: any) {
+      console.error("Erro ao exportar proposta realinhada em Excel:", error);
+      toast.error(error?.message || "Erro ao exportar Excel");
+    } finally {
+      setGerandoPDF(null);
+    }
+  };
+
   const handleExcluirPdfPropostaRealinhada = (proposta: any) => {
     setPropostaRealinhadaParaExcluirPdf(proposta);
     setConfirmDeletePdfRealinhadaOpen(true);
@@ -1070,6 +1128,56 @@ export default function PropostasSelecao() {
                                 >
                                   <Eye className="h-4 w-4" />
                                 </Button>
+                                <DropdownMenu>
+                                  <DropdownMenuTrigger asChild>
+                                    <Button
+                                      variant="outline"
+                                      size="sm"
+                                      disabled={gerandoPDF === proposta.id}
+                                    >
+                                      {gerandoPDF === proposta.id ? (
+                                        <span className="h-4 w-4 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+                                      ) : (
+                                        <>
+                                          <Download className="h-4 w-4 mr-1" />
+                                          Baixar
+                                          <ChevronDown className="h-3 w-3 ml-1" />
+                                        </>
+                                      )}
+                                    </Button>
+                                  </DropdownMenuTrigger>
+                                  <DropdownMenuContent align="end">
+                                    <DropdownMenuItem onClick={() => {
+                                      // Download PDF
+                                      (async () => {
+                                        try {
+                                          setGerandoPDF(proposta.id);
+                                          const { data: fileData, error: downloadError } = await supabase.storage
+                                            .from('processo-anexos')
+                                            .download(proposta.url_pdf_proposta);
+                                          if (downloadError) throw downloadError;
+                                          const pdfUrl = URL.createObjectURL(fileData);
+                                          const link = document.createElement('a');
+                                          link.href = pdfUrl;
+                                          link.download = `proposta-realinhada-${proposta.fornecedor?.cnpj}.pdf`;
+                                          link.click();
+                                          toast.success("PDF baixado com sucesso!");
+                                        } catch (err) {
+                                          toast.error("Erro ao baixar PDF");
+                                        } finally {
+                                          setGerandoPDF(null);
+                                        }
+                                      })();
+                                    }}>
+                                      <FileText className="h-4 w-4 mr-2" />
+                                      Baixar PDF
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem onClick={() => handleBaixarPropostaRealinhadaExcel(proposta)}>
+                                      <FileSpreadsheet className="h-4 w-4 mr-2" />
+                                      Baixar Excel
+                                    </DropdownMenuItem>
+                                  </DropdownMenuContent>
+                                </DropdownMenu>
                                 {canEdit && (
                                   <Button
                                     variant="destructive"
