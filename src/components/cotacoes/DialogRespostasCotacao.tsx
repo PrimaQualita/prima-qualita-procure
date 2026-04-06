@@ -385,6 +385,19 @@ export function DialogRespostasCotacao({
         throw dbError;
       }
 
+      // Resetar status de envio ao compliance para permitir novo ciclo
+      await supabase
+        .from("cotacoes_precos")
+        .update({
+          enviado_compliance: false,
+          respondido_compliance: false,
+          data_envio_compliance: null,
+          data_resposta_compliance: null,
+        })
+        .eq("id", cotacaoId);
+
+      setJaEnviadoCompliance(false);
+
       // Registrar auditoria de criação de encaminhamento
       await registrarAuditoria({
         acao: 'criação',
