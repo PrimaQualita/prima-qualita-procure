@@ -10,7 +10,7 @@ import {
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { FileDown, Mail, Trash2, FileSpreadsheet, Eye, Download, Send, FileText } from "lucide-react";
+import { FileDown, Mail, Trash2, FileSpreadsheet, Eye, Download, Send, FileText, CheckCircle2 } from "lucide-react";
 import { gerarProcessoCompletoPDF } from "@/lib/gerarProcessoCompletoPDF";
 import { toast } from "sonner";
 import { gerarEncaminhamentoPDF } from '@/lib/gerarEncaminhamentoPDF';
