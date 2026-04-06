@@ -266,7 +266,12 @@ export function TabContratosTerceiros({ contratoGestaoId, contratoGestaoNome, pr
       }
 
       const targetContratoGestaoId = isProcessosUnificados && contratGestaoDestinoId ? contratGestaoDestinoId : contratoGestaoId;
-        contrato_gestao_id: contratoGestaoId,
+      const targetContratoGestaoNome = isProcessosUnificados && contratGestaoDestinoId
+        ? contratosGestao.find(c => c.id === contratGestaoDestinoId)?.nome_contrato || contratoGestaoNome
+        : contratoGestaoNome;
+
+      const payload = {
+        contrato_gestao_id: targetContratoGestaoId,
         processo_para_contratar_id: editando ? editando.processo_para_contratar_id : processoParaContratarId,
         codigo_interno: formData.codigo_interno.trim(),
         objeto: formData.objeto.trim(),
