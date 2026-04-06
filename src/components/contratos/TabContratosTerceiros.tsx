@@ -704,7 +704,7 @@ export function TabContratosTerceiros({ contratoGestaoId, contratoGestaoNome, pr
               <Input value={formData.conta_gerencial} onChange={(e) => setFormData({...formData, conta_gerencial: e.target.value})} />
             </div>
             <div className="space-y-2 sm:col-span-2">
-              <Label>Arquivo Principal do Contrato {editando?.url_arquivo_principal ? "(substituir)" : ""}</Label>
+              <Label>Arquivo Principal do Contrato {editando?.url_arquivo_principal ? "(substituir)" : "*"}</Label>
               <Input type="file" accept=".pdf,.doc,.docx" onChange={(e) => setArquivo(e.target.files?.[0] || null)} />
               {editando?.url_arquivo_principal && !arquivo && (
                 <p className="text-xs text-muted-foreground">Arquivo atual mantido. Selecione um novo para substituir.</p>
