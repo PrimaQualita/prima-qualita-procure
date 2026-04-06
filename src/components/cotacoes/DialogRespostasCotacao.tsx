@@ -98,6 +98,7 @@ export function DialogRespostasCotacao({
   const [analisesAnteriores, setAnalisesAnteriores] = useState<any[]>([]);
   const [empresasAprovadas, setEmpresasAprovadas] = useState<string[]>([]);
   const [empresasReprovadas, setEmpresasReprovadas] = useState<string[]>([]);
+  const [jaEnviadoCompliance, setJaEnviadoCompliance] = useState(false);
 
   useEffect(() => {
     if (open && cotacaoId) {
@@ -297,8 +298,8 @@ export function DialogRespostasCotacao({
 
       if (error) throw error;
 
+      setJaEnviadoCompliance(true);
       toast.success("Enviado ao Compliance com sucesso! Um novo parecer poderá ser realizado.");
-      onOpenChange(false);
     } catch (error) {
       console.error('Erro ao enviar ao Compliance:', error);
       toast.error("Erro ao enviar ao Compliance");
@@ -669,6 +670,7 @@ export function DialogRespostasCotacao({
       const { data: cotacao } = await supabase
         .from("cotacoes_precos")
         .select(`
+          enviado_compliance,
           processos_compras:processo_compra_id (
             numero_processo_interno,
             objeto_resumido
@@ -680,6 +682,7 @@ export function DialogRespostasCotacao({
       if (cotacao) {
         setProcessoNumero((cotacao.processos_compras as any)?.numero_processo_interno || "");
         setProcessoObjeto((cotacao.processos_compras as any)?.objeto_resumido || "");
+        setJaEnviadoCompliance(!!(cotacao as any).enviado_compliance);
       }
 
       const { data, error } = await supabase
@@ -1445,14 +1448,26 @@ export function DialogRespostasCotacao({
                           <FileText className="mr-2 h-4 w-4" />
                           {gerandoEncaminhamento ? "Gerando..." : "Gerar Encaminhamento"}
                         </Button>
-                        <Button
-                          onClick={enviarAoCompliance}
-                          disabled={enviandoCompliance}
-                          className="flex-1"
-                        >
-                          <Send className="mr-2 h-4 w-4" />
-                          {enviandoCompliance ? "Enviando..." : "Enviar ao Compliance"}
-                        </Button>
+                        {jaEnviadoCompliance ? (
+                          <Button
+                            onClick={enviarAoCompliance}
+                            disabled={enviandoCompliance}
+                            variant="outline"
+                            className="flex-1 border-green-500 text-green-600 hover:bg-green-50"
+                          >
+                            <CheckCircle2 className="mr-2 h-4 w-4" />
+                            {enviandoCompliance ? "Reenviando..." : "✅ Enviado ao Compliance"}
+                          </Button>
+                        ) : (
+                          <Button
+                            onClick={enviarAoCompliance}
+                            disabled={enviandoCompliance}
+                            className="flex-1"
+                          >
+                            <Send className="mr-2 h-4 w-4" />
+                            {enviandoCompliance ? "Enviando..." : "Enviar ao Compliance"}
+                          </Button>
+                        )}
                       </div>
                       <Button
                         onClick={async () => {
