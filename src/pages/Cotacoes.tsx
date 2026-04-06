@@ -589,6 +589,33 @@ const Cotacoes = () => {
       console.error(error);
     } else {
       setProcessos(data || []);
+      // Carregar contagens de cotações por processo
+      if (data && data.length > 0) {
+        const processosIds = data.map(p => p.id);
+        const { data: cotacoes } = await supabase
+          .from("cotacoes_precos")
+          .select("id, processo_compra_id, data_limite_resposta, respondido_compliance")
+          .in("processo_compra_id", processosIds);
+        
+        if (cotacoes) {
+          const agora = new Date();
+          const counts: Record<string, { abertas: number; finalizadas: number; pendentes: number }> = {};
+          processosIds.forEach(id => { counts[id] = { abertas: 0, finalizadas: 0, pendentes: 0 }; });
+          
+          cotacoes.forEach(cot => {
+            if (!counts[cot.processo_compra_id]) return;
+            const dataLimite = new Date(cot.data_limite_resposta);
+            if (dataLimite >= agora) {
+              counts[cot.processo_compra_id].abertas++;
+            } else if (cot.respondido_compliance) {
+              counts[cot.processo_compra_id].finalizadas++;
+            } else {
+              counts[cot.processo_compra_id].pendentes++;
+            }
+          });
+          setCotacoesCountPorProcesso(counts);
+        }
+      }
     }
     setLoadingProcessos(false);
   };
