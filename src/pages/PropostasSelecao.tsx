@@ -752,7 +752,63 @@ export default function PropostasSelecao() {
     }
   };
 
-  const handleExcluirPdfPropostaRealinhada = (proposta: any) => {
+  const handleBaixarPropostaRealinhadaExcel = async (proposta: any) => {
+    try {
+      setGerandoPDF(proposta.id);
+      if (!processo) throw new Error("Processo não carregado");
+
+      let itens = proposta.propostas_realinhadas_itens || [];
+      if (!itens.length) {
+        const { data, error } = await (supabase as any)
+          .from("propostas_realinhadas_itens")
+          .select("*")
+          .eq("proposta_realinhada_id", proposta.id);
+        if (error) throw error;
+        itens = data || [];
+      }
+
+      if (!itens.length) {
+        toast.error("Não há itens para gerar o Excel");
+        return;
+      }
+
+      await gerarPropostaRealinhadaExcel(
+        itens.map((i: any) => ({
+          numero_item: i.numero_item,
+          numero_lote: i.numero_lote ?? null,
+          descricao: i.descricao,
+          quantidade: i.quantidade,
+          unidade: i.unidade,
+          marca: i.marca ?? null,
+          valor_unitario: i.valor_unitario,
+          valor_total: i.valor_total,
+        })),
+        {
+          razao_social: proposta.fornecedor?.razao_social,
+          cnpj: proposta.fornecedor?.cnpj,
+          email: proposta.fornecedor?.email,
+          telefone: proposta.fornecedor?.telefone,
+          endereco_comercial: proposta.fornecedor?.endereco_comercial,
+        },
+        {
+          numero_processo_interno: processo.numero_processo_interno,
+          objeto_resumido: processo.objeto_resumido,
+          criterio_julgamento: processo.criterio_julgamento,
+        },
+        proposta.observacoes || undefined,
+        processo?.tipo,
+        proposta.nome_responsavel_legal || undefined
+      );
+      toast.success("Proposta realinhada exportada em Excel!");
+    } catch (error: any) {
+      console.error("Erro ao exportar proposta realinhada em Excel:", error);
+      toast.error(error?.message || "Erro ao exportar Excel");
+    } finally {
+      setGerandoPDF(null);
+    }
+  };
+
+
     setPropostaRealinhadaParaExcluirPdf(proposta);
     setConfirmDeletePdfRealinhadaOpen(true);
   };
