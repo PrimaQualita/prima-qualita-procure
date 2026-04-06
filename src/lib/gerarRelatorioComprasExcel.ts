@@ -326,120 +326,109 @@ export const gerarRelatorioComprasExcel = async (dados: DadosRelatorioExcel): Pr
   wsRelatorio.getColumn(4).width = 14;
   wsRelatorio.getColumn(5).width = 12;
 
-  // ====== ABAS POR CG ======
+  // ====== ABA 2: PROCESSOS (todos juntos, ordenados) ======
+  const todosProcessos: any[] = [];
   for (const d of dadosPorCG) {
-    if (d.processos.length === 0 && d.contratos.length === 0) continue;
-
-    // Sheet name max 31 chars
-    const nomeAba = d.cg.nome_contrato.length > 31
-      ? d.cg.nome_contrato.substring(0, 28) + '...'
-      : d.cg.nome_contrato;
-    // Remove invalid chars for sheet names
-    const nomeAbaLimpo = nomeAba.replace(/[\\/*?[\]:]/g, '');
-    const ws = wb.addWorksheet(nomeAbaLimpo);
-
-    let rowIdx = 1;
-
-    // ---- PROCESSOS ----
-    if (d.processos.length > 0) {
-      ws.mergeCells(`A${rowIdx}:G${rowIdx}`);
-      const tituloProc = ws.getCell(`A${rowIdx}`);
-      tituloProc.value = `CONTROLE DE PROCESSOS - ${dados.mesAno.toUpperCase()}`;
-      tituloProc.font = { bold: true, size: 12, color: { argb: `FF${corPrimaria}` }, name: 'Calibri' };
-      tituloProc.alignment = { horizontal: 'center', vertical: 'middle' };
-      ws.getRow(rowIdx).height = 26;
-      rowIdx += 2;
-
-      const procHeaders = ['PROCESSO', 'DATA', 'CONTRATO DE GESTÃO', 'OBJETO', 'STATUS', 'CONTRATOS', 'AUT./HOMOL.'];
-      const procHeaderRow = ws.getRow(rowIdx);
-      procHeaders.forEach((h, i) => {
-        const cell = procHeaderRow.getCell(i + 1);
-        cell.value = h;
-        cell.style = estiloHeaderAba;
-      });
-      procHeaderRow.height = 22;
-      rowIdx++;
-
-      d.processos.forEach((p: any, pIdx: number) => {
-        const row = ws.getRow(rowIdx);
-        const vals = [
-          p.numero_processo_interno || 'N/A',
-          p.data_abertura ? p.data_abertura.split('-').reverse().join('/') : (p.created_at ? p.created_at.split('T')[0].split('-').reverse().join('/') : 'N/A'),
-          d.cg.nome_contrato,
-          stripHtml(p.objeto_resumido || ''),
-          statusLabels[p.status_processo] || p.status_processo?.replace(/_/g, ' ').toUpperCase() || 'N/A',
-          p.contratos_vinculados || '-',
-          p.data_homologacao || '',
-        ];
-        vals.forEach((v, i) => {
-          const cell = row.getCell(i + 1);
-          cell.value = v;
-          const estilo = estiloCelula(pIdx % 2 === 1);
-          cell.style = { ...estilo, alignment: { ...estilo.alignment, horizontal: [0, 1, 4, 5, 6].includes(i) ? 'center' : 'left' } };
-        });
-        row.height = 18;
-        rowIdx++;
-      });
-
-      // Processos column widths
-      ws.getColumn(1).width = 16;
-      ws.getColumn(2).width = 14;
-      ws.getColumn(3).width = 28;
-      ws.getColumn(4).width = 50;
-      ws.getColumn(5).width = 20;
-      ws.getColumn(6).width = 18;
-      ws.getColumn(7).width = 16;
-
-      rowIdx += 2;
-    }
-
-    // ---- CONTRATOS ----
-    if (d.contratos.length > 0) {
-      ws.mergeCells(`A${rowIdx}:E${rowIdx}`);
-      const tituloContr = ws.getCell(`A${rowIdx}`);
-      tituloContr.value = `${d.cg.nome_contrato} - ${d.cg.ente_federativo.toUpperCase()}`;
-      tituloContr.font = { bold: true, size: 12, color: { argb: `FF${corPrimaria}` }, name: 'Calibri' };
-      tituloContr.alignment = { horizontal: 'center', vertical: 'middle' };
-      ws.getRow(rowIdx).height = 26;
-      rowIdx += 2;
-
-      const contrHeaders = ['Nº CONTRATO', 'OBJETO', 'PARTE CONTRATADA', 'INÍCIO DA VIGÊNCIA', 'TÉRMINO DA VIGÊNCIA'];
-      const contrHeaderRow = ws.getRow(rowIdx);
-      contrHeaders.forEach((h, i) => {
-        const cell = contrHeaderRow.getCell(i + 1);
-        cell.value = h;
-        cell.style = estiloHeaderAba;
-      });
-      contrHeaderRow.height = 22;
-      rowIdx++;
-
-      d.contratos.forEach((c: any, cIdx: number) => {
-        const row = ws.getRow(rowIdx);
-        const vals = [
-          c.codigo_interno || 'N/A',
-          c.objeto || '',
-          c.fornecedor_razao_social || 'N/A',
-          c.inicio_vigencia ? c.inicio_vigencia.split('-').reverse().join('/') : 'N/A',
-          c.fim_vigencia_atual ? c.fim_vigencia_atual.split('-').reverse().join('/') : 'N/A',
-        ];
-        vals.forEach((v, i) => {
-          const cell = row.getCell(i + 1);
-          cell.value = v;
-          const estilo = estiloCelula(cIdx % 2 === 1);
-          cell.style = { ...estilo, alignment: { ...estilo.alignment, horizontal: [0, 3, 4].includes(i) ? 'center' : 'left' } };
-        });
-        row.height = 18;
-        rowIdx++;
-      });
-
-      // Adjust column widths if wider needed for contracts
-      if (ws.getColumn(1).width! < 18) ws.getColumn(1).width = 18;
-      if (ws.getColumn(2).width! < 45) ws.getColumn(2).width = 45;
-      if (ws.getColumn(3).width! < 40) ws.getColumn(3).width = 40;
-      if (ws.getColumn(4).width! < 22) ws.getColumn(4).width = 22;
-      if (ws.getColumn(5).width! < 22) ws.getColumn(5).width = 22;
+    for (const p of d.processos) {
+      todosProcessos.push({ ...p, cg_nome: d.cg.nome_contrato });
     }
   }
+  todosProcessos.sort((a, b) => (a.numero_processo_interno || '').localeCompare(b.numero_processo_interno || ''));
+
+  const wsProcessos = wb.addWorksheet('Processos');
+  wsProcessos.mergeCells('A1:G1');
+  const tituloProcCell = wsProcessos.getCell('A1');
+  tituloProcCell.value = `CONTROLE DE PROCESSOS - ${dados.mesAno.toUpperCase()}`;
+  tituloProcCell.font = { bold: true, size: 14, color: { argb: `FF${corPrimaria}` }, name: 'Calibri' };
+  tituloProcCell.alignment = { horizontal: 'center', vertical: 'middle' };
+  wsProcessos.getRow(1).height = 30;
+
+  const procHeaders = ['PROCESSO', 'DATA', 'CONTRATO DE GESTÃO', 'OBJETO', 'STATUS', 'CONTRATOS', 'AUT./HOMOL.'];
+  const procHeaderRow = wsProcessos.getRow(3);
+  procHeaders.forEach((h, i) => {
+    const cell = procHeaderRow.getCell(i + 1);
+    cell.value = h;
+    cell.style = estiloHeaderPrincipal;
+  });
+  procHeaderRow.height = 22;
+
+  todosProcessos.forEach((p: any, pIdx: number) => {
+    const row = wsProcessos.getRow(4 + pIdx);
+    const vals = [
+      p.numero_processo_interno || 'N/A',
+      p.data_abertura ? p.data_abertura.split('-').reverse().join('/') : (p.created_at ? p.created_at.split('T')[0].split('-').reverse().join('/') : 'N/A'),
+      p.cg_nome,
+      stripHtml(p.objeto_resumido || ''),
+      statusLabels[p.status_processo] || p.status_processo?.replace(/_/g, ' ').toUpperCase() || 'N/A',
+      p.contratos_vinculados || '-',
+      p.data_homologacao || '',
+    ];
+    vals.forEach((v, i) => {
+      const cell = row.getCell(i + 1);
+      cell.value = v;
+      const estilo = estiloCelula(pIdx % 2 === 1);
+      cell.style = { ...estilo, alignment: { ...estilo.alignment, horizontal: [0, 1, 4, 5, 6].includes(i) ? 'center' : 'left' } };
+    });
+    row.height = 18;
+  });
+
+  wsProcessos.getColumn(1).width = 16;
+  wsProcessos.getColumn(2).width = 14;
+  wsProcessos.getColumn(3).width = 28;
+  wsProcessos.getColumn(4).width = 50;
+  wsProcessos.getColumn(5).width = 20;
+  wsProcessos.getColumn(6).width = 18;
+  wsProcessos.getColumn(7).width = 16;
+
+  // ====== ABA 3: CONTRATOS (todos juntos, ordenados) ======
+  const todosContratos: any[] = [];
+  for (const d of dadosPorCG) {
+    for (const c of d.contratos) {
+      todosContratos.push({ ...c, cg_nome: d.cg.nome_contrato, cg_ente: d.cg.ente_federativo });
+    }
+  }
+  todosContratos.sort((a, b) => (a.codigo_interno || '').localeCompare(b.codigo_interno || ''));
+
+  const wsContratos = wb.addWorksheet('Contratos');
+  wsContratos.mergeCells('A1:E1');
+  const tituloContrCell = wsContratos.getCell('A1');
+  tituloContrCell.value = `CONTRATOS VIGENTES - ${dados.mesAno.toUpperCase()}`;
+  tituloContrCell.font = { bold: true, size: 14, color: { argb: `FF${corPrimaria}` }, name: 'Calibri' };
+  tituloContrCell.alignment = { horizontal: 'center', vertical: 'middle' };
+  wsContratos.getRow(1).height = 30;
+
+  const contrHeaders = ['Nº CONTRATO', 'OBJETO', 'PARTE CONTRATADA', 'INÍCIO DA VIGÊNCIA', 'TÉRMINO DA VIGÊNCIA'];
+  const contrHeaderRow = wsContratos.getRow(3);
+  contrHeaders.forEach((h, i) => {
+    const cell = contrHeaderRow.getCell(i + 1);
+    cell.value = h;
+    cell.style = estiloHeaderPrincipal;
+  });
+  contrHeaderRow.height = 22;
+
+  todosContratos.forEach((c: any, cIdx: number) => {
+    const row = wsContratos.getRow(4 + cIdx);
+    const vals = [
+      c.codigo_interno || 'N/A',
+      c.objeto || '',
+      c.fornecedor_razao_social || 'N/A',
+      c.inicio_vigencia ? c.inicio_vigencia.split('-').reverse().join('/') : 'N/A',
+      c.fim_vigencia_atual ? c.fim_vigencia_atual.split('-').reverse().join('/') : 'N/A',
+    ];
+    vals.forEach((v, i) => {
+      const cell = row.getCell(i + 1);
+      cell.value = v;
+      const estilo = estiloCelula(cIdx % 2 === 1);
+      cell.style = { ...estilo, alignment: { ...estilo.alignment, horizontal: [0, 3, 4].includes(i) ? 'center' : 'left' } };
+    });
+    row.height = 18;
+  });
+
+  wsContratos.getColumn(1).width = 18;
+  wsContratos.getColumn(2).width = 50;
+  wsContratos.getColumn(3).width = 40;
+  wsContratos.getColumn(4).width = 22;
+  wsContratos.getColumn(5).width = 22;
 
   // ===== DOWNLOAD =====
   const buffer = await wb.xlsx.writeBuffer();
