@@ -824,6 +824,17 @@ const ProcessosCompras = () => {
                         </TableCell>
                         <TableCell>{getStatusBadge(processo.status_processo)}</TableCell>
                         <TableCell>
+                          {processo.status_processo === 'concluido' ? (
+                            <Badge className="bg-emerald-100 text-emerald-800 hover:bg-emerald-200 dark:bg-emerald-900/40 dark:text-emerald-300">
+                              Fechado
+                            </Badge>
+                          ) : (
+                            <Badge className="bg-amber-100 text-amber-800 hover:bg-amber-200 dark:bg-amber-900/40 dark:text-amber-300">
+                              Aberto
+                            </Badge>
+                          )}
+                        </TableCell>
+                        <TableCell>
                           <Button
                             variant="ghost"
                             size="icon"
