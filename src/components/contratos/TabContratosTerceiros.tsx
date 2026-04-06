@@ -93,11 +93,16 @@ export function TabContratosTerceiros({ contratoGestaoId, contratoGestaoNome, pr
   const [loading, setLoading] = useState(true);
   const [filtro, setFiltro] = useState("");
   const [fornecedores, setFornecedores] = useState<any[]>([]);
+  const [contratosGestao, setContratosGestao] = useState<{id: string; nome_contrato: string}[]>([]);
+
+  // Detectar se é "Processos Unificados"
+  const isProcessosUnificados = contratoGestaoNome.toLowerCase().includes("processos unificados");
 
   // Dialog CRUD
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editando, setEditando] = useState<ContratoTerceiro | null>(null);
   const [processoParaContratarId, setProcessoParaContratarId] = useState<string | null>(null);
+  const [contratGestaoDestinoId, setContratGestaoDestinoId] = useState<string>("");
   const [formData, setFormData] = useState({
     codigo_interno: "",
     objeto: "",
