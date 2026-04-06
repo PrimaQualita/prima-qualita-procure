@@ -1128,6 +1128,56 @@ export default function PropostasSelecao() {
                                 >
                                   <Eye className="h-4 w-4" />
                                 </Button>
+                                <DropdownMenu>
+                                  <DropdownMenuTrigger asChild>
+                                    <Button
+                                      variant="outline"
+                                      size="sm"
+                                      disabled={gerandoPDF === proposta.id}
+                                    >
+                                      {gerandoPDF === proposta.id ? (
+                                        <span className="h-4 w-4 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+                                      ) : (
+                                        <>
+                                          <Download className="h-4 w-4 mr-1" />
+                                          Baixar
+                                          <ChevronDown className="h-3 w-3 ml-1" />
+                                        </>
+                                      )}
+                                    </Button>
+                                  </DropdownMenuTrigger>
+                                  <DropdownMenuContent align="end">
+                                    <DropdownMenuItem onClick={() => {
+                                      // Download PDF
+                                      (async () => {
+                                        try {
+                                          setGerandoPDF(proposta.id);
+                                          const { data: fileData, error: downloadError } = await supabase.storage
+                                            .from('processo-anexos')
+                                            .download(proposta.url_pdf_proposta);
+                                          if (downloadError) throw downloadError;
+                                          const pdfUrl = URL.createObjectURL(fileData);
+                                          const link = document.createElement('a');
+                                          link.href = pdfUrl;
+                                          link.download = `proposta-realinhada-${proposta.fornecedor?.cnpj}.pdf`;
+                                          link.click();
+                                          toast.success("PDF baixado com sucesso!");
+                                        } catch (err) {
+                                          toast.error("Erro ao baixar PDF");
+                                        } finally {
+                                          setGerandoPDF(null);
+                                        }
+                                      })();
+                                    }}>
+                                      <FileText className="h-4 w-4 mr-2" />
+                                      Baixar PDF
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem onClick={() => handleBaixarPropostaRealinhadaExcel(proposta)}>
+                                      <FileSpreadsheet className="h-4 w-4 mr-2" />
+                                      Baixar Excel
+                                    </DropdownMenuItem>
+                                  </DropdownMenuContent>
+                                </DropdownMenu>
                                 {canEdit && (
                                   <Button
                                     variant="destructive"
