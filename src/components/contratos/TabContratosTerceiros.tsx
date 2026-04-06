@@ -238,6 +238,11 @@ export function TabContratosTerceiros({ contratoGestaoId, contratoGestaoNome, pr
       return;
     }
 
+    if (isProcessosUnificados && !contratGestaoDestinoId) {
+      toast.error("Selecione o Contrato de Gestão de destino");
+      return;
+    }
+
     try {
       setUploading(true);
       let urlArquivo = editando?.url_arquivo_principal || null;
