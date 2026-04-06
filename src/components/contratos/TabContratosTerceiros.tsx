@@ -342,7 +342,7 @@ export function TabContratosTerceiros({ contratoGestaoId, contratoGestaoNome, pr
           detalhes: {
             tipo: 'Contrato com Terceiro',
             codigo_interno: formData.codigo_interno,
-            contrato_gestao: contratoGestaoNome,
+            contrato_gestao: targetContratoGestaoNome,
             objeto: formData.objeto,
             numero_processo: numProcesso,
           },
