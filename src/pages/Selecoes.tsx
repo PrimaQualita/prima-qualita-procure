@@ -531,7 +531,44 @@ const Selecoes = () => {
                     <TableHead>Nº Processo</TableHead>
                     <TableHead>Objeto</TableHead>
                     <TableHead className="text-center">Situação</TableHead>
-                        <TableCell className="text-right">
+                    <TableHead className="text-right">Ações</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {loadingProcessos ? (
+                    <TableRow>
+                      <TableCell colSpan={4} className="text-center py-8">
+                        <div className="flex items-center justify-center gap-2">
+                          <div className="h-4 w-4 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+                          <span className="text-muted-foreground">Carregando processos...</span>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ) : filtrarPorAno(processos, anoSelecionado, p => p.ano_referencia).length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={4} className="text-center text-muted-foreground">
+                        Nenhum processo que requer seleção de fornecedores encontrado neste contrato
+                      </TableCell>
+                    </TableRow>
+                  ) : (
+                    filtrarPorAno(processos, anoSelecionado, p => p.ano_referencia).map((processo) => {
+                      const counts = selecoesCountPorProcesso[processo.id] || { abertas: 0, fechadas: 0 };
+                      const situacao = counts.abertas > 0 ? 'aberta' : counts.fechadas > 0 ? 'fechada' : 'sem_selecao';
+                      return (
+                      <TableRow key={processo.id}>
+                        <TableCell className="font-medium">{processo.numero_processo_interno}</TableCell>
+                        <TableCell dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(processo.objeto_resumido) }} />
+                        <TableCell className="text-center">
+                          {situacao === 'aberta' && (
+                            <Badge className="bg-amber-100 text-amber-800 hover:bg-amber-200 dark:bg-amber-900/40 dark:text-amber-300">Aberta</Badge>
+                          )}
+                          {situacao === 'fechada' && (
+                            <Badge className="bg-emerald-100 text-emerald-800 hover:bg-emerald-200 dark:bg-emerald-900/40 dark:text-emerald-300">Fechada</Badge>
+                          )}
+                          {situacao === 'sem_selecao' && (
+                            <span className="text-muted-foreground text-xs">—</span>
+                          )}
+                        </TableCell>
                           <Button
                             variant="outline"
                             size="sm"
