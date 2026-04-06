@@ -265,7 +265,7 @@ export function TabContratosTerceiros({ contratoGestaoId, contratoGestaoNome, pr
         }
       }
 
-      const payload = {
+      const targetContratoGestaoId = isProcessosUnificados && contratGestaoDestinoId ? contratGestaoDestinoId : contratoGestaoId;
         contrato_gestao_id: contratoGestaoId,
         processo_para_contratar_id: editando ? editando.processo_para_contratar_id : processoParaContratarId,
         codigo_interno: formData.codigo_interno.trim(),
