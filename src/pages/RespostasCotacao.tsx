@@ -6,11 +6,13 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { FileDown, Mail, Trash2, FileSpreadsheet, Eye, Download, Send, FileText, ArrowLeft, CheckCircle2 } from "lucide-react";
+import { FileDown, Mail, Trash2, FileSpreadsheet, Eye, Download, Send, FileText, ArrowLeft, CheckCircle2, ChevronDown } from "lucide-react";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { gerarProcessoCompletoPDF } from "@/lib/gerarProcessoCompletoPDF";
 import { toast } from "sonner";
 import { gerarEncaminhamentoPDF } from '@/lib/gerarEncaminhamentoPDF';
 import { gerarPropostaFornecedorPDF } from '@/lib/gerarPropostaFornecedorPDF';
+import { gerarPropostaFornecedorExcel } from '@/lib/gerarPropostaFornecedorExcel';
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import {
@@ -773,6 +775,52 @@ export default function RespostasCotacao() {
     }
   };
 
+  const handleBaixarPropostaExcel = async (respostaId: string) => {
+    try {
+      setGerandoPDF(respostaId);
+      const resposta = respostas.find(r => r.id === respostaId);
+      if (!resposta) {
+        toast.error("Resposta não encontrada");
+        return;
+      }
+
+      let usuarioNome: string | undefined;
+      let usuarioCpf: string | undefined;
+      if (resposta.fornecedor.cnpj === '00000000000000') {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user) {
+          const { data: profile } = await supabase
+            .from("profiles")
+            .select("nome_completo, cpf")
+            .eq("id", user.id)
+            .single();
+          if (profile) {
+            usuarioNome = profile.nome_completo;
+            usuarioCpf = profile.cpf;
+          }
+        }
+      }
+
+      await gerarPropostaFornecedorExcel(
+        respostaId,
+        resposta.fornecedor,
+        resposta.valor_total_anual_ofertado,
+        resposta.observacoes_fornecedor,
+        cotacao.titulo_cotacao,
+        usuarioNome,
+        usuarioCpf,
+        cotacao?.criterio_julgamento,
+        resposta.nome_responsavel_legal || undefined
+      );
+      toast.success("Proposta exportada em Excel com sucesso!");
+    } catch (error) {
+      console.error("Erro ao exportar proposta em Excel:", error);
+      toast.error("Erro ao exportar proposta em Excel");
+    } finally {
+      setGerandoPDF(null);
+    }
+  };
+
   const excluirApenasAnexos = async () => {
     if (!respostaParaExcluir) return;
     
@@ -1339,23 +1387,37 @@ export default function RespostasCotacao() {
                                   </>
                                 )}
                               </Button>
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() => handleBaixarProposta(resposta.id)}
-                                disabled={gerandoPDF === resposta.id}
-                              >
-                                {gerandoPDF === resposta.id ? (
-                                  <span className="flex items-center gap-2">
-                                    <span className="h-4 w-4 animate-spin rounded-full border-2 border-primary border-t-transparent" />
-                                  </span>
-                                ) : (
-                                  <>
-                                    <Download className="h-4 w-4 mr-1" />
-                                    Baixar
-                                  </>
-                                )}
-                              </Button>
+                              <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    disabled={gerandoPDF === resposta.id}
+                                  >
+                                    {gerandoPDF === resposta.id ? (
+                                      <span className="flex items-center gap-2">
+                                        <span className="h-4 w-4 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+                                      </span>
+                                    ) : (
+                                      <>
+                                        <Download className="h-4 w-4 mr-1" />
+                                        Baixar
+                                        <ChevronDown className="h-3 w-3 ml-1" />
+                                      </>
+                                    )}
+                                  </Button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent align="end">
+                                  <DropdownMenuItem onClick={() => handleBaixarProposta(resposta.id)}>
+                                    <FileText className="h-4 w-4 mr-2" />
+                                    Baixar PDF
+                                  </DropdownMenuItem>
+                                  <DropdownMenuItem onClick={() => handleBaixarPropostaExcel(resposta.id)}>
+                                    <FileSpreadsheet className="h-4 w-4 mr-2" />
+                                    Baixar Excel
+                                  </DropdownMenuItem>
+                                </DropdownMenuContent>
+                              </DropdownMenu>
                               {canEdit && (
                                 <Button
                                   variant="ghost"
