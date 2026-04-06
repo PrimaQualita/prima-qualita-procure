@@ -211,6 +211,19 @@ export default function RespostasCotacao() {
 
       if (dbError) throw dbError;
 
+      // Resetar status de envio ao compliance para permitir novo ciclo
+      await supabase
+        .from("cotacoes_precos")
+        .update({
+          enviado_compliance: false,
+          respondido_compliance: false,
+          data_envio_compliance: null,
+          data_resposta_compliance: null,
+        })
+        .eq("id", cotacaoId);
+
+      setCotacao((prev: any) => prev ? { ...prev, enviado_compliance: false, respondido_compliance: false } : prev);
+
       await registrarAuditoria({
         acao: "criação",
         entidade: "encaminhamentos_processo",
