@@ -2078,6 +2078,9 @@ const Cotacoes = () => {
                       <TableHead>Nº Processo</TableHead>
                       <TableHead>Objeto</TableHead>
                       <TableHead className="text-right">Valor Estimado</TableHead>
+                      <TableHead className="text-center">Abertas</TableHead>
+                      <TableHead className="text-center">Pendentes</TableHead>
+                      <TableHead className="text-center">Finalizadas</TableHead>
                       <TableHead className="text-right">Ações</TableHead>
                     </TableRow>
                   </TableHeader>
