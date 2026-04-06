@@ -803,7 +803,9 @@ const ProcessosCompras = () => {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {processosFiltrados.map((processo) => (
+                    {processosFiltrados.map((processo) => {
+                      const isFechado = processo.status_processo === 'concluido';
+                      return (
                       <TableRow key={processo.id}>
                         <TableCell className="font-medium">{processo.numero_processo_interno}</TableCell>
                         <TableCell className="max-w-[400px] whitespace-normal">
