@@ -798,6 +798,7 @@ const ProcessosCompras = () => {
                       <TableHead>Tipo</TableHead>
                       <TableHead>Valor Total</TableHead>
                       <TableHead>Status</TableHead>
+                      <TableHead>Situação</TableHead>
                       <TableHead>Anexos</TableHead>
                       {isUsuarioInterno && <TableHead className="text-right">Ações</TableHead>}
                     </TableRow>
