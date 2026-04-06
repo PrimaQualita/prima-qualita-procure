@@ -243,7 +243,11 @@ export function TabContratosTerceiros({ contratoGestaoId, contratoGestaoNome, pr
       return;
     }
 
-    try {
+    if (!editando && !arquivo) {
+      toast.error("Anexe o arquivo do contrato");
+      return;
+    }
+
       setUploading(true);
       let urlArquivo = editando?.url_arquivo_principal || null;
       let storagePath = editando?.storage_path_arquivo || null;
