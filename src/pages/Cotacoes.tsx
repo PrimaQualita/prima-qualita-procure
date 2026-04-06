@@ -2150,29 +2150,51 @@ const Cotacoes = () => {
             </CardHeader>
             <CardContent>
               <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Título</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead>Prazo</TableHead>
-                    <TableHead className="text-right">Ações</TableHead>
-                  </TableRow>
-                </TableHeader>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Título</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead>Situação</TableHead>
+                      <TableHead>Prazo</TableHead>
+                      <TableHead className="text-right">Ações</TableHead>
+                    </TableRow>
+                  </TableHeader>
                 <TableBody>
                   {cotacoes.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={4} className="text-center text-muted-foreground">
+                      <TableCell colSpan={5} className="text-center text-muted-foreground">
                         Nenhuma cotação criada para este processo
                       </TableCell>
                     </TableRow>
                   ) : (
-                    cotacoes.map((cotacao) => (
+                    cotacoes.map((cotacao) => {
+                      const agora = new Date();
+                      const dataLimite = new Date(cotacao.data_limite_resposta);
+                      const isAberta = dataLimite >= agora;
+                      const isFinalizada = !isAberta && (cotacao as any).respondido_compliance;
+                      const isPendente = !isAberta && !(cotacao as any).respondido_compliance;
+                      return (
                       <TableRow key={cotacao.id}>
                         <TableCell className="font-medium">{cotacao.titulo_cotacao}</TableCell>
                         <TableCell>
                           <Badge variant={cotacao.status_cotacao === "em_aberto" ? "default" : "secondary"}>
                             {cotacao.status_cotacao}
                           </Badge>
+                        </TableCell>
+                        <TableCell>
+                          {isAberta ? (
+                            <Badge className="bg-amber-100 text-amber-800 hover:bg-amber-200 dark:bg-amber-900/40 dark:text-amber-300">
+                              Aberta
+                            </Badge>
+                          ) : isPendente ? (
+                            <Badge className="bg-red-100 text-red-800 hover:bg-red-200 dark:bg-red-900/40 dark:text-red-300">
+                              Pendente
+                            </Badge>
+                          ) : (
+                            <Badge className="bg-emerald-100 text-emerald-800 hover:bg-emerald-200 dark:bg-emerald-900/40 dark:text-emerald-300">
+                              Finalizada
+                            </Badge>
+                          )}
                         </TableCell>
                         <TableCell>
                           {new Date(cotacao.data_limite_resposta).toLocaleDateString("pt-BR")}
@@ -2217,7 +2239,8 @@ const Cotacoes = () => {
                           </div>
                         </TableCell>
                       </TableRow>
-                    ))
+                      );
+                    })
                   )}
                 </TableBody>
               </Table>

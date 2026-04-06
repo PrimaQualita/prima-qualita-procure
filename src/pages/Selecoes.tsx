@@ -70,6 +70,7 @@ const Selecoes = () => {
   const [processos, setProcessos] = useState<Processo[]>([]);
   const [processoSelecionado, setProcessoSelecionado] = useState<Processo | null>(null);
   const [selecoes, setSelecoes] = useState<Selecao[]>([]);
+  const [selecoesFechadasSet, setSelecoesFechadasSet] = useState<Set<string>>(new Set());
   const [confirmDeleteSelecao, setConfirmDeleteSelecao] = useState<string | null>(null);
   const [filtro, setFiltro] = useState("");
   const [anoSelecionado, setAnoSelecionado] = useState("todos");
@@ -312,6 +313,21 @@ const Selecoes = () => {
       console.error(error);
     } else {
       setSelecoes(data || []);
+      
+      // Carregar status aberta/fechada para cada seleção
+      if (data && data.length > 0) {
+        const selIds = data.map(s => s.id);
+        const [homRes, ataRes] = await Promise.all([
+          supabase.from("homologacoes_selecao").select("selecao_id").in("selecao_id", selIds),
+          supabase.from("atas_selecao").select("selecao_id").in("selecao_id", selIds),
+        ]);
+        const fechadas = new Set<string>();
+        (homRes.data || []).forEach(h => fechadas.add(h.selecao_id));
+        (ataRes.data || []).forEach(a => fechadas.add(a.selecao_id));
+        setSelecoesFechadasSet(fechadas);
+      } else {
+        setSelecoesFechadasSet(new Set());
+      }
     }
   };
 
@@ -547,18 +563,19 @@ const Selecoes = () => {
             <CardContent>
               <Table>
                 <TableHeader>
-                  <TableRow>
-                    <TableHead>Nº Seleção</TableHead>
-                    <TableHead>Título</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead>Data/Hora Disputa</TableHead>
-                    <TableHead className="text-right">Ações</TableHead>
-                  </TableRow>
+                    <TableRow>
+                      <TableHead>Nº Seleção</TableHead>
+                      <TableHead>Título</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead>Situação</TableHead>
+                      <TableHead>Data/Hora Disputa</TableHead>
+                      <TableHead className="text-right">Ações</TableHead>
+                    </TableRow>
                 </TableHeader>
                 <TableBody>
                   {selecoes.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={5} className="text-center text-muted-foreground">
+                      <TableCell colSpan={6} className="text-center text-muted-foreground">
                         Nenhuma seleção criada para este processo
                       </TableCell>
                     </TableRow>
@@ -571,6 +588,17 @@ const Selecoes = () => {
                           <Badge variant={selecao.status_selecao === "planejada" ? "default" : "secondary"}>
                             {selecao.status_selecao}
                           </Badge>
+                        </TableCell>
+                        <TableCell>
+                          {selecoesFechadasSet.has(selecao.id) ? (
+                            <Badge className="bg-emerald-100 text-emerald-800 hover:bg-emerald-200 dark:bg-emerald-900/40 dark:text-emerald-300">
+                              Fechada
+                            </Badge>
+                          ) : (
+                            <Badge className="bg-amber-100 text-amber-800 hover:bg-amber-200 dark:bg-amber-900/40 dark:text-amber-300">
+                              Aberta
+                            </Badge>
+                          )}
                         </TableCell>
                         <TableCell>
                           {selecao.data_sessao_disputa.split('T')[0].split('-').reverse().join('/')} às {selecao.hora_sessao_disputa}
