@@ -5250,7 +5250,12 @@ export function DialogFinalizarProcesso({
                       <Button
                         onClick={async () => {
                           const { abrirDocumentoStorage } = await import('@/lib/abrirDocumentoStorage');
-                          await abrirDocumentoStorage(planilha.url_arquivo, planilha.nome_arquivo);
+                          let filePath = planilha.storage_path || planilha.url_arquivo;
+                          if (filePath.includes('https://')) {
+                            const urlParts = filePath.split('/processo-anexos/');
+                            filePath = urlParts[1] || filePath;
+                          }
+                          await abrirDocumentoStorage(filePath, planilha.nome_arquivo);
                         }}
                         variant="outline"
                         size="icon"
