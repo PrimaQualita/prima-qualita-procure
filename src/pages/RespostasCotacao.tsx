@@ -6,7 +6,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { FileDown, Mail, Trash2, FileSpreadsheet, Eye, Download, Send, FileText, ArrowLeft, CheckCircle2 } from "lucide-react";
+import { FileDown, Mail, Trash2, FileSpreadsheet, Eye, Download, Send, FileText, ArrowLeft, CheckCircle2, ChevronDown } from "lucide-react";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { gerarProcessoCompletoPDF } from "@/lib/gerarProcessoCompletoPDF";
 import { toast } from "sonner";
 import { gerarEncaminhamentoPDF } from '@/lib/gerarEncaminhamentoPDF';
