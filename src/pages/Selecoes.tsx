@@ -242,6 +242,35 @@ const Selecoes = () => {
     setProcessos((data || []).map(p => ({ ...p, valor_planilha: 0 })));
     setLoadingProcessos(false);
 
+    // Carregar contagens de seleções por processo (abertas/fechadas)
+    if (data && data.length > 0) {
+      const processosIds = data.map(p => p.id);
+      const [selecoesRes, homologacoesRes, atasRes] = await Promise.all([
+        supabase.from("selecoes_fornecedores").select("id, processo_compra_id").in("processo_compra_id", processosIds),
+        supabase.from("homologacoes_selecao").select("selecao_id"),
+        supabase.from("atas_selecao").select("selecao_id"),
+      ]);
+      const sels = selecoesRes.data || [];
+      if (sels.length > 0) {
+        const selIds = new Set(sels.map(s => s.id));
+        const homSet = new Set((homologacoesRes.data || []).filter(h => selIds.has(h.selecao_id)).map(h => h.selecao_id));
+        const ataSet = new Set((atasRes.data || []).filter(a => selIds.has(a.selecao_id)).map(a => a.selecao_id));
+        const counts: Record<string, { abertas: number; fechadas: number }> = {};
+        processosIds.forEach(id => { counts[id] = { abertas: 0, fechadas: 0 }; });
+        sels.forEach(s => {
+          if (!counts[s.processo_compra_id]) return;
+          if (homSet.has(s.id) || ataSet.has(s.id)) {
+            counts[s.processo_compra_id].fechadas++;
+          } else {
+            counts[s.processo_compra_id].abertas++;
+          }
+        });
+        setSelecoesCountPorProcesso(counts);
+      } else {
+        setSelecoesCountPorProcesso({});
+      }
+    }
+
     // Depois carregar os valores das planilhas em segundo plano (lazy loading)
     if (data && data.length > 0) {
       const processosIds = data.map(p => p.id);
