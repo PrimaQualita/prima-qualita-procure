@@ -6,7 +6,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { FileDown, Mail, Trash2, FileSpreadsheet, Eye, Download, Send, FileText, ArrowLeft } from "lucide-react";
+import { FileDown, Mail, Trash2, FileSpreadsheet, Eye, Download, Send, FileText, ArrowLeft, CheckCircle2 } from "lucide-react";
 import { gerarProcessoCompletoPDF } from "@/lib/gerarProcessoCompletoPDF";
 import { toast } from "sonner";
 import { gerarEncaminhamentoPDF } from '@/lib/gerarEncaminhamentoPDF';
@@ -511,8 +511,7 @@ export default function RespostasCotacao() {
         throw error;
       }
 
-      console.log("✅ [RespostasCotacao] Enviado com sucesso, status resetado para pendente");
-
+      setCotacao((prev: any) => prev ? { ...prev, enviado_compliance: true } : prev);
       toast.success("Processo enviado ao Compliance com sucesso!");
     } catch (error) {
       console.error("❌ [RespostasCotacao] Erro ao enviar ao compliance:", error);
@@ -1609,14 +1608,26 @@ export default function RespostasCotacao() {
 
               {/* Botão Enviar ao Compliance */}
               {canEdit && planilhasAnteriores.length > 0 && (
-                <Button
-                  onClick={enviarAoCompliance}
-                  disabled={enviandoCompliance}
-                  className="w-full"
-                >
-                  <Send className="mr-2 h-4 w-4" />
-                  {enviandoCompliance ? "Enviando..." : "Enviar ao Compliance"}
-                </Button>
+                cotacao?.enviado_compliance ? (
+                  <Button
+                    onClick={enviarAoCompliance}
+                    disabled={enviandoCompliance}
+                    variant="outline"
+                    className="w-full border-green-500 text-green-600 hover:bg-green-50"
+                  >
+                    <CheckCircle2 className="mr-2 h-4 w-4" />
+                    {enviandoCompliance ? "Reenviando..." : "✅ Enviado ao Compliance"}
+                  </Button>
+                ) : (
+                  <Button
+                    onClick={enviarAoCompliance}
+                    disabled={enviandoCompliance}
+                    className="w-full"
+                  >
+                    <Send className="mr-2 h-4 w-4" />
+                    {enviandoCompliance ? "Enviando..." : "Enviar ao Compliance"}
+                  </Button>
+                )
               )}
             </div>
           )}
