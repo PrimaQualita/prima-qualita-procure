@@ -563,13 +563,14 @@ const Selecoes = () => {
             <CardContent>
               <Table>
                 <TableHeader>
-                  <TableRow>
-                    <TableHead>Nº Seleção</TableHead>
-                    <TableHead>Título</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead>Data/Hora Disputa</TableHead>
-                    <TableHead className="text-right">Ações</TableHead>
-                  </TableRow>
+                    <TableRow>
+                      <TableHead>Nº Seleção</TableHead>
+                      <TableHead>Título</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead>Situação</TableHead>
+                      <TableHead>Data/Hora Disputa</TableHead>
+                      <TableHead className="text-right">Ações</TableHead>
+                    </TableRow>
                 </TableHeader>
                 <TableBody>
                   {selecoes.length === 0 ? (
