@@ -248,6 +248,7 @@ export function TabContratosTerceiros({ contratoGestaoId, contratoGestaoNome, pr
       return;
     }
 
+    try {
       setUploading(true);
       let urlArquivo = editando?.url_arquivo_principal || null;
       let storagePath = editando?.storage_path_arquivo || null;
