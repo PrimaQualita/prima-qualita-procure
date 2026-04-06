@@ -347,9 +347,10 @@ export function TabContratosTerceiros({ contratoGestaoId, contratoGestaoNome, pr
             numero_processo: numProcesso,
           },
         });
-        toast.success("Contrato criado!");
+        toast.success(isProcessosUnificados && contratGestaoDestinoId
+          ? `Contrato criado e salvo em "${targetContratoGestaoNome}"!`
+          : "Contrato criado!");
 
-        // Marcar processo como contratado
         const ppcId = processoParaContratarId;
         if (ppcId) {
           await supabase.from("processos_para_contratar").update({ status: "contratado" }).eq("id", ppcId);
