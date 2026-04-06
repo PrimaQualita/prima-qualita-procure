@@ -436,6 +436,7 @@ export function TabContratosTerceiros({ contratoGestaoId, contratoGestaoNome, pr
   const abrirDialogCriar = () => {
     setEditando(null);
     setProcessoParaContratarId(null);
+    setContratGestaoDestinoId("");
     setFormData({
       codigo_interno: "",
       objeto: "",
