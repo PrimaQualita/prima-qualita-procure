@@ -608,6 +608,24 @@ export function TabContratosTerceiros({ contratoGestaoId, contratoGestaoNome, pr
             <DialogTitle>{editando ? "Editar Contrato" : "Novo Contrato com Terceiro"}</DialogTitle>
           </DialogHeader>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            {isProcessosUnificados && (
+              <div className="space-y-2 sm:col-span-2">
+                <Label>Contrato de Gestão de Destino *</Label>
+                <Select value={contratGestaoDestinoId} onValueChange={setContratGestaoDestinoId}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Selecione o Contrato de Gestão onde este contrato será salvo" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {contratosGestao.map(cg => (
+                      <SelectItem key={cg.id} value={cg.id}>{cg.nome_contrato}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <p className="text-xs text-muted-foreground">
+                  Como este processo é unificado, selecione em qual contrato de gestão o contrato com terceiro será registrado.
+                </p>
+              </div>
+            )}
             <div className="space-y-2">
               <Label>Nº do Contrato-Ano *</Label>
               <Input value={formData.codigo_interno} onChange={(e) => setFormData({...formData, codigo_interno: e.target.value})} placeholder="Ex: 001-2026" />
