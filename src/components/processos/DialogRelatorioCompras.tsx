@@ -14,8 +14,9 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
-import { FileText, Loader2, Calendar } from "lucide-react";
+import { FileText, Loader2, Calendar, FileSpreadsheet } from "lucide-react";
 import { gerarRelatorioComprasPDF } from "@/lib/gerarRelatorioComprasPDF";
+import { gerarRelatorioComprasExcel } from "@/lib/gerarRelatorioComprasExcel";
 import { registrarAuditoria } from "@/lib/registrarAuditoria";
 import { format, parse, lastDayOfMonth } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -45,9 +46,11 @@ const MESES = [
 ];
 
 type TipoPeriodo = "mensal" | "anual" | "personalizado";
+type FormatoExportacao = "pdf" | "excel";
 
 export function DialogRelatorioCompras({ open, onOpenChange, contratos }: Props) {
   const [contratosSelecionados, setContratosSelecionados] = useState<string[]>([]);
+  const [formatoExportacao, setFormatoExportacao] = useState<FormatoExportacao>("pdf");
   const [tipoPeriodo, setTipoPeriodo] = useState<TipoPeriodo>("mensal");
   const [mesSelecionado, setMesSelecionado] = useState("");
   const [anoSelecionado, setAnoSelecionado] = useState("");
@@ -59,6 +62,7 @@ export function DialogRelatorioCompras({ open, onOpenChange, contratos }: Props)
   useEffect(() => {
     if (open) {
       setContratosSelecionados([]);
+      setFormatoExportacao("pdf");
       setTipoPeriodo("mensal");
       setMesSelecionado("");
       setAnoSelecionado(new Date().getFullYear().toString());
@@ -142,25 +146,44 @@ export function DialogRelatorioCompras({ open, onOpenChange, contratos }: Props)
 
       const contratosGestao = contratos.filter(c => contratosSelecionados.includes(c.id));
 
-      const resultado = await gerarRelatorioComprasPDF({
-        contratosGestao,
-        mesAno: periodo.mesAno,
-        periodoInicio: periodo.periodoInicio,
-        periodoFim: periodo.periodoFim,
-        usuarioNome: profile?.nome_completo || 'Usuário',
-        usuarioCpf: profile?.cpf || 'N/A',
-      });
+      if (formatoExportacao === "excel") {
+        await gerarRelatorioComprasExcel({
+          contratosGestao,
+          mesAno: periodo.mesAno,
+          periodoInicio: periodo.periodoInicio,
+          periodoFim: periodo.periodoFim,
+        });
 
-      await registrarAuditoria({
-        acao: "criação",
-        entidade: "Relatório de Compras",
-        detalhes: {
-          tipo: "Relatório Qualitativo de Compras",
-          periodo: periodo.mesAno,
-          contratos_selecionados: contratosGestao.map(c => c.nome_contrato).join(', '),
-          protocolo: resultado.protocolo,
-        },
-      });
+        await registrarAuditoria({
+          acao: "criação",
+          entidade: "Relatório de Compras",
+          detalhes: {
+            tipo: "Relatório Qualitativo de Compras (Excel)",
+            periodo: periodo.mesAno,
+            contratos_selecionados: contratosGestao.map(c => c.nome_contrato).join(', '),
+          },
+        });
+      } else {
+        const resultado = await gerarRelatorioComprasPDF({
+          contratosGestao,
+          mesAno: periodo.mesAno,
+          periodoInicio: periodo.periodoInicio,
+          periodoFim: periodo.periodoFim,
+          usuarioNome: profile?.nome_completo || 'Usuário',
+          usuarioCpf: profile?.cpf || 'N/A',
+        });
+
+        await registrarAuditoria({
+          acao: "criação",
+          entidade: "Relatório de Compras",
+          detalhes: {
+            tipo: "Relatório Qualitativo de Compras",
+            periodo: periodo.mesAno,
+            contratos_selecionados: contratosGestao.map(c => c.nome_contrato).join(', '),
+            protocolo: resultado.protocolo,
+          },
+        });
+      }
 
       toast.success("Relatório gerado com sucesso!");
       onOpenChange(false);
@@ -186,6 +209,22 @@ export function DialogRelatorioCompras({ open, onOpenChange, contratos }: Props)
         </DialogHeader>
 
         <div className="space-y-4">
+          {/* Formato de Exportação */}
+          <div className="space-y-1.5">
+            <Label>Formato de Exportação</Label>
+            <Select value={formatoExportacao} onValueChange={(v) => setFormatoExportacao(v as FormatoExportacao)}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="pdf">
+                  <span className="flex items-center gap-2"><FileText className="h-4 w-4" /> PDF (com certificação digital)</span>
+                </SelectItem>
+                <SelectItem value="excel">
+                  <span className="flex items-center gap-2"><FileSpreadsheet className="h-4 w-4" /> Excel (planilha formatada)</span>
+                </SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
           {/* Tipo de Período */}
           <div className="space-y-1.5">
             <Label>Tipo de Período</Label>
@@ -348,8 +387,8 @@ export function DialogRelatorioCompras({ open, onOpenChange, contratos }: Props)
               </>
             ) : (
               <>
-                <FileText className="mr-2 h-4 w-4" />
-                Exportar Relatório
+                {formatoExportacao === "excel" ? <FileSpreadsheet className="mr-2 h-4 w-4" /> : <FileText className="mr-2 h-4 w-4" />}
+                Exportar {formatoExportacao === "excel" ? "Excel" : "PDF"}
               </>
             )}
           </Button>
