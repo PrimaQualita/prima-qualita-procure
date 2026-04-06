@@ -106,6 +106,7 @@ const Cotacoes = () => {
   const [loadingItens, setLoadingItens] = useState(false);
   const [contratos, setContratos] = useState<Contrato[]>(cachedContratos || []);
   const [cotacoesCountPorContrato, setCotacoesCountPorContrato] = useState<Record<string, { abertas: number; finalizadas: number; pendentes: number }>>({});
+  const [cotacoesCountPorProcesso, setCotacoesCountPorProcesso] = useState<Record<string, { abertas: number; finalizadas: number; pendentes: number }>>({});
   const [contratoSelecionado, setContratoSelecionado] = useState<Contrato | null>(null);
   const [processos, setProcessos] = useState<Processo[]>([]);
   const [processoSelecionado, setProcessoSelecionado] = useState<Processo | null>(null);
