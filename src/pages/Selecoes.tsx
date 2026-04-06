@@ -569,6 +569,7 @@ const Selecoes = () => {
                             <span className="text-muted-foreground text-xs">—</span>
                           )}
                         </TableCell>
+                        <TableCell className="text-right">
                           <Button
                             variant="outline"
                             size="sm"
