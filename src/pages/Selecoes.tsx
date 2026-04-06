@@ -70,6 +70,7 @@ const Selecoes = () => {
   const [processos, setProcessos] = useState<Processo[]>([]);
   const [processoSelecionado, setProcessoSelecionado] = useState<Processo | null>(null);
   const [selecoes, setSelecoes] = useState<Selecao[]>([]);
+  const [selecoesFechadasSet, setSelecoesFechadasSet] = useState<Set<string>>(new Set());
   const [confirmDeleteSelecao, setConfirmDeleteSelecao] = useState<string | null>(null);
   const [filtro, setFiltro] = useState("");
   const [anoSelecionado, setAnoSelecionado] = useState("todos");
