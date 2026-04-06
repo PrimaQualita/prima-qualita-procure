@@ -11,6 +11,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import logoHorizontal from "@/assets/prima-qualita-logo-horizontal.png";
 import { gerarPropostaSelecaoPDF } from "@/lib/gerarPropostaSelecaoPDF";
 import { gerarPropostaRealinhadaPDF } from "@/lib/gerarPropostaRealinhadaPDF";
+import { gerarPropostaRealinhadaExcel } from "@/lib/gerarPropostaRealinhadaExcel";
 import {
   AlertDialog,
   AlertDialogAction,
