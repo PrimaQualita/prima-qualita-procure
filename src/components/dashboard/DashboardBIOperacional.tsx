@@ -888,6 +888,49 @@ export function DashboardBIOperacional({
                         ))}
                       </TableBody>
                     </Table>
+                  ) : selectedKey === 'contratos' ? (
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead className="text-xs">#</TableHead>
+                          <TableHead className="text-xs">Contrato de Gestão</TableHead>
+                          {selectedKpiName === "Em Aberto" ? (
+                            <>
+                              <TableHead className="text-xs">Processo</TableHead>
+                              <TableHead className="text-xs">Objeto</TableHead>
+                            </>
+                          ) : (
+                            <>
+                              <TableHead className="text-xs">Nº Contrato</TableHead>
+                              <TableHead className="text-xs">Fornecedor</TableHead>
+                              <TableHead className="text-xs">Término Vigência</TableHead>
+                            </>
+                          )}
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {selectedKpiDetail.map((detail: any, idx: number) => (
+                          <TableRow key={idx}>
+                            <TableCell className="text-xs">{idx + 1}</TableCell>
+                            <TableCell className="text-xs">{detail.contrato_gestao}</TableCell>
+                            {selectedKpiName === "Em Aberto" ? (
+                              <>
+                                <TableCell className="text-xs font-medium">{detail.numero_processo}</TableCell>
+                                <TableCell className="text-xs">{detail.objeto}</TableCell>
+                              </>
+                            ) : (
+                              <>
+                                <TableCell className="text-xs font-medium">{detail.codigo_interno}</TableCell>
+                                <TableCell className="text-xs">{detail.fornecedor}</TableCell>
+                                <TableCell className="text-xs">
+                                  {detail.fim_vigencia ? detail.fim_vigencia.split('-').reverse().join('/') : '—'}
+                                </TableCell>
+                              </>
+                            )}
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
                   ) : selectedKey === 'fornecedores' ? (
                     <Table>
                       <TableHeader>
