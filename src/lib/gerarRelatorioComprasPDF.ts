@@ -52,6 +52,11 @@ const carregarImagem = (src: string): Promise<string> => {
 const formatarMoeda = (valor: number) =>
   new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(valor);
 
+const normalizarTextoRelatorio = (texto: string) =>
+  stripHtml(String(texto || ''))
+    .replace(/\s+/g, ' ')
+    .trim();
+
 export const gerarRelatorioComprasPDF = async (dados: DadosRelatorioCompras): Promise<ResultadoRelatorio> => {
   const agora = new Date();
   const dataHora = agora.toLocaleString('pt-BR', { dateStyle: 'long', timeStyle: 'medium' });
@@ -465,7 +470,7 @@ export const gerarRelatorioComprasPDF = async (dados: DadosRelatorioCompras): Pr
           p.numero_processo_interno || 'N/A',
           p.data_abertura ? p.data_abertura.split('-').reverse().join('/') : (p.created_at ? p.created_at.split('T')[0].split('-').reverse().join('/') : 'N/A'),
           d.cg.nome_contrato,
-          stripHtml(p.objeto_resumido || ''),
+          normalizarTextoRelatorio(p.objeto_resumido || ''),
           statusLabels[p.status_processo] || p.status_processo?.replace(/_/g, ' ').toUpperCase() || 'N/A',
           p.contratos_vinculados || '-',
           p.data_homologacao || '',
@@ -483,21 +488,22 @@ export const gerarRelatorioComprasPDF = async (dados: DadosRelatorioCompras): Pr
         },
         bodyStyles: {
           fontSize: 7,
-          valign: 'middle',
+          valign: 'top',
           lineColor: [0, 0, 0],
           lineWidth: 0.2,
-          cellPadding: { top: 2, right: 2, bottom: 2, left: 2 },
+          cellPadding: { top: 2.5, right: 2, bottom: 2.5, left: 2 },
           overflow: 'linebreak',
         },
         columnStyles: {
-          0: { halign: 'center', cellWidth: 18 },
-          1: { halign: 'center', cellWidth: 20 },
-          2: { halign: 'left', cellWidth: 30 },
-          3: { halign: 'justify', cellWidth: 50, overflow: 'linebreak' },
-          4: { halign: 'center', cellWidth: 22 },
+          0: { halign: 'center', cellWidth: 16 },
+          1: { halign: 'center', cellWidth: 18 },
+          2: { halign: 'left', cellWidth: 27 },
+          3: { halign: 'justify', cellWidth: 58, overflow: 'linebreak' },
+          4: { halign: 'center', cellWidth: 21 },
           5: { halign: 'center', cellWidth: 20 },
           6: { halign: 'center', cellWidth: 20 },
         },
+        rowPageBreak: 'avoid',
         margin: { left: 15, right: 15 },
         didDrawPage: () => {
           paginaAtual = doc.getNumberOfPages();
@@ -531,7 +537,7 @@ export const gerarRelatorioComprasPDF = async (dados: DadosRelatorioCompras): Pr
         head: [['Nº CONTRATO', 'OBJETO', 'PARTE CONTRATADA', 'INÍCIO DA VIGÊNCIA', 'TÉRMINO DA VIGÊNCIA']],
         body: d.contratos.map((c: any) => [
           c.codigo_interno || 'N/A',
-          c.objeto || '',
+          normalizarTextoRelatorio(c.objeto || ''),
           c.fornecedor_razao_social || 'N/A',
           c.inicio_vigencia ? c.inicio_vigencia.split('-').reverse().join('/') : 'N/A',
           c.fim_vigencia_atual ? c.fim_vigencia_atual.split('-').reverse().join('/') : 'N/A',
@@ -549,19 +555,20 @@ export const gerarRelatorioComprasPDF = async (dados: DadosRelatorioCompras): Pr
         },
         bodyStyles: {
           fontSize: 7,
-          valign: 'middle',
+          valign: 'top',
           lineColor: [0, 0, 0],
           lineWidth: 0.2,
-          cellPadding: { top: 2, right: 2, bottom: 2, left: 2 },
+          cellPadding: { top: 2.5, right: 2, bottom: 2.5, left: 2 },
           overflow: 'linebreak',
         },
         columnStyles: {
-          0: { halign: 'center', cellWidth: 26 },
-          1: { halign: 'justify', cellWidth: 46, overflow: 'linebreak' },
-          2: { halign: 'left', cellWidth: 50 },
+          0: { halign: 'center', cellWidth: 24 },
+          1: { halign: 'justify', cellWidth: 54, overflow: 'linebreak' },
+          2: { halign: 'left', cellWidth: 44 },
           3: { halign: 'center', cellWidth: 29 },
           4: { halign: 'center', cellWidth: 29 },
         },
+        rowPageBreak: 'avoid',
         margin: { left: 15, right: 15 },
         didDrawPage: () => {
           paginaAtual = doc.getNumberOfPages();
