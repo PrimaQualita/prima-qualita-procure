@@ -491,7 +491,7 @@ export const gerarRelatorioComprasPDF = async (dados: DadosRelatorioCompras): Pr
           valign: 'top',
           lineColor: [0, 0, 0],
           lineWidth: 0.2,
-          cellPadding: { top: 2.5, right: 2, bottom: 2.5, left: 2 },
+          cellPadding: { top: 2, right: 2, bottom: 2, left: 2 },
           minCellHeight: 7,
           overflow: 'linebreak',
         },
@@ -499,13 +499,23 @@ export const gerarRelatorioComprasPDF = async (dados: DadosRelatorioCompras): Pr
           0: { halign: 'center', cellWidth: 16 },
           1: { halign: 'center', cellWidth: 18 },
           2: { halign: 'left', cellWidth: 27 },
-          3: { halign: 'left', cellWidth: 58, overflow: 'linebreak', minCellHeight: 7 },
+          3: { halign: 'justify', cellWidth: 58, overflow: 'linebreak', minCellHeight: 7, valign: 'top' },
           4: { halign: 'center', cellWidth: 21 },
           5: { halign: 'center', cellWidth: 20 },
           6: { halign: 'center', cellWidth: 20 },
         },
         rowPageBreak: 'avoid',
         margin: { left: 15, right: 15 },
+        didParseCell: (data: any) => {
+          if (data.column.index === 3 && data.section === 'body') {
+            const textLines = data.cell.text.length;
+            const extraPadding = Math.ceil(textLines * 0.5);
+            data.cell.styles.cellPadding = { top: 2, right: 2, bottom: 2 + extraPadding, left: 2 };
+            data.cell.styles.minCellHeight = Math.max(7, textLines * 4.2);
+            data.cell.styles.halign = 'justify';
+            data.cell.styles.valign = 'top';
+          }
+        },
         didDrawPage: () => {
           paginaAtual = doc.getNumberOfPages();
           adicionarCabecalhoRodape(paginaAtual);
@@ -559,19 +569,29 @@ export const gerarRelatorioComprasPDF = async (dados: DadosRelatorioCompras): Pr
           valign: 'top',
           lineColor: [0, 0, 0],
           lineWidth: 0.2,
-          cellPadding: { top: 2.5, right: 2, bottom: 2.5, left: 2 },
+          cellPadding: { top: 2, right: 2, bottom: 2, left: 2 },
           minCellHeight: 7,
           overflow: 'linebreak',
         },
         columnStyles: {
           0: { halign: 'center', cellWidth: 24 },
-          1: { halign: 'left', cellWidth: 54, overflow: 'linebreak', minCellHeight: 7 },
+          1: { halign: 'justify', cellWidth: 54, overflow: 'linebreak', minCellHeight: 7, valign: 'top' },
           2: { halign: 'left', cellWidth: 44 },
           3: { halign: 'center', cellWidth: 29 },
           4: { halign: 'center', cellWidth: 29 },
         },
         rowPageBreak: 'avoid',
         margin: { left: 15, right: 15 },
+        didParseCell: (data: any) => {
+          if (data.column.index === 1 && data.section === 'body') {
+            const textLines = data.cell.text.length;
+            const extraPadding = Math.ceil(textLines * 0.5);
+            data.cell.styles.cellPadding = { top: 2, right: 2, bottom: 2 + extraPadding, left: 2 };
+            data.cell.styles.minCellHeight = Math.max(7, textLines * 4.2);
+            data.cell.styles.halign = 'justify';
+            data.cell.styles.valign = 'top';
+          }
+        },
         didDrawPage: () => {
           paginaAtual = doc.getNumberOfPages();
           adicionarCabecalhoRodape(paginaAtual);
