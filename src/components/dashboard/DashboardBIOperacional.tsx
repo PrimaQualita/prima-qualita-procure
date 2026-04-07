@@ -348,6 +348,13 @@ export function DashboardBIOperacional({
       : contratosTerceiros.filter(c => c.contrato_gestao_id === contratoSelecionado);
     const ctTodosVigentes = ctFiltrados.filter(c => c.status === "vigente");
 
+    const buildContratoDetail = (c: any) => ({
+      contrato_gestao: c.contratos_gestao?.nome_contrato || 'N/A',
+      codigo_interno: c.codigo_interno || 'N/A',
+      fornecedor: c.fornecedores?.razao_social || c.fornecedor_nome_manual || 'N/A',
+      fim_vigencia: c.fim_vigencia_atual || '',
+    });
+
     const ctAVencer = ctTodosVigentes.filter(c => {
       if (!c.fim_vigencia_atual) return false;
       const fim = new Date(c.fim_vigencia_atual + "T23:59:59-03:00");
@@ -368,6 +375,12 @@ export function DashboardBIOperacional({
       ? processosParaContratar
       : processosParaContratar.filter(pc => pc.contrato_gestao_id === contratoSelecionado);
     const ctEmAberto = pcFiltrados.filter(pc => pc.status === "pronto_para_contratar");
+
+    const buildEmAbertoDetail = (pc: any) => ({
+      contrato_gestao: pc.processos_compras?.contratos_gestao?.nome_contrato || 'N/A',
+      numero_processo: pc.processos_compras?.numero_processo_interno || 'N/A',
+      objeto: pc.processos_compras?.objeto_resumido || '',
+    });
 
     // === COMPLIANCE ===
     const cotFiltradas = contratoSelecionado === "todos"
@@ -569,10 +582,10 @@ export function DashboardBIOperacional({
         { name: "Atas - Pend. Assinatura", value: atasPendentes, color: atasPendentes > 0 ? "warning" : "success", icon: AlertTriangle, detailItems: atasPendDetail, tooltip: "Atas que ainda possuem assinaturas pendentes de usuários ou fornecedores." },
       ],
       contratos: [
-        { name: "Vigentes", value: ctTodosVigentes.length, color: "success", icon: CheckCircle2, tooltip: "Total de contratos com status 'vigente', incluindo aqueles com vencimento nos próximos 45 dias." },
-        { name: "A Vencer (45d)", value: ctAVencer.length, color: "warning", icon: CalendarClock, tooltip: "Contratos vigentes com término previsto nos próximos 45 dias." },
-        { name: "Vencidos/Encerrados", value: ctVencidosEncerrados.length, color: "danger", icon: AlertTriangle, tooltip: "Contratos vencidos (data expirada), rescindidos ou encerrados." },
-        { name: "Em Aberto", value: ctEmAberto.length, color: "info", icon: Clock, tooltip: "Processos com status 'pronto para contratar' na fila de contratação." },
+        { name: "Vigentes", value: ctTodosVigentes.length, color: "success", icon: CheckCircle2, detailItems: ctTodosVigentes.map(buildContratoDetail), tooltip: "Total de contratos com status 'vigente', incluindo aqueles com vencimento nos próximos 45 dias." },
+        { name: "A Vencer (45d)", value: ctAVencer.length, color: "warning", icon: CalendarClock, detailItems: ctAVencer.map(buildContratoDetail), tooltip: "Contratos vigentes com término previsto nos próximos 45 dias." },
+        { name: "Vencidos/Encerrados", value: ctVencidosEncerrados.length, color: "danger", icon: AlertTriangle, detailItems: ctVencidosEncerrados.map(buildContratoDetail), tooltip: "Contratos vencidos (data expirada), rescindidos ou encerrados." },
+        { name: "Em Aberto", value: ctEmAberto.length, color: "info", icon: Clock, detailItems: ctEmAberto.map(buildEmAbertoDetail), tooltip: "Processos com status 'pronto para contratar' na fila de contratação." },
       ],
       cotacoes_bi: [
         { name: "Abertas", value: cotAbertas.length, color: "info", icon: Clock, detailItems: cotAbertasDetail, _baseTotal: cotFiltradas.length, tooltip: "Cotações que ainda não receberam parecer do compliance, independente do prazo." },
@@ -774,7 +787,7 @@ export function DashboardBIOperacional({
                     const ItemIcon = item.icon;
                     const baseTotal = item._baseTotal ?? selectedTotal;
                     const percentage = baseTotal > 0 ? ((item.value / baseTotal) * 100).toFixed(1) : "0";
-                    const isClickable = (selectedKey === 'fornecedores' || selectedKey === 'cotacoes_bi' || selectedKey === 'processos_bi') && item.detailItems;
+                    const isClickable = (selectedKey === 'fornecedores' || selectedKey === 'cotacoes_bi' || selectedKey === 'processos_bi' || selectedKey === 'contratos') && item.detailItems;
                     return (
                       <Tooltip key={i}>
                         <TooltipTrigger asChild>
@@ -871,6 +884,49 @@ export function DashboardBIOperacional({
                                 ? detail.fornecedores.join(", ")
                                 : "Nenhuma proposta"}
                             </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  ) : selectedKey === 'contratos' ? (
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead className="text-xs">#</TableHead>
+                          <TableHead className="text-xs">Contrato de Gestão</TableHead>
+                          {selectedKpiName === "Em Aberto" ? (
+                            <>
+                              <TableHead className="text-xs">Processo</TableHead>
+                              <TableHead className="text-xs">Objeto</TableHead>
+                            </>
+                          ) : (
+                            <>
+                              <TableHead className="text-xs">Nº Contrato</TableHead>
+                              <TableHead className="text-xs">Fornecedor</TableHead>
+                              <TableHead className="text-xs">Término Vigência</TableHead>
+                            </>
+                          )}
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {selectedKpiDetail.map((detail: any, idx: number) => (
+                          <TableRow key={idx}>
+                            <TableCell className="text-xs">{idx + 1}</TableCell>
+                            <TableCell className="text-xs">{detail.contrato_gestao}</TableCell>
+                            {selectedKpiName === "Em Aberto" ? (
+                              <>
+                                <TableCell className="text-xs font-medium">{detail.numero_processo}</TableCell>
+                                <TableCell className="text-xs">{detail.objeto}</TableCell>
+                              </>
+                            ) : (
+                              <>
+                                <TableCell className="text-xs font-medium">{detail.codigo_interno}</TableCell>
+                                <TableCell className="text-xs">{detail.fornecedor}</TableCell>
+                                <TableCell className="text-xs">
+                                  {detail.fim_vigencia ? detail.fim_vigencia.split('-').reverse().join('/') : '—'}
+                                </TableCell>
+                              </>
+                            )}
                           </TableRow>
                         ))}
                       </TableBody>
