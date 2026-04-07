@@ -342,8 +342,10 @@ export function DashboardBIOperacional({
       return { ...info, pendentesAssinatura: pendentes };
     });
 
-    // === CONTRATOS ===
-    const ctFiltrados = filterCG(contratosTerceiros);
+    // === CONTRATOS (não filtra por ano/mês - contratos são contínuos) ===
+    const ctFiltrados = contratoSelecionado === "todos"
+      ? contratosTerceiros
+      : contratosTerceiros.filter(c => c.contrato_gestao_id === contratoSelecionado);
     const ctTodosVigentes = ctFiltrados.filter(c => c.status === "vigente");
 
     const ctAVencer = ctTodosVigentes.filter(c => {
@@ -362,7 +364,9 @@ export function DashboardBIOperacional({
       return false;
     });
 
-    const pcFiltrados = filterCG(processosParaContratar);
+    const pcFiltrados = contratoSelecionado === "todos"
+      ? processosParaContratar
+      : processosParaContratar.filter(pc => pc.contrato_gestao_id === contratoSelecionado);
     const ctEmAberto = pcFiltrados.filter(pc => pc.status === "pronto_para_contratar");
 
     // === COMPLIANCE ===
