@@ -348,6 +348,13 @@ export function DashboardBIOperacional({
       : contratosTerceiros.filter(c => c.contrato_gestao_id === contratoSelecionado);
     const ctTodosVigentes = ctFiltrados.filter(c => c.status === "vigente");
 
+    const buildContratoDetail = (c: any) => ({
+      contrato_gestao: c.contratos_gestao?.nome_contrato || 'N/A',
+      codigo_interno: c.codigo_interno || 'N/A',
+      fornecedor: c.fornecedores?.razao_social || c.fornecedor_nome_manual || 'N/A',
+      fim_vigencia: c.fim_vigencia_atual || '',
+    });
+
     const ctAVencer = ctTodosVigentes.filter(c => {
       if (!c.fim_vigencia_atual) return false;
       const fim = new Date(c.fim_vigencia_atual + "T23:59:59-03:00");
@@ -368,6 +375,12 @@ export function DashboardBIOperacional({
       ? processosParaContratar
       : processosParaContratar.filter(pc => pc.contrato_gestao_id === contratoSelecionado);
     const ctEmAberto = pcFiltrados.filter(pc => pc.status === "pronto_para_contratar");
+
+    const buildEmAbertoDetail = (pc: any) => ({
+      contrato_gestao: pc.processos_compras?.contratos_gestao?.nome_contrato || 'N/A',
+      numero_processo: pc.processos_compras?.numero_processo_interno || 'N/A',
+      objeto: pc.processos_compras?.objeto_resumido || '',
+    });
 
     // === COMPLIANCE ===
     const cotFiltradas = contratoSelecionado === "todos"

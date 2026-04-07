@@ -178,8 +178,8 @@ const Dashboard = () => {
         () => supabase.from("selecoes_fornecedores").select("*, processos_compras(ano_referencia, contrato_gestao_id, contratos_gestao(nome_contrato), data_abertura, requer_selecao)").limit(5000),
         () => supabase.from("fornecedores").select("id, created_at, data_cadastro, data_validade_certificado, status_aprovacao, razao_social, nome_fantasia, email, user_id").limit(5000),
         () => supabase.from("analises_compliance").select("id, created_at, cotacao_id, cotacoes_precos(processo_compra_id, processos_compras(ano_referencia, contrato_gestao_id, contratos_gestao(nome_contrato), data_abertura))").limit(5000),
-        () => supabase.from("contratos_terceiros").select("id, created_at, contrato_gestao_id, contratos_gestao(nome_contrato), inicio_vigencia, status, fim_vigencia_atual, ciente_nao_renovar, processo_para_contratar_id").limit(5000),
-        () => supabase.from("processos_para_contratar").select("id, contrato_gestao_id, processo_compra_id, status").limit(5000),
+        () => supabase.from("contratos_terceiros").select("id, created_at, contrato_gestao_id, contratos_gestao(nome_contrato), inicio_vigencia, status, fim_vigencia_atual, ciente_nao_renovar, processo_para_contratar_id, codigo_interno, fornecedor_id, fornecedor_nome_manual, fornecedores(razao_social)").limit(5000),
+        () => supabase.from("processos_para_contratar").select("id, contrato_gestao_id, processo_compra_id, status, processos_compras(numero_processo_interno, objeto_resumido, contratos_gestao:contrato_gestao_id(nome_contrato))").limit(5000),
         () => supabase.from("cotacoes_precos").select("id, enviado_compliance, respondido_compliance, data_limite_resposta, titulo_cotacao, status_cotacao, enviado_para_selecao, processo_compra_id, processos_compras(contrato_gestao_id, numero_processo_interno, contratos_gestao(nome_contrato))").limit(5000),
       ], 4) as any;
 
