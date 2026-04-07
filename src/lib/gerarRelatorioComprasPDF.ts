@@ -57,6 +57,55 @@ const normalizarTextoRelatorio = (texto: string) =>
     .replace(/\s+/g, ' ')
     .trim();
 
+const CELL_PADDING_MM = 2;
+const OBJETO_FONT_SIZE = 7;
+const OBJETO_LINE_HEIGHT_MM = 3.2;
+
+const prepararLinhasTextoJustificado = (doc: jsPDF, texto: string, larguraMaxima: number) =>
+  doc.splitTextToSize(normalizarTextoRelatorio(texto), larguraMaxima);
+
+const calcularAlturaMinimaTexto = (linhas: string[]) =>
+  Math.max(7, (linhas.length * OBJETO_LINE_HEIGHT_MM) + (CELL_PADDING_MM * 2));
+
+const desenharTextoJustificadoNaCelula = (doc: jsPDF, cell: any, linhas: string[]) => {
+  if (!linhas?.length) return;
+
+  const larguraUtil = Math.max(1, cell.width - (CELL_PADDING_MM * 2));
+  const alturaTexto = linhas.length * OBJETO_LINE_HEIGHT_MM;
+  const baselineOffset = OBJETO_FONT_SIZE * 0.35;
+  const yInicial = cell.y + Math.max(CELL_PADDING_MM, (cell.height - alturaTexto) / 2) + baselineOffset;
+  const xInicial = cell.x + CELL_PADDING_MM;
+
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(OBJETO_FONT_SIZE);
+  doc.setTextColor(0, 0, 0);
+
+  let yAtual = yInicial;
+
+  linhas.forEach((linha: string, index: number) => {
+    const palavras = linha.trim().split(/\s+/).filter(Boolean);
+    const isUltimaLinha = index == linhas.length - 1;
+
+    if (!isUltimaLinha && palavras.length > 1) {
+      const larguraPalavras = palavras.reduce((total: number, palavra: string) => total + doc.getTextWidth(palavra), 0);
+      const espacoDisponivel = Math.max(0, larguraUtil - larguraPalavras);
+      const espacoEntrePalavras = espacoDisponivel / (palavras.length - 1);
+
+      let xAtual = xInicial;
+      palavras.forEach((palavra: string, palavraIndex: number) => {
+        doc.text(palavra, xAtual, yAtual);
+        if (palavraIndex < palavras.length - 1) {
+          xAtual += doc.getTextWidth(palavra) + espacoEntrePalavras;
+        }
+      });
+    } else {
+      doc.text(linha.trim(), xInicial, yAtual);
+    }
+
+    yAtual += OBJETO_LINE_HEIGHT_MM;
+  });
+};
+
 export const gerarRelatorioComprasPDF = async (dados: DadosRelatorioCompras): Promise<ResultadoRelatorio> => {
   const agora = new Date();
   const dataHora = agora.toLocaleString('pt-BR', { dateStyle: 'long', timeStyle: 'medium' });
@@ -488,32 +537,45 @@ export const gerarRelatorioComprasPDF = async (dados: DadosRelatorioCompras): Pr
         },
         bodyStyles: {
           fontSize: 7,
-          valign: 'top',
+          valign: 'middle',
           lineColor: [0, 0, 0],
           lineWidth: 0.2,
-          cellPadding: { top: 2, right: 2, bottom: 2, left: 2 },
+          cellPadding: { top: CELL_PADDING_MM, right: CELL_PADDING_MM, bottom: CELL_PADDING_MM, left: CELL_PADDING_MM },
           minCellHeight: 7,
           overflow: 'linebreak',
         },
         columnStyles: {
-          0: { halign: 'center', cellWidth: 16 },
-          1: { halign: 'center', cellWidth: 18 },
-          2: { halign: 'left', cellWidth: 27 },
-          3: { halign: 'justify', cellWidth: 58, overflow: 'linebreak', minCellHeight: 7, valign: 'top' },
-          4: { halign: 'center', cellWidth: 21 },
-          5: { halign: 'center', cellWidth: 20 },
-          6: { halign: 'center', cellWidth: 20 },
+          0: { halign: 'center', valign: 'middle', cellWidth: 16 },
+          1: { halign: 'center', valign: 'middle', cellWidth: 18 },
+          2: { halign: 'left', valign: 'middle', cellWidth: 27 },
+          3: { halign: 'left', valign: 'middle', cellWidth: 58, overflow: 'linebreak', minCellHeight: 7 },
+          4: { halign: 'center', valign: 'middle', cellWidth: 21 },
+          5: { halign: 'center', valign: 'middle', cellWidth: 20 },
+          6: { halign: 'center', valign: 'middle', cellWidth: 20 },
         },
         rowPageBreak: 'avoid',
         margin: { left: 15, right: 15 },
         didParseCell: (data: any) => {
+          if (data.section === 'body') {
+            data.cell.styles.valign = 'middle';
+          }
+
           if (data.column.index === 3 && data.section === 'body') {
-            const textLines = data.cell.text.length;
-            const extraPadding = Math.ceil(textLines * 0.5);
-            data.cell.styles.cellPadding = { top: 2, right: 2, bottom: 2 + extraPadding, left: 2 };
-            data.cell.styles.minCellHeight = Math.max(7, textLines * 4.2);
-            data.cell.styles.halign = 'justify';
-            data.cell.styles.valign = 'top';
+            const linhas = prepararLinhasTextoJustificado(doc, String(data.cell.raw || ''), 54);
+            (data.cell as any).customJustifiedLines = linhas;
+            data.cell.text = linhas;
+            data.cell.styles.minCellHeight = calcularAlturaMinimaTexto(linhas);
+            data.row.height = Math.max(data.row.height || 0, calcularAlturaMinimaTexto(linhas));
+          }
+        },
+        willDrawCell: (data: any) => {
+          if (data.column.index === 3 && data.section === 'body') {
+            data.cell.text = [];
+          }
+        },
+        didDrawCell: (data: any) => {
+          if (data.column.index === 3 && data.section === 'body') {
+            desenharTextoJustificadoNaCelula(doc, data.cell, (data.cell as any).customJustifiedLines || []);
           }
         },
         didDrawPage: () => {
@@ -566,30 +628,43 @@ export const gerarRelatorioComprasPDF = async (dados: DadosRelatorioCompras): Pr
         },
         bodyStyles: {
           fontSize: 7,
-          valign: 'top',
+          valign: 'middle',
           lineColor: [0, 0, 0],
           lineWidth: 0.2,
-          cellPadding: { top: 2, right: 2, bottom: 2, left: 2 },
+          cellPadding: { top: CELL_PADDING_MM, right: CELL_PADDING_MM, bottom: CELL_PADDING_MM, left: CELL_PADDING_MM },
           minCellHeight: 7,
           overflow: 'linebreak',
         },
         columnStyles: {
-          0: { halign: 'center', cellWidth: 24 },
-          1: { halign: 'justify', cellWidth: 54, overflow: 'linebreak', minCellHeight: 7, valign: 'top' },
-          2: { halign: 'left', cellWidth: 44 },
-          3: { halign: 'center', cellWidth: 29 },
-          4: { halign: 'center', cellWidth: 29 },
+          0: { halign: 'center', valign: 'middle', cellWidth: 24 },
+          1: { halign: 'left', valign: 'middle', cellWidth: 54, overflow: 'linebreak', minCellHeight: 7 },
+          2: { halign: 'left', valign: 'middle', cellWidth: 44 },
+          3: { halign: 'center', valign: 'middle', cellWidth: 29 },
+          4: { halign: 'center', valign: 'middle', cellWidth: 29 },
         },
         rowPageBreak: 'avoid',
         margin: { left: 15, right: 15 },
         didParseCell: (data: any) => {
+          if (data.section === 'body') {
+            data.cell.styles.valign = 'middle';
+          }
+
           if (data.column.index === 1 && data.section === 'body') {
-            const textLines = data.cell.text.length;
-            const extraPadding = Math.ceil(textLines * 0.5);
-            data.cell.styles.cellPadding = { top: 2, right: 2, bottom: 2 + extraPadding, left: 2 };
-            data.cell.styles.minCellHeight = Math.max(7, textLines * 4.2);
-            data.cell.styles.halign = 'justify';
-            data.cell.styles.valign = 'top';
+            const linhas = prepararLinhasTextoJustificado(doc, String(data.cell.raw || ''), 50);
+            (data.cell as any).customJustifiedLines = linhas;
+            data.cell.text = linhas;
+            data.cell.styles.minCellHeight = calcularAlturaMinimaTexto(linhas);
+            data.row.height = Math.max(data.row.height || 0, calcularAlturaMinimaTexto(linhas));
+          }
+        },
+        willDrawCell: (data: any) => {
+          if (data.column.index === 1 && data.section === 'body') {
+            data.cell.text = [];
+          }
+        },
+        didDrawCell: (data: any) => {
+          if (data.column.index === 1 && data.section === 'body') {
+            desenharTextoJustificadoNaCelula(doc, data.cell, (data.cell as any).customJustifiedLines || []);
           }
         },
         didDrawPage: () => {
