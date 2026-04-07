@@ -344,28 +344,26 @@ export function DashboardBIOperacional({
 
     // === CONTRATOS ===
     const ctFiltrados = filterCG(contratosTerceiros);
-    const ctVigentes = ctFiltrados.filter(c => c.status === "vigente" && c.processo_para_contratar_id);
+    const ctTodosVigentes = ctFiltrados.filter(c => c.status === "vigente");
 
-    const ctAVencer = ctVigentes.filter(c => {
+    const ctAVencer = ctTodosVigentes.filter(c => {
       if (!c.fim_vigencia_atual) return false;
       const fim = new Date(c.fim_vigencia_atual + "T23:59:59-03:00");
       const dias = differenceInDays(fim, hoje);
       return dias >= 0 && dias <= 45;
     });
 
-    const ctVencidos = ctVigentes.filter(c => {
-      if (!c.fim_vigencia_atual || c.ciente_nao_renovar) return false;
-      const fim = new Date(c.fim_vigencia_atual + "T23:59:59-03:00");
-      return fim < hoje;
+    const ctVencidosEncerrados = ctFiltrados.filter(c => {
+      if (c.status === "rescindido" || c.status === "encerrado") return true;
+      if (c.status === "vigente" && c.fim_vigencia_atual) {
+        const fim = new Date(c.fim_vigencia_atual + "T23:59:59-03:00");
+        return fim < hoje;
+      }
+      return false;
     });
 
     const pcFiltrados = filterCG(processosParaContratar);
-    const pcComContrato = new Set(
-      ctFiltrados.filter(c => c.processo_para_contratar_id).map(c => c.processo_para_contratar_id)
-    );
-    const ctEmAberto = pcFiltrados.filter(pc => !pcComContrato.has(pc.id) && pc.status !== "cancelado");
-    const ctRescindidos = ctFiltrados.filter(c => c.status === "rescindido");
-    const ctEncerrados = ctFiltrados.filter(c => c.status === "encerrado");
+    const ctEmAberto = pcFiltrados.filter(pc => pc.status === "pronto_para_contratar");
 
     // === COMPLIANCE ===
     const cotFiltradas = contratoSelecionado === "todos"
