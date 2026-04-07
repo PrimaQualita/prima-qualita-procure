@@ -538,6 +538,7 @@ export const gerarRelatorioComprasPDF = async (dados: DadosRelatorioCompras): Pr
         bodyStyles: {
           fontSize: 7,
           valign: 'middle',
+          textColor: [0, 0, 0],
           lineColor: [0, 0, 0],
           lineWidth: 0.2,
           cellPadding: { top: CELL_PADDING_MM, right: CELL_PADDING_MM, bottom: CELL_PADDING_MM, left: CELL_PADDING_MM },
@@ -558,6 +559,7 @@ export const gerarRelatorioComprasPDF = async (dados: DadosRelatorioCompras): Pr
         didParseCell: (data: any) => {
           if (data.section === 'body') {
             data.cell.styles.valign = 'middle';
+            data.cell.styles.textColor = [0, 0, 0];
           }
 
           if (data.column.index === 3 && data.section === 'body') {
@@ -569,6 +571,9 @@ export const gerarRelatorioComprasPDF = async (dados: DadosRelatorioCompras): Pr
           }
         },
         willDrawCell: (data: any) => {
+          if (data.section === 'body') {
+            doc.setTextColor(0, 0, 0);
+          }
           if (data.column.index === 3 && data.section === 'body') {
             data.cell.text = [];
           }
