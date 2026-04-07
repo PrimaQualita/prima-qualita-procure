@@ -88,7 +88,7 @@ export const gerarRelatorioComprasExcel = async (dados: DadosRelatorioExcel): Pr
   for (const cg of dados.contratosGestao) {
     const { data: processos } = await supabase
       .from('processos_compras')
-      .select('id, numero_processo_interno, objeto_resumido, tipo, valor_estimado_anual, valor_total_cotacao, status_processo, ano_referencia, data_abertura, created_at, contrato_gestao_id')
+      .select('id, numero_processo_interno, objeto_resumido, tipo, valor_estimado_anual, valor_total_cotacao, status_processo, ano_referencia, data_abertura, created_at, contrato_gestao_id, requer_selecao')
       .eq('contrato_gestao_id', cg.id)
       .not('status_processo', 'in', '("concluido","cancelado")')
       .gte('created_at', dados.periodoInicio)
@@ -96,14 +96,14 @@ export const gerarRelatorioComprasExcel = async (dados: DadosRelatorioExcel): Pr
 
     const { data: processosEmTramite } = await supabase
       .from('processos_compras')
-      .select('id, numero_processo_interno, objeto_resumido, tipo, valor_estimado_anual, valor_total_cotacao, status_processo, ano_referencia, data_abertura, created_at, contrato_gestao_id')
+      .select('id, numero_processo_interno, objeto_resumido, tipo, valor_estimado_anual, valor_total_cotacao, status_processo, ano_referencia, data_abertura, created_at, contrato_gestao_id, requer_selecao')
       .eq('contrato_gestao_id', cg.id)
       .not('status_processo', 'in', '("concluido","cancelado")')
       .lt('created_at', dados.periodoInicio);
 
     const { data: processosConcluidos } = await supabase
       .from('processos_compras')
-      .select('id, numero_processo_interno, objeto_resumido, tipo, valor_estimado_anual, valor_total_cotacao, status_processo, ano_referencia, data_abertura, created_at, contrato_gestao_id')
+      .select('id, numero_processo_interno, objeto_resumido, tipo, valor_estimado_anual, valor_total_cotacao, status_processo, ano_referencia, data_abertura, created_at, contrato_gestao_id, requer_selecao')
       .eq('contrato_gestao_id', cg.id)
       .eq('status_processo', 'concluido')
       .gte('created_at', dados.periodoInicio)
@@ -168,7 +168,14 @@ export const gerarRelatorioComprasExcel = async (dados: DadosRelatorioExcel): Pr
         }
       }
 
+      // Build map of which processes require selection
+      const processosRequerSelecaoMap: Record<string, boolean> = {};
+      for (const p of todosProcessos) {
+        processosRequerSelecaoMap[p.id] = !!p.requer_selecao;
+      }
+
       if (cotacaoIds.length > 0) {
+        // Autorização only for compra direta (processes that DON'T require selection)
         const { data: autorizacoes } = await supabase
           .from('autorizacoes_processo')
           .select('cotacao_id, data_geracao')
@@ -177,7 +184,7 @@ export const gerarRelatorioComprasExcel = async (dados: DadosRelatorioExcel): Pr
         if (autorizacoes) {
           for (const a of autorizacoes) {
             const procId = cotacaoToProcesso[a.cotacao_id];
-            if (procId && !homologacaoDatasMap[procId]) {
+            if (procId && !homologacaoDatasMap[procId] && !processosRequerSelecaoMap[procId]) {
               homologacaoDatasMap[procId] = a.data_geracao.split('T')[0].split('-').reverse().join('/');
             }
           }
