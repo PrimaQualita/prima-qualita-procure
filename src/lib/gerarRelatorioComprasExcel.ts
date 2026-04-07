@@ -374,15 +374,15 @@ export const gerarRelatorioComprasExcel = async (dados: DadosRelatorioExcel): Pr
       const cell = row.getCell(i + 1);
       cell.value = v;
       const estilo = estiloCelula(pIdx % 2 === 1);
-      cell.style = { ...estilo, alignment: { ...estilo.alignment, horizontal: [0, 1, 4, 5, 6].includes(i) ? 'center' : 'left' } };
+      const alinhamento = [0, 1, 4, 5, 6].includes(i) ? 'center' : (i === 3 ? 'justify' : 'left');
+      cell.style = { ...estilo, alignment: { ...estilo.alignment, horizontal: alinhamento, wrapText: true } };
     });
-    row.height = 18;
   });
 
   wsProcessos.getColumn(1).width = 16;
   wsProcessos.getColumn(2).width = 14;
   wsProcessos.getColumn(3).width = 28;
-  wsProcessos.getColumn(4).width = 50;
+  wsProcessos.getColumn(4).width = 60;
   wsProcessos.getColumn(5).width = 20;
   wsProcessos.getColumn(6).width = 18;
   wsProcessos.getColumn(7).width = 16;
@@ -426,13 +426,13 @@ export const gerarRelatorioComprasExcel = async (dados: DadosRelatorioExcel): Pr
       const cell = row.getCell(i + 1);
       cell.value = v;
       const estilo = estiloCelula(cIdx % 2 === 1);
-      cell.style = { ...estilo, alignment: { ...estilo.alignment, horizontal: [0, 3, 4].includes(i) ? 'center' : 'left' } };
+      const alinhamento = [0, 3, 4].includes(i) ? 'center' : (i === 1 ? 'justify' : 'left');
+      cell.style = { ...estilo, alignment: { ...estilo.alignment, horizontal: alinhamento, wrapText: true } };
     });
-    row.height = 18;
   });
 
   wsContratos.getColumn(1).width = 18;
-  wsContratos.getColumn(2).width = 50;
+  wsContratos.getColumn(2).width = 60;
   wsContratos.getColumn(3).width = 40;
   wsContratos.getColumn(4).width = 22;
   wsContratos.getColumn(5).width = 22;

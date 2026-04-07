@@ -344,28 +344,26 @@ export function DashboardBIOperacional({
 
     // === CONTRATOS ===
     const ctFiltrados = filterCG(contratosTerceiros);
-    const ctVigentes = ctFiltrados.filter(c => c.status === "vigente" && c.processo_para_contratar_id);
+    const ctTodosVigentes = ctFiltrados.filter(c => c.status === "vigente");
 
-    const ctAVencer = ctVigentes.filter(c => {
+    const ctAVencer = ctTodosVigentes.filter(c => {
       if (!c.fim_vigencia_atual) return false;
       const fim = new Date(c.fim_vigencia_atual + "T23:59:59-03:00");
       const dias = differenceInDays(fim, hoje);
       return dias >= 0 && dias <= 45;
     });
 
-    const ctVencidos = ctVigentes.filter(c => {
-      if (!c.fim_vigencia_atual || c.ciente_nao_renovar) return false;
-      const fim = new Date(c.fim_vigencia_atual + "T23:59:59-03:00");
-      return fim < hoje;
+    const ctVencidosEncerrados = ctFiltrados.filter(c => {
+      if (c.status === "rescindido" || c.status === "encerrado") return true;
+      if (c.status === "vigente" && c.fim_vigencia_atual) {
+        const fim = new Date(c.fim_vigencia_atual + "T23:59:59-03:00");
+        return fim < hoje;
+      }
+      return false;
     });
 
     const pcFiltrados = filterCG(processosParaContratar);
-    const pcComContrato = new Set(
-      ctFiltrados.filter(c => c.processo_para_contratar_id).map(c => c.processo_para_contratar_id)
-    );
-    const ctEmAberto = pcFiltrados.filter(pc => !pcComContrato.has(pc.id) && pc.status !== "cancelado");
-    const ctRescindidos = ctFiltrados.filter(c => c.status === "rescindido");
-    const ctEncerrados = ctFiltrados.filter(c => c.status === "encerrado");
+    const ctEmAberto = pcFiltrados.filter(pc => pc.status === "pronto_para_contratar");
 
     // === COMPLIANCE ===
     const cotFiltradas = contratoSelecionado === "todos"
@@ -567,11 +565,10 @@ export function DashboardBIOperacional({
         { name: "Atas - Pend. Assinatura", value: atasPendentes, color: atasPendentes > 0 ? "warning" : "success", icon: AlertTriangle, detailItems: atasPendDetail, tooltip: "Atas que ainda possuem assinaturas pendentes de usuários ou fornecedores." },
       ],
       contratos: [
+        { name: "Vigentes", value: ctTodosVigentes.length, color: "success", icon: CheckCircle2, tooltip: "Total de contratos com status 'vigente', incluindo aqueles com vencimento nos próximos 45 dias." },
         { name: "A Vencer (45d)", value: ctAVencer.length, color: "warning", icon: CalendarClock, tooltip: "Contratos vigentes com término previsto nos próximos 45 dias." },
-        { name: "Vencidos", value: ctVencidos.length, color: "danger", icon: AlertTriangle, tooltip: "Contratos vigentes cuja data de término já expirou e não foram marcados como 'ciente de não renovar'." },
-        { name: "Em Aberto", value: ctEmAberto.length, color: "info", icon: Clock, tooltip: "Processos para contratar que ainda não possuem contrato de terceiro vinculado e não foram cancelados." },
-        { name: "Rescindidos", value: ctRescindidos.length, color: "muted", icon: Ban, tooltip: "Contratos que foram rescindidos antes do término da vigência." },
-        { name: "Encerrados", value: ctEncerrados.length, color: "muted", icon: XCircle, tooltip: "Contratos que foram encerrados ao final da vigência." },
+        { name: "Vencidos/Encerrados", value: ctVencidosEncerrados.length, color: "danger", icon: AlertTriangle, tooltip: "Contratos vencidos (data expirada), rescindidos ou encerrados." },
+        { name: "Em Aberto", value: ctEmAberto.length, color: "info", icon: Clock, tooltip: "Processos com status 'pronto para contratar' na fila de contratação." },
       ],
       cotacoes_bi: [
         { name: "Abertas", value: cotAbertas.length, color: "info", icon: Clock, detailItems: cotAbertasDetail, _baseTotal: cotFiltradas.length, tooltip: "Cotações que ainda não receberam parecer do compliance, independente do prazo." },
