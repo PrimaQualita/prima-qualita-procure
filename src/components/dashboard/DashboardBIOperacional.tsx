@@ -582,10 +582,10 @@ export function DashboardBIOperacional({
         { name: "Atas - Pend. Assinatura", value: atasPendentes, color: atasPendentes > 0 ? "warning" : "success", icon: AlertTriangle, detailItems: atasPendDetail, tooltip: "Atas que ainda possuem assinaturas pendentes de usuários ou fornecedores." },
       ],
       contratos: [
-        { name: "Vigentes", value: ctTodosVigentes.length, color: "success", icon: CheckCircle2, tooltip: "Total de contratos com status 'vigente', incluindo aqueles com vencimento nos próximos 45 dias." },
-        { name: "A Vencer (45d)", value: ctAVencer.length, color: "warning", icon: CalendarClock, tooltip: "Contratos vigentes com término previsto nos próximos 45 dias." },
-        { name: "Vencidos/Encerrados", value: ctVencidosEncerrados.length, color: "danger", icon: AlertTriangle, tooltip: "Contratos vencidos (data expirada), rescindidos ou encerrados." },
-        { name: "Em Aberto", value: ctEmAberto.length, color: "info", icon: Clock, tooltip: "Processos com status 'pronto para contratar' na fila de contratação." },
+        { name: "Vigentes", value: ctTodosVigentes.length, color: "success", icon: CheckCircle2, detailItems: ctTodosVigentes.map(buildContratoDetail), tooltip: "Total de contratos com status 'vigente', incluindo aqueles com vencimento nos próximos 45 dias." },
+        { name: "A Vencer (45d)", value: ctAVencer.length, color: "warning", icon: CalendarClock, detailItems: ctAVencer.map(buildContratoDetail), tooltip: "Contratos vigentes com término previsto nos próximos 45 dias." },
+        { name: "Vencidos/Encerrados", value: ctVencidosEncerrados.length, color: "danger", icon: AlertTriangle, detailItems: ctVencidosEncerrados.map(buildContratoDetail), tooltip: "Contratos vencidos (data expirada), rescindidos ou encerrados." },
+        { name: "Em Aberto", value: ctEmAberto.length, color: "info", icon: Clock, detailItems: ctEmAberto.map(buildEmAbertoDetail), tooltip: "Processos com status 'pronto para contratar' na fila de contratação." },
       ],
       cotacoes_bi: [
         { name: "Abertas", value: cotAbertas.length, color: "info", icon: Clock, detailItems: cotAbertasDetail, _baseTotal: cotFiltradas.length, tooltip: "Cotações que ainda não receberam parecer do compliance, independente do prazo." },
