@@ -2117,57 +2117,45 @@ const [itens, setItens] = useState<Item[]>([]);
       </AlertDialog>
 
       {/* Confirmação de exclusão de Edital */}
-      <AlertDialog open={confirmDeleteEdital} onOpenChange={setConfirmDeleteEdital}>
+      <AlertDialog open={confirmDeleteEdital} onOpenChange={(v) => { setConfirmDeleteEdital(v); if (!v) setDocParaExcluir(null); }}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Confirmar Exclusão</AlertDialogTitle>
             <AlertDialogDescription>
-              Tem certeza que deseja excluir o Edital? Esta ação não pode ser desfeita.
+              Tem certeza que deseja excluir este Edital? Esta ação não pode ser desfeita.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancelar</AlertDialogCancel>
             <AlertDialogAction
               onClick={async () => {
+                if (!docParaExcluir) return;
                 try {
-                  // 1. Extrair caminho do storage
-                  let storagePath = editalAnexado.url_arquivo;
+                  let storagePath = docParaExcluir.url_arquivo;
                   if (storagePath.includes('https://')) {
                     const urlParts = storagePath.split('/processo-anexos/');
                     storagePath = urlParts[1] || storagePath;
-                    // Remover query strings
                     storagePath = storagePath.split('?')[0];
                   }
-                  
-                  // 2. Deletar arquivo do storage
                   await supabase.storage.from('processo-anexos').remove([storagePath]);
-                  
-                  // 3. Deletar registro do banco
-                  const { error } = await supabase
-                    .from("anexos_selecao")
-                    .delete()
-                    .eq("id", editalAnexado.id);
-                  
+                  const { error } = await supabase.from("anexos_selecao").delete().eq("id", docParaExcluir.id);
                   if (error) throw error;
-
-                  // 4. Registrar auditoria
                   try {
                     await registrarAuditoria({
                       acao: 'exclusão',
                       entidade: 'Anexo de Seleção',
-                      entidade_id: editalAnexado.id,
+                      entidade_id: docParaExcluir.id,
                       detalhes: {
                         tipo_documento: 'Edital',
-                        nome_arquivo: editalAnexado.nome_arquivo || 'N/A',
+                        nome_arquivo: docParaExcluir.nome_arquivo || 'N/A',
                         numero_selecao: selecao?.numero_selecao || 'N/A',
                         numero_processo: processo?.numero_processo_interno || '',
                         contrato_gestao: processo?.contratos_gestao?.nome_contrato || '',
                       },
                     });
                   } catch (auditError) {
-                    console.warn('Erro ao registrar auditoria da exclusão de edital:', auditError);
+                    console.warn('Erro ao registrar auditoria:', auditError);
                   }
-                  
                   toast.success("Documento excluído com sucesso");
                   loadDocumentosAnexados();
                 } catch (error) {
