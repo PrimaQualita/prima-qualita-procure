@@ -81,9 +81,10 @@ const [itens, setItens] = useState<Item[]>([]);
   const [dialogEnviarOpen, setDialogEnviarOpen] = useState(false);
   const [dialogAvisoOpen, setDialogAvisoOpen] = useState(false);
   const [dialogEditalOpen, setDialogEditalOpen] = useState(false);
-  const [avisoAnexado, setAvisoAnexado] = useState<any>(null);
-  const [editalAnexado, setEditalAnexado] = useState<any>(null);
+  const [avisosAnexados, setAvisosAnexados] = useState<any[]>([]);
+  const [editaisAnexados, setEditaisAnexados] = useState<any[]>([]);
   const [confirmDeleteAviso, setConfirmDeleteAviso] = useState(false);
+  const [docParaExcluir, setDocParaExcluir] = useState<any>(null);
   const [confirmDeleteEdital, setConfirmDeleteEdital] = useState(false);
   const [dialogSessaoOpen, setDialogSessaoOpen] = useState(false);
   const [dialogAnaliseDocumentalOpen, setDialogAnaliseDocumentalOpen] = useState(false);
@@ -502,11 +503,11 @@ const [itens, setItens] = useState<Item[]>([]);
       if (error) throw error;
 
       if (data) {
-        const aviso = data.find(d => d.tipo_documento === "aviso");
-        const edital = data.find(d => d.tipo_documento === "edital");
+        const avisos = data.filter(d => d.tipo_documento === "aviso");
+        const editais = data.filter(d => d.tipo_documento === "edital");
         
-        setAvisoAnexado(aviso);
-        setEditalAnexado(edital);
+        setAvisosAnexados(avisos);
+        setEditaisAnexados(editais);
       }
     } catch (error) {
       console.error("Erro ao carregar documentos:", error);
