@@ -1277,16 +1277,16 @@ const [itens, setItens] = useState<Item[]>([]);
                     onClick={() => setDialogAvisoOpen(true)}
                   >
                     <Upload className="h-4 w-4 mr-2" />
-                    {avisoAnexado ? "Atualizar Aviso de Seleção" : "Anexar Aviso de Seleção"}
+                    {avisosAnexados.length > 0 ? "Adicionar Aviso de Seleção" : "Anexar Aviso de Seleção"}
                   </Button>
                 )}
-                {avisoAnexado && (
-                  <div className="flex gap-2 mt-2">
-                    <p className="text-sm text-green-600 flex-1">✓ Aviso anexado</p>
+                {avisosAnexados.map((aviso) => (
+                  <div key={aviso.id} className="flex gap-2 mt-2">
+                    <p className="text-sm text-green-600 flex-1 truncate" title={aviso.nome_arquivo}>✓ {aviso.nome_arquivo || 'Aviso anexado'}</p>
                     <Button
                       size="sm"
                       variant="ghost"
-                      onClick={() => window.open(avisoAnexado.url_arquivo, '_blank')}
+                      onClick={() => window.open(aviso.url_arquivo, '_blank')}
                     >
                       <FileText className="h-4 w-4 mr-1" />
                       Visualizar
@@ -1296,13 +1296,13 @@ const [itens, setItens] = useState<Item[]>([]);
                         size="sm"
                         variant="ghost"
                         className="text-red-600 hover:text-red-700"
-                        onClick={() => setConfirmDeleteAviso(true)}
+                        onClick={() => { setDocParaExcluir(aviso); setConfirmDeleteAviso(true); }}
                       >
                         Excluir
                       </Button>
                     )}
                   </div>
-                )}
+                ))}
               </div>
 
               {/* Edital */}
@@ -1314,16 +1314,16 @@ const [itens, setItens] = useState<Item[]>([]);
                     onClick={() => setDialogEditalOpen(true)}
                   >
                     <Upload className="h-4 w-4 mr-2" />
-                    {editalAnexado ? "Atualizar Edital" : "Anexar Edital"}
+                    {editaisAnexados.length > 0 ? "Adicionar Edital" : "Anexar Edital"}
                   </Button>
                 )}
-                {editalAnexado && (
-                  <div className="flex gap-2 mt-2">
-                    <p className="text-sm text-green-600 flex-1">✓ Edital anexado</p>
+                {editaisAnexados.map((edital) => (
+                  <div key={edital.id} className="flex gap-2 mt-2">
+                    <p className="text-sm text-green-600 flex-1 truncate" title={edital.nome_arquivo}>✓ {edital.nome_arquivo || 'Edital anexado'}</p>
                     <Button
                       size="sm"
                       variant="ghost"
-                      onClick={() => window.open(editalAnexado.url_arquivo, '_blank')}
+                      onClick={() => window.open(edital.url_arquivo, '_blank')}
                     >
                       <FileText className="h-4 w-4 mr-1" />
                       Visualizar
@@ -1333,13 +1333,13 @@ const [itens, setItens] = useState<Item[]>([]);
                         size="sm"
                         variant="ghost"
                         className="text-red-600 hover:text-red-700"
-                        onClick={() => setConfirmDeleteEdital(true)}
+                        onClick={() => { setDocParaExcluir(edital); setConfirmDeleteEdital(true); }}
                       >
                         Excluir
                       </Button>
                     )}
                   </div>
-                )}
+                ))}
               </div>
 
               {/* Gerar Link para Fornecedores */}
