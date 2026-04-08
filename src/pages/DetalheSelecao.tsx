@@ -1281,26 +1281,31 @@ const [itens, setItens] = useState<Item[]>([]);
                   </Button>
                 )}
                 {avisosAnexados.map((aviso) => (
-                  <div key={aviso.id} className="flex gap-2 mt-2">
-                    <p className="text-sm text-green-600 flex-1 truncate" title={aviso.nome_arquivo}>✓ {aviso.nome_arquivo || 'Aviso anexado'}</p>
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      onClick={() => window.open(aviso.url_arquivo, '_blank')}
-                    >
-                      <FileText className="h-4 w-4 mr-1" />
-                      Visualizar
-                    </Button>
-                    {canEditSelecao && (
+                  <div key={aviso.id} className="flex flex-col gap-1 mt-2">
+                    <div className="flex gap-2 items-center">
+                      <p className="text-sm text-green-600 flex-1 truncate" title={aviso.nome_arquivo}>✓ {aviso.nome_arquivo || 'Aviso anexado'}</p>
                       <Button
                         size="sm"
                         variant="ghost"
-                        className="text-red-600 hover:text-red-700"
-                        onClick={() => { setDocParaExcluir(aviso); setConfirmDeleteAviso(true); }}
+                        onClick={() => window.open(aviso.url_arquivo, '_blank')}
                       >
-                        Excluir
+                        <FileText className="h-4 w-4 mr-1" />
+                        Visualizar
                       </Button>
-                    )}
+                      {canEditSelecao && (
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          className="text-red-600 hover:text-red-700"
+                          onClick={() => { setDocParaExcluir(aviso); setConfirmDeleteAviso(true); }}
+                        >
+                          Excluir
+                        </Button>
+                      )}
+                    </div>
+                    <p className="text-xs text-muted-foreground ml-4">
+                      Importado em: {aviso.data_upload ? new Date(aviso.data_upload).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : 'Data não disponível'}
+                    </p>
                   </div>
                 ))}
               </div>
@@ -1318,26 +1323,31 @@ const [itens, setItens] = useState<Item[]>([]);
                   </Button>
                 )}
                 {editaisAnexados.map((edital) => (
-                  <div key={edital.id} className="flex gap-2 mt-2">
-                    <p className="text-sm text-green-600 flex-1 truncate" title={edital.nome_arquivo}>✓ {edital.nome_arquivo || 'Edital anexado'}</p>
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      onClick={() => window.open(edital.url_arquivo, '_blank')}
-                    >
-                      <FileText className="h-4 w-4 mr-1" />
-                      Visualizar
-                    </Button>
-                    {canEditSelecao && (
+                  <div key={edital.id} className="flex flex-col gap-1 mt-2">
+                    <div className="flex gap-2 items-center">
+                      <p className="text-sm text-green-600 flex-1 truncate" title={edital.nome_arquivo}>✓ {edital.nome_arquivo || 'Edital anexado'}</p>
                       <Button
                         size="sm"
                         variant="ghost"
-                        className="text-red-600 hover:text-red-700"
-                        onClick={() => { setDocParaExcluir(edital); setConfirmDeleteEdital(true); }}
+                        onClick={() => window.open(edital.url_arquivo, '_blank')}
                       >
-                        Excluir
+                        <FileText className="h-4 w-4 mr-1" />
+                        Visualizar
                       </Button>
-                    )}
+                      {canEditSelecao && (
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          className="text-red-600 hover:text-red-700"
+                          onClick={() => { setDocParaExcluir(edital); setConfirmDeleteEdital(true); }}
+                        >
+                          Excluir
+                        </Button>
+                      )}
+                    </div>
+                    <p className="text-xs text-muted-foreground ml-4">
+                      Importado em: {edital.data_upload ? new Date(edital.data_upload).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : 'Data não disponível'}
+                    </p>
                   </div>
                 ))}
               </div>
