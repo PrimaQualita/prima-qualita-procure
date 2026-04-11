@@ -669,7 +669,7 @@ export default function Compliance() {
                         <TableCell className="font-medium">
                           {processo.numero_processo_interno}
                         </TableCell>
-                        <TableCell className="max-w-md">
+                        <TableCell className="max-w-md text-justify">
                           {stripHtml(processo.objeto_resumido)}
                         </TableCell>
                         <TableCell>{processo.titulo_cotacao}</TableCell>

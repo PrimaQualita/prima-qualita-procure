@@ -557,7 +557,7 @@ const Selecoes = () => {
                       return (
                       <TableRow key={processo.id}>
                         <TableCell className="font-medium">{processo.numero_processo_interno}</TableCell>
-                        <TableCell dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(processo.objeto_resumido) }} />
+                        <TableCell className="text-justify" dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(processo.objeto_resumido) }} />
                         <TableCell className="text-center">
                           {situacao === 'aberta' && (
                             <Badge className="bg-amber-100 text-amber-800 hover:bg-amber-200 dark:bg-amber-900/40 dark:text-amber-300">Aberta</Badge>
