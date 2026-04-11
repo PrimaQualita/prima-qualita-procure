@@ -786,7 +786,7 @@ export default function Fornecedores() {
                             )}
                           </TableCell>
                           <TableCell className="break-all">{fornecedor.cnpj}</TableCell>
-                          <TableCell className="break-all lowercase">{fornecedor.email}</TableCell>
+                          <TableCell className="break-all">{fornecedor.email?.toLowerCase()}</TableCell>
                           <TableCell>
                             {fornecedor.data_cadastro 
                               ? (() => {
