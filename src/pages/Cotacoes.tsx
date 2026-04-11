@@ -2096,7 +2096,7 @@ const Cotacoes = () => {
                         return (
                         <TableRow key={processo.id}>
                           <TableCell className="font-medium">{processo.numero_processo_interno}</TableCell>
-                          <TableCell dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(processo.objeto_resumido) }} />
+                          <TableCell className="text-justify" dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(processo.objeto_resumido) }} />
                           <TableCell className="text-right">
                             R$ {processo.valor_estimado_anual.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
                           </TableCell>

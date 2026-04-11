@@ -634,7 +634,7 @@ export default function Contabilidade() {
                   {filtrados.map((processo) => (
                     <TableRow key={processo.id}>
                       <TableCell className="font-medium">{processo.processo_numero}</TableCell>
-                      <TableCell className="max-w-md whitespace-normal break-words">
+                      <TableCell className="max-w-md whitespace-normal break-words text-justify">
                         {stripHtml(processo.objeto_processo)}
                       </TableCell>
                       <TableCell>

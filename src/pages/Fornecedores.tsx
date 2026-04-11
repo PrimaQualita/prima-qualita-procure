@@ -774,7 +774,7 @@ export default function Fornecedores() {
                         <TableRow key={fornecedor.id}>
                           <TableCell>{getStatusBadge(fornecedor.status_aprovacao)}</TableCell>
                           <TableCell className="font-medium break-words whitespace-normal">
-                            <div>{fornecedor.razao_social}</div>
+                            <div className="uppercase">{fornecedor.razao_social}</div>
                             {cnaesCorrespondentes.length > 0 && (
                               <div className="mt-1 space-y-0.5">
                                 {cnaesCorrespondentes.map((cnae, idx) => (
@@ -786,7 +786,7 @@ export default function Fornecedores() {
                             )}
                           </TableCell>
                           <TableCell className="break-all">{fornecedor.cnpj}</TableCell>
-                          <TableCell className="break-all">{fornecedor.email}</TableCell>
+                          <TableCell className="break-all lowercase">{fornecedor.email}</TableCell>
                           <TableCell>
                             {fornecedor.data_cadastro 
                               ? (() => {

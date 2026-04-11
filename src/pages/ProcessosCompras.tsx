@@ -807,7 +807,7 @@ const ProcessosCompras = () => {
                     {processosFiltrados.map((processo) => (
                       <TableRow key={processo.id}>
                         <TableCell className="font-medium">{processo.numero_processo_interno}</TableCell>
-                        <TableCell className="max-w-[400px] whitespace-normal">
+                        <TableCell className="max-w-[400px] whitespace-normal text-justify">
                           {stripHtml(processo.objeto_resumido)}
                         </TableCell>
                         <TableCell>{processo.ano_referencia}</TableCell>
