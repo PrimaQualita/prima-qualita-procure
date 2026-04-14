@@ -6,6 +6,8 @@ interface ProcessoCompletoResult {
   url: string;
   filename: string;
   blob?: Blob;
+  storagePath?: string;
+  bucketName?: string;
 }
 
 export const gerarProcessoCompletoPDF = async (
