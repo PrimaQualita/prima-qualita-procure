@@ -670,6 +670,16 @@ const [itens, setItens] = useState<Item[]>([]);
         protocolo
       });
 
+      // Gerar link curto para o encaminhamento
+      let urlEncaminhamento = resultado.url;
+      try {
+        const { gerarLinkCurto } = await import('@/lib/gerarLinkCurto');
+        const linkCurto = await gerarLinkCurto(resultado.url, resultado.fileName, resultado.storagePath, 'processo-anexos');
+        if (linkCurto) urlEncaminhamento = linkCurto;
+      } catch (e) {
+        console.warn('Não foi possível gerar link curto para encaminhamento contabilidade:', e);
+      }
+
       // Salvar no banco
       const { error: insertError } = await supabase
         .from("encaminhamentos_contabilidade")
@@ -679,7 +689,7 @@ const [itens, setItens] = useState<Item[]>([]);
           objeto_processo: processo.objeto_resumido,
           fornecedores_vencedores: fornecedoresVencedores,
           protocolo,
-          url_arquivo: resultado.url,
+          url_arquivo: urlEncaminhamento,
           nome_arquivo: resultado.fileName,
           storage_path: resultado.storagePath,
           usuario_gerador_id: user?.id,

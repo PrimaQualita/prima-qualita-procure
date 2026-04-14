@@ -221,13 +221,23 @@ export function DialogFinalizarProcesso({
         protocolo
       });
       
+      // Gerar link curto para o encaminhamento
+      let urlEncaminhamento = resultado.url;
+      try {
+        const { gerarLinkCurto } = await import('@/lib/gerarLinkCurto');
+        const linkCurto = await gerarLinkCurto(resultado.url, resultado.fileName, resultado.storagePath, 'processo-anexos');
+        if (linkCurto) urlEncaminhamento = linkCurto;
+      } catch (e) {
+        console.warn('Não foi possível gerar link curto para encaminhamento contabilidade:', e);
+      }
+
       await supabase.from("encaminhamentos_contabilidade").insert({
         cotacao_id: cotacaoId,
         processo_numero: cotacao.processos_compras.numero_processo_interno,
         objeto_processo: cotacao.processos_compras.objeto_resumido,
         fornecedores_vencedores: fornecedoresVencedores,
         protocolo,
-        url_arquivo: resultado.url,
+        url_arquivo: urlEncaminhamento,
         nome_arquivo: resultado.fileName,
         storage_path: resultado.storagePath,
         usuario_gerador_id: user?.id,
