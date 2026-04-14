@@ -1824,12 +1824,16 @@ export default function PortalFornecedor() {
                                     <>
                                       <input
                                         type="file"
-                                        accept=".pdf"
+                                        accept=".pdf,.PDF,application/pdf"
                                         onChange={(e) => {
+                                          console.log("📎 Arquivo selecionado para seleção:", e.target.files);
                                           const file = e.target.files?.[0];
                                           if (file) {
+                                            console.log("📎 Iniciando upload:", file.name, file.size, file.type);
                                             handleUploadDocumentoSelecao(campo.id, file);
                                             e.target.value = ''; // Reset para permitir reselecionar mesmo arquivo
+                                          } else {
+                                            console.log("⚠️ Nenhum arquivo selecionado");
                                           }
                                         }}
                                         className="hidden"
