@@ -70,6 +70,11 @@ export function DialogCriarSelecao({
       return;
     }
 
+    if (modoManual && !numeroManual.trim()) {
+      toast.error("Informe o número da seleção manualmente ou desative o modo manual");
+      return;
+    }
+
     setCreating(true);
 
     try {
