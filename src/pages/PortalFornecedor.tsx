@@ -800,7 +800,7 @@ export default function PortalFornecedor() {
   const handleUploadDocumento = async (campoId: string, file: File) => {
     console.log("🚀 Iniciando upload de documento:", { campoId, fileName: file.name, fornecedor: fornecedor?.id });
     
-    const MAX_FILE_SIZE_MB = 20;
+    const MAX_FILE_SIZE_MB = 100;
     if (file.size > MAX_FILE_SIZE_MB * 1024 * 1024) {
       toast.error(`O arquivo excede o limite de ${MAX_FILE_SIZE_MB}MB. Por favor, envie um arquivo menor.`);
       return;
@@ -950,7 +950,7 @@ export default function PortalFornecedor() {
   const handleUploadDocumentoSelecao = async (campoId: string, file: File) => {
     console.log("🚀 Iniciando upload de documento de seleção:", { campoId, fileName: file.name, fornecedor: fornecedor?.id });
     
-    const MAX_FILE_SIZE_MB = 20;
+    const MAX_FILE_SIZE_MB = 100;
     if (file.size > MAX_FILE_SIZE_MB * 1024 * 1024) {
       toast.error(`O arquivo excede o limite de ${MAX_FILE_SIZE_MB}MB. Por favor, envie um arquivo menor.`);
       return;
