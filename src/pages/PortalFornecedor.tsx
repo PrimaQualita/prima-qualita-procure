@@ -814,6 +814,7 @@ export default function PortalFornecedor() {
       toast.success("Ata assinada digitalmente com sucesso!");
       await Promise.all([
         loadAtasPendentes(fornecedor.id),
+        loadAtasAssinadas(fornecedor.id),
         loadPropostasRealinhadasPendentes(fornecedor.id),
       ]);
     } catch (error) {
