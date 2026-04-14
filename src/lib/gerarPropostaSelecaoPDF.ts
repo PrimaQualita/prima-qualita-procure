@@ -5,6 +5,7 @@ import { stripHtml } from './htmlUtils';
 import { supabase } from '@/integrations/supabase/client';
 import { v4 as uuidv4 } from 'uuid';
 import { valorPorExtenso } from './valorPorExtenso';
+import { toZonedTime, format as formatTZ } from 'date-fns-tz';
 
 interface ItemProposta {
   numero_item: number;
@@ -297,7 +298,7 @@ export async function gerarPropostaSelecaoPDF(
     }
 
     const doc = new jsPDF();
-    const dataEnvio = new Date(dataEnvioProposta).toLocaleString('pt-BR');
+    const dataEnvio = formatTZ(toZonedTime(new Date(dataEnvioProposta), 'America/Sao_Paulo'), 'dd/MM/yyyy HH:mm:ss', { timeZone: 'America/Sao_Paulo' });
     
     // Ordenar itens - para por_lote, ordenar por lote e depois por numero_item
     let itensOrdenados: ItemProposta[];
@@ -1000,7 +1001,7 @@ export async function gerarPropostaSelecaoPDF(
     const espacamentoLinha = 5.75; // 5 * 1.15
     
     // Formatar data de envio
-    const dataEnvioFormatada = new Date(dataEnvioProposta).toLocaleString('pt-BR');
+    const dataEnvioFormatada = formatTZ(toZonedTime(new Date(dataEnvioProposta), 'America/Sao_Paulo'), 'dd/MM/yyyy HH:mm:ss', { timeZone: 'America/Sao_Paulo' });
     
     // Quebrar textos longos
     doc.setFontSize(11);
