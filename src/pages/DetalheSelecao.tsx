@@ -1039,13 +1039,16 @@ const [itens, setItens] = useState<Item[]>([]);
             }
           });
         } else {
-          // por_item
+          // por_item — lance é unitário, multiplicar pela quantidade
+          const quantidadePorItem = new Map<number, number>();
+          itens.forEach((item) => quantidadePorItem.set(item.numero_item, item.quantidade || 1));
+
           const itemMap = new Map<number, any[]>();
           lancesValidos.forEach((l: any) => {
             if (!itemMap.has(l.numero_item)) itemMap.set(l.numero_item, []);
             itemMap.get(l.numero_item)!.push(l);
           });
-          itemMap.forEach((lancesItem) => {
+          itemMap.forEach((lancesItem, numeroItem) => {
             const sorted = lancesItem.sort((a: any, b: any) => isDesconto ? b.valor_lance - a.valor_lance : a.valor_lance - b.valor_lance);
             const v = sorted[0];
             if (v?.fornecedores) {
@@ -1053,7 +1056,10 @@ const [itens, setItens] = useState<Item[]>([]);
               if (!valoresPorFornecedor.has(v.fornecedor_id)) {
                 valoresPorFornecedor.set(v.fornecedor_id, { nome: forn.razao_social, id: forn.id, valorTotal: 0 });
               }
-              if (!isDesconto) valoresPorFornecedor.get(v.fornecedor_id)!.valorTotal += v.valor_lance;
+              if (!isDesconto) {
+                const quantidade = quantidadePorItem.get(numeroItem) || 1;
+                valoresPorFornecedor.get(v.fornecedor_id)!.valorTotal += v.valor_lance * quantidade;
+              }
             }
           });
         }
