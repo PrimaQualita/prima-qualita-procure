@@ -4154,6 +4154,20 @@ export function DialogFinalizarProcesso({
             }
           }
 
+          // Recalcular valor total do processo com os valores reais dos vencedores
+          if (criterioJulgamento !== "desconto" && criterioJulgamento !== "maior_percentual_desconto") {
+            let novoValorTotal = 0;
+            valoresPorFornecedor.forEach((v) => { novoValorTotal += v.valorTotal; });
+            if (novoValorTotal > 0) {
+              valorTotalFechamento = novoValorTotal;
+              await supabase
+                .from("processos_compras")
+                .update({ valor_total_cotacao: novoValorTotal })
+                .eq("id", processoId);
+              console.log(`💰 Valor total do processo atualizado para: R$ ${novoValorTotal.toFixed(2)}`);
+            }
+          }
+
           console.log(`🏆 Vencedores finais para processos_para_contratar:`);
           valoresPorFornecedor.forEach((v, k) => console.log(`  → ${v.nome}: R$ ${v.valorTotal.toFixed(2)}`));
 

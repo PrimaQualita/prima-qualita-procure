@@ -941,13 +941,8 @@ const [itens, setItens] = useState<Item[]>([]);
         throw anexoError;
       }
 
-      // Calcular valor total dos itens vencedores
+      // Valor total será recalculado após identificar vencedores
       let valorTotalFechamento = 0;
-      if (processo?.criterio_julgamento !== "desconto") {
-        itens.forEach(item => {
-          valorTotalFechamento += item.valor_total || 0;
-        });
-      }
 
       // Atualizar status do processo para concluído
       const { error: statusError } = await supabase
@@ -1064,7 +1059,19 @@ const [itens, setItens] = useState<Item[]>([]);
           });
         }
 
+        // Atualizar valor total do processo com a soma real dos vencedores
+        if (criterioJulgamento !== 'desconto' && criterioJulgamento !== 'maior_percentual_desconto') {
+          valorTotalFechamento = 0;
+          valoresPorFornecedor.forEach((v) => { valorTotalFechamento += v.valorTotal; });
+          // Atualizar na tabela processos_compras
+          await supabase
+            .from("processos_compras")
+            .update({ valor_total_cotacao: valorTotalFechamento })
+            .eq("id", processo.id);
+        }
+
         console.log(`🏆 Vencedores finais para processos_para_contratar (seleção):`);
+        valoresPorFornecedor.forEach((v) => console.log(`  → ${v.nome}: R$ ${v.valorTotal.toFixed(2)}`));
         valoresPorFornecedor.forEach((v) => console.log(`  → ${v.nome}: R$ ${v.valorTotal.toFixed(2)}`));
 
         const vencedoresParaContratar = Array.from(valoresPorFornecedor.values()).map((dados) => ({
