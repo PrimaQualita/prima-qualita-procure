@@ -165,7 +165,7 @@ export function SolicitacoesAutorizacao() {
   };
 
   const irParaCotacao = (cotacaoId: string) => {
-    navigate("/cotacoes");
+    navigate(`/cotacoes?openFinalizar=${cotacaoId}`);
   };
 
   if (solicitacoes.length === 0 || fechado) {
