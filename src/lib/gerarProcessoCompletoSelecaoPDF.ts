@@ -715,7 +715,9 @@ export const gerarProcessoCompletoSelecaoPDF = async (
 
       return {
         url: urlData.publicUrl,
-        filename
+        filename,
+        storagePath: filename,
+        bucketName: 'processo-anexos' as const,
       };
     }
   } catch (error) {

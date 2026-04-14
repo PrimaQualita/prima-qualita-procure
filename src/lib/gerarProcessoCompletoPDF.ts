@@ -1175,6 +1175,8 @@ export const gerarProcessoCompletoPDF = async (
     return {
       url: urlData.publicUrl,
       filename,
+      storagePath,
+      bucketName: 'documents' as const,
     };
   } catch (error) {
     console.error("❌ Erro ao gerar processo completo:", error);
