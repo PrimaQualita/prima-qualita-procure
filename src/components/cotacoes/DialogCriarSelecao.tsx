@@ -275,6 +275,7 @@ export function DialogCriarSelecao({
             )}
           </div>
 
+          <div>
             <Label htmlFor="descricao">Descrição (opcional)</Label>
             <Textarea
               id="descricao"
