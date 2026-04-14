@@ -995,8 +995,8 @@ export default function PortalFornecedor() {
       // Sanitizar nome do campo e razão social para usar em nome de arquivo
       // Remover acentos e caracteres especiais pois Supabase Storage não aceita
       const removeAcentos = (str: string) => str.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
-      const nomeCampoSanitizado = removeAcentos(nomeCampo).replace(/[^a-zA-Z0-9\s]/g, '').replace(/\s+/g, '_');
-      const razaoSocialSanitizada = removeAcentos(fornecedor.razao_social).replace(/[^a-zA-Z0-9\s]/g, '').replace(/\s+/g, '_');
+      const nomeCampoSanitizado = removeAcentos(nomeCampo).replace(/[^a-zA-Z0-9\s]/g, '').replace(/\s+/g, '_').substring(0, 40);
+      const razaoSocialSanitizada = removeAcentos(fornecedor.razao_social).replace(/[^a-zA-Z0-9\s]/g, '').replace(/\s+/g, '_').substring(0, 40);
       
       console.log("📤 Fazendo upload para storage...");
       const fileExt = file.name.split('.').pop();
