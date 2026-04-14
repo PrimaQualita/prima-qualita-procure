@@ -1260,9 +1260,22 @@ const [itens, setItens] = useState<Item[]>([]);
                   <Button
                     size="sm"
                     variant="ghost"
-                    onClick={() => {
+                    onClick={async () => {
+                      const urlArq = processoCompletoSalvo.url_arquivo;
+                      // Se for link curto, abrir diretamente
+                      if (urlArq.includes('/d/') && !urlArq.includes('/storage/')) {
+                        window.open(urlArq, '_blank');
+                        return;
+                      }
+                      // Se for URL do storage, usar abrirDocumentoStorage
+                      if (urlArq.startsWith('http') && urlArq.includes('/processo-anexos/')) {
+                        const { abrirDocumentoStorage } = await import('@/lib/abrirDocumentoStorage');
+                        const filePath = urlArq.split('/processo-anexos/')[1]?.split('?')[0] || '';
+                        await abrirDocumentoStorage(filePath, processoCompletoSalvo.nome_arquivo, 'processo-anexos');
+                        return;
+                      }
                       const link = document.createElement("a");
-                      link.href = processoCompletoSalvo.url_arquivo;
+                      link.href = urlArq;
                       link.download = processoCompletoSalvo.nome_arquivo;
                       document.body.appendChild(link);
                       link.click();
