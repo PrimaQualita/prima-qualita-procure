@@ -316,6 +316,16 @@ export default function Contabilidade() {
         protocolo
       });
 
+      // Gerar link curto para a resposta
+      let urlResposta = resultado.url;
+      try {
+        const { gerarLinkCurto } = await import('@/lib/gerarLinkCurto');
+        const linkCurto = await gerarLinkCurto(resultado.url, resultado.fileName, resultado.storagePath, 'processo-anexos');
+        if (linkCurto) urlResposta = linkCurto;
+      } catch (e) {
+        console.warn('Não foi possível gerar link curto para resposta contabilidade:', e);
+      }
+
       // Atualizar encaminhamento
       const { error } = await supabase
         .from("encaminhamentos_contabilidade")
@@ -324,7 +334,7 @@ export default function Contabilidade() {
           data_resposta_contabilidade: new Date().toISOString(),
           resposta_contabilidade: fornecedoresParaPDF.map(f => `${f.razaoSocial}: ${f.tipoOperacao}`).join("; "),
           tipos_operacao_fornecedores: tiposOperacaoArray,
-          url_resposta_pdf: resultado.url,
+          url_resposta_pdf: urlResposta,
           protocolo_resposta: resultado.protocolo,
           storage_path_resposta: resultado.storagePath,
           usuario_resposta_id: userData?.user?.id

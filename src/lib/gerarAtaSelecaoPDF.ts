@@ -1870,6 +1870,16 @@ export async function gerarAtaSelecaoPDF(selecaoId: string): Promise<{ url: stri
     .from('processo-anexos')
     .getPublicUrl(storagePath);
 
+  // Gerar link curto para a URL da ata
+  let urlFinal = publicUrl;
+  try {
+    const { gerarLinkCurto } = await import('@/lib/gerarLinkCurto');
+    const linkCurto = await gerarLinkCurto(publicUrl, nomeArquivo, storagePath, 'processo-anexos');
+    if (linkCurto) urlFinal = linkCurto;
+  } catch (e) {
+    console.warn('Não foi possível gerar link curto para ata:', e);
+  }
+
   // Salvar registro da ata na tabela para verificação
   const { data: ataInserida, error: insertError } = await supabase
     .from('atas_selecao')
@@ -1877,7 +1887,7 @@ export async function gerarAtaSelecaoPDF(selecaoId: string): Promise<{ url: stri
       selecao_id: selecaoId,
       protocolo: protocolo,
       nome_arquivo: nomeArquivo,
-      url_arquivo: publicUrl,
+      url_arquivo: urlFinal,
       url_arquivo_original: publicUrl,
       usuario_gerador_id: user?.id || null,
       data_geracao: new Date().toISOString()
@@ -1897,7 +1907,7 @@ export async function gerarAtaSelecaoPDF(selecaoId: string): Promise<{ url: stri
         detalhes: {
           protocolo: protocoloFormatado,
           nome_arquivo: nomeArquivo,
-          url_arquivo: publicUrl,
+          url_arquivo: urlFinal,
           numero_selecao: selecao?.numero_selecao || 'N/A',
           titulo_selecao: selecao?.titulo_selecao || 'N/A',
           numero_processo: selecao?.processos_compras?.numero_processo_interno || '',
@@ -1910,7 +1920,7 @@ export async function gerarAtaSelecaoPDF(selecaoId: string): Promise<{ url: stri
   }
 
   return {
-    url: publicUrl,
+    url: urlFinal,
     nome: nomeArquivo,
     protocolo: protocoloFormatado
   };
