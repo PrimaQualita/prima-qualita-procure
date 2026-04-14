@@ -70,6 +70,11 @@ export function DialogCriarSelecao({
       return;
     }
 
+    if (modoManual && !numeroManual.trim()) {
+      toast.error("Informe o número da seleção manualmente ou desative o modo manual");
+      return;
+    }
+
     setCreating(true);
 
     try {
@@ -104,48 +109,46 @@ export function DialogCriarSelecao({
         });
       }
 
-      // Verificar quantas seleções já existem para este processo
-      const { data: selecoesExistentes, error: selecoesError } = await supabase
-        .from("selecoes_fornecedores")
-        .select("numero_selecao")
-        .eq("processo_compra_id", processoId)
-        .order("created_at", { ascending: true });
-
-
       let numeroSelecao: string;
-      
-      if (!selecoesError && selecoesExistentes && selecoesExistentes.length > 0) {
-        // Já existe seleção para este processo - usar o mesmo número base com sufixo romano
-        const primeiraSelecao = selecoesExistentes[0];
-        // Extrair número base (sem sufixo romano)
-        const numeroBase = primeiraSelecao.numero_selecao?.split(" ")[0] || primeiraSelecao.numero_selecao;
-        const quantidadeExistente = selecoesExistentes.length;
-        
-        // Se é a segunda seleção, a primeira também precisa do sufixo I
-        // Então a nova será II, III, etc.
-        numeroSelecao = `${numeroBase} ${numeroRomano(quantidadeExistente + 1)}`;
+
+      if (modoManual) {
+        // Modo manual - usar o número informado pelo usuário
+        numeroSelecao = numeroManual.trim();
       } else {
-        // Primeira seleção do processo - gerar novo número sequencial
-        const anoAtual = new Date().getFullYear();
-        
-        const { data: ultimaSelecao, error: ultimaSelecaoError } = await supabase
+        // Modo automático - gerar número sequencial
+        const { data: selecoesExistentes, error: selecoesError } = await supabase
           .from("selecoes_fornecedores")
           .select("numero_selecao")
-          .not("numero_selecao", "is", null)
-          .order("created_at", { ascending: false })
-          .limit(1)
-          .maybeSingle();
+          .eq("processo_compra_id", processoId)
+          .order("created_at", { ascending: true });
 
-        let proximoNumero = 1;
-        if (!ultimaSelecaoError && ultimaSelecao?.numero_selecao) {
-          const partes = ultimaSelecao.numero_selecao.split("/");
-          if (partes.length >= 2) {
-            const numParte = partes[0].split(" ")[0]; // Remove possível sufixo romano
-            proximoNumero = parseInt(numParte, 10) + 1;
+        if (!selecoesError && selecoesExistentes && selecoesExistentes.length > 0) {
+          const primeiraSelecao = selecoesExistentes[0];
+          const numeroBase = primeiraSelecao.numero_selecao?.split(" ")[0] || primeiraSelecao.numero_selecao;
+          const quantidadeExistente = selecoesExistentes.length;
+          numeroSelecao = `${numeroBase} ${numeroRomano(quantidadeExistente + 1)}`;
+        } else {
+          const anoAtual = new Date().getFullYear();
+          
+          const { data: ultimaSelecao, error: ultimaSelecaoError } = await supabase
+            .from("selecoes_fornecedores")
+            .select("numero_selecao")
+            .not("numero_selecao", "is", null)
+            .order("created_at", { ascending: false })
+            .limit(1)
+            .maybeSingle();
+
+          let proximoNumero = 1;
+          if (!ultimaSelecaoError && ultimaSelecao?.numero_selecao) {
+            const partes = ultimaSelecao.numero_selecao.split("/");
+            if (partes.length >= 2) {
+              const numParte = partes[0].split(" ")[0];
+              proximoNumero = parseInt(numParte, 10) + 1;
+            }
           }
-        }
 
-        numeroSelecao = `${String(proximoNumero).padStart(3, "0")}/${anoAtual}`;
+          numeroSelecao = `${String(proximoNumero).padStart(3, "0")}/${anoAtual}`;
+        }
       }
 
       // Criar seleção - ajustar data para evitar problema de timezone
@@ -214,6 +217,8 @@ export function DialogCriarSelecao({
       setDescricao("");
       setDataDisputa("");
       setHoraDisputa("09:00");
+      setModoManual(false);
+      setNumeroManual("");
     } catch (error) {
       console.error("Erro ao criar seleção:", error);
       toast.error("Erro ao criar seleção de fornecedores");
@@ -240,6 +245,34 @@ export function DialogCriarSelecao({
               onChange={(e) => setTitulo(e.target.value)}
               placeholder="Ex: Seleção de Fornecedores - Processo 001/2025"
             />
+          </div>
+
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <Label htmlFor="modoManual">Número da Seleção</Label>
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-muted-foreground">
+                  {modoManual ? "Manual" : "Automático"}
+                </span>
+                <Switch
+                  id="modoManual"
+                  checked={modoManual}
+                  onCheckedChange={setModoManual}
+                />
+              </div>
+            </div>
+            {modoManual ? (
+              <Input
+                id="numeroManual"
+                value={numeroManual}
+                onChange={(e) => setNumeroManual(e.target.value)}
+                placeholder="Ex: 001/2025"
+              />
+            ) : (
+              <p className="text-sm text-muted-foreground bg-muted px-3 py-2 rounded-md">
+                O número será gerado automaticamente ao criar a seleção.
+              </p>
+            )}
           </div>
 
           <div>
