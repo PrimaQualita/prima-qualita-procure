@@ -30,6 +30,7 @@ export default function PortalFornecedor() {
   const [inabilitacoesPendentes, setInabilitacoesPendentes] = useState<any[]>([]);
   const [inabilitacoesSelecaoPendentes, setInabilitacoesSelecaoPendentes] = useState<any[]>([]);
   const [propostasRealinhadasPendentes, setPropostasRealinhadasPendentes] = useState<any[]>([]);
+  const [atasAssinadas, setAtasAssinadas] = useState<any[]>([]);
   const [assinandoAta, setAssinandoAta] = useState<string | null>(null);
   const [dialogConsultarOpen, setDialogConsultarOpen] = useState(false);
   const [cotacaoSelecionada, setCotacaoSelecionada] = useState<string>("");
