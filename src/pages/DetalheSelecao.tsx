@@ -896,6 +896,23 @@ const [itens, setItens] = useState<Item[]>([]);
         false // temporário = false para salvar no storage
       );
       
+      // Gerar link curto para o processo completo
+      let urlArquivo = result.url;
+      if (result.storagePath) {
+        try {
+          const { gerarLinkCurto } = await import('@/lib/gerarLinkCurto');
+          const linkCurto = await gerarLinkCurto(
+            result.url,
+            result.filename,
+            result.storagePath,
+            result.bucketName || 'processo-anexos'
+          );
+          if (linkCurto) urlArquivo = linkCurto;
+        } catch (e) {
+          console.warn('Não foi possível gerar link curto para processo completo:', e);
+        }
+      }
+
       // Salvar como anexo do processo de compra
       const { data: { session } } = await supabase.auth.getSession();
       const { error: anexoError } = await supabase
@@ -904,7 +921,7 @@ const [itens, setItens] = useState<Item[]>([]);
           processo_compra_id: processo.id,
           tipo_anexo: "PROCESSO_COMPLETO_SELECAO",
           nome_arquivo: result.filename,
-          url_arquivo: result.url,
+          url_arquivo: urlArquivo,
           usuario_upload_id: session?.user.id,
           data_upload: new Date().toISOString()
         });
@@ -1243,9 +1260,22 @@ const [itens, setItens] = useState<Item[]>([]);
                   <Button
                     size="sm"
                     variant="ghost"
-                    onClick={() => {
+                    onClick={async () => {
+                      const urlArq = processoCompletoSalvo.url_arquivo;
+                      // Se for link curto, abrir diretamente
+                      if (urlArq.includes('/d/') && !urlArq.includes('/storage/')) {
+                        window.open(urlArq, '_blank');
+                        return;
+                      }
+                      // Se for URL do storage, usar abrirDocumentoStorage
+                      if (urlArq.startsWith('http') && urlArq.includes('/processo-anexos/')) {
+                        const { abrirDocumentoStorage } = await import('@/lib/abrirDocumentoStorage');
+                        const filePath = urlArq.split('/processo-anexos/')[1]?.split('?')[0] || '';
+                        await abrirDocumentoStorage(filePath, processoCompletoSalvo.nome_arquivo, 'processo-anexos');
+                        return;
+                      }
                       const link = document.createElement("a");
-                      link.href = processoCompletoSalvo.url_arquivo;
+                      link.href = urlArq;
                       link.download = processoCompletoSalvo.nome_arquivo;
                       document.body.appendChild(link);
                       link.click();

@@ -6,6 +6,8 @@ interface ProcessoCompletoResult {
   url: string;
   filename: string;
   blob?: Blob;
+  storagePath?: string;
+  bucketName?: string;
 }
 
 export const gerarProcessoCompletoPDF = async (
@@ -1175,6 +1177,8 @@ export const gerarProcessoCompletoPDF = async (
     return {
       url: urlData.publicUrl,
       filename,
+      storagePath,
+      bucketName: 'documents' as const,
     };
   } catch (error) {
     console.error("❌ Erro ao gerar processo completo:", error);

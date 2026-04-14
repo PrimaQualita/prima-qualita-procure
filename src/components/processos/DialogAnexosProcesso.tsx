@@ -256,8 +256,32 @@ export function DialogAnexosProcesso({
 
   const handleDownload = async (anexo: AnexoProcesso) => {
     try {
-      // Se for URL completa pública (processo completo consolidado), usar diretamente
+      // Se for link curto do domínio (ex: /d/AbC12xYz), abrir diretamente
+      if (anexo.url_arquivo.includes('/d/') && !anexo.url_arquivo.includes('/storage/')) {
+        window.open(anexo.url_arquivo, '_blank');
+        return;
+      }
+
+      // Se for URL completa pública (processo completo consolidado), usar abrirDocumentoStorage
       if (anexo.url_arquivo.startsWith('http')) {
+        // Tentar extrair storage path para usar link curto
+        const tipoAnexo = anexo.tipo_anexo;
+        if (tipoAnexo === 'PROCESSO_COMPLETO' || tipoAnexo === 'PROCESSO_COMPLETO_SELECAO') {
+          const { abrirDocumentoStorage } = await import('@/lib/abrirDocumentoStorage');
+          let filePath = anexo.url_arquivo;
+          // Extrair caminho relativo do storage
+          if (filePath.includes('/documents/')) {
+            filePath = filePath.split('/documents/')[1]?.split('?')[0] || filePath;
+            await abrirDocumentoStorage(filePath, anexo.nome_arquivo, 'documents');
+            return;
+          }
+          if (filePath.includes('/processo-anexos/')) {
+            filePath = filePath.split('/processo-anexos/')[1]?.split('?')[0] || filePath;
+            await abrirDocumentoStorage(filePath, anexo.nome_arquivo, 'processo-anexos');
+            return;
+          }
+        }
+        // Fallback: abrir URL diretamente
         const link = document.createElement("a");
         link.href = anexo.url_arquivo;
         link.download = anexo.nome_arquivo;

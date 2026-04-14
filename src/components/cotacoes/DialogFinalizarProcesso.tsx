@@ -3649,6 +3649,23 @@ export function DialogFinalizarProcesso({
       const processoCompleto = await gerarProcessoCompletoPDF(cotacaoId, numeroProcesso);
       console.log("✅ Processo completo gerado:", processoCompleto.filename);
 
+      // Gerar link curto para o processo completo
+      let urlArquivo = processoCompleto.url;
+      if (processoCompleto.storagePath) {
+        try {
+          const { gerarLinkCurto } = await import('@/lib/gerarLinkCurto');
+          const linkCurto = await gerarLinkCurto(
+            processoCompleto.url,
+            processoCompleto.filename,
+            processoCompleto.storagePath,
+            processoCompleto.bucketName || 'documents'
+          );
+          if (linkCurto) urlArquivo = linkCurto;
+        } catch (e) {
+          console.warn('Não foi possível gerar link curto para processo completo:', e);
+        }
+      }
+
       // Salvar o processo completo como anexo do processo
       const { data: { session } } = await supabase.auth.getSession();
       const { error: anexoError } = await supabase
@@ -3657,7 +3674,7 @@ export function DialogFinalizarProcesso({
           processo_compra_id: processoId,
           tipo_anexo: "PROCESSO_COMPLETO",
           nome_arquivo: processoCompleto.filename,
-          url_arquivo: processoCompleto.url,
+          url_arquivo: urlArquivo,
           usuario_upload_id: session?.user.id,
           data_upload: new Date().toISOString()
         });

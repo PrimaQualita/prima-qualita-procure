@@ -6,6 +6,8 @@ interface ProcessoCompletoResult {
   url: string;
   filename: string;
   blob?: Blob;
+  storagePath?: string;
+  bucketName?: string;
 }
 
 interface DocumentoOrdenado {
@@ -715,7 +717,9 @@ export const gerarProcessoCompletoSelecaoPDF = async (
 
       return {
         url: urlData.publicUrl,
-        filename
+        filename,
+        storagePath: filename,
+        bucketName: 'processo-anexos' as const,
       };
     }
   } catch (error) {
