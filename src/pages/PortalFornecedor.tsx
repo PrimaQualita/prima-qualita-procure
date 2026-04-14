@@ -10,7 +10,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import primaLogo from "@/assets/prima-qualita-logo.png";
-import { LogOut, FileText, Gavel, MessageSquare, User, Upload, AlertCircle, CheckCircle, FileCheck, Pencil, RefreshCw, Eye, Send } from "lucide-react";
+import { LogOut, FileText, Gavel, MessageSquare, User, Upload, AlertCircle, CheckCircle, FileCheck, Pencil, RefreshCw, Eye, Send, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import GestaoDocumentosFornecedor from "@/components/fornecedores/GestaoDocumentosFornecedor";
 import { NotificacaoRejeicao } from "@/components/fornecedores/NotificacaoRejeicao";
@@ -36,6 +36,7 @@ export default function PortalFornecedor() {
   const [dialogEditarCadastroOpen, setDialogEditarCadastroOpen] = useState(false);
   const [dialogResponsavelLegalOpen, setDialogResponsavelLegalOpen] = useState(false);
   const [assinaturaParaAssinar, setAssinaturaParaAssinar] = useState<string | null>(null);
+  const [uploadingCampoId, setUploadingCampoId] = useState<string | null>(null);
 
   const [unreadCountContato, setUnreadCountContato] = useState(0);
   useEffect(() => {
@@ -812,6 +813,7 @@ export default function PortalFornecedor() {
       return;
     }
 
+    setUploadingCampoId(campoId);
     try {
       // Buscar o nome do campo e dados da cotação/processo para auditoria
       const { data: campoData } = await supabase
@@ -840,14 +842,10 @@ export default function PortalFornecedor() {
       const contratoGestao = dadosProcesso?.contratos_gestao?.nome_contrato || '';
       const tituloCotacao = campoData?.cotacoes_precos?.titulo_cotacao || '';
       
-      // Sanitizar nomes para uso em arquivo
-      const sanitizedNomeCampo = nomeCampo.replace(/[^a-zA-Z0-9]/g, '_');
-      const sanitizedRazaoSocial = fornecedor.razao_social.replace(/[^a-zA-Z0-9]/g, '_');
-
       console.log("📤 Fazendo upload para storage...");
       const fileExt = file.name.split('.').pop();
-      // Salvar na categoria habilitacao com nome do campo + empresa
-      const fileName = `habilitacao/${sanitizedNomeCampo}_${sanitizedRazaoSocial}_${Date.now()}.${fileExt}`;
+      const uniqueId = Math.random().toString(36).slice(2, 10);
+      const fileName = `habilitacao/${campoId}_${Date.now()}_${uniqueId}.${fileExt}`;
 
       const { error: uploadError } = await supabase.storage
         .from('processo-anexos')
@@ -944,6 +942,8 @@ export default function PortalFornecedor() {
     } catch (error: any) {
       console.error("❌ Erro ao fazer upload:", error);
       toast.error("Erro ao enviar documento");
+    } finally {
+      setUploadingCampoId(null);
     }
   };
 
@@ -962,6 +962,7 @@ export default function PortalFornecedor() {
       return;
     }
 
+    setUploadingCampoId(campoId);
     try {
       // Buscar o nome do campo e dados da seleção/processo para auditoria
       const { data: campoData } = await supabase
@@ -992,15 +993,10 @@ export default function PortalFornecedor() {
       const contratoGestao = dadosProcesso?.contratos_gestao?.nome_contrato || '';
       const tituloSelecao = dadosSelecao?.titulo_selecao || dadosSelecao?.numero_selecao || '';
       
-      // Sanitizar nome do campo e razão social para usar em nome de arquivo
-      // Remover acentos e caracteres especiais pois Supabase Storage não aceita
-      const removeAcentos = (str: string) => str.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
-      const nomeCampoSanitizado = removeAcentos(nomeCampo).replace(/[^a-zA-Z0-9\s]/g, '').replace(/\s+/g, '_').substring(0, 40);
-      const razaoSocialSanitizada = removeAcentos(fornecedor.razao_social).replace(/[^a-zA-Z0-9\s]/g, '').replace(/\s+/g, '_').substring(0, 40);
-      
       console.log("📤 Fazendo upload para storage...");
       const fileExt = file.name.split('.').pop();
-      const fileName = `habilitacao/${nomeCampoSanitizado}_${razaoSocialSanitizada}_${Date.now()}.${fileExt}`;
+      const uniqueId = Math.random().toString(36).slice(2, 10);
+      const fileName = `habilitacao/${campoId}_${Date.now()}_${uniqueId}.${fileExt}`;
 
       const { error: uploadError } = await supabase.storage
         .from('processo-anexos')
@@ -1111,6 +1107,8 @@ export default function PortalFornecedor() {
     } catch (error: any) {
       console.error("❌ Erro ao fazer upload:", error);
       toast.error("Erro ao enviar documento");
+    } finally {
+      setUploadingCampoId(null);
     }
   };
 
@@ -1658,14 +1656,20 @@ export default function PortalFornecedor() {
                                         }}
                                         className="hidden"
                                         id={`upload-${campo.id}`}
+                                        disabled={uploadingCampoId === campo.id}
                                       />
                                       <Button
                                         size="sm"
                                         onClick={() => document.getElementById(`upload-${campo.id}`)?.click()}
                                         className="bg-orange-600 hover:bg-orange-700"
+                                        disabled={uploadingCampoId === campo.id}
                                       >
-                                        <Upload className="h-4 w-4 mr-2" />
-                                        {campo.enviado ? "Atualizar PDF" : "Enviar PDF"}
+                                        {uploadingCampoId === campo.id ? (
+                                          <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                                        ) : (
+                                          <Upload className="h-4 w-4 mr-2" />
+                                        )}
+                                        {uploadingCampoId === campo.id ? "Enviando..." : campo.enviado ? "Atualizar PDF" : "Enviar PDF"}
                                       </Button>
                                     </>
                                   )}
@@ -1834,7 +1838,7 @@ export default function PortalFornecedor() {
                                   {/* Enviar/Atualizar - apenas quando status é "pendente" */}
                                   {campo.status_solicitacao === "pendente" && (
                                     <>
-                                      <input
+                                       <input
                                         type="file"
                                         accept=".pdf,.PDF,application/pdf"
                                         onChange={(e) => {
@@ -1843,13 +1847,14 @@ export default function PortalFornecedor() {
                                           if (file) {
                                             console.log("📎 Iniciando upload:", file.name, file.size, file.type);
                                             handleUploadDocumentoSelecao(campo.id, file);
-                                            e.target.value = ''; // Reset para permitir reselecionar mesmo arquivo
+                                            e.target.value = '';
                                           } else {
                                             console.log("⚠️ Nenhum arquivo selecionado");
                                           }
                                         }}
                                         className="hidden"
                                         id={`upload-selecao-${campo.id}`}
+                                        disabled={uploadingCampoId === campo.id}
                                       />
                                       <label htmlFor={`upload-selecao-${campo.id}`}>
                                         <Button
@@ -1857,10 +1862,15 @@ export default function PortalFornecedor() {
                                           type="button"
                                           asChild
                                           className="bg-blue-600 hover:bg-blue-700 cursor-pointer"
+                                          disabled={uploadingCampoId === campo.id}
                                         >
                                           <span>
-                                            <Upload className="h-4 w-4 mr-2" />
-                                            {campo.enviado ? "Atualizar PDF" : "Enviar PDF"}
+                                            {uploadingCampoId === campo.id ? (
+                                              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                                            ) : (
+                                              <Upload className="h-4 w-4 mr-2" />
+                                            )}
+                                            {uploadingCampoId === campo.id ? "Enviando..." : campo.enviado ? "Atualizar PDF" : "Enviar PDF"}
                                           </span>
                                         </Button>
                                       </label>
