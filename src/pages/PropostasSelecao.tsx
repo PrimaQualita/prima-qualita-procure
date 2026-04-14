@@ -262,8 +262,7 @@ export default function PropostasSelecao() {
           await loadPropostas();
         }
       } else {
-        // Gerar PDF e atualizar a data de envio para o momento da recriação
-        const novaDataEnvio = new Date().toISOString();
+        // Regenerar PDF mantendo a data de envio original do fornecedor
         const resultado = await gerarPropostaSelecaoPDF(
           propostaId,
           {
@@ -280,7 +279,7 @@ export default function PropostasSelecao() {
           proposta.valor_total_proposta,
           proposta.observacoes_fornecedor,
           selecao?.titulo_selecao || '',
-          novaDataEnvio,
+          proposta.data_envio_proposta,
           undefined,
           processo?.criterio_julgamento,
           [],
@@ -288,12 +287,11 @@ export default function PropostasSelecao() {
           proposta.nome_responsavel_legal || undefined
         );
 
-        // Salvar URL e nova data no banco de dados
+        // Salvar apenas a URL do PDF (manter data de envio original)
         const { error: updateError } = await supabase
           .from('selecao_propostas_fornecedor')
           .update({
             url_pdf_proposta: resultado.url,
-            data_envio_proposta: novaDataEnvio,
           })
           .eq('id', propostaId);
 
@@ -363,8 +361,7 @@ export default function PropostasSelecao() {
           await loadPropostas();
         }
       } else {
-        // Gerar PDF e atualizar a data de envio para o momento da recriação
-        const novaDataEnvio = new Date().toISOString();
+        // Regenerar PDF mantendo a data de envio original do fornecedor
         const resultado = await gerarPropostaSelecaoPDF(
           propostaId,
           {
@@ -381,7 +378,7 @@ export default function PropostasSelecao() {
           proposta.valor_total_proposta,
           proposta.observacoes_fornecedor,
           selecao?.titulo_selecao || '',
-          novaDataEnvio,
+          proposta.data_envio_proposta,
           undefined,
           processo?.criterio_julgamento,
           [],
@@ -389,12 +386,11 @@ export default function PropostasSelecao() {
           proposta.nome_responsavel_legal || undefined
         );
 
-        // Salvar URL e nova data no banco de dados
+        // Salvar apenas a URL do PDF (manter data de envio original)
         const { error: updateError } = await supabase
           .from('selecao_propostas_fornecedor')
           .update({
             url_pdf_proposta: resultado.url,
-            data_envio_proposta: novaDataEnvio,
           })
           .eq('id', propostaId);
 
