@@ -1838,7 +1838,7 @@ export default function PortalFornecedor() {
                                   {/* Enviar/Atualizar - apenas quando status é "pendente" */}
                                   {campo.status_solicitacao === "pendente" && (
                                     <>
-                                      <input
+                                       <input
                                         type="file"
                                         accept=".pdf,.PDF,application/pdf"
                                         onChange={(e) => {
@@ -1847,13 +1847,14 @@ export default function PortalFornecedor() {
                                           if (file) {
                                             console.log("📎 Iniciando upload:", file.name, file.size, file.type);
                                             handleUploadDocumentoSelecao(campo.id, file);
-                                            e.target.value = ''; // Reset para permitir reselecionar mesmo arquivo
+                                            e.target.value = '';
                                           } else {
                                             console.log("⚠️ Nenhum arquivo selecionado");
                                           }
                                         }}
                                         className="hidden"
                                         id={`upload-selecao-${campo.id}`}
+                                        disabled={uploadingCampoId === campo.id}
                                       />
                                       <label htmlFor={`upload-selecao-${campo.id}`}>
                                         <Button
@@ -1861,10 +1862,15 @@ export default function PortalFornecedor() {
                                           type="button"
                                           asChild
                                           className="bg-blue-600 hover:bg-blue-700 cursor-pointer"
+                                          disabled={uploadingCampoId === campo.id}
                                         >
                                           <span>
-                                            <Upload className="h-4 w-4 mr-2" />
-                                            {campo.enviado ? "Atualizar PDF" : "Enviar PDF"}
+                                            {uploadingCampoId === campo.id ? (
+                                              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                                            ) : (
+                                              <Upload className="h-4 w-4 mr-2" />
+                                            )}
+                                            {uploadingCampoId === campo.id ? "Enviando..." : campo.enviado ? "Atualizar PDF" : "Enviar PDF"}
                                           </span>
                                         </Button>
                                       </label>
