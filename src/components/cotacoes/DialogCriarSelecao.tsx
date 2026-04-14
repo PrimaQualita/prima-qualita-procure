@@ -217,6 +217,8 @@ export function DialogCriarSelecao({
       setDescricao("");
       setDataDisputa("");
       setHoraDisputa("09:00");
+      setModoManual(false);
+      setNumeroManual("");
     } catch (error) {
       console.error("Erro ao criar seleção:", error);
       toast.error("Erro ao criar seleção de fornecedores");
