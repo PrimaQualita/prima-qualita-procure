@@ -813,6 +813,7 @@ export default function PortalFornecedor() {
       return;
     }
 
+    setUploadingCampoId(campoId);
     try {
       // Buscar o nome do campo e dados da cotação/processo para auditoria
       const { data: campoData } = await supabase
@@ -941,6 +942,8 @@ export default function PortalFornecedor() {
     } catch (error: any) {
       console.error("❌ Erro ao fazer upload:", error);
       toast.error("Erro ao enviar documento");
+    } finally {
+      setUploadingCampoId(null);
     }
   };
 
@@ -959,6 +962,7 @@ export default function PortalFornecedor() {
       return;
     }
 
+    setUploadingCampoId(campoId);
     try {
       // Buscar o nome do campo e dados da seleção/processo para auditoria
       const { data: campoData } = await supabase
@@ -1103,6 +1107,8 @@ export default function PortalFornecedor() {
     } catch (error: any) {
       console.error("❌ Erro ao fazer upload:", error);
       toast.error("Erro ao enviar documento");
+    } finally {
+      setUploadingCampoId(null);
     }
   };
 
