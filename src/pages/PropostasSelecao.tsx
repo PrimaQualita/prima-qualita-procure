@@ -262,7 +262,8 @@ export default function PropostasSelecao() {
           await loadPropostas();
         }
       } else {
-        // Gerar PDF e salvar URL
+        // Gerar PDF e atualizar a data de envio para o momento da recriação
+        const novaDataEnvio = new Date().toISOString();
         const resultado = await gerarPropostaSelecaoPDF(
           propostaId,
           {
@@ -279,7 +280,7 @@ export default function PropostasSelecao() {
           proposta.valor_total_proposta,
           proposta.observacoes_fornecedor,
           selecao?.titulo_selecao || '',
-          proposta.data_envio_proposta,
+          novaDataEnvio,
           undefined,
           processo?.criterio_julgamento,
           [],
@@ -287,10 +288,13 @@ export default function PropostasSelecao() {
           proposta.nome_responsavel_legal || undefined
         );
 
-        // Salvar URL no banco de dados
+        // Salvar URL e nova data no banco de dados
         const { error: updateError } = await supabase
           .from('selecao_propostas_fornecedor')
-          .update({ url_pdf_proposta: resultado.url })
+          .update({
+            url_pdf_proposta: resultado.url,
+            data_envio_proposta: novaDataEnvio,
+          })
           .eq('id', propostaId);
 
         if (updateError) {
@@ -359,7 +363,8 @@ export default function PropostasSelecao() {
           await loadPropostas();
         }
       } else {
-        // Gerar PDF e salvar URL
+        // Gerar PDF e atualizar a data de envio para o momento da recriação
+        const novaDataEnvio = new Date().toISOString();
         const resultado = await gerarPropostaSelecaoPDF(
           propostaId,
           {
@@ -376,7 +381,7 @@ export default function PropostasSelecao() {
           proposta.valor_total_proposta,
           proposta.observacoes_fornecedor,
           selecao?.titulo_selecao || '',
-          proposta.data_envio_proposta,
+          novaDataEnvio,
           undefined,
           processo?.criterio_julgamento,
           [],
@@ -384,10 +389,13 @@ export default function PropostasSelecao() {
           proposta.nome_responsavel_legal || undefined
         );
 
-        // Salvar URL no banco de dados
+        // Salvar URL e nova data no banco de dados
         const { error: updateError } = await supabase
           .from('selecao_propostas_fornecedor')
-          .update({ url_pdf_proposta: resultado.url })
+          .update({
+            url_pdf_proposta: resultado.url,
+            data_envio_proposta: novaDataEnvio,
+          })
           .eq('id', propostaId);
 
         if (updateError) {
