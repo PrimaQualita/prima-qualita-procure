@@ -1922,6 +1922,50 @@ export default function PortalFornecedor() {
                 </Card>
               )}
 
+              {/* Atas Assinadas */}
+              {atasAssinadas.length > 0 && (
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <FileCheck className="h-5 w-5 text-green-600" />
+                      Atas Assinadas
+                    </CardTitle>
+                    <CardDescription>
+                      Atas de seleções que você assinou digitalmente
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-3">
+                      {atasAssinadas.map((assinatura: any) => (
+                        <div key={assinatura.id} className="flex items-center justify-between p-4 border rounded-lg bg-green-50/50 dark:bg-green-900/10">
+                          <div className="flex-1">
+                            <p className="font-semibold text-sm">
+                              {assinatura.atas_selecao?.selecoes_fornecedores?.numero_selecao || "N/A"} - {assinatura.atas_selecao?.selecoes_fornecedores?.titulo_selecao || "Sem título"}
+                            </p>
+                            <div className="flex flex-wrap gap-3 mt-1 text-xs text-muted-foreground">
+                              <span>
+                                Protocolo: {assinatura.atas_selecao?.protocolo?.substring(0, 16).toUpperCase().replace(/(.{4})/g, '$1-').slice(0, -1)}
+                              </span>
+                              <span>
+                                Assinada em: {assinatura.data_assinatura ? new Date(assinatura.data_assinatura).toLocaleDateString('pt-BR') : "—"}
+                              </span>
+                            </div>
+                          </div>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => window.open(assinatura.atas_selecao?.url_arquivo, "_blank")}
+                          >
+                            <FileText className="h-4 w-4 mr-1" />
+                            Ver Ata
+                          </Button>
+                        </div>
+                      ))}
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+
               {/* Lista de Seleções */}
               <Card>
                 <CardHeader>
