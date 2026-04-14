@@ -240,8 +240,18 @@ export const gerarEncaminhamentoPDF = async (
     .from('processo-anexos')
     .getPublicUrl(storagePath);
   
+  // Gerar link curto
+  let urlFinal = urlData.publicUrl;
+  try {
+    const { gerarLinkCurto } = await import('@/lib/gerarLinkCurto');
+    const linkCurto = await gerarLinkCurto(urlData.publicUrl, nomeArquivo, storagePath, 'processo-anexos');
+    if (linkCurto) urlFinal = linkCurto;
+  } catch (e) {
+    console.warn('Não foi possível gerar link curto para encaminhamento:', e);
+  }
+
   return {
-    url: urlData.publicUrl,
+    url: urlFinal,
     fileName: nomeArquivo,
     protocolo,
     storagePath
