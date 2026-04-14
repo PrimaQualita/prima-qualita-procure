@@ -30,6 +30,7 @@ export default function PortalFornecedor() {
   const [inabilitacoesPendentes, setInabilitacoesPendentes] = useState<any[]>([]);
   const [inabilitacoesSelecaoPendentes, setInabilitacoesSelecaoPendentes] = useState<any[]>([]);
   const [propostasRealinhadasPendentes, setPropostasRealinhadasPendentes] = useState<any[]>([]);
+  const [atasAssinadas, setAtasAssinadas] = useState<any[]>([]);
   const [assinandoAta, setAssinandoAta] = useState<string | null>(null);
   const [dialogConsultarOpen, setDialogConsultarOpen] = useState(false);
   const [cotacaoSelecionada, setCotacaoSelecionada] = useState<string>("");
@@ -205,6 +206,7 @@ export default function PortalFornecedor() {
     await loadDocumentosPendentes(fornecedorData.id);
     await loadDocumentosPendentesSelecao(fornecedorData.id);
     await loadAtasPendentes(fornecedorData.id);
+    await loadAtasAssinadas(fornecedorData.id);
     await loadInabilitacoesPendentes(fornecedorData.id);
     await loadInabilitacoesSelecaoPendentes(fornecedorData.id);
     await loadPropostasRealinhadasPendentes(fornecedorData.id);
@@ -469,6 +471,38 @@ export default function PortalFornecedor() {
       setAtasPendentes(data || []);
     } catch (error) {
       console.error("Erro ao carregar atas pendentes:", error);
+    }
+  };
+
+  const loadAtasAssinadas = async (fornecedorId: string) => {
+    try {
+      const { data, error } = await supabase
+        .from("atas_assinaturas_fornecedor")
+        .select(`
+          id,
+          data_assinatura,
+          status_assinatura,
+          atas_selecao (
+            id,
+            protocolo,
+            nome_arquivo,
+            url_arquivo,
+            data_geracao,
+            selecao_id,
+            selecoes_fornecedores (
+              numero_selecao,
+              titulo_selecao
+            )
+          )
+        `)
+        .eq("fornecedor_id", fornecedorId)
+        .eq("status_assinatura", "aceito")
+        .order("data_assinatura", { ascending: false });
+
+      if (error) throw error;
+      setAtasAssinadas(data || []);
+    } catch (error) {
+      console.error("Erro ao carregar atas assinadas:", error);
     }
   };
 
@@ -780,6 +814,7 @@ export default function PortalFornecedor() {
       toast.success("Ata assinada digitalmente com sucesso!");
       await Promise.all([
         loadAtasPendentes(fornecedor.id),
+        loadAtasAssinadas(fornecedor.id),
         loadPropostasRealinhadasPendentes(fornecedor.id),
       ]);
     } catch (error) {
@@ -1883,6 +1918,50 @@ export default function PortalFornecedor() {
                         </div>
                       </div>
                     ))}
+                  </CardContent>
+                </Card>
+              )}
+
+              {/* Atas Assinadas */}
+              {atasAssinadas.length > 0 && (
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <FileCheck className="h-5 w-5 text-green-600" />
+                      Atas Assinadas
+                    </CardTitle>
+                    <CardDescription>
+                      Atas de seleções que você assinou digitalmente
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-3">
+                      {atasAssinadas.map((assinatura: any) => (
+                        <div key={assinatura.id} className="flex items-center justify-between p-4 border rounded-lg bg-green-50/50 dark:bg-green-900/10">
+                          <div className="flex-1">
+                            <p className="font-semibold text-sm">
+                              {assinatura.atas_selecao?.selecoes_fornecedores?.numero_selecao || "N/A"} - {assinatura.atas_selecao?.selecoes_fornecedores?.titulo_selecao || "Sem título"}
+                            </p>
+                            <div className="flex flex-wrap gap-3 mt-1 text-xs text-muted-foreground">
+                              <span>
+                                Protocolo: {assinatura.atas_selecao?.protocolo?.substring(0, 16).toUpperCase().replace(/(.{4})/g, '$1-').slice(0, -1)}
+                              </span>
+                              <span>
+                                Assinada em: {assinatura.data_assinatura ? new Date(assinatura.data_assinatura).toLocaleDateString('pt-BR') : "—"}
+                              </span>
+                            </div>
+                          </div>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => window.open(assinatura.atas_selecao?.url_arquivo, "_blank")}
+                          >
+                            <FileText className="h-4 w-4 mr-1" />
+                            Ver Ata
+                          </Button>
+                        </div>
+                      ))}
+                    </div>
                   </CardContent>
                 </Card>
               )}
