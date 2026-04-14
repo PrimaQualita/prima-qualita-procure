@@ -1656,14 +1656,20 @@ export default function PortalFornecedor() {
                                         }}
                                         className="hidden"
                                         id={`upload-${campo.id}`}
+                                        disabled={uploadingCampoId === campo.id}
                                       />
                                       <Button
                                         size="sm"
                                         onClick={() => document.getElementById(`upload-${campo.id}`)?.click()}
                                         className="bg-orange-600 hover:bg-orange-700"
+                                        disabled={uploadingCampoId === campo.id}
                                       >
-                                        <Upload className="h-4 w-4 mr-2" />
-                                        {campo.enviado ? "Atualizar PDF" : "Enviar PDF"}
+                                        {uploadingCampoId === campo.id ? (
+                                          <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                                        ) : (
+                                          <Upload className="h-4 w-4 mr-2" />
+                                        )}
+                                        {uploadingCampoId === campo.id ? "Enviando..." : campo.enviado ? "Atualizar PDF" : "Enviar PDF"}
                                       </Button>
                                     </>
                                   )}
