@@ -877,6 +877,14 @@ export default function PortalFornecedor() {
       const contratoGestao = dadosProcesso?.contratos_gestao?.nome_contrato || '';
       const tituloCotacao = campoData?.cotacoes_precos?.titulo_cotacao || '';
       
+      // Buscar documento existente para deletar arquivo antigo do storage após novo upload
+      const { data: docExistente } = await supabase
+        .from('documentos_finalizacao_fornecedor')
+        .select('url_arquivo')
+        .eq('fornecedor_id', fornecedor.id)
+        .eq('campo_documento_id', campoId)
+        .maybeSingle();
+
       console.log("📤 Fazendo upload para storage...");
       const fileExt = file.name.split('.').pop();
       const uniqueId = Math.random().toString(36).slice(2, 10);
@@ -892,6 +900,21 @@ export default function PortalFornecedor() {
       }
 
       console.log("✅ Upload no storage concluído");
+
+      // Deletar arquivo antigo do storage (após sucesso do novo upload)
+      if (docExistente?.url_arquivo) {
+        try {
+          const oldUrl = docExistente.url_arquivo;
+          const match = oldUrl.match(/processo-anexos\/(.+?)(?:\?|$)/);
+          if (match) {
+            const oldPath = decodeURIComponent(match[1]);
+            console.log("🗑️ Deletando arquivo antigo do storage:", oldPath);
+            await supabase.storage.from('processo-anexos').remove([oldPath]);
+          }
+        } catch (delErr) {
+          console.warn("⚠️ Erro ao deletar arquivo antigo (não bloqueante):", delErr);
+        }
+      }
 
       const { data: { publicUrl } } = supabase.storage
         .from('processo-anexos')
@@ -1028,6 +1051,14 @@ export default function PortalFornecedor() {
       const contratoGestao = dadosProcesso?.contratos_gestao?.nome_contrato || '';
       const tituloSelecao = dadosSelecao?.titulo_selecao || dadosSelecao?.numero_selecao || '';
       
+      // Buscar documento existente para deletar arquivo antigo do storage após novo upload
+      const { data: docExistente } = await supabase
+        .from('documentos_finalizacao_fornecedor')
+        .select('url_arquivo')
+        .eq('fornecedor_id', fornecedor.id)
+        .eq('campo_documento_id', campoId)
+        .maybeSingle();
+
       console.log("📤 Fazendo upload para storage...");
       const fileExt = file.name.split('.').pop();
       const uniqueId = Math.random().toString(36).slice(2, 10);
@@ -1043,6 +1074,21 @@ export default function PortalFornecedor() {
       }
 
       console.log("✅ Upload no storage concluído");
+
+      // Deletar arquivo antigo do storage (após sucesso do novo upload)
+      if (docExistente?.url_arquivo) {
+        try {
+          const oldUrl = docExistente.url_arquivo;
+          const match = oldUrl.match(/processo-anexos\/(.+?)(?:\?|$)/);
+          if (match) {
+            const oldPath = decodeURIComponent(match[1]);
+            console.log("🗑️ Deletando arquivo antigo do storage:", oldPath);
+            await supabase.storage.from('processo-anexos').remove([oldPath]);
+          }
+        } catch (delErr) {
+          console.warn("⚠️ Erro ao deletar arquivo antigo (não bloqueante):", delErr);
+        }
+      }
 
       const { data: { publicUrl } } = supabase.storage
         .from('processo-anexos')
