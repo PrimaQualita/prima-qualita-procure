@@ -206,6 +206,7 @@ export default function PortalFornecedor() {
     await loadDocumentosPendentes(fornecedorData.id);
     await loadDocumentosPendentesSelecao(fornecedorData.id);
     await loadAtasPendentes(fornecedorData.id);
+    await loadAtasAssinadas(fornecedorData.id);
     await loadInabilitacoesPendentes(fornecedorData.id);
     await loadInabilitacoesSelecaoPendentes(fornecedorData.id);
     await loadPropostasRealinhadasPendentes(fornecedorData.id);
