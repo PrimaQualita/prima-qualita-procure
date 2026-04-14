@@ -190,12 +190,38 @@ export const gerarPropostaRealinhadaPDF = async (
   const temEndereco = fornecedor.logradouro || fornecedor.endereco_comercial;
   const temLocalidade = fornecedor.municipio || fornecedor.uf;
   
+  // Preparar texto do endereço para calcular quebra de linha
+  let enderecoCompleto = '';
+  if (temEndereco) {
+    if (fornecedor.logradouro) {
+      enderecoCompleto = `${fornecedor.logradouro}${fornecedor.numero ? ', ' + fornecedor.numero : ''}${fornecedor.bairro ? ', ' + fornecedor.bairro : ''}`;
+    } else if (fornecedor.endereco_comercial) {
+      enderecoCompleto = fornecedor.endereco_comercial;
+    }
+  }
+  
+  // Preparar localidade
+  let localidadeTexto = '';
+  if (temLocalidade) {
+    localidadeTexto = `${fornecedor.municipio || ''}${fornecedor.uf ? ' - ' + fornecedor.uf : ''}${fornecedor.cep ? ', CEP: ' + fornecedor.cep : ''}`;
+  }
+  
+  // Calcular largura disponível dentro do box
+  const larguraBoxFornecedor = pageWidth - margin * 2 - 10; // 5mm padding cada lado
+  
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(9);
+  
+  // Calcular linhas do endereço com quebra automática
+  const enderecoLinhas = temEndereco ? doc.splitTextToSize(`Endereço: ${enderecoCompleto}`, larguraBoxFornecedor) : [];
+  const localidadeLinhas = temLocalidade ? doc.splitTextToSize(localidadeTexto, larguraBoxFornecedor) : [];
+  
   // Calcular altura do box baseada nos campos disponíveis
   let alturaBoxFornecedor = 20; // Base para título + razão social + cnpj
   if (fornecedor.email) alturaBoxFornecedor += 6;
-  if (temEndereco) alturaBoxFornecedor += 6;
-  if (temLocalidade) alturaBoxFornecedor += 6;
   if (fornecedor.telefone) alturaBoxFornecedor += 6;
+  if (temEndereco) alturaBoxFornecedor += enderecoLinhas.length * 5;
+  if (temLocalidade) alturaBoxFornecedor += localidadeLinhas.length * 5;
   
   doc.setFillColor(240, 240, 240);
   doc.rect(margin, yPos, pageWidth - margin * 2, alturaBoxFornecedor, 'F');
@@ -226,22 +252,20 @@ export const gerarPropostaRealinhadaPDF = async (
     yFornecedor += 6;
   }
   
-  // Endereço
-  if (temEndereco) {
-    let enderecoCompleto = '';
-    if (fornecedor.logradouro) {
-      enderecoCompleto = `${fornecedor.logradouro}${fornecedor.numero ? ', ' + fornecedor.numero : ''}${fornecedor.bairro ? ', ' + fornecedor.bairro : ''}`;
-    } else if (fornecedor.endereco_comercial) {
-      enderecoCompleto = fornecedor.endereco_comercial;
-    }
-    doc.text(`Endereço: ${enderecoCompleto}`, margin + 5, yFornecedor);
-    yFornecedor += 6;
+  // Endereço com quebra de linha
+  if (temEndereco && enderecoLinhas.length > 0) {
+    enderecoLinhas.forEach((linha: string) => {
+      doc.text(linha, margin + 5, yFornecedor);
+      yFornecedor += 5;
+    });
   }
   
-  // Município/UF/CEP
-  if (temLocalidade) {
-    const localidade = `${fornecedor.municipio || ''}${fornecedor.uf ? ' - ' + fornecedor.uf : ''}${fornecedor.cep ? ', CEP: ' + fornecedor.cep : ''}`;
-    doc.text(localidade, margin + 5, yFornecedor);
+  // Município/UF/CEP com quebra de linha
+  if (temLocalidade && localidadeLinhas.length > 0) {
+    localidadeLinhas.forEach((linha: string) => {
+      doc.text(linha, margin + 5, yFornecedor);
+      yFornecedor += 5;
+    });
   }
   
   yPos += alturaBoxFornecedor + 7;
