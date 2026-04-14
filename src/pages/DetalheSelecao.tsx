@@ -941,13 +941,8 @@ const [itens, setItens] = useState<Item[]>([]);
         throw anexoError;
       }
 
-      // Calcular valor total dos itens vencedores
+      // Valor total será recalculado após identificar vencedores
       let valorTotalFechamento = 0;
-      if (processo?.criterio_julgamento !== "desconto") {
-        itens.forEach(item => {
-          valorTotalFechamento += item.valor_total || 0;
-        });
-      }
 
       // Atualizar status do processo para concluído
       const { error: statusError } = await supabase
