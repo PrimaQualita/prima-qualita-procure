@@ -38,6 +38,8 @@ export function DialogCriarSelecao({
   const [descricao, setDescricao] = useState("");
   const [dataDisputa, setDataDisputa] = useState("");
   const [horaDisputa, setHoraDisputa] = useState("09:00");
+  const [modoManual, setModoManual] = useState(false);
+  const [numeroManual, setNumeroManual] = useState("");
 
   // Carregar título correto baseado nas seleções existentes
   useEffect(() => {
