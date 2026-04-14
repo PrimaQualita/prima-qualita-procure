@@ -247,7 +247,34 @@ export function DialogCriarSelecao({
             />
           </div>
 
-          <div>
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <Label htmlFor="modoManual">Número da Seleção</Label>
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-muted-foreground">
+                  {modoManual ? "Manual" : "Automático"}
+                </span>
+                <Switch
+                  id="modoManual"
+                  checked={modoManual}
+                  onCheckedChange={setModoManual}
+                />
+              </div>
+            </div>
+            {modoManual ? (
+              <Input
+                id="numeroManual"
+                value={numeroManual}
+                onChange={(e) => setNumeroManual(e.target.value)}
+                placeholder="Ex: 001/2025"
+              />
+            ) : (
+              <p className="text-sm text-muted-foreground bg-muted px-3 py-2 rounded-md">
+                O número será gerado automaticamente ao criar a seleção.
+              </p>
+            )}
+          </div>
+
             <Label htmlFor="descricao">Descrição (opcional)</Label>
             <Textarea
               id="descricao"
