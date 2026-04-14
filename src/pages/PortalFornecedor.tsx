@@ -473,6 +473,38 @@ export default function PortalFornecedor() {
     }
   };
 
+  const loadAtasAssinadas = async (fornecedorId: string) => {
+    try {
+      const { data, error } = await supabase
+        .from("atas_assinaturas_fornecedor")
+        .select(`
+          id,
+          data_assinatura,
+          status_assinatura,
+          atas_selecao (
+            id,
+            protocolo,
+            nome_arquivo,
+            url_arquivo,
+            data_geracao,
+            selecao_id,
+            selecoes_fornecedores (
+              numero_selecao,
+              titulo_selecao
+            )
+          )
+        `)
+        .eq("fornecedor_id", fornecedorId)
+        .eq("status_assinatura", "aceito")
+        .order("data_assinatura", { ascending: false });
+
+      if (error) throw error;
+      setAtasAssinadas(data || []);
+    } catch (error) {
+      console.error("Erro ao carregar atas assinadas:", error);
+    }
+  };
+
   const loadInabilitacoesPendentes = async (fornecedorId: string) => {
     try {
       console.log("🔍 Carregando inabilitações pendentes de recurso (cotação)...");
