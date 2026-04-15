@@ -1226,21 +1226,21 @@ export function DialogAnexosProcesso({
         }
       }
 
-      // 9. Add page numbers
+      // 9. Add page numbers (same style as processo completo: top-right, bold, black)
       const totalPages = mergedPdf.getPageCount();
-      const font = await mergedPdf.embedFont(StandardFonts.Helvetica);
+      const fontBold = await mergedPdf.embedFont(StandardFonts.HelveticaBold);
 
       for (let i = 0; i < totalPages; i++) {
         const page = mergedPdf.getPage(i);
-        const { width } = page.getSize();
+        const { width, height } = page.getSize();
         const text = `Página ${i + 1} de ${totalPages}`;
-        const textWidth = font.widthOfTextAtSize(text, 9);
+        const textWidth = fontBold.widthOfTextAtSize(text, 9);
         page.drawText(text, {
           x: width - textWidth - 30,
-          y: 20,
+          y: height - 25,
           size: 9,
-          font,
-          color: rgb(0.4, 0.4, 0.4),
+          font: fontBold,
+          color: rgb(0, 0, 0),
         });
       }
 
