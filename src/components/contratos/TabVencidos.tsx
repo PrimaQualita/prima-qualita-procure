@@ -447,6 +447,7 @@ export function TabVencidos({ contratoGestaoId, contratoGestaoNome, processoComp
                   <TableHead>Objeto</TableHead>
                   <TableHead>Fim Vigência</TableHead>
                   <TableHead>Status</TableHead>
+                  <TableHead className="text-right">Ações</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
