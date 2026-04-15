@@ -3,7 +3,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { AlertCircle, Bell, CheckCircle, FileText, XCircle } from "lucide-react";
+import { AlertCircle, Bell, CheckCircle, FileText, XCircle, FileStack, Loader2 } from "lucide-react";
+import { PDFDocument, StandardFonts, rgb } from "pdf-lib";
 import { toast } from "sonner";
 import { format, differenceInDays } from "date-fns";
 import { toZonedTime } from "date-fns-tz";
@@ -31,6 +32,7 @@ export function TabVencidos({ contratoGestaoId, contratoGestaoNome, processoComp
   // Dialog documentos (aditivos)
   const [dialogDocumentosOpen, setDialogDocumentosOpen] = useState(false);
   const [contratoDocumentos, setContratoDocumentos] = useState<any>(null);
+  const [baixandoDossieId, setBaixandoDossieId] = useState<string | null>(null);
 
   useEffect(() => {
     loadContratos();
@@ -137,6 +139,160 @@ export function TabVencidos({ contratoGestaoId, contratoGestaoNome, processoComp
     return <div className="text-center py-8 text-muted-foreground text-sm">Nenhum contrato vencido</div>;
   }
 
+  const handleBaixarDossieContrato = async (contrato: any) => {
+    try {
+      setBaixandoDossieId(contrato.id);
+
+      interface DocItem {
+        created_at: string;
+        nome: string;
+        url: string | null;
+        storage_path: string | null;
+      }
+
+      const allDocs: DocItem[] = [];
+
+      if (contrato.url_arquivo_principal || contrato.storage_path_arquivo) {
+        allDocs.push({
+          created_at: contrato.created_at,
+          nome: `Contrato ${contrato.codigo_interno}`,
+          url: contrato.url_arquivo_principal,
+          storage_path: contrato.storage_path_arquivo,
+        });
+      }
+
+      const { data: documentosContrato } = await supabase
+        .from("documentos_contrato")
+        .select("id, created_at, url_arquivo, storage_path, nome, tipo")
+        .eq("contrato_terceiro_id", contrato.id);
+
+      if (documentosContrato) {
+        for (const doc of documentosContrato) {
+          if (doc.url_arquivo || doc.storage_path) {
+            allDocs.push({
+              created_at: doc.created_at,
+              nome: doc.nome,
+              url: doc.url_arquivo,
+              storage_path: doc.storage_path,
+            });
+          }
+        }
+      }
+
+      allDocs.sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
+
+      if (allDocs.length === 0) {
+        toast.error("Nenhum arquivo encontrado para este contrato");
+        return;
+      }
+
+      const downloadFile = async (doc: DocItem): Promise<ArrayBuffer | null> => {
+        try {
+          const path = doc.storage_path || doc.url;
+          if (!path) return null;
+
+          let bucket = 'processo-anexos';
+          let filePath = path;
+
+          if (path.startsWith('http')) {
+            if (path.includes('/documents/')) {
+              filePath = path.split('/documents/')[1]?.split('?')[0] || path;
+              bucket = 'documents';
+            } else if (path.includes('/processo-anexos/')) {
+              filePath = path.split('/processo-anexos/')[1]?.split('?')[0] || path;
+              bucket = 'processo-anexos';
+            } else {
+              const resp = await fetch(path);
+              if (!resp.ok) return null;
+              return await resp.arrayBuffer();
+            }
+          }
+
+          const { data, error } = await supabase.storage.from(bucket).download(decodeURIComponent(filePath));
+          if (error || !data) {
+            console.warn(`Não foi possível baixar: ${doc.nome}`, error);
+            return null;
+          }
+          return await data.arrayBuffer();
+        } catch (err) {
+          console.warn(`Erro ao baixar ${doc.nome}:`, err);
+          return null;
+        }
+      };
+
+      toast.info(`Preparando dossiê... Baixando ${allDocs.length} documento(s)`);
+
+      const docBuffers: { nome: string; buffer: ArrayBuffer }[] = [];
+      for (const doc of allDocs) {
+        const buffer = await downloadFile(doc);
+        if (buffer) {
+          docBuffers.push({ nome: doc.nome, buffer });
+        }
+      }
+
+      if (docBuffers.length === 0) {
+        toast.error("Nenhum arquivo pôde ser baixado");
+        return;
+      }
+
+      const mergedPdf = await PDFDocument.create();
+
+      for (const { nome, buffer } of docBuffers) {
+        try {
+          const docPdf = await PDFDocument.load(buffer);
+          const pages = await mergedPdf.copyPages(docPdf, docPdf.getPageIndices());
+          pages.forEach(page => mergedPdf.addPage(page));
+        } catch (err) {
+          console.warn(`Erro ao processar PDF "${nome}", pulando...`, err);
+        }
+      }
+
+      const totalPages = mergedPdf.getPageCount();
+      const fontBold = await mergedPdf.embedFont(StandardFonts.HelveticaBold);
+
+      for (let i = 0; i < totalPages; i++) {
+        const page = mergedPdf.getPage(i);
+        const { width, height } = page.getSize();
+        const text = `Página ${i + 1} de ${totalPages}`;
+        const textWidth = fontBold.widthOfTextAtSize(text, 9);
+        const textX = width - textWidth - 30;
+        const textY = height - 25;
+
+        page.drawRectangle({
+          x: Math.max(textX - 10, width - 170),
+          y: textY - 4,
+          width: Math.min(150, width),
+          height: 16,
+          color: rgb(1, 1, 1),
+        });
+
+        page.drawText(text, {
+          x: textX,
+          y: textY,
+          size: 9,
+          font: fontBold,
+          color: rgb(0, 0, 0),
+        });
+      }
+
+      const pdfBytes = await mergedPdf.save();
+      const blob = new Blob([new Uint8Array(pdfBytes)], { type: "application/pdf" });
+      const blobUrl = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = blobUrl;
+      link.download = `Dossie_Contrato_${contrato.codigo_interno.replace(/\//g, '-')}.pdf`;
+      link.click();
+      setTimeout(() => URL.revokeObjectURL(blobUrl), 100);
+
+      toast.success(`Dossiê baixado! ${totalPages} páginas, ${docBuffers.length} documento(s).`);
+    } catch (error: any) {
+      console.error("Erro ao gerar dossiê:", error);
+      toast.error("Erro ao gerar dossiê: " + error.message);
+    } finally {
+      setBaixandoDossieId(null);
+    }
+  };
+
   const getDiasVencido = (fim: string) => {
     const hoje = toZonedTime(new Date(), "America/Sao_Paulo");
     return Math.abs(differenceInDays(new Date(fim + "T23:59:59-03:00"), hoje));
@@ -194,60 +350,78 @@ export function TabVencidos({ contratoGestaoId, contratoGestaoNome, processoComp
                         </Badge>
                       </TableCell>
                       <TableCell className="text-right space-x-1">
-                        {canEdit && (
-                          <div className="flex flex-wrap gap-1 justify-end">
+                        <div className="flex flex-wrap gap-1 justify-end">
+                          {(c.url_arquivo_principal || c.storage_path_arquivo) && (
                             <Button
                               variant="outline"
                               size="sm"
                               className="text-xs"
-                              onClick={() => {
-                                setContratoDocumentos(c);
-                                setDialogDocumentosOpen(true);
-                              }}
+                              disabled={baixandoDossieId === c.id}
+                              onClick={() => handleBaixarDossieContrato(c)}
                             >
-                              <FileText className="h-3 w-3 mr-1" />
-                              Aditivo
+                              {baixandoDossieId === c.id ? (
+                                <Loader2 className="h-3 w-3 mr-1 animate-spin" />
+                              ) : (
+                                <FileStack className="h-3 w-3 mr-1" />
+                              )}
+                              Dossiê
                             </Button>
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              className="text-xs"
-                              onClick={() => {
-                                setAcaoCiente("encerrado");
-                                setContratoParaCiente(c);
-                                setConfirmCienteOpen(true);
-                              }}
-                            >
-                              <CheckCircle className="h-3 w-3 mr-1" />
-                              Encerrar
-                            </Button>
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              className="text-xs text-destructive border-destructive/30 hover:bg-destructive/10"
-                              onClick={() => {
-                                setAcaoCiente("rescindido");
-                                setContratoParaCiente(c);
-                                setConfirmCienteOpen(true);
-                              }}
-                            >
-                              <XCircle className="h-3 w-3 mr-1" />
-                              Rescindir
-                            </Button>
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              className="text-xs text-muted-foreground"
-                              onClick={() => {
-                                setAcaoCiente("ciente");
-                                setContratoParaCiente(c);
-                                setConfirmCienteOpen(true);
-                              }}
-                            >
-                              Ciente
-                            </Button>
-                          </div>
-                        )}
+                          )}
+                          {canEdit && (
+                            <>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                className="text-xs"
+                                onClick={() => {
+                                  setContratoDocumentos(c);
+                                  setDialogDocumentosOpen(true);
+                                }}
+                              >
+                                <FileText className="h-3 w-3 mr-1" />
+                                Aditivo
+                              </Button>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                className="text-xs"
+                                onClick={() => {
+                                  setAcaoCiente("encerrado");
+                                  setContratoParaCiente(c);
+                                  setConfirmCienteOpen(true);
+                                }}
+                              >
+                                <CheckCircle className="h-3 w-3 mr-1" />
+                                Encerrar
+                              </Button>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                className="text-xs text-destructive border-destructive/30 hover:bg-destructive/10"
+                                onClick={() => {
+                                  setAcaoCiente("rescindido");
+                                  setContratoParaCiente(c);
+                                  setConfirmCienteOpen(true);
+                                }}
+                              >
+                                <XCircle className="h-3 w-3 mr-1" />
+                                Rescindir
+                              </Button>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                className="text-xs text-muted-foreground"
+                                onClick={() => {
+                                  setAcaoCiente("ciente");
+                                  setContratoParaCiente(c);
+                                  setConfirmCienteOpen(true);
+                                }}
+                              >
+                                Ciente
+                              </Button>
+                            </>
+                          )}
+                        </div>
                       </TableCell>
                     </TableRow>
                   );
@@ -273,6 +447,7 @@ export function TabVencidos({ contratoGestaoId, contratoGestaoNome, processoComp
                   <TableHead>Objeto</TableHead>
                   <TableHead>Fim Vigência</TableHead>
                   <TableHead>Status</TableHead>
+                  <TableHead className="text-right">Ações</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -290,6 +465,24 @@ export function TabVencidos({ contratoGestaoId, contratoGestaoNome, processoComp
                         <Badge variant="outline" className="text-xs">
                           <CheckCircle className="h-3 w-3 mr-1" /> {statusLabel}
                         </Badge>
+                      </TableCell>
+                      <TableCell className="text-right">
+                        {(c.url_arquivo_principal || c.storage_path_arquivo) && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="text-xs"
+                            disabled={baixandoDossieId === c.id}
+                            onClick={() => handleBaixarDossieContrato(c)}
+                          >
+                            {baixandoDossieId === c.id ? (
+                              <Loader2 className="h-3 w-3 mr-1 animate-spin" />
+                            ) : (
+                              <FileStack className="h-3 w-3 mr-1" />
+                            )}
+                            Dossiê
+                          </Button>
+                        )}
                       </TableCell>
                     </TableRow>
                   );
