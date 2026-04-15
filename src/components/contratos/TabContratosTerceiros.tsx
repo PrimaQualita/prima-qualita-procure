@@ -130,6 +130,9 @@ export function TabContratosTerceiros({ contratoGestaoId, contratoGestaoNome, pr
 
   // Dialog importar
   const [dialogImportarOpen, setDialogImportarOpen] = useState(false);
+  
+  // Dossiê individual
+  const [baixandoDossieId, setBaixandoDossieId] = useState<string | null>(null);
   useEffect(() => {
     loadContratos();
     loadFornecedores();
