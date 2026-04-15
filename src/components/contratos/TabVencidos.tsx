@@ -32,6 +32,7 @@ export function TabVencidos({ contratoGestaoId, contratoGestaoNome, processoComp
   // Dialog documentos (aditivos)
   const [dialogDocumentosOpen, setDialogDocumentosOpen] = useState(false);
   const [contratoDocumentos, setContratoDocumentos] = useState<any>(null);
+  const [baixandoDossieId, setBaixandoDossieId] = useState<string | null>(null);
 
   useEffect(() => {
     loadContratos();
