@@ -10,7 +10,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Plus, Pencil, Trash2, FileText, Upload, Eye, Download, FileSpreadsheet, MoreVertical } from "lucide-react";
+import { Plus, Pencil, Trash2, FileText, Upload, Eye, Download, FileSpreadsheet, MoreVertical, FileStack, Loader2 } from "lucide-react";
+import { PDFDocument, StandardFonts, rgb } from "pdf-lib";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { DialogImportarContratos } from "./DialogImportarContratos";
 import { toast } from "sonner";
@@ -129,6 +130,9 @@ export function TabContratosTerceiros({ contratoGestaoId, contratoGestaoNome, pr
 
   // Dialog importar
   const [dialogImportarOpen, setDialogImportarOpen] = useState(false);
+  
+  // Dossiê individual
+  const [baixandoDossieId, setBaixandoDossieId] = useState<string | null>(null);
   useEffect(() => {
     loadContratos();
     loadFornecedores();
@@ -483,6 +487,165 @@ export function TabContratosTerceiros({ contratoGestaoId, contratoGestaoNome, pr
     setDialogOpen(true);
   };
 
+  const handleBaixarDossieContrato = async (contrato: ContratoTerceiro) => {
+    try {
+      setBaixandoDossieId(contrato.id);
+
+      // 1. Build list: main contract + all documentos_contrato
+      interface DocItem {
+        created_at: string;
+        nome: string;
+        url: string | null;
+        storage_path: string | null;
+      }
+
+      const allDocs: DocItem[] = [];
+
+      if (contrato.url_arquivo_principal || contrato.storage_path_arquivo) {
+        allDocs.push({
+          created_at: contrato.created_at,
+          nome: `Contrato ${contrato.codigo_interno}`,
+          url: contrato.url_arquivo_principal,
+          storage_path: contrato.storage_path_arquivo,
+        });
+      }
+
+      const { data: documentosContrato } = await supabase
+        .from("documentos_contrato")
+        .select("id, created_at, url_arquivo, storage_path, nome, tipo")
+        .eq("contrato_terceiro_id", contrato.id);
+
+      if (documentosContrato) {
+        for (const doc of documentosContrato) {
+          if (doc.url_arquivo || doc.storage_path) {
+            allDocs.push({
+              created_at: doc.created_at,
+              nome: doc.nome,
+              url: doc.url_arquivo,
+              storage_path: doc.storage_path,
+            });
+          }
+        }
+      }
+
+      allDocs.sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
+
+      if (allDocs.length === 0) {
+        toast.error("Nenhum arquivo encontrado para este contrato");
+        return;
+      }
+
+      // 2. Download all PDFs
+      const downloadFile = async (doc: DocItem): Promise<ArrayBuffer | null> => {
+        try {
+          const path = doc.storage_path || doc.url;
+          if (!path) return null;
+
+          let bucket = 'processo-anexos';
+          let filePath = path;
+
+          if (path.startsWith('http')) {
+            if (path.includes('/documents/')) {
+              filePath = path.split('/documents/')[1]?.split('?')[0] || path;
+              bucket = 'documents';
+            } else if (path.includes('/processo-anexos/')) {
+              filePath = path.split('/processo-anexos/')[1]?.split('?')[0] || path;
+              bucket = 'processo-anexos';
+            } else {
+              const resp = await fetch(path);
+              if (!resp.ok) return null;
+              return await resp.arrayBuffer();
+            }
+          }
+
+          const { data, error } = await supabase.storage.from(bucket).download(decodeURIComponent(filePath));
+          if (error || !data) {
+            console.warn(`Não foi possível baixar: ${doc.nome}`, error);
+            return null;
+          }
+          return await data.arrayBuffer();
+        } catch (err) {
+          console.warn(`Erro ao baixar ${doc.nome}:`, err);
+          return null;
+        }
+      };
+
+      toast.info(`Preparando dossiê... Baixando ${allDocs.length} documento(s)`);
+
+      const docBuffers: { nome: string; buffer: ArrayBuffer }[] = [];
+      for (const doc of allDocs) {
+        const buffer = await downloadFile(doc);
+        if (buffer) {
+          docBuffers.push({ nome: doc.nome, buffer });
+        }
+      }
+
+      if (docBuffers.length === 0) {
+        toast.error("Nenhum arquivo pôde ser baixado");
+        return;
+      }
+
+      // 3. Merge PDFs
+      const mergedPdf = await PDFDocument.create();
+
+      for (const { nome, buffer } of docBuffers) {
+        try {
+          const docPdf = await PDFDocument.load(buffer);
+          const pages = await mergedPdf.copyPages(docPdf, docPdf.getPageIndices());
+          pages.forEach(page => mergedPdf.addPage(page));
+        } catch (err) {
+          console.warn(`Erro ao processar PDF "${nome}", pulando...`, err);
+        }
+      }
+
+      // 4. Unified page numbering (top-right, bold, black)
+      const totalPages = mergedPdf.getPageCount();
+      const fontBold = await mergedPdf.embedFont(StandardFonts.HelveticaBold);
+
+      for (let i = 0; i < totalPages; i++) {
+        const page = mergedPdf.getPage(i);
+        const { width, height } = page.getSize();
+        const text = `Página ${i + 1} de ${totalPages}`;
+        const textWidth = fontBold.widthOfTextAtSize(text, 9);
+        const textX = width - textWidth - 30;
+        const textY = height - 25;
+
+        page.drawRectangle({
+          x: Math.max(textX - 10, width - 170),
+          y: textY - 4,
+          width: Math.min(150, width),
+          height: 16,
+          color: rgb(1, 1, 1),
+        });
+
+        page.drawText(text, {
+          x: textX,
+          y: textY,
+          size: 9,
+          font: fontBold,
+          color: rgb(0, 0, 0),
+        });
+      }
+
+      // 5. Download
+      const pdfBytes = await mergedPdf.save();
+      const blob = new Blob([new Uint8Array(pdfBytes)], { type: "application/pdf" });
+      const blobUrl = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = blobUrl;
+      link.download = `Dossie_Contrato_${contrato.codigo_interno.replace(/\//g, '-')}.pdf`;
+      link.click();
+      setTimeout(() => URL.revokeObjectURL(blobUrl), 100);
+
+      toast.success(`Dossiê baixado! ${totalPages} páginas, ${docBuffers.length} documento(s).`);
+    } catch (error: any) {
+      console.error("Erro ao gerar dossiê:", error);
+      toast.error("Erro ao gerar dossiê: " + error.message);
+    } finally {
+      setBaixandoDossieId(null);
+    }
+  };
+
   // Filtrar contratos rescindidos/encerrados (vão para aba Vencidos/Encerrados)
   const contratosAtivos = contratos.filter(c => c.status !== "rescindido" && c.status !== "encerrado");
 
@@ -586,6 +749,19 @@ export function TabContratosTerceiros({ contratoGestaoId, contratoGestaoNome, pr
                           <DropdownMenuItem onClick={() => window.open(contrato.url_arquivo_principal!, "_blank")}>
                             <Eye className="h-4 w-4 mr-2" />
                             Visualizar Arquivo
+                          </DropdownMenuItem>
+                        )}
+                        {(contrato.url_arquivo_principal || contrato.storage_path_arquivo) && (
+                          <DropdownMenuItem 
+                            onClick={() => handleBaixarDossieContrato(contrato)}
+                            disabled={baixandoDossieId === contrato.id}
+                          >
+                            {baixandoDossieId === contrato.id ? (
+                              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                            ) : (
+                              <FileStack className="h-4 w-4 mr-2" />
+                            )}
+                            {baixandoDossieId === contrato.id ? "Gerando..." : "Baixar Dossiê"}
                           </DropdownMenuItem>
                         )}
                         {canEdit && (
