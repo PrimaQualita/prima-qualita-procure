@@ -466,6 +466,24 @@ export function TabVencidos({ contratoGestaoId, contratoGestaoNome, processoComp
                           <CheckCircle className="h-3 w-3 mr-1" /> {statusLabel}
                         </Badge>
                       </TableCell>
+                      <TableCell className="text-right">
+                        {(c.url_arquivo_principal || c.storage_path_arquivo) && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="text-xs"
+                            disabled={baixandoDossieId === c.id}
+                            onClick={() => handleBaixarDossieContrato(c)}
+                          >
+                            {baixandoDossieId === c.id ? (
+                              <Loader2 className="h-3 w-3 mr-1 animate-spin" />
+                            ) : (
+                              <FileStack className="h-3 w-3 mr-1" />
+                            )}
+                            Dossiê
+                          </Button>
+                        )}
+                      </TableCell>
                     </TableRow>
                   );
                 })}
