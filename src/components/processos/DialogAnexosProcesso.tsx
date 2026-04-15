@@ -1034,7 +1034,239 @@ export function DialogAnexosProcesso({
   };
 
 
-  if (loading) {
+  const handleBaixarDossieContratos = async () => {
+    try {
+      setBaixandoDossie(true);
+
+      // 1. Find the processo completo anexo
+      const processoCompletoAnexo = anexos.find(
+        a => a.tipo_anexo === "PROCESSO_COMPLETO" || a.tipo_anexo === "PROCESSO_COMPLETO_SELECAO"
+      );
+      if (!processoCompletoAnexo) {
+        toast({ title: "Processo completo não encontrado", variant: "destructive" });
+        return;
+      }
+
+      // 2. Download processo completo PDF
+      let processoCompletoPdfBytes: ArrayBuffer | null = null;
+      const url = processoCompletoAnexo.url_arquivo;
+      
+      if (url.startsWith('http')) {
+        // Extract storage path
+        let bucket = 'documents';
+        let filePath = url;
+        if (url.includes('/documents/')) {
+          filePath = url.split('/documents/')[1]?.split('?')[0] || url;
+        } else if (url.includes('/processo-anexos/')) {
+          filePath = url.split('/processo-anexos/')[1]?.split('?')[0] || url;
+          bucket = 'processo-anexos';
+        }
+        const { data, error } = await supabase.storage.from(bucket).download(decodeURIComponent(filePath));
+        if (error || !data) throw new Error("Erro ao baixar processo completo: " + (error?.message || ''));
+        processoCompletoPdfBytes = await data.arrayBuffer();
+      } else {
+        const { data, error } = await supabase.storage.from("processo-anexos").download(url);
+        if (error || !data) throw new Error("Erro ao baixar processo completo: " + (error?.message || ''));
+        processoCompletoPdfBytes = await data.arrayBuffer();
+      }
+
+      // 3. Find linked contracts via processos_para_contratar
+      const { data: ppcRecords } = await supabase
+        .from("processos_para_contratar")
+        .select("id")
+        .eq("processo_compra_id", processoId);
+
+      if (!ppcRecords || ppcRecords.length === 0) {
+        toast({ title: "Nenhum contrato vinculado a este processo", variant: "destructive" });
+        return;
+      }
+
+      const ppcIds = ppcRecords.map(r => r.id);
+
+      // 4. Get contratos_terceiros linked
+      const { data: contratos } = await supabase
+        .from("contratos_terceiros")
+        .select("id, created_at, url_arquivo_principal, storage_path_arquivo, codigo_interno, objeto")
+        .in("processo_para_contratar_id", ppcIds);
+
+      if (!contratos || contratos.length === 0) {
+        toast({ title: "Nenhum contrato formalizado encontrado", variant: "destructive" });
+        return;
+      }
+
+      const contratoIds = contratos.map(c => c.id);
+
+      // 5. Get all documentos_contrato for these contracts
+      const { data: documentosContrato } = await supabase
+        .from("documentos_contrato")
+        .select("id, contrato_terceiro_id, created_at, url_arquivo, storage_path, nome, tipo")
+        .in("contrato_terceiro_id", contratoIds);
+
+      // 6. Build unified chronological list
+      interface DocItem {
+        created_at: string;
+        nome: string;
+        url: string | null;
+        storage_path: string | null;
+        tipo: string;
+      }
+
+      const allDocs: DocItem[] = [];
+
+      // Add main contract files
+      for (const contrato of contratos) {
+        if (contrato.url_arquivo_principal || contrato.storage_path_arquivo) {
+          allDocs.push({
+            created_at: contrato.created_at,
+            nome: `Contrato ${contrato.codigo_interno}`,
+            url: contrato.url_arquivo_principal,
+            storage_path: contrato.storage_path_arquivo,
+            tipo: 'contrato_principal',
+          });
+        }
+      }
+
+      // Add accessory documents (aditivos, apostilamentos, etc)
+      if (documentosContrato) {
+        for (const doc of documentosContrato) {
+          if (doc.url_arquivo || doc.storage_path) {
+            allDocs.push({
+              created_at: doc.created_at,
+              nome: doc.nome,
+              url: doc.url_arquivo,
+              storage_path: doc.storage_path,
+              tipo: doc.tipo,
+            });
+          }
+        }
+      }
+
+      // Sort by created_at ASC
+      allDocs.sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
+
+      if (allDocs.length === 0) {
+        toast({ title: "Nenhum arquivo de contrato encontrado para mesclar", variant: "destructive" });
+        return;
+      }
+
+      // 7. Download all PDFs
+      const downloadFile = async (doc: DocItem): Promise<ArrayBuffer | null> => {
+        try {
+          const path = doc.storage_path || doc.url;
+          if (!path) return null;
+
+          // Determine bucket and file path
+          let bucket = 'documents';
+          let filePath = path;
+
+          if (path.startsWith('http')) {
+            if (path.includes('/documents/')) {
+              filePath = path.split('/documents/')[1]?.split('?')[0] || path;
+            } else if (path.includes('/processo-anexos/')) {
+              filePath = path.split('/processo-anexos/')[1]?.split('?')[0] || path;
+              bucket = 'processo-anexos';
+            } else {
+              // Try direct fetch
+              const resp = await fetch(path);
+              if (!resp.ok) return null;
+              return await resp.arrayBuffer();
+            }
+          }
+
+          const { data, error } = await supabase.storage.from(bucket).download(decodeURIComponent(filePath));
+          if (error || !data) {
+            console.warn(`Não foi possível baixar: ${doc.nome}`, error);
+            return null;
+          }
+          return await data.arrayBuffer();
+        } catch (err) {
+          console.warn(`Erro ao baixar ${doc.nome}:`, err);
+          return null;
+        }
+      };
+
+      toast({ title: "Preparando dossiê...", description: `Baixando ${allDocs.length} documento(s) de contrato...` });
+
+      const docBuffers: { nome: string; buffer: ArrayBuffer }[] = [];
+      for (const doc of allDocs) {
+        const buffer = await downloadFile(doc);
+        if (buffer) {
+          docBuffers.push({ nome: doc.nome, buffer });
+        }
+      }
+
+      if (docBuffers.length === 0) {
+        toast({ title: "Nenhum arquivo de contrato pôde ser baixado", variant: "destructive" });
+        return;
+      }
+
+      // 8. Merge all PDFs
+      const mergedPdf = await PDFDocument.create();
+
+      // Add processo completo
+      try {
+        const processoPdf = await PDFDocument.load(processoCompletoPdfBytes!);
+        const pages = await mergedPdf.copyPages(processoPdf, processoPdf.getPageIndices());
+        pages.forEach(page => mergedPdf.addPage(page));
+      } catch (err) {
+        console.error("Erro ao carregar processo completo:", err);
+        toast({ title: "Erro ao processar PDF do processo completo", variant: "destructive" });
+        return;
+      }
+
+      // Add each contract document
+      for (const { nome, buffer } of docBuffers) {
+        try {
+          const docPdf = await PDFDocument.load(buffer);
+          const pages = await mergedPdf.copyPages(docPdf, docPdf.getPageIndices());
+          pages.forEach(page => mergedPdf.addPage(page));
+        } catch (err) {
+          console.warn(`Erro ao processar PDF "${nome}", pulando...`, err);
+        }
+      }
+
+      // 9. Add page numbers
+      const totalPages = mergedPdf.getPageCount();
+      const font = await mergedPdf.embedFont(StandardFonts.Helvetica);
+
+      for (let i = 0; i < totalPages; i++) {
+        const page = mergedPdf.getPage(i);
+        const { width } = page.getSize();
+        const text = `Página ${i + 1} de ${totalPages}`;
+        const textWidth = font.widthOfTextAtSize(text, 9);
+        page.drawText(text, {
+          x: width - textWidth - 30,
+          y: 20,
+          size: 9,
+          font,
+          color: rgb(0.4, 0.4, 0.4),
+        });
+      }
+
+      // 10. Save and download
+      const pdfBytes = await mergedPdf.save();
+      const blob = new Blob([pdfBytes], { type: "application/pdf" });
+      const blobUrl = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = blobUrl;
+      link.download = `Dossie_Processo_${processoNumero}.pdf`;
+      link.click();
+      setTimeout(() => URL.revokeObjectURL(blobUrl), 100);
+
+      toast({ title: "Dossiê baixado com sucesso!", description: `${totalPages} páginas, incluindo ${docBuffers.length} documento(s) de contrato.` });
+    } catch (error: any) {
+      console.error("Erro ao gerar dossiê:", error);
+      toast({
+        title: "Erro ao gerar dossiê",
+        description: error.message,
+        variant: "destructive",
+      });
+    } finally {
+      setBaixandoDossie(false);
+    }
+  };
+
+
     return (
       <Dialog open={open} onOpenChange={onOpenChange}>
         <DialogContent className="max-w-2xl">
