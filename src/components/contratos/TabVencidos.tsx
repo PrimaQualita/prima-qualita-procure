@@ -350,60 +350,78 @@ export function TabVencidos({ contratoGestaoId, contratoGestaoNome, processoComp
                         </Badge>
                       </TableCell>
                       <TableCell className="text-right space-x-1">
-                        {canEdit && (
-                          <div className="flex flex-wrap gap-1 justify-end">
+                        <div className="flex flex-wrap gap-1 justify-end">
+                          {(c.url_arquivo_principal || c.storage_path_arquivo) && (
                             <Button
                               variant="outline"
                               size="sm"
                               className="text-xs"
-                              onClick={() => {
-                                setContratoDocumentos(c);
-                                setDialogDocumentosOpen(true);
-                              }}
+                              disabled={baixandoDossieId === c.id}
+                              onClick={() => handleBaixarDossieContrato(c)}
                             >
-                              <FileText className="h-3 w-3 mr-1" />
-                              Aditivo
+                              {baixandoDossieId === c.id ? (
+                                <Loader2 className="h-3 w-3 mr-1 animate-spin" />
+                              ) : (
+                                <FileStack className="h-3 w-3 mr-1" />
+                              )}
+                              Dossiê
                             </Button>
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              className="text-xs"
-                              onClick={() => {
-                                setAcaoCiente("encerrado");
-                                setContratoParaCiente(c);
-                                setConfirmCienteOpen(true);
-                              }}
-                            >
-                              <CheckCircle className="h-3 w-3 mr-1" />
-                              Encerrar
-                            </Button>
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              className="text-xs text-destructive border-destructive/30 hover:bg-destructive/10"
-                              onClick={() => {
-                                setAcaoCiente("rescindido");
-                                setContratoParaCiente(c);
-                                setConfirmCienteOpen(true);
-                              }}
-                            >
-                              <XCircle className="h-3 w-3 mr-1" />
-                              Rescindir
-                            </Button>
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              className="text-xs text-muted-foreground"
-                              onClick={() => {
-                                setAcaoCiente("ciente");
-                                setContratoParaCiente(c);
-                                setConfirmCienteOpen(true);
-                              }}
-                            >
-                              Ciente
-                            </Button>
-                          </div>
-                        )}
+                          )}
+                          {canEdit && (
+                            <>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                className="text-xs"
+                                onClick={() => {
+                                  setContratoDocumentos(c);
+                                  setDialogDocumentosOpen(true);
+                                }}
+                              >
+                                <FileText className="h-3 w-3 mr-1" />
+                                Aditivo
+                              </Button>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                className="text-xs"
+                                onClick={() => {
+                                  setAcaoCiente("encerrado");
+                                  setContratoParaCiente(c);
+                                  setConfirmCienteOpen(true);
+                                }}
+                              >
+                                <CheckCircle className="h-3 w-3 mr-1" />
+                                Encerrar
+                              </Button>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                className="text-xs text-destructive border-destructive/30 hover:bg-destructive/10"
+                                onClick={() => {
+                                  setAcaoCiente("rescindido");
+                                  setContratoParaCiente(c);
+                                  setConfirmCienteOpen(true);
+                                }}
+                              >
+                                <XCircle className="h-3 w-3 mr-1" />
+                                Rescindir
+                              </Button>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                className="text-xs text-muted-foreground"
+                                onClick={() => {
+                                  setAcaoCiente("ciente");
+                                  setContratoParaCiente(c);
+                                  setConfirmCienteOpen(true);
+                                }}
+                              >
+                                Ciente
+                              </Button>
+                            </>
+                          )}
+                        </div>
                       </TableCell>
                     </TableRow>
                   );
