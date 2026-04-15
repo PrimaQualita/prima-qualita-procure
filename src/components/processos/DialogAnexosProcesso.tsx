@@ -1156,12 +1156,13 @@ export function DialogAnexosProcesso({
           if (!path) return null;
 
           // Determine bucket and file path
-          let bucket = 'documents';
+          let bucket = 'processo-anexos';
           let filePath = path;
 
           if (path.startsWith('http')) {
             if (path.includes('/documents/')) {
               filePath = path.split('/documents/')[1]?.split('?')[0] || path;
+              bucket = 'documents';
             } else if (path.includes('/processo-anexos/')) {
               filePath = path.split('/processo-anexos/')[1]?.split('?')[0] || path;
               bucket = 'processo-anexos';
