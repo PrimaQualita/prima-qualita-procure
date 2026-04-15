@@ -1204,12 +1204,10 @@ export function DialogAnexosProcesso({
       // 8. Merge all PDFs
       const mergedPdf = await PDFDocument.create();
 
-      // Add processo completo (preserve existing numbering)
-      let processoCompletoPageCount = 0;
+      // Add processo completo
       try {
         const processoPdf = await PDFDocument.load(processoCompletoPdfBytes!);
         const pages = await mergedPdf.copyPages(processoPdf, processoPdf.getPageIndices());
-        processoCompletoPageCount = pages.length;
         pages.forEach(page => mergedPdf.addPage(page));
       } catch (err) {
         console.error("Erro ao carregar processo completo:", err);
@@ -1228,19 +1226,30 @@ export function DialogAnexosProcesso({
         }
       }
 
-      // 9. Add page numbers ONLY to new contract pages (skip processo completo pages)
+      // 9. Replace numbering with a single sequence for the whole dossier
       const totalPages = mergedPdf.getPageCount();
       const fontBold = await mergedPdf.embedFont(StandardFonts.HelveticaBold);
 
-      for (let i = processoCompletoPageCount; i < totalPages; i++) {
+      for (let i = 0; i < totalPages; i++) {
         const page = mergedPdf.getPage(i);
         const { width, height } = page.getSize();
-        const pageNumber = i + 1; // Continue from processo completo numbering
-        const text = `Página ${pageNumber} de ${totalPages}`;
+        const text = `Página ${i + 1} de ${totalPages}`;
         const textWidth = fontBold.widthOfTextAtSize(text, 9);
+        const textX = width - textWidth - 30;
+        const textY = height - 25;
+
+        // Cover previous numbering from the compiled process before applying the unified numbering
+        page.drawRectangle({
+          x: Math.max(textX - 10, width - 170),
+          y: textY - 4,
+          width: Math.min(150, width),
+          height: 16,
+          color: rgb(1, 1, 1),
+        });
+
         page.drawText(text, {
-          x: width - textWidth - 30,
-          y: height - 25,
+          x: textX,
+          y: textY,
           size: 9,
           font: fontBold,
           color: rgb(0, 0, 0),
