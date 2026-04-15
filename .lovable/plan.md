@@ -1,40 +1,56 @@
 
 
-## Problema Identificado
+# Plano: Dossiê Completo com Contratos (Download Direto)
 
-No modo **Comparativo** do BI Controle, o componente `ComparativoKPICard` exibe cada KPI individualmente como `[KPI, Restante]` — por isso aparece "Requisição - Solicitadas vs Restante", "Requisição - Geradas vs Restante", etc. Esse "Restante" é o total do módulo menos o valor do KPI, o que não faz sentido para o módulo **Processo**.
+## Resumo
 
-## Solução
+Adicionar um botão "Baixar Dossiê com Contratos" ao lado do botão de download do Processo Completo no DialogAnexosProcesso. O botão só aparece quando existe um processo finalizado (PROCESSO_COMPLETO ou PROCESSO_COMPLETO_SELECAO).
 
-Para o módulo **Processo** (`documentos_processo`), o modo comparativo deve funcionar de forma diferente dos demais módulos:
+## Comportamento
 
-1. **Agrupamento por categoria**: Os 18 KPIs são agrupados em 6 categorias (Requisição, Aut. Despesa, Aut. Seleção, Aut. Compra Direta, Homologação, Atas), cada uma com 3 métricas (Solicitadas/Geradas/Pendentes).
+1. Busca o PDF do Processo Completo do storage
+2. Busca contratos vinculados ao processo (via `processos_para_contratar` → `contratos_terceiros`)
+3. Busca todos os documentos de cada contrato (`documentos_contrato`) e o arquivo principal do contrato
+4. Ordena **todos** os documentos (contratos principais + aditivos + apostilamentos + rescisões) em ordem cronológica real pelo `created_at` do registro no sistema — sem agrupar por contrato
+5. Mescla: Processo Completo → documentos em ordem cronológica
+6. Numera todas as páginas ("Página X de Y")
+7. Dispara download direto (blob URL), sem salvar no storage
 
-2. **Seleção múltipla de grupos**: O usuário pode marcar mais de um grupo (ex: Requisição + Aut. Despesa) para comparar lado a lado.
+## Ordem de mesclagem
 
-3. **Um gráfico por grupo selecionado**: Cada grupo selecionado gera um card com um único gráfico mostrando as 3 barras (Solicitadas, Geradas, Pendentes) — sem "Restante".
+```text
+[Processo Completo PDF]
+  ↓
+[Documento mais antigo no sistema] (ex: Contrato Empresa A)
+[2º documento] (ex: Contrato Empresa B)
+[3º documento] (ex: Aditivo do Contrato A)
+[4º documento] (ex: Apostilamento do Contrato B)
+... tudo por created_at ASC
+```
 
-4. **Demais módulos inalterados**: Contratos, Compliance, Seleções, etc. continuam com o comportamento atual.
+## Alterações
 
-## Alterações Técnicas
+### `src/components/processos/DialogAnexosProcesso.tsx`
 
-### `src/components/dashboard/DashboardBIOperacional.tsx`
+- Importar `FileStack` (ou ícone similar) do lucide-react
+- Na seção onde renderiza o Processo Completo (linha ~1087, ao lado do botão Download existente), adicionar botão "Baixar Dossiê com Contratos"
+- Estado `baixandoDossie` para loading
+- Função `handleBaixarDossieContratos`:
+  - Baixa o PDF do processo completo via storage
+  - Consulta `processos_para_contratar` pelo `processo_compra_id` para obter os `contrato_terceiro_id`
+  - Consulta `contratos_terceiros` para obter o `arquivo_url` de cada contrato e seu `created_at`
+  - Consulta `documentos_contrato` para obter todos os aditivos/apostilamentos com `arquivo_url` e `created_at`
+  - Junta contratos principais + documentos acessórios em um array único, ordena por `created_at ASC`
+  - Baixa cada PDF do storage
+  - Usa `pdf-lib` (PDFDocument) para mesclar tudo: Processo Completo + documentos cronológicos
+  - Numera páginas com a mesma lógica já existente no projeto
+  - Cria blob URL e dispara download
+- O botão fica desabilitado (com tooltip) se não houver contratos vinculados
 
-- Definir constante com os 6 grupos do módulo Processo:
-  ```
-  GRUPOS_PROCESSO = [
-    { key: "requisicao", title: "Requisição", indices: [0,1,2] },
-    { key: "aut_despesa", title: "Aut. Despesa", indices: [3,4,5] },
-    ...
-  ]
-  ```
+## Detalhes técnicos
 
-- Adicionar estado `gruposProcessoSelecionados: string[]` (default: `["requisicao"]`).
-
-- No bloco comparativo (linha ~700), quando `selectedKey === 'documentos_processo'`:
-  - Renderizar checkboxes para selecionar os grupos (Requisição, Aut. Despesa, etc.)
-  - Para cada grupo selecionado, renderizar um card com gráfico de 3 barras (Solicitadas/Geradas/Pendentes)
-  - Cada card tem seu próprio seletor de tipo de gráfico (barras/pizza/vela/pareto)
-
-- Quando `selectedKey !== 'documentos_processo'`: manter o comportamento atual com `ComparativoKPICard` e "Restante".
+- Buckets: `documents` para processo completo, `documents` para contratos (verificar campo `arquivo_url`)
+- Usa `PDFDocument` do `pdf-lib` já instalado no projeto
+- Reutiliza padrão de numeração de páginas dos PDFs existentes
+- Nenhuma tabela nova ou migration necessária
 
