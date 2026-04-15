@@ -1245,7 +1245,7 @@ export function DialogAnexosProcesso({
 
       // 10. Save and download
       const pdfBytes = await mergedPdf.save();
-      const blob = new Blob([pdfBytes], { type: "application/pdf" });
+      const blob = new Blob([pdfBytes as Uint8Array], { type: "application/pdf" });
       const blobUrl = URL.createObjectURL(blob);
       const link = document.createElement("a");
       link.href = blobUrl;
