@@ -751,6 +751,19 @@ export function TabContratosTerceiros({ contratoGestaoId, contratoGestaoNome, pr
                             Visualizar Arquivo
                           </DropdownMenuItem>
                         )}
+                        {(contrato.url_arquivo_principal || contrato.storage_path_arquivo) && (
+                          <DropdownMenuItem 
+                            onClick={() => handleBaixarDossieContrato(contrato)}
+                            disabled={baixandoDossieId === contrato.id}
+                          >
+                            {baixandoDossieId === contrato.id ? (
+                              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                            ) : (
+                              <FileStack className="h-4 w-4 mr-2" />
+                            )}
+                            {baixandoDossieId === contrato.id ? "Gerando..." : "Baixar Dossiê"}
+                          </DropdownMenuItem>
+                        )}
                         {canEdit && (
                           <>
                             <DropdownMenuSeparator />
