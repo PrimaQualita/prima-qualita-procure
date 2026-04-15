@@ -1324,9 +1324,32 @@ export function DialogAnexosProcesso({
                       size="sm"
                       variant="ghost"
                       onClick={() => handleDownload(anexo)}
+                      title="Baixar processo completo"
                     >
                       <Download className="h-4 w-4" />
                     </Button>
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={handleBaixarDossieContratos}
+                            disabled={baixandoDossie}
+                            title="Baixar dossiê com contratos"
+                          >
+                            {baixandoDossie ? (
+                              <Loader2 className="h-4 w-4 animate-spin" />
+                            ) : (
+                              <FileStack className="h-4 w-4" />
+                            )}
+                          </Button>
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          <p>Baixar Dossiê com Contratos</p>
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
                     {canDeleteAnexo(anexo) && (
                       <Button
                         size="sm"
