@@ -74,6 +74,7 @@ export function DialogAnexosProcesso({
   const [gerandoAutorizacao, setGerandoAutorizacao] = useState(false);
   const [enviandoNotificacao, setEnviandoNotificacao] = useState<string | null>(null);
   const [notificacoesPendentes, setNotificacoesPendentes] = useState<Set<string>>(new Set());
+  const [baixandoDossie, setBaixandoDossie] = useState(false);
 
   // Ref para garantir que operações assíncronas sempre usem o processoId mais recente
   const processoIdRef = useRef(processoId);
