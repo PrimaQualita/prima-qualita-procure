@@ -1,56 +1,24 @@
 
 
-# Plano: Dossiê Completo com Contratos (Download Direto)
+# Plan: Export Complete Database as SQL INSERT Statements
 
-## Resumo
+## What will be done
+A script will query all 70 public tables in the database and generate a complete SQL file with INSERT statements for every row in every table. The output will be a downloadable `.sql` file saved to `/mnt/documents/`.
 
-Adicionar um botão "Baixar Dossiê com Contratos" ao lado do botão de download do Processo Completo no DialogAnexosProcesso. O botão só aparece quando existe um processo finalizado (PROCESSO_COMPLETO ou PROCESSO_COMPLETO_SELECAO).
+## Technical approach
 
-## Comportamento
+1. **Query all 70 tables** using `psql` with `COPY` or by running `SELECT * FROM each_table` and formatting as INSERT statements
+2. **Use `pg_dump` style output** — for each table, generate `INSERT INTO table_name (col1, col2, ...) VALUES (...)` statements with proper escaping of strings, NULLs, UUIDs, timestamps, JSONB, and arrays
+3. **Order tables by dependency** — tables with foreign keys will be exported after their referenced tables to avoid constraint violations during import
+4. **Include a header** with table creation order and row counts for reference
+5. **Output**: Single file `backup_completo_inserts.sql` saved to `/mnt/documents/`
 
-1. Busca o PDF do Processo Completo do storage
-2. Busca contratos vinculados ao processo (via `processos_para_contratar` → `contratos_terceiros`)
-3. Busca todos os documentos de cada contrato (`documentos_contrato`) e o arquivo principal do contrato
-4. Ordena **todos** os documentos (contratos principais + aditivos + apostilamentos + rescisões) em ordem cronológica real pelo `created_at` do registro no sistema — sem agrupar por contrato
-5. Mescla: Processo Completo → documentos em ordem cronológica
-6. Numera todas as páginas ("Página X de Y")
-7. Dispara download direto (blob URL), sem salvar no storage
+## Tables included (all 70)
+All public schema tables including: profiles, fornecedores, processos_compras, cotacoes_precos, selecoes_fornecedores, contratos_gestao, contratos_terceiros, documentos_fornecedor, audit_logs, and 61 others.
 
-## Ordem de mesclagem
-
-```text
-[Processo Completo PDF]
-  ↓
-[Documento mais antigo no sistema] (ex: Contrato Empresa A)
-[2º documento] (ex: Contrato Empresa B)
-[3º documento] (ex: Aditivo do Contrato A)
-[4º documento] (ex: Apostilamento do Contrato B)
-... tudo por created_at ASC
-```
-
-## Alterações
-
-### `src/components/processos/DialogAnexosProcesso.tsx`
-
-- Importar `FileStack` (ou ícone similar) do lucide-react
-- Na seção onde renderiza o Processo Completo (linha ~1087, ao lado do botão Download existente), adicionar botão "Baixar Dossiê com Contratos"
-- Estado `baixandoDossie` para loading
-- Função `handleBaixarDossieContratos`:
-  - Baixa o PDF do processo completo via storage
-  - Consulta `processos_para_contratar` pelo `processo_compra_id` para obter os `contrato_terceiro_id`
-  - Consulta `contratos_terceiros` para obter o `arquivo_url` de cada contrato e seu `created_at`
-  - Consulta `documentos_contrato` para obter todos os aditivos/apostilamentos com `arquivo_url` e `created_at`
-  - Junta contratos principais + documentos acessórios em um array único, ordena por `created_at ASC`
-  - Baixa cada PDF do storage
-  - Usa `pdf-lib` (PDFDocument) para mesclar tudo: Processo Completo + documentos cronológicos
-  - Numera páginas com a mesma lógica já existente no projeto
-  - Cria blob URL e dispara download
-- O botão fica desabilitado (com tooltip) se não houver contratos vinculados
-
-## Detalhes técnicos
-
-- Buckets: `documents` para processo completo, `documents` para contratos (verificar campo `arquivo_url`)
-- Usa `PDFDocument` do `pdf-lib` já instalado no projeto
-- Reutiliza padrão de numeração de páginas dos PDFs existentes
-- Nenhuma tabela nova ou migration necessária
+## Important notes
+- The sandbox DB access is SELECT-only, which is sufficient for export
+- Large tables like `audit_logs` may have many rows — all will be included
+- Binary/bytea data (if any) will be encoded as hex literals
+- The file will NOT include schema (CREATE TABLE) — only data (INSERT). If you also need schema, let me know.
 
