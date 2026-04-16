@@ -318,8 +318,8 @@ export function DashboardBIOperacional({
       const assinatFornecedores = ata.atas_assinaturas_fornecedor || [];
       const totalAssinaturas = assinatUsuarios.length + assinatFornecedores.length;
       if (totalAssinaturas === 0) return false;
-      return assinatUsuarios.every((a: any) => a.status_assinatura === 'assinado') &&
-             assinatFornecedores.every((a: any) => a.status_assinatura === 'assinado');
+      return assinatUsuarios.every((a: any) => a.status_assinatura === 'assinado' || a.status_assinatura === 'aceito') &&
+             assinatFornecedores.every((a: any) => a.status_assinatura === 'assinado' || a.status_assinatura === 'aceito');
     });
     const atasPendentesArr = atasFiltradas.filter(ata => !atasComTodasAssinaturas.includes(ata));
     const atasTotal = atasFiltradas.length;
@@ -334,10 +334,10 @@ export function DashboardBIOperacional({
       const info = getProcessoInfo(pid);
       const pendentes: string[] = [];
       (ata.atas_assinaturas_usuario || []).forEach((a: any) => {
-        if (a.status_assinatura !== 'assinado') pendentes.push(a.profiles?.nome_completo || 'Usuário');
+        if (a.status_assinatura !== 'assinado' && a.status_assinatura !== 'aceito') pendentes.push(a.profiles?.nome_completo || 'Usuário');
       });
       (ata.atas_assinaturas_fornecedor || []).forEach((a: any) => {
-        if (a.status_assinatura !== 'assinado') pendentes.push(a.fornecedores?.razao_social || 'Fornecedor');
+        if (a.status_assinatura !== 'assinado' && a.status_assinatura !== 'aceito') pendentes.push(a.fornecedores?.razao_social || 'Fornecedor');
       });
       return { ...info, pendentesAssinatura: pendentes };
     });
