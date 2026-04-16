@@ -334,10 +334,10 @@ export function DashboardBIOperacional({
       const info = getProcessoInfo(pid);
       const pendentes: string[] = [];
       (ata.atas_assinaturas_usuario || []).forEach((a: any) => {
-        if (a.status_assinatura !== 'assinado') pendentes.push(a.profiles?.nome_completo || 'Usuário');
+        if (a.status_assinatura !== 'assinado' && a.status_assinatura !== 'aceito') pendentes.push(a.profiles?.nome_completo || 'Usuário');
       });
       (ata.atas_assinaturas_fornecedor || []).forEach((a: any) => {
-        if (a.status_assinatura !== 'assinado') pendentes.push(a.fornecedores?.razao_social || 'Fornecedor');
+        if (a.status_assinatura !== 'assinado' && a.status_assinatura !== 'aceito') pendentes.push(a.fornecedores?.razao_social || 'Fornecedor');
       });
       return { ...info, pendentesAssinatura: pendentes };
     });
