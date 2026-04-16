@@ -1,24 +1,20 @@
 
 
-# Plan: Export Complete Database as SQL INSERT Statements
+# Plan: Exportar Lista Completa de Arquivos do Storage
 
-## What will be done
-A script will query all 70 public tables in the database and generate a complete SQL file with INSERT statements for every row in every table. The output will be a downloadable `.sql` file saved to `/mnt/documents/`.
+## O que será feito
+Gerar um arquivo CSV com todos os 577 arquivos dos 3 buckets (avatars, documents, processo-anexos), incluindo a URL pública de download de cada um.
 
-## Technical approach
+## Abordagem técnica
 
-1. **Query all 70 tables** using `psql` with `COPY` or by running `SELECT * FROM each_table` and formatting as INSERT statements
-2. **Use `pg_dump` style output** — for each table, generate `INSERT INTO table_name (col1, col2, ...) VALUES (...)` statements with proper escaping of strings, NULLs, UUIDs, timestamps, JSONB, and arrays
-3. **Order tables by dependency** — tables with foreign keys will be exported after their referenced tables to avoid constraint violations during import
-4. **Include a header** with table creation order and row counts for reference
-5. **Output**: Single file `backup_completo_inserts.sql` saved to `/mnt/documents/`
+1. **Consultar** todos os arquivos via `storage.objects` com campos: bucket, path, tamanho, tipo, data de criação
+2. **Construir URL pública** no formato:
+   ```
+   https://ypkiikefrcpkqmwacjjb.supabase.co/storage/v1/object/public/{bucket}/{path}
+   ```
+3. **Gerar CSV** com colunas: Bucket, Caminho, URL Pública, Tamanho (KB), Tipo, Data de Criação
+4. **Salvar** em `/mnt/documents/lista_arquivos_storage.csv`
 
-## Tables included (all 70)
-All public schema tables including: profiles, fornecedores, processos_compras, cotacoes_precos, selecoes_fornecedores, contratos_gestao, contratos_terceiros, documentos_fornecedor, audit_logs, and 61 others.
-
-## Important notes
-- The sandbox DB access is SELECT-only, which is sufficient for export
-- Large tables like `audit_logs` may have many rows — all will be included
-- Binary/bytea data (if any) will be encoded as hex literals
-- The file will NOT include schema (CREATE TABLE) — only data (INSERT). If you also need schema, let me know.
+## Resultado
+Arquivo CSV para download com todos os 577 arquivos e suas URLs públicas de acesso direto.
 
