@@ -318,8 +318,8 @@ export function DashboardBIOperacional({
       const assinatFornecedores = ata.atas_assinaturas_fornecedor || [];
       const totalAssinaturas = assinatUsuarios.length + assinatFornecedores.length;
       if (totalAssinaturas === 0) return false;
-      return assinatUsuarios.every((a: any) => a.status_assinatura === 'assinado') &&
-             assinatFornecedores.every((a: any) => a.status_assinatura === 'assinado');
+      return assinatUsuarios.every((a: any) => a.status_assinatura === 'assinado' || a.status_assinatura === 'aceito') &&
+             assinatFornecedores.every((a: any) => a.status_assinatura === 'assinado' || a.status_assinatura === 'aceito');
     });
     const atasPendentesArr = atasFiltradas.filter(ata => !atasComTodasAssinaturas.includes(ata));
     const atasTotal = atasFiltradas.length;
