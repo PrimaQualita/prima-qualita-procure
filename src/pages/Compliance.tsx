@@ -569,7 +569,7 @@ export default function Compliance() {
                     <TableBody>
                       {avaliacoesFiltradas.map((avaliacao) => (
                         <TableRow key={avaliacao.id}>
-                          <TableCell className="font-medium">{avaliacao.fornecedor?.razao_social}</TableCell>
+                          <TableCell className="font-medium uppercase">{avaliacao.fornecedor?.razao_social}</TableCell>
                           <TableCell>{avaliacao.fornecedor?.cnpj}</TableCell>
                           <TableCell>{formatarData(avaliacao.data_envio)}</TableCell>
                           <TableCell>
