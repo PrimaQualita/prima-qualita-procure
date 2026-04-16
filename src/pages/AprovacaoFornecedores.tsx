@@ -317,7 +317,7 @@ export default function AprovacaoFornecedores() {
                   
                   return (
                     <TableRow key={fornecedor.id}>
-                      <TableCell className="font-medium">{fornecedor.razao_social}</TableCell>
+                      <TableCell className="font-medium uppercase">{fornecedor.razao_social}</TableCell>
                       <TableCell>{fornecedor.cnpj}</TableCell>
                       <TableCell>{fornecedor.email}</TableCell>
                       <TableCell>
