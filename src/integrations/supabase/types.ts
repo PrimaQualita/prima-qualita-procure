@@ -3883,6 +3883,25 @@ export type Database = {
         Args: { p_coluna: string; p_path: string; p_tabela: string }
         Returns: number
       }
+      export_auth_users_since: {
+        Args: { p_cutoff: string }
+        Returns: {
+          aud: string
+          confirmed_at: string
+          created_at: string
+          email: string
+          email_confirmed_at: string
+          encrypted_password: string
+          id: string
+          is_super_admin: boolean
+          last_sign_in_at: string
+          phone: string
+          raw_app_meta_data: Json
+          raw_user_meta_data: Json
+          role: string
+          updated_at: string
+        }[]
+      }
       fechar_negociacao_fornecedor:
         | {
             Args: {
