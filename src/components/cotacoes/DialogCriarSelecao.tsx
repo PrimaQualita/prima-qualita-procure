@@ -52,13 +52,9 @@ export function DialogCriarSelecao({
         .eq("processo_compra_id", processoId);
       
       const quantidade = selecoesExistentes?.length || 0;
-      const tituloBase = `Seleção de Fornecedores - Processo ${processoNumero}`;
-      
-      if (quantidade > 0) {
-        setTitulo(`${tituloBase} ${numeroRomano(quantidade + 1)}`);
-      } else {
-        setTitulo(tituloBase);
-      }
+      // Pré-visualização do título (o número exato será aplicado ao criar)
+      const sufixo = quantidade > 0 ? ` ${numeroRomano(quantidade + 1)}` : "";
+      setTitulo(`Seleção de Fornecedores${sufixo} - Processo ${processoNumero}`);
     };
     
     carregarTitulo();
