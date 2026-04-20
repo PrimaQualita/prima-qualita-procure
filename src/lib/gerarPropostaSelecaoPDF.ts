@@ -342,7 +342,7 @@ export async function gerarPropostaSelecaoPDF(
     doc.setFontSize(10);
     doc.setFont('helvetica', 'bold');
     doc.setTextColor(0, 0, 0);
-    const tituloLines = doc.splitTextToSize(tituloSelecao, larguraUtil);
+    const tituloLines = doc.splitTextToSize(tituloParaPDF, larguraUtil);
     doc.text(tituloLines, margemEsquerda, y);
     y += tituloLines.length * 5 + 3;
     
