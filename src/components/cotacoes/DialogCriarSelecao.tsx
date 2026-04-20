@@ -162,7 +162,7 @@ export function DialogCriarSelecao({
         .insert({
           processo_compra_id: processoId,
           cotacao_relacionada_id: cotacaoId,
-          titulo_selecao: titulo,
+          titulo_selecao: tituloFinal,
           descricao: descricao || null,
           data_sessao_disputa: dataLocal,
           hora_sessao_disputa: horaDisputa,
@@ -191,7 +191,7 @@ export function DialogCriarSelecao({
           entidade_id: selecao.id,
           detalhes: {
             numero_selecao: numeroSelecao,
-            titulo_selecao: titulo,
+            titulo_selecao: tituloFinal,
             numero_processo: processoNumero,
             contrato_gestao: processoData?.contratos_gestao?.nome_contrato || '',
             data_sessao_disputa: dataLocal,
