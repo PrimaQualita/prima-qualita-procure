@@ -133,13 +133,26 @@ export async function gerarPropostaSelecaoPDF(
     // Verificar se já existe protocolo para esta proposta
     const { data: propostaExistente } = await supabase
       .from('selecao_propostas_fornecedor')
-      .select('protocolo')
+      .select(`
+        protocolo,
+        selecoes_fornecedores (
+          numero_selecao,
+          processos_compras ( numero_processo_interno )
+        )
+      `)
       .eq('id', propostaId)
       .single();
 
     // Gerar ou reutilizar protocolo
     const protocolo = propostaExistente?.protocolo || uuidv4();
     console.log('Protocolo utilizado:', protocolo);
+
+    // Construir título oficial: "Seleção de Fornecedores {numero} - Processo {numero_processo}"
+    const numeroSelecao = (propostaExistente as any)?.selecoes_fornecedores?.numero_selecao || '';
+    const numeroProcesso = (propostaExistente as any)?.selecoes_fornecedores?.processos_compras?.numero_processo_interno || '';
+    const tituloOficial = `Seleção de Fornecedores${numeroSelecao ? ' ' + numeroSelecao : ''}${numeroProcesso ? ' - Processo ' + numeroProcesso : ''}`;
+    // Usar título oficial sempre que conseguirmos montar com o número da seleção
+    const tituloParaPDF = numeroSelecao ? tituloOficial : tituloSelecao;
 
     // Usar itens passados OU buscar do banco de dados
     let itensFormatados: ItemProposta[];
