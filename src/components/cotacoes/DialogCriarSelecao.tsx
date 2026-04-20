@@ -52,13 +52,9 @@ export function DialogCriarSelecao({
         .eq("processo_compra_id", processoId);
       
       const quantidade = selecoesExistentes?.length || 0;
-      const tituloBase = `Seleção de Fornecedores - Processo ${processoNumero}`;
-      
-      if (quantidade > 0) {
-        setTitulo(`${tituloBase} ${numeroRomano(quantidade + 1)}`);
-      } else {
-        setTitulo(tituloBase);
-      }
+      // Pré-visualização do título (o número exato será aplicado ao criar)
+      const sufixo = quantidade > 0 ? ` ${numeroRomano(quantidade + 1)}` : "";
+      setTitulo(`Seleção de Fornecedores${sufixo} - Processo ${processoNumero}`);
     };
     
     carregarTitulo();
@@ -151,15 +147,22 @@ export function DialogCriarSelecao({
         }
       }
 
+      // Aplicar formato padrão de título incluindo o número da seleção
+      // (preserva edições manuais que não sigam o padrão automático)
+      let tituloFinal = titulo;
+      if (/^Seleção de Fornecedores( [IVX]+)? - Processo /.test(titulo)) {
+        tituloFinal = `Seleção de Fornecedores ${numeroSelecao} - Processo ${processoNumero}`;
+      }
+
       // Criar seleção - ajustar data para evitar problema de timezone
       const dataLocal = dataDisputa;
-      
+
       const { data: selecao, error: selecaoError } = await supabase
         .from("selecoes_fornecedores")
         .insert({
           processo_compra_id: processoId,
           cotacao_relacionada_id: cotacaoId,
-          titulo_selecao: titulo,
+          titulo_selecao: tituloFinal,
           descricao: descricao || null,
           data_sessao_disputa: dataLocal,
           hora_sessao_disputa: horaDisputa,
@@ -188,7 +191,7 @@ export function DialogCriarSelecao({
           entidade_id: selecao.id,
           detalhes: {
             numero_selecao: numeroSelecao,
-            titulo_selecao: titulo,
+            titulo_selecao: tituloFinal,
             numero_processo: processoNumero,
             contrato_gestao: processoData?.contratos_gestao?.nome_contrato || '',
             data_sessao_disputa: dataLocal,
