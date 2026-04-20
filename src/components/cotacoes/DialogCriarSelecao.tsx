@@ -147,9 +147,16 @@ export function DialogCriarSelecao({
         }
       }
 
+      // Aplicar formato padrão de título incluindo o número da seleção
+      // (preserva edições manuais que não sigam o padrão automático)
+      let tituloFinal = titulo;
+      if (/^Seleção de Fornecedores( [IVX]+)? - Processo /.test(titulo)) {
+        tituloFinal = `Seleção de Fornecedores ${numeroSelecao} - Processo ${processoNumero}`;
+      }
+
       // Criar seleção - ajustar data para evitar problema de timezone
       const dataLocal = dataDisputa;
-      
+
       const { data: selecao, error: selecaoError } = await supabase
         .from("selecoes_fornecedores")
         .insert({
