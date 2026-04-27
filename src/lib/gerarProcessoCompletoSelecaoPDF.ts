@@ -115,9 +115,36 @@ export const gerarProcessoCompletoSelecaoPDF = async (
             
             console.log(`  Buscando: ${anexo.tipo_anexo} - ${anexo.nome_arquivo}`);
             
+            // Resolver path: pode ser link curto, URL pública ou path direto
+            let storagePath: string = anexo.url_arquivo;
+            const shortMatch = storagePath?.match(/\/d\/([A-Za-z0-9_-]+)$/);
+            if (shortMatch) {
+              const { data: linkData } = await supabase
+                .from('links_curtos')
+                .select('storage_path, url_original')
+                .eq('codigo', shortMatch[1])
+                .maybeSingle();
+              if (linkData?.storage_path) {
+                storagePath = linkData.storage_path;
+              } else if (linkData?.url_original) {
+                storagePath = linkData.url_original;
+              }
+            }
+            if (storagePath?.includes('/storage/v1/object/')) {
+              const m = storagePath.match(/\/processo-anexos\/(.+?)(\?|$)/);
+              if (m) storagePath = m[1].split('?')[0];
+            }
+            try {
+              while (storagePath && storagePath.includes('%')) {
+                const decoded = decodeURIComponent(storagePath);
+                if (decoded === storagePath) break;
+                storagePath = decoded;
+              }
+            } catch {}
+            
             const { data: signedUrlData, error: signedError } = await supabase.storage
               .from('processo-anexos')
-              .createSignedUrl(anexo.url_arquivo, 60);
+              .createSignedUrl(storagePath, 60);
             
             if (signedError || !signedUrlData) {
               console.error(`  ✗ Erro ao gerar URL assinada para ${anexo.nome_arquivo}:`, signedError?.message);
