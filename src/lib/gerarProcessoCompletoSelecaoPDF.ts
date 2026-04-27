@@ -115,9 +115,36 @@ export const gerarProcessoCompletoSelecaoPDF = async (
             
             console.log(`  Buscando: ${anexo.tipo_anexo} - ${anexo.nome_arquivo}`);
             
+            // Resolver path: pode ser link curto, URL pública ou path direto
+            let storagePath: string = anexo.url_arquivo;
+            const shortMatch = storagePath?.match(/\/d\/([A-Za-z0-9_-]+)$/);
+            if (shortMatch) {
+              const { data: linkData } = await supabase
+                .from('links_curtos')
+                .select('storage_path, url_original')
+                .eq('codigo', shortMatch[1])
+                .maybeSingle();
+              if (linkData?.storage_path) {
+                storagePath = linkData.storage_path;
+              } else if (linkData?.url_original) {
+                storagePath = linkData.url_original;
+              }
+            }
+            if (storagePath?.includes('/storage/v1/object/')) {
+              const m = storagePath.match(/\/processo-anexos\/(.+?)(\?|$)/);
+              if (m) storagePath = m[1].split('?')[0];
+            }
+            try {
+              while (storagePath && storagePath.includes('%')) {
+                const decoded = decodeURIComponent(storagePath);
+                if (decoded === storagePath) break;
+                storagePath = decoded;
+              }
+            } catch {}
+            
             const { data: signedUrlData, error: signedError } = await supabase.storage
               .from('processo-anexos')
-              .createSignedUrl(anexo.url_arquivo, 60);
+              .createSignedUrl(storagePath, 60);
             
             if (signedError || !signedUrlData) {
               console.error(`  ✗ Erro ao gerar URL assinada para ${anexo.nome_arquivo}:`, signedError?.message);
@@ -735,21 +762,43 @@ async function mesclarDocumentos(pdfFinal: PDFDocument, documentos: DocumentoOrd
       console.log(`  Processando: ${doc.tipo} - ${doc.nome}`);
       
       let pdfUrl: string;
-      
+      let bucketParaUsar = doc.bucket;
+
+      // Resolver link curto (https://.../d/<codigo>) -> storage_path real
+      const shortLinkMatch = doc.url?.match(/\/d\/([A-Za-z0-9_-]+)$/);
+      if (shortLinkMatch && (!doc.storagePath || doc.storagePath.startsWith('http'))) {
+        try {
+          const codigo = shortLinkMatch[1];
+          const { data: linkData } = await supabase
+            .from('links_curtos')
+            .select('storage_path, bucket_name, url_original')
+            .eq('codigo', codigo)
+            .maybeSingle();
+          if (linkData?.storage_path) {
+            doc.storagePath = linkData.storage_path;
+            bucketParaUsar = (linkData.bucket_name as any) || bucketParaUsar;
+          } else if (linkData?.url_original) {
+            doc.url = linkData.url_original;
+          }
+        } catch (e) {
+          console.warn(`  ⚠ Falha ao resolver link curto para ${doc.nome}:`, e);
+        }
+      }
+
       const isStoragePath = doc.url && !doc.url.startsWith('http');
       
       if (doc.storagePath || isStoragePath) {
         let path = doc.storagePath || doc.url;
         
         if (path?.includes('/storage/v1/object/')) {
-          const bucketMatch = doc.bucket === 'documents' ? 'documents' : 'processo-anexos';
+          const bucketMatch = bucketParaUsar === 'documents' ? 'documents' : 'processo-anexos';
           const regex = new RegExp(`/${bucketMatch}/(.+?)(\\?|$)`);
           const match = path.match(regex);
           if (match) {
             path = match[1].split('?')[0];
           }
-        } else if (path?.startsWith(`${doc.bucket}/`)) {
-          path = path.replace(`${doc.bucket}/`, '');
+        } else if (path?.startsWith(`${bucketParaUsar}/`)) {
+          path = path.replace(`${bucketParaUsar}/`, '');
         }
         
         // Decodificar path para evitar dupla codificação
@@ -762,7 +811,7 @@ async function mesclarDocumentos(pdfFinal: PDFDocument, documentos: DocumentoOrd
         } catch {}
         
         const { data: signedUrlData, error: signedError } = await supabase.storage
-          .from(doc.bucket)
+          .from(bucketParaUsar)
           .createSignedUrl(path, 60);
         
         if (signedError || !signedUrlData) {
