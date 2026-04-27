@@ -61,9 +61,10 @@ export const gerarProcessoCompletoPDF = async (
     // Função para buscar e mesclar documento do storage
     const buscarEMesclarDocumento = async (
       storagePath: string, 
-      bucket: string, 
+      bucketParam: string, 
       nome: string
     ): Promise<boolean> => {
+      let bucket = bucketParam;
       try {
         // Resolver link curto (https://.../d/<codigo>) se for o caso
         let cleanPath = storagePath;
