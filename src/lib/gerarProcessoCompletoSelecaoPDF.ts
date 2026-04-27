@@ -764,14 +764,14 @@ async function mesclarDocumentos(pdfFinal: PDFDocument, documentos: DocumentoOrd
         let path = doc.storagePath || doc.url;
         
         if (path?.includes('/storage/v1/object/')) {
-          const bucketMatch = doc.bucket === 'documents' ? 'documents' : 'processo-anexos';
+          const bucketMatch = bucketParaUsar === 'documents' ? 'documents' : 'processo-anexos';
           const regex = new RegExp(`/${bucketMatch}/(.+?)(\\?|$)`);
           const match = path.match(regex);
           if (match) {
             path = match[1].split('?')[0];
           }
-        } else if (path?.startsWith(`${doc.bucket}/`)) {
-          path = path.replace(`${doc.bucket}/`, '');
+        } else if (path?.startsWith(`${bucketParaUsar}/`)) {
+          path = path.replace(`${bucketParaUsar}/`, '');
         }
         
         // Decodificar path para evitar dupla codificação
@@ -784,7 +784,7 @@ async function mesclarDocumentos(pdfFinal: PDFDocument, documentos: DocumentoOrd
         } catch {}
         
         const { data: signedUrlData, error: signedError } = await supabase.storage
-          .from(doc.bucket)
+          .from(bucketParaUsar)
           .createSignedUrl(path, 60);
         
         if (signedError || !signedUrlData) {
