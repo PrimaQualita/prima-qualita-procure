@@ -735,7 +735,29 @@ async function mesclarDocumentos(pdfFinal: PDFDocument, documentos: DocumentoOrd
       console.log(`  Processando: ${doc.tipo} - ${doc.nome}`);
       
       let pdfUrl: string;
-      
+      let bucketParaUsar = doc.bucket;
+
+      // Resolver link curto (https://.../d/<codigo>) -> storage_path real
+      const shortLinkMatch = doc.url?.match(/\/d\/([A-Za-z0-9_-]+)$/);
+      if (shortLinkMatch && (!doc.storagePath || doc.storagePath.startsWith('http'))) {
+        try {
+          const codigo = shortLinkMatch[1];
+          const { data: linkData } = await supabase
+            .from('links_curtos')
+            .select('storage_path, bucket_name, url_original')
+            .eq('codigo', codigo)
+            .maybeSingle();
+          if (linkData?.storage_path) {
+            doc.storagePath = linkData.storage_path;
+            bucketParaUsar = (linkData.bucket_name as any) || bucketParaUsar;
+          } else if (linkData?.url_original) {
+            doc.url = linkData.url_original;
+          }
+        } catch (e) {
+          console.warn(`  ⚠ Falha ao resolver link curto para ${doc.nome}:`, e);
+        }
+      }
+
       const isStoragePath = doc.url && !doc.url.startsWith('http');
       
       if (doc.storagePath || isStoragePath) {
