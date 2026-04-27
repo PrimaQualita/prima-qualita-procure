@@ -395,12 +395,16 @@ export function DialogAnexosProcesso({
       }
 
       // Delete from database
-      const { error } = await supabase
+      const { data: deletedRows, error } = await supabase
         .from("anexos_processo_compra")
         .delete()
-        .eq("id", anexo.id);
+        .eq("id", anexo.id)
+        .select("id");
 
       if (error) throw error;
+      if (!deletedRows || deletedRows.length === 0) {
+        throw new Error("Nenhum registro foi excluído. Verifique permissões ou se o anexo já foi removido.");
+      }
 
       // Se deletou o processo completo (compra direta ou seleção), apenas voltar status - NÃO deletar documentos individuais
       // (planilha de habilitação, relatório final e autorização devem ser mantidos)
