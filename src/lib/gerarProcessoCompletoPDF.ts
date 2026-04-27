@@ -65,8 +65,22 @@ export const gerarProcessoCompletoPDF = async (
       nome: string
     ): Promise<boolean> => {
       try {
-        // Limpar o path se necessário
+        // Resolver link curto (https://.../d/<codigo>) se for o caso
         let cleanPath = storagePath;
+        const shortMatch = cleanPath?.match(/\/d\/([A-Za-z0-9_-]+)$/);
+        if (shortMatch) {
+          const { data: linkData } = await supabase
+            .from('links_curtos')
+            .select('storage_path, bucket_name, url_original')
+            .eq('codigo', shortMatch[1])
+            .maybeSingle();
+          if (linkData?.storage_path) {
+            cleanPath = linkData.storage_path;
+            if (linkData.bucket_name) bucket = linkData.bucket_name as any;
+          } else if (linkData?.url_original) {
+            cleanPath = linkData.url_original;
+          }
+        }
         if (cleanPath.startsWith(`${bucket}/`)) {
           cleanPath = cleanPath.replace(`${bucket}/`, '');
         }
