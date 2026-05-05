@@ -1038,6 +1038,63 @@ export function DialogAnexosProcesso({
   };
 
 
+  const resolverLinkCurto = async (urlEntrada: string): Promise<{ url: string; bucket: string; storagePath: string } | null> => {
+    // Detecta padrão /d/{codigo}
+    const match = urlEntrada.match(/\/d\/([A-Za-z0-9]+)(?:[/?#]|$)/);
+    if (!match) return null;
+    const codigo = match[1];
+    const { data } = await (supabase as any)
+      .from('links_curtos')
+      .select('url_original, storage_path, bucket_name')
+      .eq('codigo', codigo)
+      .maybeSingle();
+    if (!data) return null;
+    return {
+      url: data.url_original || '',
+      bucket: data.bucket_name || 'documents',
+      storagePath: data.storage_path || '',
+    };
+  };
+
+  const baixarDeUrlOuPath = async (urlOuPath: string): Promise<ArrayBuffer | null> => {
+    let url = urlOuPath;
+    let bucket = 'processo-anexos';
+    let filePath = url;
+
+    // Resolver link curto se aplicável
+    if (url.includes('/d/')) {
+      const resolved = await resolverLinkCurto(url);
+      if (resolved) {
+        if (resolved.storagePath) {
+          const { data, error } = await supabase.storage.from(resolved.bucket).download(resolved.storagePath);
+          if (!error && data) return await data.arrayBuffer();
+        }
+        url = resolved.url || url;
+      }
+    }
+
+    if (url.startsWith('http')) {
+      if (url.includes('/documents/')) {
+        filePath = url.split('/documents/')[1]?.split('?')[0] || url;
+        bucket = 'documents';
+      } else if (url.includes('/processo-anexos/')) {
+        filePath = url.split('/processo-anexos/')[1]?.split('?')[0] || url;
+        bucket = 'processo-anexos';
+      } else {
+        const resp = await fetch(url);
+        if (!resp.ok) return null;
+        return await resp.arrayBuffer();
+      }
+      const { data, error } = await supabase.storage.from(bucket).download(decodeURIComponent(filePath));
+      if (error || !data) return null;
+      return await data.arrayBuffer();
+    } else {
+      const { data, error } = await supabase.storage.from("processo-anexos").download(url);
+      if (error || !data) return null;
+      return await data.arrayBuffer();
+    }
+  };
+
   const handleBaixarDossieContratos = async () => {
     try {
       setBaixandoDossie(true);
@@ -1052,26 +1109,9 @@ export function DialogAnexosProcesso({
       }
 
       // 2. Download processo completo PDF
-      let processoCompletoPdfBytes: ArrayBuffer | null = null;
-      const url = processoCompletoAnexo.url_arquivo;
-      
-      if (url.startsWith('http')) {
-        // Extract storage path
-        let bucket = 'documents';
-        let filePath = url;
-        if (url.includes('/documents/')) {
-          filePath = url.split('/documents/')[1]?.split('?')[0] || url;
-        } else if (url.includes('/processo-anexos/')) {
-          filePath = url.split('/processo-anexos/')[1]?.split('?')[0] || url;
-          bucket = 'processo-anexos';
-        }
-        const { data, error } = await supabase.storage.from(bucket).download(decodeURIComponent(filePath));
-        if (error || !data) throw new Error("Erro ao baixar processo completo: " + (error?.message || ''));
-        processoCompletoPdfBytes = await data.arrayBuffer();
-      } else {
-        const { data, error } = await supabase.storage.from("processo-anexos").download(url);
-        if (error || !data) throw new Error("Erro ao baixar processo completo: " + (error?.message || ''));
-        processoCompletoPdfBytes = await data.arrayBuffer();
+      const processoCompletoPdfBytes = await baixarDeUrlOuPath(processoCompletoAnexo.url_arquivo);
+      if (!processoCompletoPdfBytes) {
+        throw new Error("Erro ao baixar processo completo");
       }
 
       // 3. Find linked contracts via processos_para_contratar
