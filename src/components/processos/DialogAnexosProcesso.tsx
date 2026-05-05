@@ -1198,32 +1198,7 @@ export function DialogAnexosProcesso({
         try {
           const path = doc.storage_path || doc.url;
           if (!path) return null;
-
-          // Determine bucket and file path
-          let bucket = 'processo-anexos';
-          let filePath = path;
-
-          if (path.startsWith('http')) {
-            if (path.includes('/documents/')) {
-              filePath = path.split('/documents/')[1]?.split('?')[0] || path;
-              bucket = 'documents';
-            } else if (path.includes('/processo-anexos/')) {
-              filePath = path.split('/processo-anexos/')[1]?.split('?')[0] || path;
-              bucket = 'processo-anexos';
-            } else {
-              // Try direct fetch
-              const resp = await fetch(path);
-              if (!resp.ok) return null;
-              return await resp.arrayBuffer();
-            }
-          }
-
-          const { data, error } = await supabase.storage.from(bucket).download(decodeURIComponent(filePath));
-          if (error || !data) {
-            console.warn(`Não foi possível baixar: ${doc.nome}`, error);
-            return null;
-          }
-          return await data.arrayBuffer();
+          return await baixarDeUrlOuPath(path);
         } catch (err) {
           console.warn(`Erro ao baixar ${doc.nome}:`, err);
           return null;
