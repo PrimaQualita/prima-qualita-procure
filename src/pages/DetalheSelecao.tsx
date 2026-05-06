@@ -218,6 +218,7 @@ const [itens, setItens] = useState<Item[]>([]);
       .eq("user_id", session.user.id);
 
     const hasUserRole = userRoles?.some(r => ["gestor", "colaborador"].includes(r.role));
+    setIsGestor(!!userRoles?.some(r => r.role === "gestor"));
     const hasProfileEditRole = profile?.compliance || profile?.superintendente_executivo;
 
     if (profile) {
