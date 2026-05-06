@@ -1861,7 +1861,7 @@ const [itens, setItens] = useState<Item[]>([]);
                         >
                           <Eye className="h-4 w-4" />
                         </Button>
-                        {isResponsavelLegal && (
+                        {podeExcluirHomologacao && (
                           <Button
                             size="sm"
                             variant="ghost"
