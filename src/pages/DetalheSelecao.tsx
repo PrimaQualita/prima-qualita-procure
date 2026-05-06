@@ -107,9 +107,11 @@ const [itens, setItens] = useState<Item[]>([]);
   const [enviandoSolicitacao, setEnviandoSolicitacao] = useState(false);
   const [solicitacaoHomologacaoEnviada, setSolicitacaoHomologacaoEnviada] = useState(false);
   const [isResponsavelLegal, setIsResponsavelLegal] = useState(false);
+  const [isGestor, setIsGestor] = useState(false);
   
   // RL pode APENAS visualizar + gerar/excluir homologação
   const canEditSelecao = !isResponsavelLegal;
+  const podeExcluirHomologacao = isResponsavelLegal || isGestor;
   
   // Estado para Processo Completo
   const [gerandoProcessoCompleto, setGerandoProcessoCompleto] = useState(false);
@@ -216,6 +218,7 @@ const [itens, setItens] = useState<Item[]>([]);
       .eq("user_id", session.user.id);
 
     const hasUserRole = userRoles?.some(r => ["gestor", "colaborador"].includes(r.role));
+    setIsGestor(!!userRoles?.some(r => r.role === "gestor"));
     const hasProfileEditRole = profile?.compliance || profile?.superintendente_executivo;
 
     if (profile) {
@@ -1858,7 +1861,7 @@ const [itens, setItens] = useState<Item[]>([]);
                         >
                           <Eye className="h-4 w-4" />
                         </Button>
-                        {isResponsavelLegal && (
+                        {podeExcluirHomologacao && (
                           <Button
                             size="sm"
                             variant="ghost"
