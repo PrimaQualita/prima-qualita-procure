@@ -2729,16 +2729,22 @@ const Cotacoes = () => {
                                       }
                                       
                                       toast.success("Autorização gerada e salva com sucesso");
-                                    } catch (error) {
+                                    } catch (error: any) {
                                       console.error("Erro ao gerar autorização:", error);
-                                      toast.error("Erro ao gerar autorização");
+                                      if (error?.code === '23505') {
+                                        toast.error("Já existe uma autorização gerada para esta cotação");
+                                      } else {
+                                        toast.error("Erro ao gerar autorização");
+                                      }
+                                    } finally {
+                                      setGerandoAutorizacaoSelecao(false);
                                     }
                                   }}
                                   variant="default"
                                   className="w-full"
                                 >
                                   <FileText className="mr-2 h-4 w-4" />
-                                  Gerar Autorização de Seleção
+                                  {gerandoAutorizacaoSelecao ? "Gerando..." : "Gerar Autorização de Seleção"}
                                 </Button>
                               </>
                             ) : (
