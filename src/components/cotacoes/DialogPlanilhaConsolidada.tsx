@@ -312,6 +312,124 @@ export function DialogPlanilhaConsolidada({
     return { media, mediana, menor };
   };
 
+  const baixarExcel = async () => {
+    if (respostas.length === 0) return;
+    if (empresasSelecionadas.size === 0) {
+      toast.error("Selecione ao menos uma empresa");
+      return;
+    }
+    // Validações de critério (mesma lógica de gerarPlanilha)
+    if (tipoVisualizacao === "global" && !calculoGlobal) {
+      toast.error("Selecione o parâmetro de cálculo global");
+      return;
+    }
+    if (tipoVisualizacao === "lote" && criterioJulgamento === "por_lote") {
+      const loteSemCalculo = todosItens.filter((i: any) => i.lote_id).some((i: any) => !calculosPorLote[i.lote_id]);
+      if (loteSemCalculo) {
+        toast.error("Defina o parâmetro de cálculo para todos os lotes");
+        return;
+      }
+    }
+    if (tipoVisualizacao === "item") {
+      const itemSemCalculo = todosItens.some((item: any) => !calculosPorItem[`${item.lote_id || 'sem-lote'}_${item.id}`]);
+      if (itemSemCalculo) {
+        toast.error("Defina o parâmetro de cálculo para todos os itens");
+        return;
+      }
+    }
+
+    try {
+      setLoadingExcel(true);
+      toast.info("📊 Gerando Excel...");
+
+      const { data: cotacaoData } = await supabase
+        .from('cotacoes_precos')
+        .select(`titulo_cotacao, criterio_julgamento, processos_compras!inner (numero_processo_interno, objeto_resumido, criterio_julgamento)`)
+        .eq('id', cotacaoId)
+        .single();
+
+      if (!cotacaoData) throw new Error('Cotação não encontrada');
+
+      const processo = {
+        numero: (cotacaoData as any).processos_compras.numero_processo_interno,
+        objeto: (cotacaoData as any).processos_compras.objeto_resumido,
+      };
+      const cotacao = { titulo_cotacao: cotacaoData.titulo_cotacao };
+      const critJulg = cotacaoData.criterio_julgamento || (cotacaoData as any).processos_compras.criterio_julgamento;
+
+      const respostasFiltradas = respostas.filter(r => empresasSelecionadas.has(r.fornecedor.razao_social));
+      const respostasFormatadas = respostasFiltradas.map(r => ({
+        fornecedor: { razao_social: r.fornecedor.razao_social, cnpj: r.fornecedor.cnpj, email: r.fornecedor.email || '' },
+        itens: r.itens.map(i => ({
+          numero_item: i.numero_item,
+          valor_unitario_ofertado: i.valor_unitario_ofertado,
+          percentual_desconto: i.percentual_desconto,
+          marca: i.marca || undefined,
+          lote_numero: i.lote_numero,
+        })),
+        valor_total: r.valor_total,
+      }));
+      const itensFormatados = todosItens.map(i => ({
+        numero_item: i.numero_item,
+        descricao: i.descricao,
+        quantidade: i.quantidade,
+        unidade: i.unidade,
+        lote_numero: i.numero_lote,
+        lote_descricao: i.descricao_lote,
+      }));
+
+      // Construir critérios por chave composta (mesma lógica do PDF)
+      const criteriosPorChaveComposta: Record<string, 'menor' | 'media' | 'mediana'> = {};
+      todosItens.forEach((item: any) => {
+        let criterio: 'menor' | 'media' | 'mediana' | undefined;
+        const chaveComposta = item.numero_lote ? `${item.numero_lote}_${item.numero_item}` : `0_${item.numero_item}`;
+        if (critJulg === 'global') {
+          criterio = calculoGlobal as any;
+        } else if (critJulg === 'por_lote' && item.lote_id) {
+          criterio = calculosPorLote[item.lote_id] as any;
+        } else {
+          criterio = calculosPorItem[`${item.lote_id || 'sem-lote'}_${item.id}`] as any;
+        }
+        criteriosPorChaveComposta[chaveComposta] = criterio || 'menor';
+      });
+
+      // Reaproveita o cálculo de estimativas do gerador de PDF (gera PDF e descarta o blob)
+      const { estimativas } = await gerarPlanilhaConsolidadaPDF(
+        processo,
+        cotacao,
+        itensFormatados,
+        respostasFormatadas,
+        { protocolo: 'PREVIEW', usuario: { nome_completo: '', cpf: '' } },
+        criteriosPorChaveComposta,
+        critJulg,
+      );
+
+      const blob = await gerarPlanilhaConsolidadaExcel(
+        processo,
+        cotacao,
+        itensFormatados,
+        respostasFormatadas,
+        estimativas,
+        critJulg,
+      );
+
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `Planilha_Consolidada_${processo.numero.replace(/\//g, '-')}_${Date.now()}.xlsx`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      toast.success("Excel gerado com sucesso!");
+    } catch (error: any) {
+      console.error('Erro ao gerar Excel:', error);
+      toast.error("Erro ao gerar Excel", { description: error?.message });
+    } finally {
+      setLoadingExcel(false);
+    }
+  };
+
   const gerarPlanilha = async () => {
     // Validar se todos os parâmetros de cálculo foram selecionados
     if (tipoVisualizacao === "global" && !calculoGlobal) {
