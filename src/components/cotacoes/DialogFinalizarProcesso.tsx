@@ -3210,6 +3210,7 @@ export function DialogFinalizarProcesso({
       toast.error("É necessário gerar o Relatório Final antes da autorização");
       return;
     }
+    if (loading) return;
 
     try {
       setLoading(true);
@@ -3446,9 +3447,14 @@ export function DialogFinalizarProcesso({
 
       toast.success("Autorização gerada com sucesso!");
       await loadAutorizacoes();
-    } catch (error) {
+    } catch (error: any) {
       console.error("Erro ao gerar autorização:", error);
-      toast.error("Erro ao gerar autorização");
+      if (error?.code === '23505') {
+        toast.error("Já existe uma autorização gerada para esta cotação");
+        await loadAutorizacoes();
+      } else {
+        toast.error("Erro ao gerar autorização");
+      }
     } finally {
       setLoading(false);
     }

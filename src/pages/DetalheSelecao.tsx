@@ -1809,14 +1809,20 @@ const [itens, setItens] = useState<Item[]>([]);
               className="w-full mt-4"
               disabled={gerandoHomologacao}
               onClick={async () => {
+                if (gerandoHomologacao) return;
                 setGerandoHomologacao(true);
                 try {
                   await gerarHomologacaoSelecaoPDF(selecaoId!, false);
                   toast.success("Homologação gerada com sucesso!");
                   await loadHomologacoesGeradas();
-                } catch (error) {
+                } catch (error: any) {
                   console.error("Erro ao gerar homologação:", error);
-                  toast.error("Erro ao gerar Homologação");
+                  if (error?.code === '23505') {
+                    toast.error("Já existe uma homologação gerada para esta seleção");
+                    await loadHomologacoesGeradas();
+                  } else {
+                    toast.error("Erro ao gerar Homologação");
+                  }
                 } finally {
                   setGerandoHomologacao(false);
                 }

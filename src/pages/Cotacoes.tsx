@@ -153,6 +153,7 @@ const Cotacoes = () => {
   const [autorizacaoSelecaoUrl, setAutorizacaoSelecaoUrl] = useState('');
   const [autorizacaoDiretaUrl, setAutorizacaoDiretaUrl] = useState('');
   const [autorizacaoSelecaoId, setAutorizacaoSelecaoId] = useState('');
+  const [gerandoAutorizacaoSelecao, setGerandoAutorizacaoSelecao] = useState(false);
   const [autorizacaoDiretaId, setAutorizacaoDiretaId] = useState('');
   const [emailsSalvos, setEmailsSalvos] = useState<Array<{id: string; nome_arquivo: string; url_arquivo: string}>>([]);
   const [anexosProcessoObrigatorios, setAnexosProcessoObrigatorios] = useState<string[]>([]);
@@ -2661,9 +2662,12 @@ const Cotacoes = () => {
                                 <div className="mb-2 p-2 bg-green-50 dark:bg-green-950 border border-green-200 dark:border-green-800 rounded text-xs text-green-700 dark:text-green-300">
                                   ✓ Você tem permissão para gerar Autorização
                                 </div>
-                                <Button
+                                 <Button
+                                  disabled={gerandoAutorizacaoSelecao}
                                   onClick={async () => {
                                     if (!processoSelecionado || !cotacaoSelecionada) return;
+                                    if (gerandoAutorizacaoSelecao) return;
+                                    setGerandoAutorizacaoSelecao(true);
                                     try {
                                       const result = await gerarAutorizacaoSelecao(
                                         processoSelecionado.numero_processo_interno,
@@ -2726,16 +2730,22 @@ const Cotacoes = () => {
                                       }
                                       
                                       toast.success("Autorização gerada e salva com sucesso");
-                                    } catch (error) {
+                                    } catch (error: any) {
                                       console.error("Erro ao gerar autorização:", error);
-                                      toast.error("Erro ao gerar autorização");
+                                      if (error?.code === '23505') {
+                                        toast.error("Já existe uma autorização gerada para esta cotação");
+                                      } else {
+                                        toast.error("Erro ao gerar autorização");
+                                      }
+                                    } finally {
+                                      setGerandoAutorizacaoSelecao(false);
                                     }
                                   }}
                                   variant="default"
                                   className="w-full"
                                 >
                                   <FileText className="mr-2 h-4 w-4" />
-                                  Gerar Autorização de Seleção
+                                  {gerandoAutorizacaoSelecao ? "Gerando..." : "Gerar Autorização de Seleção"}
                                 </Button>
                               </>
                             ) : (
