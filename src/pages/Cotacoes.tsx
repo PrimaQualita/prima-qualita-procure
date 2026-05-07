@@ -2661,9 +2661,12 @@ const Cotacoes = () => {
                                 <div className="mb-2 p-2 bg-green-50 dark:bg-green-950 border border-green-200 dark:border-green-800 rounded text-xs text-green-700 dark:text-green-300">
                                   ✓ Você tem permissão para gerar Autorização
                                 </div>
-                                <Button
+                                 <Button
+                                  disabled={gerandoAutorizacaoSelecao}
                                   onClick={async () => {
                                     if (!processoSelecionado || !cotacaoSelecionada) return;
+                                    if (gerandoAutorizacaoSelecao) return;
+                                    setGerandoAutorizacaoSelecao(true);
                                     try {
                                       const result = await gerarAutorizacaoSelecao(
                                         processoSelecionado.numero_processo_interno,
