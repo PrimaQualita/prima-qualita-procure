@@ -1815,7 +1815,7 @@ export type Database = {
           {
             foreignKeyName: "homologacoes_selecao_selecao_id_fkey"
             columns: ["selecao_id"]
-            isOneToOne: false
+            isOneToOne: true
             referencedRelation: "selecoes_fornecedores"
             referencedColumns: ["id"]
           },
