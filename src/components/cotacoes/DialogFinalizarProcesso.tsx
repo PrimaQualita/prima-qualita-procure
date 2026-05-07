@@ -3210,6 +3210,7 @@ export function DialogFinalizarProcesso({
       toast.error("É necessário gerar o Relatório Final antes da autorização");
       return;
     }
+    if (loading) return;
 
     try {
       setLoading(true);
