@@ -153,6 +153,7 @@ const Cotacoes = () => {
   const [autorizacaoSelecaoUrl, setAutorizacaoSelecaoUrl] = useState('');
   const [autorizacaoDiretaUrl, setAutorizacaoDiretaUrl] = useState('');
   const [autorizacaoSelecaoId, setAutorizacaoSelecaoId] = useState('');
+  const [gerandoAutorizacaoSelecao, setGerandoAutorizacaoSelecao] = useState(false);
   const [autorizacaoDiretaId, setAutorizacaoDiretaId] = useState('');
   const [emailsSalvos, setEmailsSalvos] = useState<Array<{id: string; nome_arquivo: string; url_arquivo: string}>>([]);
   const [anexosProcessoObrigatorios, setAnexosProcessoObrigatorios] = useState<string[]>([]);
