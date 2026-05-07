@@ -1114,7 +1114,15 @@ export function DialogPlanilhaConsolidada({
           <Button variant="outline" onClick={() => onOpenChange(false)}>
             Cancelar
           </Button>
-          <Button onClick={gerarPlanilha} disabled={loading || respostas.length === 0}>
+          <Button
+            variant="outline"
+            onClick={baixarExcel}
+            disabled={loading || loadingExcel || loadingPlanilha || respostas.length === 0}
+          >
+            <FileSpreadsheet className="mr-2 h-4 w-4" />
+            {loadingExcel ? "Gerando..." : "Baixar Excel"}
+          </Button>
+          <Button onClick={gerarPlanilha} disabled={loading || loadingPlanilha || loadingExcel || respostas.length === 0}>
             <FileSpreadsheet className="mr-2 h-4 w-4" />
             Gerar Planilha
           </Button>
