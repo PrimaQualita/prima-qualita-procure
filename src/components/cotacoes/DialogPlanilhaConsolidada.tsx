@@ -62,6 +62,7 @@ export function DialogPlanilhaConsolidada({
   const [respostas, setRespostas] = useState<RespostaConsolidada[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadingPlanilha, setLoadingPlanilha] = useState(false);
+  const [loadingExcel, setLoadingExcel] = useState(false);
   // Usa automaticamente o critério de julgamento da cotação
   const tipoVisualizacao = criterioJulgamento === "por_lote" ? "lote" : criterioJulgamento === "global" ? "global" : "item";
   const [calculosPorItem, setCalculosPorItem] = useState<Record<string, "media" | "mediana" | "menor">>({});
