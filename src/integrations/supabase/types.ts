@@ -3852,6 +3852,7 @@ export type Database = {
       }
     }
     Functions: {
+      _dump_auth_users: { Args: never; Returns: Json[] }
       atualizar_item_proposta_selecao: {
         Args: {
           p_item_id: string
