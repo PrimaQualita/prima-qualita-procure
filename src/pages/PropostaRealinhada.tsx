@@ -573,6 +573,7 @@ const PropostaRealinhada = () => {
       });
     } else {
       // Por item ou desconto - cada lance já é o valor unitário do item
+      const itensComLance = new Set<number>();
       lancesVencedores.forEach((lance: any) => {
         const itemOriginal = itensCotacao.find((i: any) => i.numero_item === lance.numero_item);
         if (itemOriginal) {
@@ -580,7 +581,8 @@ const PropostaRealinhada = () => {
           const valorUnitario = lance.valor_lance;
           const valorTotal = valorUnitario * itemOriginal.quantidade;
           totalGanho += valorTotal;
-          
+          itensComLance.add(Number(lance.numero_item));
+
           const dadosOriginais = buscarDadosOriginaisPorDescricao(itemOriginal.descricao, lance.numero_item);
           itensProcessados.push({
             numero_item: lance.numero_item,
@@ -596,6 +598,98 @@ const PropostaRealinhada = () => {
           });
         }
       });
+
+      // COMPLEMENTO: itens sem lance — vencedor é determinado pela proposta original
+      // (o fornecedor venceu por ser o único/melhor ofertante na proposta inicial).
+      const itensSemLance = itensCotacao.filter(
+        (it: any) => !itensComLance.has(Number(it.numero_item))
+      );
+      if (itensSemLance.length > 0) {
+        // Buscar TODAS as propostas válidas e seus itens para determinar vencedor por item
+        const { data: todasPropostas } = await supabase
+          .from("selecao_propostas_fornecedor")
+          .select("id, fornecedor_id, desclassificado")
+          .eq("selecao_id", selecaoId)
+          .eq("desclassificado", false);
+
+        const propostaIds = (todasPropostas || []).map((p: any) => p.id);
+        const propostaParaFornecedor = new Map<string, string>();
+        (todasPropostas || []).forEach((p: any) =>
+          propostaParaFornecedor.set(String(p.id), String(p.fornecedor_id))
+        );
+
+        // Inabilitações ativas (globais e por item)
+        const { data: inabAtivas } = await supabase
+          .from("fornecedores_inabilitados_selecao")
+          .select("fornecedor_id, itens_afetados")
+          .eq("selecao_id", selecaoId)
+          .eq("revertido", false);
+
+        const inabGlobais = new Set<string>();
+        const inabPorItem = new Map<string, Set<number>>();
+        (inabAtivas || []).forEach((i: any) => {
+          const fid = String(i.fornecedor_id);
+          if (!i.itens_afetados || i.itens_afetados.length === 0) {
+            inabGlobais.add(fid);
+          } else {
+            if (!inabPorItem.has(fid)) inabPorItem.set(fid, new Set());
+            i.itens_afetados.forEach((n: number) =>
+              inabPorItem.get(fid)!.add(Number(n))
+            );
+          }
+        });
+
+        let respostasTodas: any[] = [];
+        if (propostaIds.length > 0) {
+          const { data: rt } = await (supabase as any)
+            .from("selecao_respostas_itens_fornecedor")
+            .select("proposta_id, numero_item, valor_unitario_ofertado, desclassificado")
+            .in("proposta_id", propostaIds);
+          respostasTodas = rt || [];
+        }
+
+        const ehDesconto = criterio === "desconto" || criterio === "maior_percentual_desconto";
+
+        itensSemLance.forEach((itemOriginal: any) => {
+          const numItem = Number(itemOriginal.numero_item);
+          // Coletar ofertas válidas por fornecedor para este item
+          const ofertas: { fornecedorId: string; valor: number }[] = [];
+          respostasTodas.forEach((r: any) => {
+            if (Number(r.numero_item) !== numItem) return;
+            if (r.desclassificado) return;
+            const fid = propostaParaFornecedor.get(String(r.proposta_id));
+            if (!fid) return;
+            if (inabGlobais.has(fid)) return;
+            if (inabPorItem.get(fid)?.has(numItem)) return;
+            const v = Number(r.valor_unitario_ofertado || 0);
+            if (!Number.isFinite(v) || v <= 0) return;
+            ofertas.push({ fornecedorId: fid, valor: v });
+          });
+
+          if (ofertas.length === 0) return;
+          ofertas.sort((a, b) => (ehDesconto ? b.valor - a.valor : a.valor - b.valor));
+          const vencedor = ofertas[0];
+          if (String(vencedor.fornecedorId) !== String(fornecedorData.id)) return;
+
+          const valorUnitario = vencedor.valor;
+          const valorTotal = valorUnitario * itemOriginal.quantidade;
+          totalGanho += valorTotal;
+
+          const dadosOriginais = buscarDadosOriginaisPorDescricao(itemOriginal.descricao, numItem);
+          itensProcessados.push({
+            numero_item: numItem,
+            numero_lote: itemOriginal.lotes_cotacao?.numero_lote,
+            lote_id: itemOriginal.lote_id || null,
+            descricao: itemOriginal.descricao,
+            quantidade: itemOriginal.quantidade,
+            unidade: itemOriginal.unidade,
+            valor_total_ganho: valorTotal,
+            marca: dadosOriginais.marca || itemOriginal.marca || "",
+            valor_unitario_lance: valorUnitario,
+            valor_unitario_proposta_original: dadosOriginais.valorUnitario || valorUnitario,
+          });
+        });
+      }
     }
 
     // Ordenar itens por numero_item em ordem CRESCENTE
