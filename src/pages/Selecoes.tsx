@@ -25,6 +25,7 @@ import { DialogEditarSelecao } from "@/components/selecoes/DialogEditarSelecao";
 import { useCanEdit } from "@/hooks/useUserContext";
 import { registrarAuditoria } from "@/lib/registrarAuditoria";
 import { AnoReferenciaFilter, extrairAnos, filtrarPorAno } from "@/components/AnoReferenciaFilter";
+import { useHasPermission } from "@/hooks/usePermissions";
 
 interface Contrato {
   id: string;
@@ -62,7 +63,11 @@ const Selecoes = () => {
   const [searchParams] = useSearchParams();
   const processoIdParam = searchParams.get("processo");
   const canEdit = useCanEdit();
-  
+  const podeEditarSelecao = useHasPermission("selecoes.editar");
+  const podeExcluirSelecao = useHasPermission("selecoes.excluir");
+  const podeVerSelecoes = useHasPermission("selecoes.visualizar");
+
+
   const [loading, setLoading] = useState(true);
   const [loadingProcessos, setLoadingProcessos] = useState(false);
   const [contratos, setContratos] = useState<Contrato[]>([]);
@@ -651,7 +656,7 @@ const Selecoes = () => {
                         </TableCell>
                         <TableCell className="text-right">
                           <div className="flex gap-2 justify-end">
-                            {canEdit && (
+                            {(canEdit || podeEditarSelecao) && (
                               <Button
                                 variant="outline"
                                 size="sm"
@@ -661,15 +666,15 @@ const Selecoes = () => {
                                 <Pencil className="h-4 w-4" />
                               </Button>
                             )}
-                            <Button 
-                              variant="outline" 
+                            <Button
+                              variant="outline"
                               size="sm"
                               onClick={() => navigate(`/detalhe-selecao?id=${selecao.id}`)}
                             >
                               <ChevronRight className="h-4 w-4 mr-2" />
                               Ver Seleção
                             </Button>
-                            {canEdit && (
+                            {(canEdit || podeExcluirSelecao) && (
                               <Button
                                 variant="outline"
                                 size="sm"

@@ -106,19 +106,6 @@ export default function PerguntasDueDiligence() {
       return;
     }
 
-    const { data: roleData } = await supabase
-      .from("user_roles")
-      .select("role")
-      .eq("user_id", session.user.id)
-      .eq("role", "gestor")
-      .maybeSingle();
-
-    if (!roleData) {
-      toast.error("Acesso negado. Apenas gestores podem acessar esta página.");
-      navigate("/fornecedores");
-      return;
-    }
-
     loadPerguntas();
     loadFornecedores();
     setLoading(false);

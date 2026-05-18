@@ -20,6 +20,10 @@ import { toZonedTime } from "date-fns-tz";
 import { ptBR } from "date-fns/locale";
 import { registrarAuditoria } from "@/lib/registrarAuditoria";
 import { DialogDocumentosContrato } from "./DialogDocumentosContrato";
+import { signedUrlAnexoProcesso, abrirAnexoProcesso } from "@/lib/signedUrlAnexoProcesso";
+import { gerarLinkCurto } from "@/lib/gerarLinkCurto";
+import { resolverStoragePath } from "@/lib/resolverStoragePath";
+import { useHasPermission } from "@/hooks/usePermissions";
 
 // Helpers para formatação de moeda
 const formatCurrency = (value: string): string => {
@@ -90,6 +94,10 @@ interface Props {
 }
 
 export function TabContratosTerceiros({ contratoGestaoId, contratoGestaoNome, processoCompraId, processoCompraIds, canEdit, processoParaContrato, onProcessoContratoUsado }: Props) {
+  const podeCriarTerceiros = useHasPermission("contratos.criar_terceiros");
+  const podeEditarTerceiros = useHasPermission("contratos.editar_terceiros");
+  const podeExcluirTerceiros = useHasPermission("contratos.excluir_terceiros");
+  const podeImportarContratos = useHasPermission("contratos.importar");
   const [contratos, setContratos] = useState<ContratoTerceiro[]>([]);
   const [loading, setLoading] = useState(true);
   const [filtro, setFiltro] = useState("");
@@ -668,16 +676,20 @@ export function TabContratosTerceiros({ contratoGestaoId, contratoGestaoNome, pr
           onChange={(e) => setFiltro(e.target.value)}
           className="flex-1 text-sm"
         />
-        {canEdit && (
+        {(canEdit || podeCriarTerceiros || podeImportarContratos) && (
           <div className="flex gap-2">
-            <Button variant="outline" size="sm" onClick={() => setDialogImportarOpen(true)}>
-              <FileSpreadsheet className="h-4 w-4 mr-1" />
-              Importar Planilha
-            </Button>
-            <Button onClick={abrirDialogCriar} size="sm">
-              <Plus className="h-4 w-4 mr-1" />
-              Novo Contrato
-            </Button>
+            {(canEdit || podeImportarContratos) && (
+              <Button variant="outline" size="sm" onClick={() => setDialogImportarOpen(true)}>
+                <FileSpreadsheet className="h-4 w-4 mr-1" />
+                Importar Planilha
+              </Button>
+            )}
+            {(canEdit || podeCriarTerceiros) && (
+              <Button onClick={abrirDialogCriar} size="sm">
+                <Plus className="h-4 w-4 mr-1" />
+                Novo Contrato
+              </Button>
+            )}
           </div>
         )}
       </div>
@@ -764,17 +776,21 @@ export function TabContratosTerceiros({ contratoGestaoId, contratoGestaoNome, pr
                             {baixandoDossieId === contrato.id ? "Gerando..." : "Baixar Dossiê"}
                           </DropdownMenuItem>
                         )}
-                        {canEdit && (
+                        {(canEdit || podeEditarTerceiros || podeExcluirTerceiros) && (
                           <>
                             <DropdownMenuSeparator />
-                            <DropdownMenuItem onClick={() => abrirDialogEditar(contrato)}>
-                              <Pencil className="h-4 w-4 mr-2" />
-                              Editar
-                            </DropdownMenuItem>
-                            <DropdownMenuItem className="text-destructive focus:text-destructive" onClick={() => { setContratoParaExcluir(contrato); setConfirmDeleteOpen(true); }}>
-                              <Trash2 className="h-4 w-4 mr-2" />
-                              Excluir
-                            </DropdownMenuItem>
+                            {(canEdit || podeEditarTerceiros) && (
+                              <DropdownMenuItem onClick={() => abrirDialogEditar(contrato)}>
+                                <Pencil className="h-4 w-4 mr-2" />
+                                Editar
+                              </DropdownMenuItem>
+                            )}
+                            {(canEdit || podeExcluirTerceiros) && (
+                              <DropdownMenuItem className="text-destructive focus:text-destructive" onClick={() => { setContratoParaExcluir(contrato); setConfirmDeleteOpen(true); }}>
+                                <Trash2 className="h-4 w-4 mr-2" />
+                                Excluir
+                              </DropdownMenuItem>
+                            )}
                           </>
                         )}
                       </DropdownMenuContent>

@@ -8,6 +8,7 @@ import { toast } from "sonner";
 import { format, differenceInDays } from "date-fns";
 import { toZonedTime } from "date-fns-tz";
 import { DialogDocumentosContrato } from "./DialogDocumentosContrato";
+import { useHasPermission } from "@/hooks/usePermissions";
 
 interface Props {
   contratoGestaoId: string;
@@ -16,6 +17,7 @@ interface Props {
 }
 
 export function TabAVencer({ contratoGestaoId, processoCompraIds, canEdit }: Props) {
+  const podeEditarDocumento = useHasPermission("contratos.editar_documento");
   const [contratos, setContratos] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [dialogDocumentosOpen, setDialogDocumentosOpen] = useState(false);
@@ -127,7 +129,7 @@ export function TabAVencer({ contratoGestaoId, processoCompraIds, canEdit }: Pro
               <TableHead>Objeto</TableHead>
               <TableHead>Fim Vigência</TableHead>
               <TableHead>Dias Restantes</TableHead>
-              {canEdit && <TableHead className="text-right">Ações</TableHead>}
+              {(canEdit || podeEditarDocumento) && <TableHead className="text-right">Ações</TableHead>}
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -150,7 +152,7 @@ export function TabAVencer({ contratoGestaoId, processoCompraIds, canEdit }: Pro
                       )}
                     </Badge>
                   </TableCell>
-                  {canEdit && (
+                  {(canEdit || podeEditarDocumento) && (
                     <TableCell className="text-right">
                       <Button
                         variant="outline"
@@ -180,7 +182,7 @@ export function TabAVencer({ contratoGestaoId, processoCompraIds, canEdit }: Pro
           onOpenChange={setDialogDocumentosOpen}
           contratoTerceiro={contratoDocumentos}
           contratoGestaoNome=""
-          canEdit={canEdit || false}
+          canEdit={canEdit || podeEditarDocumento}
           onContratoAtualizado={loadContratos}
         />
       )}

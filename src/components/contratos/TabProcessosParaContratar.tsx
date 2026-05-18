@@ -16,6 +16,7 @@ import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { registrarAuditoria } from "@/lib/registrarAuditoria";
 import { stripHtml } from "@/lib/htmlUtils";
+import { useHasPermission } from "@/hooks/usePermissions";
 
 interface ProcessoParaContratar {
   id: string;
@@ -87,6 +88,11 @@ export function TabProcessosParaContratar({ contratoGestaoId, contratoGestaoNome
   // Confirm delete
   const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
   const [processoParaExcluir, setProcessoParaExcluir] = useState<ProcessoParaContratar | null>(null);
+
+  const podeExcluirProcessoParaContratar = useHasPermission("contratos.excluir_processo_para_contratar");
+  const podeAlterarStatusProcessoParaContratar = useHasPermission("contratos.alterar_status_processo_para_contratar");
+  const podeCriarTerceiros = useHasPermission("contratos.criar_terceiros");
+
 
   useEffect(() => {
     loadProcessos();
@@ -290,7 +296,7 @@ export function TabProcessosParaContratar({ contratoGestaoId, contratoGestaoNome
                     <TableCell className="text-right">
                       <div className="flex items-center justify-end gap-1">
                         {/* Criar Contrato - botão principal */}
-                        {canEdit && (processo.status === "pronto_para_contratar" || processo.status === "em_contratacao") && onCriarContrato && (
+                        {(canEdit || podeCriarTerceiros) && (processo.status === "pronto_para_contratar" || processo.status === "em_contratacao") && onCriarContrato && (
                           <Button
                             variant="default"
                             size="sm"
@@ -319,14 +325,16 @@ export function TabProcessosParaContratar({ contratoGestaoId, contratoGestaoNome
                                 Dossiê
                               </DropdownMenuItem>
                             )}
-                            {canEdit && (
+                            {(canEdit || podeAlterarStatusProcessoParaContratar || podeExcluirProcessoParaContratar) && (
                               <>
                                 <DropdownMenuSeparator />
-                                <DropdownMenuItem onClick={() => { setProcessoSelecionado(processo); setNovoStatus(""); setMotivoCancelamento(""); setDialogStatusOpen(true); }}>
-                                  <Pencil className="h-3.5 w-3.5 mr-2" />
-                                  Alterar Status
-                                </DropdownMenuItem>
-                                {(processo.status === "pronto_para_contratar" || processo.status === "em_contratacao") && (
+                                {(canEdit || podeAlterarStatusProcessoParaContratar) && (
+                                  <DropdownMenuItem onClick={() => { setProcessoSelecionado(processo); setNovoStatus(""); setMotivoCancelamento(""); setDialogStatusOpen(true); }}>
+                                    <Pencil className="h-3.5 w-3.5 mr-2" />
+                                    Alterar Status
+                                  </DropdownMenuItem>
+                                )}
+                                {(canEdit || podeAlterarStatusProcessoParaContratar) && (processo.status === "pronto_para_contratar" || processo.status === "em_contratacao") && (
                                   <DropdownMenuItem onClick={() => { setProcessoSelecionado(processo); setNovoStatus("ignorado"); setMotivoCancelamento(""); setDialogStatusOpen(true); }}>
                                     <Ban className="h-3.5 w-3.5 mr-2" />
                                     Ignorar

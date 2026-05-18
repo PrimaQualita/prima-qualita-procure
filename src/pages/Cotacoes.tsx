@@ -28,6 +28,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import DOMPurify from "dompurify";
 import { gerarAutorizacaoCompraDireta, gerarAutorizacaoSelecao } from "@/lib/gerarAutorizacaoPDF";
 import { useCanEdit, useUserContext } from "@/hooks/useUserContext";
+import { useHasPermission } from "@/hooks/usePermissions";
 import { registrarAuditoria } from "@/lib/registrarAuditoria";
 import { compararAlteracoes } from "@/lib/compararAlteracoes";
 import { AnoReferenciaFilter, extrairAnos, filtrarPorAno } from "@/components/AnoReferenciaFilter";
@@ -98,7 +99,9 @@ const Cotacoes = () => {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const canEdit = useCanEdit();
-  
+  const podeEditarCotacao = useHasPermission("cotacoes.editar");
+  const podeEditarLotes = useHasPermission("cotacoes.editar_lotes");
+
   // Começa como false se já temos cache
   const [loading, setLoading] = useState(!contratosLoaded);
   const [loadingProcessos, setLoadingProcessos] = useState(false);
@@ -2369,9 +2372,9 @@ const Cotacoes = () => {
                         Incluir Preços Públicos
                       </Button>
                     )}
-                    {canEdit && (
+                    {(canEdit || podeEditarCotacao) && (
                       <>
-                        <Button 
+                        <Button
                           variant="default"
                           onClick={() => setDialogEnviarOpen(true)}
                           disabled={itens.length === 0}
@@ -2468,7 +2471,7 @@ const Cotacoes = () => {
                         </div>
                       )}
                       
-                      {canEdit && (
+                      {(canEdit || podeEditarCotacao) && (
                         <div className="flex items-center gap-2">
                           <Input
                             id="emails-fornecedores-upload"
@@ -2496,7 +2499,7 @@ const Cotacoes = () => {
                         <Checkbox
                           id="requer_selecao"
                           checked={processoSelecionado?.requer_selecao === true}
-                          disabled={!canEdit}
+                          disabled={!(canEdit || podeEditarCotacao)}
                           onCheckedChange={(checked) => {
                             if (checked) {
                               handleUpdateRequerSelecao(true);
@@ -2508,12 +2511,12 @@ const Cotacoes = () => {
                           Requer Seleção de Fornecedores (Acima R$ 20.000,00)
                         </label>
                       </div>
-                      
+
                       <div className="flex items-center space-x-2">
                         <Checkbox
                           id="nao_requer_selecao"
                           checked={processoSelecionado?.requer_selecao === false}
-                          disabled={!canEdit}
+                          disabled={!(canEdit || podeEditarCotacao)}
                           onCheckedChange={(checked) => {
                             if (checked) {
                               handleUpdateRequerSelecao(false);
@@ -2790,7 +2793,7 @@ const Cotacoes = () => {
                   <div className="mb-6">
                     <div className="flex items-center justify-between mb-4">
                       <h3 className="text-lg font-semibold">Lotes</h3>
-                      {!isResponsavelLegal && (
+                      {!isResponsavelLegal && (canEdit || podeEditarLotes) && (
                         <Button size="sm" onClick={() => {
                           setLoteEditando(null);
                           setDialogLoteOpen(true);

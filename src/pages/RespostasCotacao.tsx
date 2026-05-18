@@ -30,6 +30,7 @@ import { DialogPlanilhaConsolidada } from "@/components/cotacoes/DialogPlanilhaC
 import { v4 as uuidv4 } from 'uuid';
 import logoHorizontal from "@/assets/prima-qualita-logo-horizontal.png";
 import { registrarAuditoria } from "@/lib/registrarAuditoria";
+import { useHasPermission } from "@/hooks/usePermissions";
 
 interface ItemResposta {
   numero_item: number;
@@ -104,6 +105,19 @@ export default function RespostasCotacao() {
   const [isResponsavelLegal, setIsResponsavelLegal] = useState(false);
   const [canEdit, setCanEdit] = useState(false);
   const [permissionsLoaded, setPermissionsLoaded] = useState(false);
+
+  // Gates granulares
+  const podeGerarPlanilhaConsolidada = useHasPermission("cotacoes.gerar_planilha_consolidada");
+  const podeExportarExcelCotacao = useHasPermission("cotacoes.exportar_excel");
+  const podeConsultarProposta = useHasPermission("cotacoes.consultar_proposta");
+  const podeEmitirEncaminhamento = useHasPermission("encaminhamento.emitir");
+  const podeExcluirEncaminhamento = useHasPermission("encaminhamento.excluir");
+  const podeExcluirPropostaCotacao = useHasPermission("cotacoes.excluir_proposta");
+  const podeExcluirAnaliseCompliance = useHasPermission("compliance.excluir_analise");
+  const podeRegenerarPropostaCotacao = useHasPermission("cotacoes.regenerar_proposta");
+  const podeExcluirRespostaFornecedor = useHasPermission("cotacoes.excluir_resposta_fornecedor");
+  const podeExcluirPlanilhaConsolidada = useHasPermission("cotacoes.excluir_planilha_consolidada");
+  const podeEditarCotacao = useHasPermission("cotacoes.editar");
 
   // Definir funções auxiliares ANTES do useEffect
   const loadAnaliseCompliance = async () => {
@@ -1346,7 +1360,7 @@ export default function RespostasCotacao() {
                                 >
                                   <Download className="h-4 w-4" />
                                 </Button>
-                                {canEdit && (
+                                {(canEdit || podeExcluirPropostaCotacao) && (
                                   <Button
                                     variant="ghost"
                                     size="sm"
@@ -1418,7 +1432,7 @@ export default function RespostasCotacao() {
                                   </DropdownMenuItem>
                                 </DropdownMenuContent>
                               </DropdownMenu>
-                              {canEdit && (
+                              {(canEdit || podeEditarCotacao) && (
                                 <Button
                                   variant="ghost"
                                   size="sm"
@@ -1430,7 +1444,7 @@ export default function RespostasCotacao() {
                                   <Mail className="h-4 w-4 text-blue-600" />
                                 </Button>
                               )}
-                              {canEdit && (
+                              {(canEdit || podeExcluirPropostaCotacao) && (
                                 <Button
                                   variant="ghost"
                                   size="sm"
@@ -1469,7 +1483,7 @@ export default function RespostasCotacao() {
                               ) : (
                                 <span className="text-sm text-muted-foreground">Sem proposta</span>
                               )}
-                              {canEdit && (
+                              {(canEdit || podeExcluirRespostaFornecedor) && (
                                 <Button
                                   variant="destructive"
                                   size="sm"
@@ -1545,7 +1559,7 @@ export default function RespostasCotacao() {
                         <Download className="mr-2 h-4 w-4" />
                         Baixar
                       </Button>
-                      {canEdit && (
+                      {(canEdit || podeExcluirPlanilhaConsolidada) && (
                         <Button
                           variant="destructive"
                           size="sm"
@@ -1627,7 +1641,7 @@ export default function RespostasCotacao() {
                           <Download className="mr-2 h-4 w-4" />
                           Baixar
                         </Button>
-                        {canEdit && (
+                        {(canEdit || podeExcluirEncaminhamento) && (
                           <Button
                             variant="destructive"
                             size="sm"
@@ -1646,7 +1660,7 @@ export default function RespostasCotacao() {
               )}
 
               {/* Botão Gerar Encaminhamento */}
-              {canEdit && planilhasAnteriores.length > 0 && (
+              {(canEdit || podeEmitirEncaminhamento) && planilhasAnteriores.length > 0 && (
                 <Button
                   onClick={gerarEncaminhamento}
                   disabled={gerandoEncaminhamento}
@@ -1803,7 +1817,7 @@ export default function RespostasCotacao() {
                           <Download className="mr-2 h-4 w-4" />
                           Baixar
                         </Button>
-                        {canEdit && (
+                        {(canEdit || podeExcluirAnaliseCompliance) && (
                           <Button
                             variant="destructive"
                             size="sm"

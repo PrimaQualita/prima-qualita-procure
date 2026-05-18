@@ -12,9 +12,11 @@ import { DialogHabilitacao } from "@/components/storage/DialogHabilitacao";
 import { DialogRecursos } from "@/components/storage/DialogRecursos";
 import { DialogDocumentosAntigos } from "@/components/storage/DialogDocumentosAntigos";
 import { useCanEdit } from "@/hooks/useUserContext";
+import { useHasPermission } from "@/hooks/usePermissions";
 
 export default function GestaoStorage() {
   const canEdit = useCanEdit();
+  const podeExcluirReferenciasOrfas = useHasPermission("storage.excluir_referencias_orfas");
   const [analisando, setAnalisando] = useState(false);
   const [resultado, setResultado] = useState<any>(null);
   const [limpando, setLimpando] = useState(false);
@@ -714,11 +716,11 @@ export default function GestaoStorage() {
                         Registros no banco que apontam para arquivos que NÃO existem mais no storage (foram deletados)
                       </p>
                     </div>
-                    {resultado.totalReferenciasOrfas > 0 && (
+                    {resultado.totalReferenciasOrfas > 0 && (canEdit || podeExcluirReferenciasOrfas) && (
                       <Button
                         variant="destructive"
                         onClick={limparReferencias}
-                        disabled={limpando || !canEdit}
+                        disabled={limpando || (!canEdit && !podeExcluirReferenciasOrfas)}
                       >
                         {limpando ? (
                           <Loader2 className="h-4 w-4 animate-spin" />

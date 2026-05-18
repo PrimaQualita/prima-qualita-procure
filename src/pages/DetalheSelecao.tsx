@@ -31,6 +31,7 @@ import { gerarEncaminhamentoContabilidadePDF, gerarProtocoloContabilidade } from
 import { registrarAuditoria } from "@/lib/registrarAuditoria";
 import { carregarFornecedoresVencedoresAtuaisSelecao } from "@/lib/selecaoVencedoresAtuais";
 import { sincronizarProcessosParaContratarAposFinalizacao } from "@/lib/sincronizarProcessosParaContratar";
+import { useHasPermission } from "@/hooks/usePermissions";
 
 interface Item {
   id: string;
@@ -106,13 +107,32 @@ const [itens, setItens] = useState<Item[]>([]);
   const [responsavelSelecionado, setResponsavelSelecionado] = useState<string>("");
   const [enviandoSolicitacao, setEnviandoSolicitacao] = useState(false);
   const [solicitacaoHomologacaoEnviada, setSolicitacaoHomologacaoEnviada] = useState(false);
+  // Gates vindos 100% das permissões granulares.
+  const podeGerarHomologacao = useHasPermission("homologacao.gerar");
+  const podeExcluirHomologacao = useHasPermission("homologacao.excluir");
+  const podeEditarSelecao = useHasPermission("selecoes.editar");
+  const canEditSelecao = podeEditarSelecao;
+  // Gates granulares adicionais
+  const podeExcluirSelecao = useHasPermission("selecoes.excluir");
+  const podeSolicitarHomologacao = useHasPermission("homologacao.solicitar");
+  const podeGerarAta = useHasPermission("selecoes.gerar_ata");
+  const podeGerarAtaNegociacao = useHasPermission("selecoes.gerar_ata_negociacao");
+  const podeGerarPlanilhaLances = useHasPermission("selecoes.gerar_planilha_lances");
+  const podeGerarPlanilhaHabilitacao = useHasPermission("selecoes.gerar_planilha_habilitacao");
+  const podeReabrirNegociacao = useHasPermission("selecoes.reabrir_negociacao");
+  const podeVisualizarSelecao = useHasPermission("selecoes.visualizar");
+  const podeEmitirContabilidade = useHasPermission("encaminhamento_contabilidade.emitir");
+  const podeExcluirContabilidade = useHasPermission("encaminhamento_contabilidade.excluir");
+  const podeGerarRelatorioFinal = useHasPermission("relatorios.gerar_final");
+  const podeRegenerarAta = useHasPermission("selecoes.regenerar_ata");
+  const podeExcluirAta = useHasPermission("selecoes.excluir_ata");
+  const podeAtualizarAtaAssinaturas = useHasPermission("selecoes.atualizar_ata_assinaturas");
+  const podeExcluirAnexoSelecao = useHasPermission("selecoes.excluir_anexo");
+  const podeAnalisarDocumental = useHasPermission("selecoes.analisar_documental");
+  const podeEnviarAtaAssinatura = useHasPermission("selecoes.enviar_ata_assinatura");
   const [isResponsavelLegal, setIsResponsavelLegal] = useState(false);
   const [isGestor, setIsGestor] = useState(false);
-  
-  // RL pode APENAS visualizar + gerar/excluir homologação
-  const canEditSelecao = !isResponsavelLegal;
-  const podeExcluirHomologacao = isResponsavelLegal || isGestor;
-  
+
   // Estado para Processo Completo
   const [gerandoProcessoCompleto, setGerandoProcessoCompleto] = useState(false);
   const [processoCompletoSalvo, setProcessoCompletoSalvo] = useState<any>(null);
@@ -1446,7 +1466,7 @@ const [itens, setItens] = useState<Item[]>([]);
           </Button>
           
           {/* Análise Documental - só disponível após finalizar sessão */}
-          {canEditSelecao && selecao.sessao_finalizada && (
+          {(canEditSelecao || podeAnalisarDocumental) && selecao.sessao_finalizada && (
             <Button
               variant="outline"
               size="lg"
@@ -1518,7 +1538,7 @@ const [itens, setItens] = useState<Item[]>([]);
                         >
                           <Eye className="h-4 w-4" />
                         </Button>
-                        {canEditSelecao && (
+                        {(canEditSelecao || podeExcluirAta) && (
                           <Button
                             size="sm"
                             variant="ghost"
@@ -1529,7 +1549,7 @@ const [itens, setItens] = useState<Item[]>([]);
                             <Trash2 className="h-4 w-4" />
                           </Button>
                         )}
-                        {canEditSelecao && ata.enviada_fornecedores && (
+                        {(canEditSelecao || podeAtualizarAtaAssinaturas) && ata.enviada_fornecedores && (
                           <Button
                             size="sm"
                             variant="outline"
@@ -1541,7 +1561,7 @@ const [itens, setItens] = useState<Item[]>([]);
                             {atualizandoPDF === ata.id ? "Atualizando..." : "Atualizar PDF"}
                           </Button>
                         )}
-                        {canEditSelecao && !ata.enviada_fornecedores && (
+                        {(canEditSelecao || podeEnviarAtaAssinatura) && !ata.enviada_fornecedores && (
                           <Button
                             size="sm"
                             variant="default"
@@ -1604,7 +1624,7 @@ const [itens, setItens] = useState<Item[]>([]);
               <CardContent className="py-2">
                 <div className="space-y-3">
                   {/* Botão Gerar */}
-                  {canEditSelecao && (
+                  {(canEditSelecao || podeEmitirContabilidade) && (
                     <Button
                       onClick={gerarEncaminhamentoContabilidade}
                       disabled={gerandoEncaminhamentoContab}
@@ -1692,7 +1712,7 @@ const [itens, setItens] = useState<Item[]>([]);
                               >
                                 <Download className="h-4 w-4" />
                               </Button>
-                              {canEditSelecao && !enc.enviado_contabilidade && (
+                              {(canEditSelecao || podeEmitirContabilidade) && !enc.enviado_contabilidade && (
                                 <Button
                                   size="sm"
                                   variant="default"
@@ -1703,7 +1723,7 @@ const [itens, setItens] = useState<Item[]>([]);
                                   Enviar
                                 </Button>
                               )}
-                              {canEditSelecao && (
+                              {(canEditSelecao || podeExcluirContabilidade) && (
                                 <Button
                                   size="sm"
                                   variant="ghost"

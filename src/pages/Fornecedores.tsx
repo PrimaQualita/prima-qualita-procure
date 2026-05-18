@@ -40,6 +40,7 @@ import { toast } from "sonner";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import GestaoDocumentosGestor from "@/components/fornecedores/GestaoDocumentosGestor";
 import { useCanEdit, useCanResetPassword, useUserContext } from "@/hooks/useUserContext";
+import { useHasPermission } from "@/hooks/usePermissions";
 import DialogRelatorioFornecedores from "@/components/fornecedores/DialogRelatorioFornecedores";
 
 interface Pergunta {
@@ -81,9 +82,19 @@ export default function Fornecedores() {
   const navigate = useNavigate();
   const baseCanEdit = useCanEdit();
   const canResetPassword = useCanResetPassword();
-  const userContext = useUserContext();
-  // Jovem Aprendiz tem acesso total no Cadastro de Fornecedores
-  const canEdit = baseCanEdit || (userContext?.isJovemAprendiz ?? false);
+  // canEdit já cobre usuários com permissão de edição no sistema.
+  // (Jovem Aprendiz foi removido — não existe mais perfil, só direitos.)
+  const canEdit = baseCanEdit;
+  // Gates granulares
+  const podeExcluirFornecedor = useHasPermission("fornecedores.excluir");
+  const podeEditarFornecedor = useHasPermission("fornecedores.editar");
+  const podeVerFornecedores = useHasPermission("fornecedores.visualizar");
+  const podeAprovarFornecedor = useHasPermission("fornecedores.aprovar_cadastro");
+  const podeReprovarFornecedor = useHasPermission("fornecedores.reprovar_cadastro");
+  const podeEnviarCompliance = useHasPermission("fornecedores.enviar_compliance");
+  const podeExcluirPerguntaDueDiligence = useHasPermission("fornecedores.excluir_pergunta_due_diligence");
+  const podeCriarPerguntaDueDiligence = useHasPermission("fornecedores.criar_pergunta_due_diligence");
+  const podeEditarPerguntaDueDiligence = useHasPermission("fornecedores.editar_pergunta_due_diligence");
   const [loading, setLoading] = useState(true);
   const [perguntas, setPerguntas] = useState<Pergunta[]>([]);
   const [fornecedores, setFornecedores] = useState<Fornecedor[]>([]);
@@ -416,6 +427,15 @@ export default function Fornecedores() {
   const handleProcessarAvaliacao = async () => {
     if (!fornecedorSelecionado || !acao) return;
 
+    if (acao === "aprovar" && !podeAprovarFornecedor) {
+      toast.error("Você não tem permissão para aprovar fornecedores.");
+      return;
+    }
+    if (acao === "reprovar" && !podeReprovarFornecedor) {
+      toast.error("Você não tem permissão para reprovar fornecedores.");
+      return;
+    }
+
     if (acao === "aprovar" && (!certificado || !dataValidadeCertificado)) {
       toast.error("Para aprovar, é necessário anexar o Certificado e informar a data de validade do certificado");
       return;
@@ -587,7 +607,7 @@ export default function Fornecedores() {
                 <CardTitle>Perguntas Ativas</CardTitle>
                 <CardDescription>Perguntas de Due Diligence para fornecedores</CardDescription>
               </div>
-              <Button onClick={() => handleAbrirDialogPergunta()} disabled={!canEdit}>
+              <Button onClick={() => handleAbrirDialogPergunta()} disabled={!(canEdit || podeCriarPerguntaDueDiligence)}>
                 <Plus className="mr-2 h-4 w-4" />
                 Nova Pergunta
               </Button>
@@ -610,14 +630,18 @@ export default function Fornecedores() {
                     </Badge>
                   </div>
                 </div>
-                {canEdit && (
+                {(canEdit || podeEditarPerguntaDueDiligence || podeExcluirPerguntaDueDiligence) && (
                   <div className="flex gap-1">
-                    <Button variant="ghost" size="icon" onClick={() => handleAbrirDialogPergunta(pergunta)}>
-                      <Edit className="h-4 w-4" />
-                    </Button>
-                    <Button variant="ghost" size="icon" onClick={() => setPerguntaParaExcluir(pergunta.id)}>
-                      <Trash2 className="h-4 w-4 text-destructive" />
-                    </Button>
+                    {(canEdit || podeEditarPerguntaDueDiligence) && (
+                      <Button variant="ghost" size="icon" onClick={() => handleAbrirDialogPergunta(pergunta)}>
+                        <Edit className="h-4 w-4" />
+                      </Button>
+                    )}
+                    {(canEdit || podeExcluirPerguntaDueDiligence) && (
+                      <Button variant="ghost" size="icon" onClick={() => setPerguntaParaExcluir(pergunta.id)}>
+                        <Trash2 className="h-4 w-4 text-destructive" />
+                      </Button>
+                    )}
                   </div>
                 )}
               </div>
@@ -999,7 +1023,7 @@ export default function Fornecedores() {
             {/* Gestão de Documentos pelo Gestor */}
             {fornecedorSelecionado && (
               <div>
-                <GestaoDocumentosGestor fornecedorId={fornecedorSelecionado.id} canEdit={canEdit} />
+                <GestaoDocumentosGestor fornecedorId={fornecedorSelecionado.id} canEdit={canEdit || podeEditarFornecedor} />
               </div>
             )}
 
@@ -1117,7 +1141,7 @@ export default function Fornecedores() {
                   }
                   
                   // Sem avaliação de compliance - mostrar botão de enviar apenas se pendente
-                  if (fornecedorSelecionado.status_aprovacao === "pendente") {
+                  if (podeEnviarCompliance && fornecedorSelecionado.status_aprovacao === "pendente") {
                     return (
                       <Button
                         type="button"
@@ -1169,28 +1193,32 @@ export default function Fornecedores() {
             })()}
 
             {/* Ação */}
-            {canEdit && fornecedorSelecionado && fornecedorSelecionado.status_aprovacao === "pendente" && (
+            {(podeAprovarFornecedor || podeReprovarFornecedor) && fornecedorSelecionado && fornecedorSelecionado.status_aprovacao === "pendente" && (
               <div>
                 <Label>Decisão</Label>
                 <div className="flex gap-2 mt-2">
-                  <Button
-                    type="button"
-                    variant={acao === "aprovar" ? "default" : "outline"}
-                    onClick={() => setAcao("aprovar")}
-                    className="flex-1"
-                  >
-                    <CheckCircle className="mr-2 h-4 w-4" />
-                    Aprovar
-                  </Button>
-                  <Button
-                    type="button"
-                    variant={acao === "reprovar" ? "destructive" : "outline"}
-                    onClick={() => setAcao("reprovar")}
-                    className="flex-1"
-                  >
-                    <XCircle className="mr-2 h-4 w-4" />
-                    Reprovar
-                  </Button>
+                  {podeAprovarFornecedor && (
+                    <Button
+                      type="button"
+                      variant={acao === "aprovar" ? "default" : "outline"}
+                      onClick={() => setAcao("aprovar")}
+                      className="flex-1"
+                    >
+                      <CheckCircle className="mr-2 h-4 w-4" />
+                      Aprovar
+                    </Button>
+                  )}
+                  {podeReprovarFornecedor && (
+                    <Button
+                      type="button"
+                      variant={acao === "reprovar" ? "destructive" : "outline"}
+                      onClick={() => setAcao("reprovar")}
+                      className="flex-1"
+                    >
+                      <XCircle className="mr-2 h-4 w-4" />
+                      Reprovar
+                    </Button>
+                  )}
                 </div>
               </div>
             )}

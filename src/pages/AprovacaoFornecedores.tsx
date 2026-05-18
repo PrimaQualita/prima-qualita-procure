@@ -26,6 +26,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { toast } from "sonner";
 import { CheckCircle, XCircle, FileText, Upload, Send, Clock, AlertCircle } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { useHasPermission } from "@/hooks/usePermissions";
 
 interface Fornecedor {
   id: string;
@@ -58,6 +59,10 @@ export default function AprovacaoFornecedores() {
   const [avaliacoesCompliance, setAvaliacoesCompliance] = useState<Record<string, any>>({});
   const [enviandoCompliance, setEnviandoCompliance] = useState<string | null>(null);
 
+  const podeAprovarFornecedor = useHasPermission("fornecedores.aprovar_cadastro");
+  const podeReprovarFornecedor = useHasPermission("fornecedores.reprovar_cadastro");
+  const podeEnviarCompliance = useHasPermission("fornecedores.enviar_compliance");
+
   useEffect(() => {
     checkAuth();
     loadFornecedores();
@@ -69,18 +74,6 @@ export default function AprovacaoFornecedores() {
     if (!user) {
       navigate("/auth");
       return;
-    }
-
-    const { data: userRole } = await supabase
-      .from("user_roles")
-      .select("role")
-      .eq("user_id", user.id)
-      .eq("role", "gestor")
-      .single();
-
-    if (!userRole) {
-      toast.error("Acesso negado. Apenas gestores podem acessar esta página.");
-      navigate("/");
     }
   };
 
@@ -357,7 +350,7 @@ export default function AprovacaoFornecedores() {
                       <TableCell className="text-right">
                         {fornecedor.status_aprovacao === "pendente" && (
                           <div className="flex gap-2 justify-end flex-wrap">
-                            {!statusCompliance && (
+                            {podeEnviarCompliance && !statusCompliance && (
                               <Button
                                 size="sm"
                                 variant="outline"
@@ -370,24 +363,28 @@ export default function AprovacaoFornecedores() {
                             )}
                             {(statusCompliance === "respondido" || !statusCompliance) && (
                               <>
-                                <Button
-                                  size="sm"
-                                  variant="outline"
-                                  className="text-green-600 hover:text-green-700"
-                                  onClick={() => handleAbrirDialog(fornecedor, "aprovar")}
-                                >
-                                  <CheckCircle className="h-4 w-4 mr-1" />
-                                  Aprovar
-                                </Button>
-                                <Button
-                                  size="sm"
-                                  variant="outline"
-                                  className="text-red-600 hover:text-red-700"
-                                  onClick={() => handleAbrirDialog(fornecedor, "reprovar")}
-                                >
-                                  <XCircle className="h-4 w-4 mr-1" />
-                                  Reprovar
-                                </Button>
+                                {podeAprovarFornecedor && (
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    className="text-green-600 hover:text-green-700"
+                                    onClick={() => handleAbrirDialog(fornecedor, "aprovar")}
+                                  >
+                                    <CheckCircle className="h-4 w-4 mr-1" />
+                                    Aprovar
+                                  </Button>
+                                )}
+                                {podeReprovarFornecedor && (
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    className="text-red-600 hover:text-red-700"
+                                    onClick={() => handleAbrirDialog(fornecedor, "reprovar")}
+                                  >
+                                    <XCircle className="h-4 w-4 mr-1" />
+                                    Reprovar
+                                  </Button>
+                                )}
                               </>
                             )}
                           </div>
