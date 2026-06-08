@@ -32,6 +32,7 @@ import { registrarAuditoria } from "@/lib/registrarAuditoria";
 import { carregarFornecedoresVencedoresAtuaisSelecao } from "@/lib/selecaoVencedoresAtuais";
 import { sincronizarProcessosParaContratarAposFinalizacao } from "@/lib/sincronizarProcessosParaContratar";
 import { useHasPermission } from "@/hooks/usePermissions";
+import { useUserContext } from "@/hooks/useUserContext";
 
 interface Item {
   id: string;
@@ -70,6 +71,7 @@ const formatarProtocoloCurto = (protocolo?: string | null): string => {
 
 const DetalheSelecao = () => {
   const navigate = useNavigate();
+  const userContext = useUserContext();
   const [searchParams] = useSearchParams();
   const selecaoId = searchParams.get("id");
 
@@ -132,6 +134,10 @@ const [itens, setItens] = useState<Item[]>([]);
   const podeEnviarAtaAssinatura = useHasPermission("selecoes.enviar_ata_assinatura");
   const [isResponsavelLegal, setIsResponsavelLegal] = useState(false);
   const [isGestor, setIsGestor] = useState(false);
+  const isResponsavelLegalEfetivo =
+    isResponsavelLegal ||
+    userContext?.isResponsavelLegal === true ||
+    userContext?.profile?.responsavel_legal === true;
 
   // Estado para Processo Completo
   const [gerandoProcessoCompleto, setGerandoProcessoCompleto] = useState(false);
