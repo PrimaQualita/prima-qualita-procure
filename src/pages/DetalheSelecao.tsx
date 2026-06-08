@@ -242,13 +242,12 @@ const [itens, setItens] = useState<Item[]>([]);
     const hasProfileEditRole = profile?.compliance || profile?.superintendente_executivo;
 
     if (profile) {
-      const isRL = profile.responsavel_legal === true;
-      // Só restringe se é APENAS RL (sem outros perfis com permissão de edição)
-      const isOnlyRL = isRL && !hasProfileEditRole && !hasUserRole;
-      setIsResponsavelLegal(isOnlyRL);
+      // Considerar Responsável Legal sempre que o perfil indicar, independentemente de outros papéis
+      setIsResponsavelLegal(profile.responsavel_legal === true);
     } else {
       setIsResponsavelLegal(false);
     }
+
   };
 
   const loadSelecao = async () => {
