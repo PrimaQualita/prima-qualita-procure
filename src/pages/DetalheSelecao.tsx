@@ -1824,10 +1824,7 @@ const [itens, setItens] = useState<Item[]>([]);
           )}
 
           {/* Gerar Homologação - APENAS para Responsável Legal */}
-          {(() => {
-            console.log("🎨 RENDER - isResponsavelLegal:", isResponsavelLegal);
-            return isResponsavelLegal;
-          })() ? (
+          {isResponsavelLegalEfetivo ? (
             <Button
               variant="default"
               size="lg"
@@ -2069,7 +2066,7 @@ const [itens, setItens] = useState<Item[]>([]);
           console.log("📢 [DETALHE] Vencedores atualizados! Forçando reload...");
           setForceReloadVencedores(prev => prev + 1);
         }}
-        readOnly={isResponsavelLegal}
+        readOnly={isResponsavelLegalEfetivo}
       />
 
       <DialogAnaliseDocumentalSelecao
